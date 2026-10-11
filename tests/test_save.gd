@@ -18,6 +18,7 @@ func run() -> void:
 	GameState.replay_seed = SUITE_SEED
 	_test_mid_season_round_trip()
 	_test_reload_plays_like_straight()
+	_test_market_opens_fresh()
 	_test_training_survives()
 	_test_adjusted_players_survive()
 	_test_no_save_mid_match()
@@ -118,6 +119,45 @@ func _test_reload_plays_like_straight() -> void:
 			if absf(float(sa[k]) - float(sb.get(k, 0.0))) > tol:
 				bad = "%s %s" % [id, k]
 	_check(bad == "" and a.size() == b.size(), "Season stats match after a reload (%s)" % bad)
+
+
+## The off-season market opens from the lists as they are, never from the last
+## market's signings (qa, 2026-10-11: a second career in one process, or a
+## career reloaded before the off-season, played a different off-season).
+func _test_market_opens_fresh() -> void:
+	_new_season("MEL")
+	while not GameState.season.is_season_over():
+		GameState.advance()
+	_check(GameState.save_career(), "(setup) the finished season saves")
+	# Stale signings from a market long closed, as a last career would leave.
+	var stale := {}
+	for code in GameState.season.lists:
+		stale[str(code)] = 2
+	GameState._targets_signed = stale.duplicate()
+	GameState.open_offseason()
+	var with_stale := _market_sig()
+	GameState.load_career()
+	GameState.open_offseason()
+	var reloaded := _market_sig()
+	_check(with_stale != "" and with_stale == reloaded,
+			"The market opens the same after a reload as with a last market's signings left over")
+	GameState._targets_signed = stale.duplicate()
+	GameState.market_stats = {"improve": 3}
+	GameState._bars = {"MEL": {}}
+	GameState.reset()
+	_check(GameState._targets_signed.is_empty() and GameState.market_stats.is_empty() and GameState._bars.is_empty()
+			and CoachEffects.table.is_empty(), "A new career starts with no market or coaching tables from the last")
+
+
+## Every free agent's offers as the market opens: who, how much, how long.
+func _market_sig() -> String:
+	var parts := []
+	for p in GameState.free_agents:
+		var offers := []
+		for o in p.get("offers", []):
+			offers.append("%s %d %d" % [str(o["club"]), int(o["salary"]), int(o["years"])])
+		parts.append("%s:%s" % [str(p.get("id", "")), ",".join(offers)])
+	return "|".join(parts)
 
 
 func _ten_rounds(save_after: int) -> Dictionary:
