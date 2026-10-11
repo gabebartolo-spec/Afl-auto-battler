@@ -63,6 +63,14 @@ func _measure(tag: String, want: Callable) -> void:
 				fc.to_html(false), bg.to_html(false), lf])
 
 
+func _bottom_want(l: Label) -> bool:
+	if l.text.contains("rated") or l.text.contains("Form:"):
+		return true
+	if l.text in ["Club", "W-L", "Pts", "#", "1", "10", "1-0", "0-1", "4", "0", "Crows", "Giants", "Lions"]:
+		return true
+	return l.text.begins_with("Mark Keane")
+
+
 func _run() -> void:
 	var out := "/tmp/polish"
 	var club := "BRL"
@@ -105,9 +113,7 @@ func _run() -> void:
 		var s := sc as ScrollContainer
 		s.scroll_vertical = 100000
 	await _shot(out + "_hub_bottom.png")
-	_measure("bottom", func(l: Label) -> bool: return l.text.contains("rated") or l.text.contains("Form:")
-			or l.text in ["Club", "W-L", "Pts", "#", "1", "10", "1-0", "0-1", "4", "0", "Crows", "Giants", "Lions"]
-			or l.get_parent() is VBoxContainer and l.text.begins_with("Mark Keane"))
+	_measure("bottom", _bottom_want)
 	root.get_node("Router").go("list")
 	for i in range(8):
 		await process_frame
