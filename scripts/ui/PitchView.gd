@@ -583,6 +583,7 @@ const PRESS_ZONE_ALPHA := 0.12
 const PRESS_FADE_SECS := 0.9
 var _zone_fade := [0.0, 0.0]
 var _press_said := [false, false]
+var _caption_rect = null       # where the caption was drawn last (the press line steps clear of it)
 var _press_banner := {}        # {text, left}: "<Club> push up to press."
 var _ev_idx := 0
 const PRESS_BANNER_SECS := 3.5
@@ -702,16 +703,27 @@ func _draw_press_banner() -> void:
 	if _press_banner.is_empty():
 		return
 	var text := str(_press_banner["text"])
-	var fs := 15
-	var width := UiKit.BOLD.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	var origin := Vector2((size.x - width) * 0.5, float(fs) + 8.0)
+	var fs := 20
+	var font := UiKit.BOLD
+	var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var origin := Vector2(clampf((size.x - width) * 0.5, 4.0, maxf(4.0, size.x - width - 4.0)), float(fs) + 10.0)
+	# Never over the "Turnover" / name caption: if they would meet, the line
+	# steps below it.
+	if _caption_rect != null:
+		var mine := Rect2(origin - Vector2(4, float(fs)), Vector2(width + 8.0, float(fs) + 8.0))
+		if mine.intersects(_caption_rect as Rect2):
+			origin.y = (_caption_rect as Rect2).end.y + float(fs) + 6.0
 	var fade := clampf(float(_press_banner["left"]) / 0.4, 0.0, 1.0)
-	for off in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
-		draw_string(UiKit.BOLD, origin + off, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.85 * fade))
-	draw_string(UiKit.BOLD, origin, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, fade))
+	# Plain text with a soft dark shadow and an outline: no pill.
+	for off in [Vector2(0, 2), Vector2(1, 2), Vector2(-1, 2)]:
+		draw_string(font, origin + off, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.35 * fade))
+	for off in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1), Vector2(-1, -1), Vector2(1, 1), Vector2(-1, 1), Vector2(1, -1)]:
+		draw_string(font, origin + off, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.8 * fade))
+	draw_string(font, origin, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, fade))
 
 
 func _draw_caption(tr: float) -> void:
+	_caption_rect = null
 	if _caption.is_empty():
 		return
 	var tok := int(_caption["tok"])
@@ -726,6 +738,7 @@ func _draw_caption(tr: float) -> void:
 	var origin := p + Vector2(-width * 0.5, -tr * 2.4)
 	origin.x = clampf(origin.x, 4.0, maxf(4.0, size.x - width - 4.0))
 	origin.y = maxf(origin.y, float(fs) + 2.0)
+	_caption_rect = Rect2(origin - Vector2(4, float(fs)), Vector2(width + 8.0, float(fs) + 10.0))
 	# It fades over its last third of a second.
 	var fade := clampf(float(_caption["left"]) / 0.3, 0.0, 1.0)
 	for off in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:

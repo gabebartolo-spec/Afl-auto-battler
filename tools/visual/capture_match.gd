@@ -81,9 +81,11 @@ func _run() -> void:
 		# --press SIDE / --balanced SIDE: that side plays the Defensive press
 		# (or Balanced) all match, its plan held (no AI re-pick), for the
 		# press pilot's before/after on the same seed.
-		var ps := int(args.get("press", args.get("balanced", "0")))
-		(sim.squads[ps] as RefCounted).set("ai_plans", false)
-		sim.set_tactics(ps, {"gameplan": "defensive" if args.has("press") else "balanced"})
+		# --press both: both sides press (each side's line shows once).
+		var press_arg := str(args.get("press", args.get("balanced", "0")))
+		for ps in ([0, 1] if press_arg == "both" else [int(press_arg)]):
+			(sim.squads[ps] as RefCounted).set("ai_plans", false)
+			sim.set_tactics(ps, {"gameplan": "defensive" if args.has("press") else "balanced"})
 	if args.has("flood"):
 		# --flood SIDE: that side floods behind the ball all match (the
 		# coach's "Flood behind the ball" call, held on), for the ARD-M8-003
