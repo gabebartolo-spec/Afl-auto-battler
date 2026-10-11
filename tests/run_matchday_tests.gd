@@ -934,6 +934,10 @@ func _pc_break_worst_case(club := "COL") -> void:
 	var legs: Node = box.find_child("LegsView", true, false) if box != null else null
 	_check(syn == null or (legs != null and syn.get_parent() == legs.get_parent()),
 			"The synergies line sits beside the legs line, not alone in a call column (%s)" % club)
+	var best_blk: Node = box.find_child("BestSoFar", true, false) if box != null else null
+	if syn != null and legs != null and best_blk != null and best_blk.get_parent() == legs.get_parent():
+		_check(best_blk.get_index() > syn.get_index() and syn.get_index() > legs.get_index(),
+				"The synergies line stays with the legs line, above Best so far (%s)" % club)
 	var stats: Button = box.find_child("BreakStats", true, false) if box != null else null
 	var w: String = await Tap.tap(stats)
 	_check(w == "" and m.find_child("BreakStatsSheet", true, false) != null, "Match stats opens from the actions row with a real tap (%s)" % w)

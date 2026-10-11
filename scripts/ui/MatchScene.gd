@@ -906,10 +906,6 @@ func _show_coach_box() -> void:
 			n.get_parent().remove_child(n)
 			tail.add_child(n)
 	(rep if rep != v else tail).add_child(_legs_view())
-	# Who is playing well, on the break (director, 2026-10-11): on a PC in the
-	# report column; on a phone below the choices, so nothing the next quarter
-	# depends on is pushed under the pinned Start button.
-	(rep if rep != v else tail).add_child(_best_so_far())
 	# The synergies line is about the two sides' strengths, like the legs line:
 	# on a PC sheet it sits right under it, never alone at the top of a column
 	# without a heading (BOSS QC, 2026-10-11).
@@ -917,6 +913,10 @@ func _show_coach_box() -> void:
 		syn_label.get_parent().remove_child(syn_label)
 		syn_label.remove_meta("break_unit")
 		(rep if rep != v else tail).add_child(syn_label)
+	# Who is playing well, on the break (director, 2026-10-11): on a PC in the
+	# report column; on a phone below the choices, so nothing the next quarter
+	# depends on is pushed under the pinned Start button.
+	(rep if rep != v else tail).add_child(_best_so_far())
 
 	var start := UiKit.btn("Start quarter" if q > 1 else "Ball it up", UiKit.HEADING, true)
 	start.name = "StartQuarter"
