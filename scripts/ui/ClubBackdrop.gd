@@ -8,7 +8,8 @@ extends Control
 
 ## Wide diagonal guernsey stripes of the club's colours (director, 2026-10-11:
 ## "Sweep"). Strength is capped so the muted grey type (a39e93) keeps 4.5:1
-## wherever it sits: see tools/visual/measure_backdrop.gd.
+## wherever it sits: see tools/visual/measure_backdrop.gd. The top strength
+## is fitted per colour (top_alpha); these two keep the foot-to-top ratio.
 const SWEEP_TOP := 0.17
 const SWEEP_FOOT := 0.05
 
@@ -77,9 +78,30 @@ static func _warm(c: Color) -> Color:
 	return c
 
 
-func _alpha(c: Color, a: float) -> Color:
-	# A near-white stripe is brighter than a colour: half the strength.
-	return Color(c, a * (0.55 if c.get_luminance() > 0.7 else 1.0))
+## The strongest a stripe of this colour can be at the top of the page and
+## still leave the muted grey type (a39e93) 4.5:1 or better: the page it makes
+## may be no brighter than TOP_LUM. A dark colour (navy, maroon, red) can be
+## far stronger than gold or white, so each is fitted on its own and every club
+## reads equally "in colour" (director, 2026-10-11).
+const TOP_LUM := 0.030
+
+
+static func _rel_lum(c: Color) -> float:
+	var ch := func(v: float) -> float:
+		return v / 12.92 if v <= 0.03928 else pow((v + 0.055) / 1.055, 2.4)
+	return 0.2126 * ch.call(c.r) + 0.7152 * ch.call(c.g) + 0.0722 * ch.call(c.b)
+
+
+static func top_alpha(c: Color) -> float:
+	var lo := 0.0
+	var hi := 0.6
+	for _i in 14:
+		var mid := (lo + hi) * 0.5
+		if _rel_lum(UiKit.BG.lerp(c, mid)) <= TOP_LUM:
+			lo = mid
+		else:
+			hi = mid
+	return lo
 
 
 ## Wide diagonal stripes of the club's colours across the whole page, sliding
@@ -92,8 +114,9 @@ func _draw_sweep(w: float, h: float, cols: Array) -> void:
 	for k in range(-2, n):
 		var c: Color = cols[posmod(k, mini(cols.size(), 2))]
 		var x := float(k) * sw - slide
-		var top := _alpha(c, SWEEP_TOP)
-		var foot := _alpha(c, SWEEP_FOOT)
+		var a := top_alpha(c)
+		var top := Color(c, a)
+		var foot := Color(c, a * SWEEP_FOOT / SWEEP_TOP)
 		draw_polygon(PackedVector2Array([Vector2(x, 0), Vector2(x + sw, 0),
 				Vector2(x + sw - run, h), Vector2(x - run, h)]),
 				PackedColorArray([top, top, foot, foot]))
