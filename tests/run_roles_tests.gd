@@ -38,6 +38,7 @@ func _run() -> void:
 	await _team_changes_tests()
 	await _backing_ui_tests()
 	await _captaincy_ui_tests()
+	await _culture_ui_tests()
 	print("Roles + selection tests: %d checks, %d failures" % [_checks, _failures.size()])
 	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
@@ -700,6 +701,39 @@ func _captaincy_ui_tests() -> void:
 	_check(refused != null and str(refused.text).contains("already taken the armband")
 			and (ls.find_child("CaptaincyConfirm", true, false) as Button).disabled,
 			"A second mid-season change is refused on the page, with the reason")
+	ls.queue_free()
+	await _settle()
+
+
+## Club culture over My list, by real taps: the way in, the words, the reasons
+## one tap away.
+func _culture_ui_tests() -> void:
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.career_seed = SUITE_SEED
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = Vector2i(420, 860)
+	Culture.change(_state.relations, "COL", "together", 6, "A run of four losses", _state.season_year, "Round 6")
+	for i in range(3):
+		Culture.change(_state.relations, "COL", "together", 6, "Played finals", _state.season_year, "Round 24")
+	var ls: Control = load("res://scenes/ListScene.tscn").instantiate()
+	root.add_child(ls)
+	await _settle()
+	var open_btn: Button = ls.find_child("CultureOpen", true, false)
+	_check(open_btn != null and open_btn.size.y >= 44, "My list has a thumb-sized way into Club culture")
+	var why: String = await Tap.tap(open_btn)
+	await _settle()
+	var sheet: Node = ls.find_child("CultureSheet", true, false)
+	_check(why == "" and sheet != null and _screen_text(sheet).contains("A tight group")
+			and _screen_text(sheet).contains("Nothing stands out yet"),
+			"The sheet says the strands in words, and what has nothing to say (%s)" % why)
+	var strand: Node = sheet.find_child("Strand_together", true, false) if sheet != null else null
+	var reasons: Control = strand.find_child("StrandReasons", true, false) if strand != null else null
+	_check(reasons != null and not reasons.visible, "The reasons start folded away")
+	why = await Tap.tap(strand.find_child("StrandWhy", true, false) if strand != null else null)
+	await _settle()
+	_check(why == "" and reasons.visible and _screen_text(reasons).contains("Played finals"),
+			"A tap on Why shows the reasons, in football words (%s)" % why)
 	ls.queue_free()
 	await _settle()
 

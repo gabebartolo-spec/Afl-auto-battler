@@ -41,6 +41,7 @@ func run() -> void:
 	_test_old_save()
 	_test_leadership()
 	_test_captaincy()
+	_test_culture()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	GameState.stories_on = true
@@ -505,6 +506,8 @@ func _test_trust_in_play() -> void:
 	_check(ClubLife.morale(fan) == 30 + Trust.scaled(15, 55), "...and it does (%d)" % ClubLife.morale(fan))
 	# Rival clubs are untouched: trust is yours alone, and nothing else reads it.
 	for k in GameState.relations:
+		if str(k).begins_with("k:"):
+			continue  # a club's culture strands, not a person's trust
 		_check(GameState.list_player(str(k).trim_prefix("p:")).size() > 0, "Only your players hold trust (%s)" % k)
 
 
@@ -904,3 +907,133 @@ func _test_captaincy() -> void:
 	_check(GameState.load_career() and GameState.captaincy.is_empty(), "An older save loads with no one named")
 	_run_on(1)
 	_check(not GameState.captaincy_record("COL").is_empty(), "Rivals appoint on the next round of an older save")
+
+
+# --- Club culture (P2-3) ------------------------------------------------------
+
+func _test_culture() -> void:
+	# Words: nothing stands out in the middle; named bands at the edges.
+	_check(Culture.words("together", 0) == "" and Culture.words("together", 20) == "A tight group"
+			and Culture.words("together", -50) == "A divided group"
+			and Culture.words("ambition", 60) == "All in on winning now"
+			and Culture.words("standards", -25) == "A relaxed group",
+			"Each strand is in words, and the middle says nothing")
+	# Steps are capped, clamped and keep their reason.
+	var rel := {}
+	var moved := Culture.change(rel, "GEE", "together", 99, "A run of four losses", 2027, "Round 6")
+	_check(moved == Culture.STEP_MAX and Culture.value(rel, "GEE", "together") == Culture.STEP_MAX,
+			"One moment moves a strand by at most %d" % Culture.STEP_MAX)
+	for i in range(40):
+		Culture.change(rel, "GEE", "together", 6, "x", 2027, "Round 7")
+	_check(Culture.value(rel, "GEE", "together") == 100, "A strand stops at the top of its range")
+	var one := {}
+	Culture.change(one, "GEE", "together", 3, "A run of five wins", 2027, "Round 6")
+	Culture.change(one, "GEE", "together", -2, "A run of four losses", 2027, "Round 9")
+	var rs := Culture.reasons(one, "GEE", "together")
+	_check(rs.size() == 2 and str(rs[0]["why"]) == "A run of four losses"
+			and Culture.reason_text("Togetherness", rs[0]) == "Round 9, 2027. A run of four losses. Togetherness fell."
+			and Culture.reason_text("Togetherness", rs[1]).ends_with("Togetherness rose."),
+			"Every move keeps its reason, newest first, as a line")
+	_check(Culture.value(rel, "COL", "together") == 0 and Culture.summary(rel, "COL") == "",
+			"A club with no entry is neutral")
+	# The movers.
+	_check(Culture.run_step(4, 0)[1] == -3 and Culture.run_step(0, 5)[1] == 3 and Culture.run_step(3, 0).is_empty()
+			and Culture.run_step(5, 0).is_empty(), "A run of losses or wins moves Togetherness only when it reaches its mark")
+	var steps := Culture.season_steps(1, 18, true, 28.0, 5.0)
+	var by := {}
+	for st in steps:
+		by[str(st["strand"])] = int(st["d"])
+	_check(by.get("together", 0) > 0 and by.get("ambition", 0) > 0 and by.get("standards", 0) > 0,
+			"Premiers with an old, disciplined side lift every strand")
+	var bad := Culture.season_steps(17, 18, false, 23.0, -6.0)
+	var by2 := {}
+	for st in bad:
+		by2[str(st["strand"])] = int(st["d"])
+	_check(by2.get("together", 0) < 0 and by2.get("ambition", 0) < 0 and by2.get("standards", 0) < 0,
+			"A bottom finish with a young, loose side lowers every strand")
+	_check(Culture.season_steps(10, 18, false, 26.0, 0.0).is_empty(), "A mid-table, mid-age season moves nothing")
+	_check(Culture.new_faces_step(8)[0]["d"] < 0 and Culture.new_faces_step(0)[0]["d"] > 0 and Culture.new_faces_step(4).is_empty(),
+			"Many new faces cost Togetherness; a settled list helps")
+	for strand in Culture.STRANDS:
+		for t in [-100, -60, -30, 0, 30, 60, 100]:
+			var w := Culture.words(str(strand[0]), t)
+			_check(not w.to_lower().contains("bad influence") and not w.to_lower().contains("toxic"),
+					"No band is a verdict on a person (%s %d)" % [str(strand[0]), t])
+
+	# In the game: a season through, every club on the same rules.
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var guard := 0
+	while not GameState.season.is_season_over() and guard < 40:
+		if GameState.week_event_pending():
+			GameState.resolve_week_event(0)
+		GameState.advance()
+		guard += 1
+	var rel2: Dictionary = GameState.relations
+	_check(int(rel2.get("k:done", {}).get("season", 0)) == GameState.season_year, "The season's close is counted once")
+	var moved_clubs := 0
+	var values := {}
+	for code in GameState.season.lists:
+		var any := false
+		for s in Culture.STRANDS:
+			var t := Culture.value(rel2, str(code), str(s[0]))
+			values[t] = true
+			if t != 0:
+				any = true
+		if any:
+			moved_clubs += 1
+	_check(moved_clubs >= 12 and values.size() >= 4, "Most clubs have a culture after a season, and they differ (%d clubs, %d values)" % [moved_clubs, values.size()])
+	var again := JSON.stringify(rel2)
+	GameState._culture_season()
+	_check(JSON.stringify(GameState.relations) == again, "Closing the season twice moves nothing")
+	var told := {}
+	var bad_lines := 0
+	for n in GameState.news:
+		if str(n.get("kind", "")) == "culture":
+			var txt := str(n["text"])
+			for code in GameState.season.lists:
+				if txt.begins_with(GameDB.club_name(str(code))):
+					told[str(code)] = int(told.get(str(code), 0)) + 1
+			if txt.contains(GameDB.club_name(GameState.my_club)):
+				bad_lines += 1
+	var most := 0
+	for c in told:
+		most = maxi(most, int(told[c]))
+	_check(most <= 1 and bad_lines == 0, "Rival culture is in the news at most once a club a season, never for your own club")
+
+	# New faces at the rollover.
+	var rival := ""
+	for code in GameState.season.lists:
+		if str(code) != GameState.my_club and rival == "":
+			rival = str(code)
+	var before := Culture.value(GameState.relations, rival, "together")
+	var n := 0
+	for p in GameState.season.lists[rival]:
+		if n < 8:
+			p["career"] = {"games": 50, "goals": 0, "stints": [["ZZZ", 2025, 2025, 20, 0]], "through": 2026, "unknown": []}
+			n += 1
+	GameState._culture_marks()["roll"] = 0
+	GameState._culture_rollover()
+	var rs2 := Culture.reasons(GameState.relations, rival, "together")
+	_check(Culture.value(GameState.relations, rival, "together") == before - 4 and str(rs2[0]["why"]).contains("new faces"),
+			"Eight new faces from other clubs cost Togetherness at the rollover, with the reason")
+
+	# A promise you broke is a fact about your club.
+	GameState._culture_move(GameState.my_club, "together", -2, "You broke your word on a player's run of games")
+	var mine := Culture.reasons(GameState.relations, GameState.my_club, "together")
+	_check(not mine.is_empty() and str(mine[0]["why"]).begins_with("You broke your word"), "Your own reasons are facts in football words")
+
+	# An older save has no strands: everyone neutral, nothing breaks.
+	GameState.reset()
+	GameState.replay_seed = SUITE_SEED
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	GameState.save_career()
+	var old := CareerSave.read(GameState.save_path)
+	old.erase("relations")
+	CareerSave.write(old, GameState._save_meta(), GameState.save_path)
+	_check(GameState.load_career() and Culture.summary(GameState.relations, "GEE") == "", "An older save loads with every club neutral")
+	_run_on(2)
+	_check(not GameState.relations.has("k:done") or int(GameState.relations["k:done"].get("season", 0)) == 0,
+			"…and carries on without closing a season")

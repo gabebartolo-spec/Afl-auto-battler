@@ -75,6 +75,11 @@ func _build() -> void:
 			"CaptaincyOpen")
 	cap_link.pressed.connect(func(): _open_captaincy())
 	_root.add_child(cap_link)
+	var culture_words := Culture.summary(GameState.relations, GameState.my_club)
+	var culture_link := UiKit.section_link("Club culture", (culture_words if culture_words != "" else "Nothing stands out yet") + " ›",
+			"CultureOpen")
+	culture_link.pressed.connect(func(): _open_culture())
+	_root.add_child(culture_link)
 
 	if _narrow():
 		var tabs := UiKit.hbox(2)
@@ -278,6 +283,13 @@ func _open_profile(id: String) -> void:
 		return
 	_close_profile()
 	_profile = PlayerSheet.open(self, p, func(): _profile = null)
+
+
+func _open_culture() -> void:
+	_close_profile()
+	_profile = CultureSheet.open(self, func():
+		_profile = null
+		_build())
 
 
 func _open_captaincy() -> void:
