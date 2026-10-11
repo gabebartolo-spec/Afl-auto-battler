@@ -17,7 +17,7 @@ func run() -> void:
 	_test_stamps()
 	_test_match_effect()
 	_test_career()
-	GameState.fitness_ai_by_phase = true
+	GameState.fitness_ai_by_phase = false
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	print("Fitness tests: %d checks, %d failures" % [checks, failures.size()])
@@ -132,10 +132,19 @@ func _test_stamps() -> void:
 	var managed := Conditioning.stamps(Conditioning.DEVELOP_LEVEL, "develop")
 	_check(float(managed["cond_drain"]) > 1.0 and float(managed["cond_injury"]) < 1.0,
 			"Develop and manage costs some legs but lowers soft-tissue risk")
-	_check(Conditioning.ceiling_step("develop", {"age": 20}) == 1
-			and Conditioning.ceiling_step("develop", {"age": 26}) == 0
-			and Conditioning.ceiling_step("peak", {"age": 20}) == 0,
+	var dev := Conditioning.new_season("develop", 2026, "GEE", 1, 1)
+	var pk := Conditioning.new_season("peak", 2026, "GEE", 1, 1)
+	_check(Conditioning.ceiling_step(dev, 10, 12, {"age": 20}) == 1
+			and Conditioning.ceiling_step(dev, 10, 12, {"age": 26}) == 0
+			and Conditioning.ceiling_step(pk, 10, 12, {"age": 20}) == 0,
 			"Develop and manage gives a young player a point more room this season")
+	var at_bye := Conditioning.revise(pk, 12, "develop")
+	var late := Conditioning.revise(Conditioning.new_season("steady", 2026, "GEE", 1, 1), 20, "develop")
+	var r14 := Conditioning.revise(pk, 13, "develop")
+	_check(Conditioning.ceiling_step(at_bye, 22, 12, {"age": 20}) == 1
+			and Conditioning.ceiling_step(late, 22, 12, {"age": 20}) == 0
+			and Conditioning.ceiling_step(r14, 22, 12, {"age": 20}) == 0,
+			"Only Develop from the pre-season or the bye earns the extra room; a late switch does not")
 	var p := {"id": "x", "age": 25, "attr": {"durability": 70}}
 	var base_chance := Injuries.chance(p)
 	_check(Workload.energy_cap(p) == 100.0 and Workload.drain_mult(p) == 1.0,
@@ -184,6 +193,8 @@ func _test_career() -> void:
 	GameState.fitness_ai_by_phase = false
 	GameState.start_season("GEE", GameDB.club_list("GEE"))
 	GameState.advance()
+	_check(GameState.get_script().get_property_default_value("fitness_ai_by_phase") == false,
+			"AI clubs stay Steady by default until the plan screen lands")
 	var stamped := false
 	for code in GameState.season.lists:
 		for p in GameState.season.lists[code]:

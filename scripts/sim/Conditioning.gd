@@ -196,9 +196,14 @@ static func xp_mult(plan: String, p: Dictionary) -> float:
 
 ## Develop and manage also lifts a young player's season training ceiling a
 ## point (the size of a good teacher's step): extra XP alone would sit unused
-## once he reaches the ordinary ceiling.
-static func ceiling_step(plan: String, p: Dictionary) -> int:
-	return 1 if xp_mult(plan, p) > 1.0 else 0
+## once he reaches the ordinary ceiling. Only a season of it earns the point:
+## the plan must have run since the pre-season or the club's bye (`bye_w`),
+## so a switch to Develop in the last month buys no extra room.
+static func ceiling_step(rec: Dictionary, w: int, bye_w: int, p: Dictionary) -> int:
+	var plan := plan_at(rec, w)
+	if xp_mult(plan, p) <= 1.0:
+		return 0
+	return 1 if chosen_at(rec, w) <= maxi(0, bye_w) else 0
 
 
 ## What an AI club runs, from where it is in its cycle (TradeValue.phase):

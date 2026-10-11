@@ -2228,6 +2228,21 @@ func fitness_bye_week(club: String) -> int:
 	return -1
 
 
+## Develop and manage's point of season room for a young player
+## (Conditioning.ceiling_step): only when the plan has run since the
+## pre-season or the bye.
+func fitness_ceiling_step(p: Dictionary) -> int:
+	var club := str(p.get("club", ""))
+	if season == null or club == "":
+		return 0
+	var rec: Dictionary = conditioning.get(club, {})
+	if not season.is_season_over():
+		rec = fitness_record(club)
+	elif int(rec.get("year", 0)) != season_year:
+		return 0
+	return Conditioning.ceiling_step(rec, fitness_week(), fitness_bye_week(club), p)
+
+
 func can_revise_fitness() -> bool:
 	return season != null and not season.is_regular_done() \
 			and Conditioning.revision_weeks(fitness_bye_week(my_club)).has(fitness_week())
@@ -6657,7 +6672,7 @@ func season_ceiling(p: Dictionary) -> int:
 	var full := int(p["season_start_ov"]) + SEASON_TRAIN_GAIN + teach_step(p)
 	# Develop and manage (Conditioning): a point more room for the young.
 	if season != null and str(p.get("club", "")) != "":
-		full += Conditioning.ceiling_step(fitness_plan(str(p["club"])), p)
+		full += fitness_ceiling_step(p)
 	# The season after he learns a position: a little more room, inside POT.
 	if int(p.get("learn_payback_year", 0)) == season_year:
 		full = maxi(full, mini(full + LEARN_PAYBACK, int(p.get("potential", 0))))
