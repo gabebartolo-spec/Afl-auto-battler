@@ -216,7 +216,7 @@ func _one(effect: String, out: String, secs: float, state, db, club: String) -> 
 		_shot(out + "_start.png")
 	if effect == "living":
 		# The slide's value at every frame it drew (from the very first).
-		var trl: Array = load("res://scripts/ui/ClubBackdrop.gd").trail
+		var trl: Array = load("res://scripts/ui/ClubBackdrop.gd").trail.duplicate()
 		print("FEEL slide per drawn frame: %s" % str(trl.slice(0, 24)))
 		var bdn = root.find_child("ClubBackdrop", true, false)
 		var draws := [0]

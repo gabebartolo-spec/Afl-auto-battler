@@ -62,7 +62,10 @@ void fragment() {
 	bool even = mod(k, 2.0) < 1.0;
 	vec4 here = stripe(even, p.y);
 	vec4 other = stripe(!even, p.y);
-	COLOR = vec4(mix(other, here, clamp(0.5 + t, 0.0, 1.0)).rgb, 1.0);
+	// Only stripes from the page's left onward exist, so the slide enters from
+	// off screen instead of shifting a pattern that already covers it.
+	float cover = clamp(0.5 + (u + 2.0) * sw * cosine, 0.0, 1.0);
+	COLOR = vec4(mix(other, here, clamp(0.5 + t, 0.0, 1.0)).rgb, cover);
 }
 """
 
