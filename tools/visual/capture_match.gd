@@ -93,7 +93,7 @@ func _run() -> void:
 		# --stack SIDE: that side stacks every centre ball-up (the attacking
 		# setup, for the second demonstration).
 		(sim.bursts[int(args["stack"])] as Dictionary)["stack"] = 100000
-	MatchDirector.debug_no_press_shape = args.has("noshape")
+	load("res://scripts/ui/match/MatchDirector.gd").set("debug_no_press_shape", args.has("noshape"))
 	var res: Dictionary
 	var call := str(args.get("call", ""))
 	if call == "":
