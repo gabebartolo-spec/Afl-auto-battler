@@ -760,7 +760,10 @@ func _show_coach_box() -> void:
 	if tagger != null and not others.is_empty():
 		# Your assistant's man carries the same facts as the others, so
 		# they can be compared card for card.
-		var who_tags := _player_choice("TaggerPicker", _card_text(tagger, tag_detail), others, others.slice(0, 3),
+		# On a PC two alternatives beside his card (two rows, so the fullest
+		# break still fits 1280x720); the rest are behind Other player....
+		var who_tags := _player_choice("TaggerPicker", _card_text(tagger, tag_detail), others,
+				others.slice(0, 2 if _pc_break else 3),
 				calls, "tagger_id", "Who goes to him?", sync_tag, tag_detail)
 		var wb := _call_block("Who tags", who_tags)
 		# The follow-up to Tag: packed with its question, never ahead of it.
