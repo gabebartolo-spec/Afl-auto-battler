@@ -134,9 +134,8 @@ func _checksum() -> void:
 	var gs = Engine.get_main_loop().root.get_node("GameState")
 	gs.reset()
 	gs.autosave_enabled = false
-	# On the branch, every club Steady: the model must then play main's matches.
-	if "fitness_ai_by_phase" in gs:
-		gs.fitness_ai_by_phase = false
+	# On the branch the shipped default (AI plans off until the plan screen)
+	# keeps every club Steady: the model must then play main's matches.
 	gs.career_seed = 4242
 	gs.replay_seed = 4242
 	gs.start_season("MEL", GameDB.club_list("MEL"))
