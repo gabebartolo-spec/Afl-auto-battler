@@ -2799,18 +2799,39 @@ func _test_tag_tradeoff() -> void:
 	var star: Dictionary = mids[0]
 	var plain: Dictionary = mids[mids.size() - 1]
 	# The midfield battle, as the stoppages see it (positive: ours).
-	var edge := func(code: String, target: Dictionary) -> float:
+	var edge := func(code: String, target: Dictionary, tagger_id: String = "") -> float:
 		var sim := _sim(5, code, opp)
-		sim.set_tactics(0, {"tag_id": str(target["id"])})
+		sim.set_tactics(0, {"tag_id": str(target["id"]), "tagger_id": tagger_id})
 		return sim._tag_drag(1) - sim._tag_drag(0)
 	var spec_star: float = edge.call(with_spec, star)
 	var spec_plain: float = edge.call(with_spec, plain)
-	var mid_star: float = edge.call(without, star)
-	var mid_plain: float = edge.call(without, plain)
+	# Without a specialist the hold follows his Pressure (MatchSim.tag_hold):
+	# the midfielder who holds a man least (last in tag_order) plays the man
+	# for nothing much and gives up his own game.
+	# Of the clubs without one, the midfielder who holds a man least.
+	var loose_club := ""
+	var loose_id := ""
+	var loose_hold := 2.0
+	for code in GameDB.active_clubs(2027):
+		if code == opp:
+			continue
+		var order := MatchSim.tag_order(Squad.new(code, GameDB.club_list(code), true, code).ground)
+		if order.is_empty() or Roles.is_tagger(order[0]):
+			continue
+		var last: Dictionary = order[order.size() - 1]
+		if MatchSim.tag_hold(last, 100.0) < loose_hold:
+			loose_hold = MatchSim.tag_hold(last, 100.0)
+			loose_club = code
+			loose_id = str(last["id"])
+	var mid_star: float = edge.call(loose_club, star, loose_id)
+	var mid_plain: float = edge.call(loose_club, plain, loose_id)
+	var best_plain: float = edge.call(loose_club, plain)
 	_check(spec_star > 0.0, "A specialist tagger on their best midfielder wins us the midfield battle (%+.2f)" % spec_star)
 	_check(spec_star > 2.0 * spec_plain, "...by far more than the same tag on an ordinary one (%+.2f)" % spec_plain)
-	_check(mid_plain < 0.0 and mid_star < spec_star,
-			"Without a specialist, a good midfielder gives up his own game: a loss on an ordinary one (%+.2f), less on their star (%+.2f)" % [mid_plain, mid_star])
+	_check(loose_hold < 0.5 and mid_plain < 0.0 and mid_star < spec_star,
+			"Without a specialist, a midfielder who can't hold a man (%s, %.2f) gives up his own game: a loss on an ordinary one (%+.2f), less on their star (%+.2f)" % [loose_club, loose_hold, mid_plain, mid_star])
+	_check(best_plain > mid_plain,
+			"...and the side's best presser does the same job better (%+.2f v %+.2f)" % [best_plain, mid_plain])
 	# Over paired matches: the target sees less of the ball, and a good
 	# midfielder sent to tag sees less of it too.
 	var tagger: Dictionary = MatchSim.tagger_for((_sim(5, without, opp).squads[0] as Squad).ground)
