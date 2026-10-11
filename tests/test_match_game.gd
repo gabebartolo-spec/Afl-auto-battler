@@ -31,6 +31,7 @@ func run() -> void:
 	_test_play_through_by_job()
 	_test_play_through_three()
 	_test_main_ruck()
+	_test_main_ruck_costs_an_easy_role()
 	_test_hothead()
 	_test_lockdown_midfielder()
 	_test_traits()
@@ -1472,11 +1473,53 @@ func _test_main_ruck() -> void:
 		ex_on += float((ra["exertion"] as Dictionary).get(other, 0.0))
 		ex_off += float((rb["exertion"] as Dictionary).get(other, 0.0))
 	_check(ho_on > ho_off * 1.2, "Named main ruck, he takes more of the hit-outs (%.1f v %.1f a game)" % [ho_on / n, ho_off / n])
-	# A ruck already on the ground drains like a ruck, so the call costs him no more
-	# than the usual rule would; it only costs more for a man who drains less.
-	_check(ex_on >= ex_off - 0.5, "...and works no less for it (exertion %.0f v %.0f)" % [ex_on / n, ex_off / n])
+	# (b) A ruck who already lines up in a drain-heavier role (a midfielder, 1.25 v
+	# the ruck's 1.15) is not asked to work less or more: the call changes who goes
+	# up, not what he costs, so his exertion is the same with and without it.
+	if str(_role_of(rucks, other)) == "MID" or str(_role_of(rucks, other)) == "RUCK":
+		_check(absf(ex_on - ex_off) / n < 0.5,
+				"...a ruck who already drains like one (or more) is unchanged by the call (exertion %.1f v %.1f)" % [ex_on / n, ex_off / n])
 	_check(absf(side_on - side_off) / side_off < 0.15,
 			"The side's hit-outs move between the rucks, not from nowhere (%.1f v %.1f)" % [side_on / n, side_off / n])
+
+
+func _role_of(list: Array, id: String) -> String:
+	for q in list:
+		if str(q["id"]) == id:
+			return str(q["role"])
+	return ""
+
+
+## (a) The call has a cost when it moves a man out of an easier job: a second ruck
+## who lines up in defence or forward (drain 0.85 / 0.9) works a ruck's 1.15 once
+## he goes up, so his exertion is strictly higher with the call than without it.
+func _test_main_ruck_costs_an_easy_role() -> void:
+	var club := ""
+	var man := ""
+	for c in ["WBD", "STK", "GEE", "COL", "MEL", "CAR", "SYD", "BRL", "HAW", "ESS", "FRE", "ADE", "GWS", "WCE"]:
+		var sim := _sim(70, c, "COL" if c != "COL" else "GEE")
+		for q in (sim.squads[0] as Squad).ground:
+			if MatchSim._is_ruckman(q) and (str(q["role"]) == "DEF" or str(q["role"]) == "FWD"):
+				club = c
+				man = str(q["id"])
+		if club != "":
+			break
+	_check(club != "", "(setup) a club that starts a ruck in a defensive or forward role")
+	if club == "":
+		return
+	var opp := "COL" if club != "COL" else "GEE"
+	var n := 16
+	var ex_on := 0.0
+	var ex_off := 0.0
+	for i in range(n):
+		var a := _sim(1100 + i, club, opp)
+		(a.squads[0] as Squad).ai_plans = false
+		a.set_tactics(0, {"main_ruck": man})
+		ex_on += float((a.run()["exertion"] as Dictionary).get(man, 0.0))
+		var b := _sim(1100 + i, club, opp)
+		(b.squads[0] as Squad).ai_plans = false
+		ex_off += float((b.run()["exertion"] as Dictionary).get(man, 0.0))
+	_check(ex_on > ex_off, "A second ruck from defence or forward works harder once he goes up (exertion %.1f v %.1f a game)" % [ex_on / n, ex_off / n])
 
 
 func _job_mult(sim: MatchSim, p: Dictionary, purpose: String, zone: String) -> float:
