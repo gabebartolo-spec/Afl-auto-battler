@@ -250,7 +250,7 @@ static func _trust(v: VBoxContainer, p: Dictionary) -> void:
 	why.custom_minimum_size = Vector2(72, 48)
 	row.add_child(why)
 	v.add_child(row)
-	var list := UiKit.vbox(2)
+	var list := UiKit.vbox(4)
 	list.name = "TrustReasons"
 	list.visible = false
 	var rule := UiKit.lbl("The more he trusts you, the more a talk lifts his mood.", UiKit.SMALL, UiKit.MUTED)

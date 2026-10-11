@@ -40,6 +40,7 @@ func _run() -> void:
 	state.autosave_enabled = false
 	state.save_path = "user://capture.save"
 	state.settings_path = "user://capture_settings.cfg"
+	state.show_real_names = false
 	state.reset()
 	state.set_setting("seen_weekly_loop_intro", true)
 	root.size = Vector2i(W, H)
@@ -48,8 +49,13 @@ func _run() -> void:
 	var y: int = state.season_year
 	# A young player you backed, then let down once; a senior player you kept
 	# waiting and told to earn his spot.
-	var kid: Dictionary = state.my_list[state.my_list.size() - 1]
+	var kid: Dictionary = state.my_list[0]
 	var vet: Dictionary = state.my_list[0]
+	for q in state.my_list:
+		if float(q.get("age", 30.0)) < float(kid.get("age", 30.0)):
+			kid = q
+		if float(q.get("age", 0.0)) > float(vet.get("age", 0.0)):
+			vet = q
 	var kk: String = TrustS.player_key(str(kid["id"]))
 	var vk: String = TrustS.player_key(str(vet["id"]))
 	TrustS.change(state.relations, kk, 8, "You gave him his chance", y, "Round 2")
