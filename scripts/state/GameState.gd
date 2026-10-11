@@ -8092,7 +8092,7 @@ const STYLE_PART_OF := {
 ## same trade-offs as CoachReport.PLAN_SUMMARY, from their side).
 const THEIR_PLAN := {
 	"attacking": "they run it through the corridor for ground and better shots, and turn it over more.",
-	"defensive": "they press up the ground, so they are hard to score against but have fewer numbers forward.",
+	"defensive": "they press high, so they win it back in their half, but there is space behind them when you get through.",
 	"contest": "they put numbers at the stoppages to win the clearances, and the ball moves slower.",
 	"controlled": "they keep the ball and make few errors, but gain less ground.",
 	"through_stars": "their best three see more of the ball, and the pressure goes on them.",
