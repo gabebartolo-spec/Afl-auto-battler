@@ -406,6 +406,9 @@ func _list_tests() -> void:
 		_check(prof != null and prof.find_child("ProfileAttributes", true, false) != null
 				and prof.find_child("ProfileDevelopment", true, false) != null,
 				"A tap opens the profile, attributes and development included")
+		_check(prof != null and prof.find_child("ProfileLeadership", true, false) != null
+				and prof.find_child("ProfileLeadershipNote", true, false) != null,
+				"The profile shows Leadership beside his other ratings, with what it comes from")
 		_check(ls.call("handle_back") == true, "Back is handled on the profile")
 		await _settle()
 		_check(ls.find_child("PlayerProfile", true, false) == null, "Back closes the profile")
