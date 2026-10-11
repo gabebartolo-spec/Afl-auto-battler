@@ -1,0 +1,33 @@
+[
+	{
+		"id": "training_extra_session",
+		"category": "training",
+		"cooldown": 4,
+		"subject": {"kind": "club"},
+		"title": ["The coaches want an extra session"],
+		"text": ["A heavy week on the track, or a week to freshen up?"],
+		"choices": [
+			{"key": "heavy", "label": "Heavy session",
+				"effects": [{"op": "xp", "d": 12, "who": "all"}, {"op": "heavy_legs", "who": "all"}],
+				"result": "A heavy week on the track. The legs will know about it on game day."},
+			{"key": "recover", "label": "Recovery week", "note": "No extra development.",
+				"effects": [{"op": "morale", "d": 3, "who": "all"}, {"op": "fresh", "who": "all"}],
+				"result": "A recovery week: fresher bodies and minds."}
+		]
+	},
+	{
+		"id": "training_kid_pushing",
+		"category": "training",
+		"cooldown": 4,
+		"subject": {"kind": "player", "where": {"fit": true, "selected": false, "backed": false, "age_max": 21, "pot_gap_min": 8}, "pick": "highest:overall"},
+		"title": ["{name} is pushing for games"],
+		"text": ["The kid's flying at training and wants a senior game."],
+		"choices": [
+			{"key": "blood", "label": "Back him for {run_games} games", "note": "Nothing develops a player like AFL footy.",
+				"effects": [{"op": "start_backing"}, {"op": "trust", "d": 8, "why": "You gave him his chance"}]},
+			{"key": "develop", "label": "A week with the development coaches", "note": "It doesn't take a spot in the side, but there's no game for him at all this week.",
+				"effects": [{"op": "xp", "d": 26}, {"op": "rest"}],
+				"result": "{name} spends the week with the development coaches."}
+		]
+	}
+]

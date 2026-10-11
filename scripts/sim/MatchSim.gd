@@ -36,7 +36,7 @@ const BOUNDARY_EXIT_P := 0.008
 const BOUNDARY_RUSHED_BONUS := 0.004
 const OUT_ON_FULL_SHARE := 0.12
 const BOUNDARY_TOUCHED_SHARE := 0.28
-var tactics := [{}, {}]      # per side: gameplan, focus_id, tag_id, pep
+var tactics := [{}, {}]      # per side: gameplan, focus_mid/fwd/def (focus_id), tag_id, pep
 ## Tags dropped because the man was no longer a midfielder: {side, id, q}.
 var tag_drops: Array = []
 ## How well each side's match-day players suit each plan (PlanFit): the
@@ -796,8 +796,56 @@ func _pep(side: int) -> String:
 	return str((tactics[side] as Dictionary).get("pep", "steady"))
 
 
-func _focus_id(side: int) -> String:
-	return str((tactics[side] as Dictionary).get("focus_id", ""))
+## The three play-through calls (director, 2026-10-07): a midfield pillar,
+## a forward target and a backline distributor, each chosen on its own.
+const FOCUS_SLOTS := ["focus_mid", "focus_fwd", "focus_def"]
+## The ground roles each call works from: off them (benched, moved) it waits.
+const FOCUS_SLOT_ROLES := {"focus_mid": ["MID", "RUCK"], "focus_fwd": ["FWD"], "focus_def": ["DEF"]}
+
+
+## Who this side plays through, {id: slot}. The single older call (focus_id,
+## the AI's and older saves') counts as the slot his role fills, unless that
+## slot has its own call.
+func _focus_slots(side: int) -> Dictionary:
+	var t: Dictionary = tactics[side]
+	var out := {}
+	for slot in FOCUS_SLOTS:
+		var id := str(t.get(slot, ""))
+		if id != "":
+			out[id] = slot
+	var legacy := str(t.get("focus_id", ""))
+	if legacy != "" and not out.has(legacy):
+		var p = _ground_player(side, legacy)
+		if p != null:
+			var slot := focus_slot_for(str(p["role"]))
+			if str(t.get(slot, "")) == "":
+				out[legacy] = slot
+	return out
+
+
+## The play-through slot a ground role fills.
+static func focus_slot_for(role: String) -> String:
+	for slot in FOCUS_SLOT_ROLES:
+		if (FOCUS_SLOT_ROLES[slot] as Array).has(role):
+			return slot
+	return "focus_mid"
+
+
+## Whether `slot`'s call is working now: its man is on the ground in a spot
+## the call works from (a forward target resting on the bench is not).
+func focus_active(side: int, slot: String) -> bool:
+	var id := str((tactics[side] as Dictionary).get(slot, ""))
+	if id == "":
+		return false
+	var p = _ground_player(side, id)
+	return p != null and (FOCUS_SLOT_ROLES[slot] as Array).has(str(p["role"]))
+
+
+func _ground_player(side: int, id: String):
+	for p in (squads[side] as Squad).ground:
+		if str(p["id"]) == id:
+			return p
+	return null
 
 
 func _tag_id(side: int) -> String:
@@ -1121,7 +1169,7 @@ func _pick_ctx(side: int) -> Dictionary:
 			tagger_id = str(tagger["id"])
 	var plan := _plan(side)
 	var minder := _spare_minder(side)
-	return {"focus": _focus_id(side), "their_tag": their_tag, "minder": str(minder.get("id", "")),
+	return {"focus": _focus_slots(side), "their_tag": their_tag, "minder": str(minder.get("id", "")),
 			"tag_share": _tag_share(1 - side) if their_tag != "" else 1.0,
 			"tagger": tagger_id, "stars": plan == "through_stars",
 			"star_ball": _pv(side, "star_ball") if plan == "through_stars" else 1.0}
@@ -1132,7 +1180,11 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String, ctx: Diction
 		ctx = _pick_ctx(side)
 	var out := 1.0
 	var id := str(p["id"])
-	var focused := id == str(ctx["focus"])
+	var slot := str((ctx["focus"] as Dictionary).get(id, ""))
+	# A call works only while he fills a spot it works from.
+	if slot != "" and not (FOCUS_SLOT_ROLES[slot] as Array).has(str(p["role"])):
+		slot = ""
+	var focused := slot != ""
 	# "transition" is a carry in the middle of the ground (pick_carrier).
 	var carrying := purpose == "carrier" or purpose == "transition"
 	# The wings run the ball through the middle and are not at the stoppage.
@@ -1147,7 +1199,7 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String, ctx: Diction
 	# coming out of the back half. A small early boost, then the usage
 	# curve fades him back toward a low-30s disposal game.
 	if focused:
-		out *= _focus_mult(str(p["role"]), purpose, str(ctx.get("zone", "")))
+		out *= _focus_mult(slot, purpose, str(ctx.get("zone", "")))
 	if carrying and _trait(p, "ball_magnet"):
 		out *= 1.10
 	if carrying and weather == "wet" and _trait(p, "wet_weather"):
@@ -1181,15 +1233,15 @@ const FOCUS_SHOT := 1.25
 const FOCUS_EXIT := 1.25
 
 
-func _focus_mult(role: String, purpose: String, zone: String) -> float:
+func _focus_mult(slot: String, purpose: String, zone: String) -> float:
 	var carrying := purpose == "carrier" or purpose == "transition"
-	match role:
-		"FWD":
+	match slot:
+		"focus_fwd":
 			if purpose == "shooter":
 				return FOCUS_SHOT
 			if carrying and zone != "back" and zone != "middle":
 				return FOCUS_CARRY
-		"DEF":
+		"focus_def":
 			if carrying and zone == "back":
 				return FOCUS_EXIT
 		_:
@@ -1307,9 +1359,14 @@ const PEP_CALM := {"clangers": 0.92, "taken": 0.95, "gain": 0.92, "pace": 0.95}
 ## Fire them up: legs go quicker and tempers fray.
 const PEP_FIRE := {"clangers": 1.10, "pace": 1.20}
 ## Bring the heat (director, 2026-10-10): harder pressure on their ball carriers, so
-## more turnovers forced and tackles laid; legs go quicker for it.
-const PEP_HEAT := {"pace": 1.15}
-const PEP_HEAT_PRESS := 1.12
+## more turnovers forced and tackles laid; legs burn out much faster for it.
+## Sized 2026-10-11 on 480 paired matches: margin about even (+1.3 ± 1.9),
+## the most pressure of the variants tried, legs burning far quicker.
+const PEP_HEAT := {"pace": 1.60}
+const PEP_HEAT_PRESS := 1.08
+## Heat on top of the Defensive press: the same hunting, so the gains overlap and
+## only this share of heat's pressure bonus is added (the legs cost stays in full).
+const PEP_HEAT_ON_PRESS := 0.5
 
 
 ## The pep talk's multiplier on one chain quantity (1.0 when it has none).
@@ -1325,7 +1382,11 @@ func _pep_mult(side: int, key: String) -> float:
 
 ## How much harder a side presses the ball carrier this quarter (Bring the heat).
 func _pep_heat(side: int) -> float:
-	return PEP_HEAT_PRESS if _pep(side) == "heat" else 1.0
+	if _pep(side) != "heat":
+		return 1.0
+	if _pv(side, "press") > 1.0:
+		return 1.0 + (PEP_HEAT_PRESS - 1.0) * PEP_HEAT_ON_PRESS
+	return PEP_HEAT_PRESS
 
 
 func _contest_calls(side: int, stoppage: bool) -> float:
@@ -1704,6 +1765,14 @@ const LOOSE_REACH_RANGE := 0.7
 ## How often he leaves his post for an entry: as often as a top reader gets
 ## there, so a poor reader goes just as often and arrives late instead.
 const LOOSE_GO := LOOSE_REACH_MIN + LOOSE_REACH_RANGE
+## The least read of the ball (_loose_read) for which a coach plays a man
+## loose: the AI, your assistant and the pre-match facts all use it
+## (Matchups.best_interceptor). Below it the call stops paying: with the
+## best defender's read pinned, points conceded against no loose man were
+## +0.6 at 0.18, 0.29 and 0.41 and -1.9 at 0.52, -2.6 at 0.63 (960 pairs
+## each, audit runs 38076174976, 38076182331, 38076189216, 38076195850,
+## 38076202407). 14/26 (about 0.54) is exactly the old bar, interceptor score 66.
+const LOOSE_AI_MIN_READ := 14.0 / 26.0
 ## How much more dangerous the entry is when he went and got there late, for
 ## the poorest reader: {unmarked, marked}. He isn't there at all, so the space
 ## behind him is bigger than when he flies and loses (0.08 / 0.15).
@@ -3586,10 +3655,12 @@ func _after_chain() -> void:
 		# Distance and fatigue both respond to the plan's tempo, pep talk and
 		# "throw numbers at it". Running Machine / Engine reduce fatigue only:
 		# good runners still log the kilometres they actually cover.
-		var movement_pace := _pv(side, "pace") * _pep_mult(side, "pace")
+		# Bring the heat burns legs, not extra kilometres: its pace is fatigue only.
+		var heat_legs := _pep_mult(side, "pace") if _pep(side) == "heat" else 1.0
+		var movement_pace := _pv(side, "pace") * (1.0 if _pep(side) == "heat" else _pep_mult(side, "pace"))
 		if _burst(side, "surge"):
 			movement_pace *= 1.3
-		var fatigue_pace := movement_pace
+		var fatigue_pace := movement_pace * heat_legs
 		if weather == "hot":
 			fatigue_pace *= HOT_DRAIN
 		if synergies[side].has("running_machine"):
@@ -3600,7 +3671,7 @@ func _after_chain() -> void:
 			if tagger != null:
 				tagger_id = str(tagger["id"])
 		# Asked once a side, not once a player (the same answers every time).
-		var focus_id := _focus_id(side)
+		var focus_ids := _focus_slots(side)
 		var tagged_id := _tag_id(1 - side)
 		var holding := _burst(side, "hold")
 		var flooding := _burst(side, "flood")
@@ -3613,7 +3684,7 @@ func _after_chain() -> void:
 				gps *= GPS_WING_MULT
 			if _chain_touch.has(id):
 				gps *= GPS_TOUCH_MULT
-			if id == focus_id:
+			if focus_ids.has(id):
 				gps *= GPS_FOCUS_MULT
 			if id == tagger_id:
 				gps *= GPS_TAGGER_MULT

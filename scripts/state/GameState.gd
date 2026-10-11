@@ -134,7 +134,23 @@ var news: Array = []             # league news feed, newest first
 var difficulty := "normal"       # this career's difficulty (DIFFICULTIES key)
 var tutorials := true            # this career's first-visit menu tips (Tutorials.gd)
 var board := {}                  # confidence, goal, warned, sacked, history
-var week_event := {}             # this week's event card (ClubLife.pick_event)
+## This week's story cards (StoryEngine.pick_week): usually none or one, two
+## in a big week. Each is answered on the hub before the round is played.
+var week_events: Array = []
+## The first of them, for the code and tests that deal in one card.
+var week_event: Dictionary:
+	get:
+		return week_events[0] if not week_events.is_empty() else {}
+	set(value):
+		week_events = [] if value.is_empty() else [value]
+## Trust between you and the people around the club (Trust.gd): {"p:<player
+## id>": {"t", "log"}}. Missing means neutral. Saved; later phases add coaches,
+## journalists, the board and club culture under their own keys, same shape.
+var relations := {}
+## What the stories remember (StoryEngine.new_state): cooldowns, flags, arcs.
+var story := {}
+## Off only in tests and audits that measure the game without the cards.
+var stories_on := true
 var media_conference := {}       # pending post-match press question
 var backing_talk := {}           # a sit-down when a promised run ends (Backing.talk)
 var media_memory := {}           # question key -> last round asked
@@ -144,9 +160,6 @@ var losing_streak := 0
 ## matches - every opponent is a new problem.
 var my_matchups := {}
 var last_side: Array = []       # ids of your players who took the field in your last match
-## What the event cards have already raised this season (ClubLife.pick_event
-## memory): "extension|id", "media|id" -> true, "unhappy|id" -> round.
-var event_memory := {}
 ## Players on a promised run (Backing) who could not play this round, noted at
 ## the start of _after_round before the week's injuries and suspensions tick
 ## down, so a player healed by this very round is not "left out while fit".
@@ -563,14 +576,15 @@ func save_career() -> bool:
 		"difficulty": difficulty,
 		"tutorials": tutorials,
 		"board": board,
-		"week_event": week_event,
+		"week_events": week_events,
+		"relations": relations,
+		"story": story,
 		"media_conference": media_conference,
 		"backing_talk": backing_talk,
 		"media_memory": media_memory,
 		"losing_streak": losing_streak,
 		"my_matchups": my_matchups,
 		"last_side": last_side,
-		"event_memory": event_memory,
 		"db_draftees": GameDB.draftees,
 		"db_late_draftees": GameDB.late_draftees,
 		"db_alias_next": GameDB._alias_next,
@@ -714,14 +728,17 @@ func load_career() -> bool:
 	trade_requests = state.get("trade_requests", {})
 	news = state.get("news", [])
 	board = state.get("board", {})
-	week_event = state.get("week_event", {})
+	week_events = state.get("week_events", [])
+	if not state.has("week_events"):
+		week_event = state.get("week_event", {})
+	relations = state.get("relations", {})
+	story = StoryEngine.ensure(state.get("story", {}))
 	media_conference = state.get("media_conference", {})
 	backing_talk = state.get("backing_talk", {})
 	media_memory = state.get("media_memory", {})
 	losing_streak = int(state.get("losing_streak", 0))
 	my_matchups = state.get("my_matchups", {})
 	last_side = state.get("last_side", [])
-	event_memory = state.get("event_memory", {})
 	difficulty = str(state.get("difficulty", "normal"))
 	tutorials = bool(state.get("tutorials", true))
 	if not DIFFICULTIES.has(difficulty):
@@ -776,6 +793,10 @@ func load_career() -> bool:
 				continue
 			bare.append(club)
 		CoachMarket.staff_new_clubs(coaches, bare, my_club, season_year - 1, career_seed)
+	# A card drawn before the story deck (2026-10-11) has no template behind
+	# it: this week's card is drawn again from the deck, once.
+	if season != null and week_event_pending() and str(week_event.get("tid", "")) == "":
+		_next_week_event()
 	return true
 
 
@@ -1078,14 +1099,15 @@ func reset() -> void:
 	_wrap_picks = []
 	news = []
 	board = {}
-	week_event = {}
+	week_events = []
+	relations = {}
+	story = StoryEngine.new_state()
 	media_conference = {}
 	backing_talk = {}
 	media_memory = {}
 	losing_streak = 0
 	my_matchups = {}
 	last_side = []
-	event_memory = {}
 	difficulty = new_career_difficulty()
 	tutorials = new_career_tutorials()
 	career_seed = randi_range(1, 999999)
@@ -5094,6 +5116,20 @@ func trade_context(club: String) -> Dictionary:
 var _phase_cache := {}
 
 
+## A club's list as the game sees it (TeamRating): its match-day side today on the
+## OVR scale, the same list in three seasons, and its phase, with the line a
+## screen shows ("Contender · 78, 81 in three years").
+func team_outlook(club: String) -> Dictionary:
+	if season == null or not season.lists.has(club):
+		return {}
+	var list: Array = season.lists[club]
+	var phase := club_phase(club)
+	var now := TeamRating.rating(list)
+	var later := TeamRating.forecast(list)
+	return {"rating": now, "forecast": later, "phase": phase, "category": TeamRating.category(phase),
+			"line": TeamRating.line(phase, now, later)}
+
+
 func club_phase(club: String) -> String:
 	if season == null or not season.lists.has(club):
 		return "building"
@@ -7079,7 +7115,7 @@ func _open_board_season() -> void:
 	board["year"] = season_year
 	board.erase("promise")
 	losing_streak = 0
-	event_memory = {}
+	StoryEngine.new_season(story)
 	_next_week_event()
 func board_confidence() -> int:
 	return int(board.get("confidence", ClubLife.START_CONFIDENCE))
@@ -7163,6 +7199,8 @@ func _board_after_round(results: Array) -> void:
 			backing_talk = Backing.talk(p, Backing.ledger(p).back())
 		if run_state == "broken":
 			ClubLife.add_morale(p, -CoachEffects.softened(Backing.STING, float(soft.get(pid, 0.0))))
+			Trust.change(relations, Trust.player_key(pid), ClubStories.BROKEN_RUN_TRUST,
+					"You broke your word on his run of games", season_year, last_label)
 		p.erase("expects_game")
 	# A player promised a game (a talk, or a kid given his chance): leaving
 	# him out fit sours it. Once: the promise ends with the round.
@@ -7172,6 +7210,8 @@ func _board_after_round(results: Array) -> void:
 			p.erase("expects_game")
 			if not played.has(str(p["id"])) and int(p.get("injury_weeks", 0)) <= 0:
 				ClubLife.add_morale(p, -CoachEffects.softened(sting, float(soft.get(str(p["id"]), 0.0))))
+				Trust.change(relations, Trust.player_key(str(p["id"])), ClubStories.BROKEN_PROMISE_TRUST,
+						"You promised him a game and left him out", season_year, last_label)
 	_after_match_talks(played, int(res.get("round", season.round_index)))
 
 
@@ -7324,27 +7364,10 @@ func _board_season_end() -> void:
 
 
 func _next_week_event() -> void:
-	var last_key := str(week_event.get("key", ""))
-	week_event = {}
-	if season == null or season.is_regular_done() or is_sacked():
+	week_events = []
+	if season == null or is_sacked() or not stories_on or my_club == "":
 		return
-	var selected := {}
-	var side := current_side()
-	for k in side:
-		for id in side[k]:
-			selected[str(id)] = true
-	week_event = ClubLife.pick_event({"list": my_list, "round": season.round_index + 1,
-			"seed": season.seed, "losses": losing_streak, "selected": selected,
-			"cap_room": salary_cap - my_payroll(), "memory": event_memory,
-			"last_key": last_key, "talk_info": talk_info(selected)})
-	# Remember what came up, so the same player is not back every week.
-	if not week_event.is_empty():
-		var pid := str(week_event.get("player_id", ""))
-		match str(week_event["key"]):
-			"extension", "media":
-				event_memory["%s|%s" % [week_event["key"], pid]] = true
-			"unhappy":
-				event_memory["unhappy|" + pid] = season.round_index + 1
+	week_events = ClubStories.pick(self)
 
 
 ## Quick sim: play up to `rounds` home-and-away rounds (-1: to the end of the
@@ -7389,150 +7412,73 @@ func sim_finals_to_end() -> int:
 
 
 func week_event_pending() -> bool:
-	return not week_event.is_empty() and not bool(week_event.get("resolved", false))
+	for c in week_events:
+		if not bool((c as Dictionary).get("resolved", false)):
+			return true
+	return false
 
 
-## Before a round is played, an unanswered card: no benefit comes without a
-## choice. It changes nothing unless not acting has its own consequence (the
-## card's "default", ClubLife.pick_event).
+## Before a round is played, every unanswered card settles: no benefit comes
+## without a choice. It changes nothing unless not acting has its own
+## consequence (the card's "default": a sore star plays sore; "unanswered":
+## silence costs the board).
 func _settle_week_event() -> void:
-	if not week_event_pending():
-		return
-	var d := int(week_event.get("default", -1))
-	if d >= 0:
-		resolve_week_event(d)
-		return
-	var cost: Dictionary = week_event.get("unanswered", {})
-	if int(cost.get("board", 0)) != 0 and not board.is_empty():
-		board["confidence"] = clampi(board_confidence() + int(cost["board"]), 0, 100)
-	week_event["resolved"] = true
-	week_event["choice"] = -1
-	week_event["outcome"] = str(cost.get("text", "Business as usual."))
-	mark_dirty()
+	for i in range(week_events.size()):
+		var card: Dictionary = week_events[i]
+		if bool(card.get("resolved", false)):
+			continue
+		var d := int(card.get("default", -1))
+		if d >= 0:
+			resolve_card(i, d)
+			continue
+		var cost: Dictionary = card.get("unanswered", {})
+		if int(cost.get("board", 0)) != 0 and not board.is_empty():
+			board["confidence"] = clampi(board_confidence() + int(cost["board"]), 0, 100)
+		card["resolved"] = true
+		card["choice"] = -1
+		card["outcome"] = str(cost.get("text", "Business as usual."))
+		StoryEngine.record_choice(story, card, -1, story_week())
+		mark_dirty()
 
 
-## Apply the chosen option. Returns what happened.
+## Answer the first card still waiting. Returns what happened.
 func resolve_week_event(choice: int) -> String:
-	if not week_event_pending():
+	for i in range(week_events.size()):
+		if not bool((week_events[i] as Dictionary).get("resolved", false)):
+			return resolve_card(i, choice)
+	return ""
+
+
+## Answer card `index` of this week's cards with `choice`. Returns what
+## happened, in words, ending with what changed in trust and the board.
+func resolve_card(index: int, choice: int) -> String:
+	if index < 0 or index >= week_events.size():
 		return ""
-	var options: Array = week_event.get("options", [])
+	var card: Dictionary = week_events[index]
+	if bool(card.get("resolved", false)):
+		return ""
+	var options: Array = card.get("options", [])
+	if options.is_empty():
+		return ""
 	choice = clampi(choice, 0, options.size() - 1)
-	var key := str((options[choice] as Dictionary).get("key", ""))
-	var pid := str(week_event.get("player_id", ""))
-	var p := list_player(pid)
-	var name := GameDB.player_display_name(p) if not p.is_empty() else ""
-	var out := ""
-	# The card was about a player who has since left the club: nothing to do.
-	if pid != "" and p.is_empty():
-		key = "_gone"
-	match key:
-		"_gone":
-			out = "The moment has passed: he is no longer at the club."
-		"rest":
-			p["rested"] = true
-			out = "%s is rested this week." % name
-		"play":
-			if int(p.get("injury_weeks", 0)) > 0:
-				out = "%s has since been ruled out anyway." % name
-			else:
-				p["sore"] = true
-				out = "%s plays - fingers crossed." % name
-		"heavy":
-			for q in my_list:
-				q["xp"] = int(q.get("xp", 0)) + ClubLife.HEAVY_XP
-				q["heavy_legs"] = true
-			apply_train_plans()
-			out = "A heavy week: +%d XP each, heavy legs on game day." % ClubLife.HEAVY_XP
-		"recover":
-			for q in my_list:
-				ClubLife.add_morale(q, 3)
-				q["fresh"] = true
-			out = "A recovery week: fresher bodies and minds."
-		"open":
-			for q in my_list:
-				ClubLife.add_morale(q, 3)
-			board["confidence"] = clampi(board_confidence() + 4, 0, 100)
-			out = "The members loved it."
-		"closed":
-			for q in my_list:
-				q["xp"] = int(q.get("xp", 0)) + ClubLife.CLOSED_XP
-			apply_train_plans()
-			out = "A closed session: +%d XP each." % ClubLife.CLOSED_XP
-		"suspend":
-			p["rested"] = true
-			ClubLife.add_morale(p, -10)
-			board["confidence"] = clampi(board_confidence() + 4, 0, 100)
-			out = "%s is suspended for a week. The board approves." % name
-		"back":
-			ClubLife.add_morale(p, 8)
-			board["confidence"] = clampi(board_confidence() - 4, 0, 100)
-			out = "You back %s. The board is not impressed." % name
-		"extend":
-			var cost := ClubLife.early_price(p)
-			var years := ClubLife.early_years(p)
-			if int(p.get("contract_years", 1)) > 1:
-				out = "%s is already signed beyond this season." % name
-			elif my_payroll() - int(p.get("salary", 0)) + cost <= salary_cap:
-				p["salary"] = cost
-				p["contract_years"] = years
-				ClubLife.add_morale(p, 8)
-				out = "%s signs on for %d more season%s at %s a season." % [name, years - 1,
-						"" if years == 2 else "s", Contracts.money(cost)]
-			else:
-				# The cap moved since the card was drawn: nobody's fault.
-				out = "The cap no longer has room to extend %s now; it waits for the off-season." % name
-		"pressure", "promise":
-			board["promise"] = true
-			out = "You promise a win this week."
-		"patience":
-			board["confidence"] = clampi(board_confidence() - 3, 0, 100)
-			out = "The board grudgingly agrees to wait."
-		"develop":
-			# A week with the development coaches instead of playing: the
-			# XP comes at the cost of this week's game, senior or reserves.
-			p["xp"] = int(p.get("xp", 0)) + ClubLife.DEV_WEEK_XP
-			p["rested"] = true
-			apply_plan_to(p)
-			out = "%s spends the week with the development coaches: +%d XP." % [name, ClubLife.DEV_WEEK_XP]
-		"blood":
-			# His chance: a run of senior games (Backing). He earns each game's
-			# XP by playing it - if you pick him. Leaving him out while fit
-			# breaks the promise, and that stings.
-			_start_backing(p)
-			var run := MatchNotes.count_word(Backing.RUN_GAMES)
-			out = ("%s is told he has a run of %s games. Auto-pick names him this week." if my_selection().is_empty()
-					else "%s is told he has a run of %s games. Pick him this week.") % [name, run]
-		"talk":
-			ClubLife.add_morale(p, 15)
-			p["expects_game"] = 12
-			out = ("%s feels heard. Auto-pick names him this week." if my_selection().is_empty()
-					else "%s feels heard, and expects a game this week.") % name
-			_note_talk(p, "promise")
-		"explain":
-			ClubLife.add_morale(p, ClubLife.EXPLAIN_LIFT)
-			out = _explain_outcome(name, week_event)
-			_note_talk(p, "explain")
-		"call":
-			ClubLife.add_morale(p, -5)
-			out = "You tell %s selection is your call, and it stands." % name
-			_note_talk(p, "call")
-		"earn":
-			ClubLife.add_morale(p, -5)
-			for q in my_list:
-				if q != p:
-					ClubLife.add_morale(q, 2)
-			out = "%s is told to earn his spot. The group respects it." % name
-		_:
-			if not p.is_empty() and key == "wait":
-				ClubLife.add_morale(p, -5)
-				out = "%s is disappointed, but it can wait for the off-season." % name
-			else:
-				out = "Business as usual."
-	week_event["resolved"] = true
-	week_event["choice"] = choice
-	week_event["outcome"] = out
+	var out := ClubStories.apply_choice(self, card, choice)
+	StoryEngine.record_choice(story, card, choice, story_week())
+	card["resolved"] = true
+	card["choice"] = choice
+	card["outcome"] = out
 	mark_dirty()
 	return out
+
+
+## This week on the stories' calendar (StoryEngine.week_abs).
+func story_week() -> int:
+	return StoryEngine.week_abs(season_year, ClubStories.week_in_season(self))
+
+
+## One card from the deck, built for this week about `p` (or the club),
+## whether or not it would come up: for tests and captures.
+func story_card(tid: String, p: Dictionary = {}) -> Dictionary:
+	return ClubStories.card_for(self, tid, p)
 
 
 # ---------------------------------------------------------------------------
@@ -8303,10 +8249,10 @@ func _explain_outcome(name: String, e: Dictionary) -> String:
 
 ## Keep the sit-down as a career fact (G7, kind "talk"): d is what opened it
 ## and what you said ("dropped|promise"); out is settled after your next match.
-func _note_talk(p: Dictionary, said: String) -> void:
+func _note_talk(p: Dictionary, said: String, case := "mood") -> void:
 	CareerFacts.add(career_facts, str(p["id"]), CareerFacts.row(season_year,
 			"Round %d" % (season.round_index + 1), "talk", my_club,
-			"%s|%s" % [str(week_event.get("case", "mood")), said], ""))
+			"%s|%s" % [case if case != "" else "mood", said], ""))
 
 
 ## After your match: the round each player of yours last played, and every

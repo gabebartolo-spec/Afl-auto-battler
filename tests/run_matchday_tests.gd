@@ -46,6 +46,7 @@ func _run() -> void:
 		await _coach_descriptions(sz)
 		await _tag_targets(sz)
 		await _minder_cards(sz)
+	await _pc_break_worst_case()
 	await _tag_not_saved()
 	await _bounce_close_up()
 	await _playtest_bounce_scene()
@@ -125,7 +126,8 @@ func _phone_match(sz: Vector2i) -> void:
 	var text := _text(box)
 	_check(not text.contains("pts") and not text.contains("Expected points") and not text.contains("%"),
 			"The first coach box shows no engine numbers (%s)" % tag)
-	for n in ["PlanPicker", "TagPicker", "FocusPicker", "PepPicker", "RotationPicker", "LegsView", "TagNote"]:
+	for n in ["PlanPicker", "TagPicker", "FocusPicker_focus_mid", "FocusPicker_focus_fwd", "FocusPicker_focus_def",
+			"PepPicker", "RotationPicker", "LegsView", "TagNote"]:
 		_check(box.find_child(n, true, false) != null, "The coach box keeps %s (%s)" % [n, tag])
 	_check(not text.to_lower().contains("recommend") and not text.to_lower().contains("should"),
 			"The coach box never advises (%s)" % tag)
@@ -489,6 +491,18 @@ func _coach_descriptions(sz: Vector2i) -> void:
 	if box == null:
 		m.queue_free()
 		return
+	# PC is not a big phone (director, 2026-10-11): at 1280x720 every call
+	# and its heading is in view before the bounce, nothing scrolls.
+	if bool(m.call("_wide_break")) and sz.x >= 1200 and sz.y >= 700:
+		var bc: Control = box.find_child("BreakColumns", true, false)
+		var bsc: ScrollContainer = null
+		var up: Node = bc
+		while up != null and bsc == null:
+			bsc = up as ScrollContainer
+			up = up.get_parent()
+		var room := bsc.size.y if bsc != null else 0.0
+		var need := (bsc.get_child(0) as Control).get_combined_minimum_size().y if bsc != null else INF
+		_check(need <= room + 1.0, "The PC break fits the window without scrolling (%.0f of %.0f, %s)" % [need, room, tag])
 	var pep_btn: Button = null
 	var pep_grid: Node = box.find_child("PepPicker", true, false)
 	if pep_grid != null:
@@ -555,41 +569,44 @@ func _coach_descriptions(sz: Vector2i) -> void:
 		await Tap.tap(named)
 		await _settle()
 
-	# Play through: the note says his job and what the call does for him, by the
-	# slot he fills; with nobody picked it is the general line. Real taps.
+	# Play through, three calls: each offers only the men who fill its job, and
+	# its note says his job and what it does; with nobody, what that means. Real taps.
 	var notes = load("res://scripts/ui/match/MatchNotes.gd")
 	var me := int(m.get("_my_side"))
 	var ground: Array = _state.pending_sim.squads[me].ground
-	var effects := {"MID": "the ball goes to him more often through the midfield",
-			"FWD": "more of the ball up forward and more of the shots at goal",
-			"DEF": "first use of the ball out of the back half", "RUCK": "the ball goes to him more often"}
-	var roles := {"MID": "our key midfielder", "FWD": "our key forward target",
-			"DEF": "our key distributor", "RUCK": "our key man in the middle"}
-	var fnote: Label = box.find_child("FocusNote", true, false)
-	_check(fnote != null and fnote.text.begins_with("Favour this player"), "With nobody picked, Play through keeps its general line (%s)" % tag)
-	for role in ["MID", "FWD", "DEF", "RUCK"]:
+	var slot_jobs := {"focus_mid": ["MID", "our midfield pillar", "the ball goes to him more often through the midfield"],
+			"focus_fwd": ["FWD", "our key forward target", "more of the ball up forward and more of the shots at goal"],
+			"focus_def": ["DEF", "our backline distributor", "first use of the ball out of the back half"]}
+	for slot in slot_jobs:
+		var fnote: Label = box.find_child("FocusNote_" + slot, true, false)
+		_check(fnote != null and fnote.text.begins_with("Nobody:"), "With nobody picked, %s says what that means (%s)" % [slot, tag])
 		var who: Dictionary = {}
+		var other_job: Dictionary = {}
 		for gp in ground:
-			if str(gp["role"]) == role and who.is_empty():
+			if str(gp["role"]) == str(slot_jobs[slot][0]) and who.is_empty():
 				who = gp
+			if not (load("res://scripts/sim/MatchSim.gd").FOCUS_SLOT_ROLES[slot] as Array).has(str(gp["role"])) and other_job.is_empty():
+				other_job = gp
 		if who.is_empty():
 			continue
-		var pick: Button = box.find_child("FocusPickerGrid_" + str(who["id"]), true, false)
+		_check(other_job.is_empty() or box.find_child("FocusPicker_%sGrid_%s" % [slot, str(other_job["id"])], true, false) == null,
+				"%s offers only the men who fill that job (%s)" % [slot, tag])
+		var pick: Button = box.find_child("FocusPicker_%sGrid_%s" % [slot, str(who["id"])], true, false)
 		if pick == null:
-			await Tap.tap(box.find_child("FocusPickerOther", true, false))
+			await Tap.tap(box.find_child("FocusPicker_%sOther" % slot, true, false))
 			await _settle()
 			pick = m.find_child("Sheet_" + str(who["id"]), true, false)
 		var pw: String = await Tap.tap(pick)
 		await _settle()
 		var nm := str(db.player_display_name_by_id(str(who["id"]), ""))
-		fnote = box.find_child("FocusNote", true, false)
-		_check(pw == "" and fnote.text == "%s is %s: %s." % [nm, str(roles[role]), str(effects[role])],
-				"A %s played through reads as %s (%s: %s)" % [role, str(roles[role]), tag, fnote.text])
-		_check(notes.focus_role_text(nm, role) == "%s %s" % [nm, str(roles[role])] and notes.focus_effect_text(role) == str(effects[role]),
-				"The helper says the same for %s (%s)" % [role, tag])
-	await Tap.tap(box.find_child("FocusPickerGrid_", true, false))
-	await _settle()
-	_check(box.find_child("FocusNote", true, false).text.begins_with("Favour this player"), "Picking no one brings the general line back (%s)" % tag)
+		fnote = box.find_child("FocusNote_" + slot, true, false)
+		_check(pw == "" and fnote.text == "%s is %s: %s." % [nm, str(slot_jobs[slot][1]), str(slot_jobs[slot][2])],
+				"%s reads as his job (%s: %s)" % [slot, tag, fnote.text])
+		_check(notes.focus_slot_note(slot, nm, false, true) == "%s is on the bench: the call waits until he is back on." % nm,
+				"A benched man's call says it waits (%s)" % slot)
+		await Tap.tap(box.find_child("FocusPicker_%sGrid_" % slot, true, false))
+		await _settle()
+		_check(box.find_child("FocusNote_" + slot, true, false).text.begins_with("Nobody:"), "Picking no one brings the line back (%s, %s)" % [slot, tag])
 
 	# Start with a tag: the plan line names every call, in full, and nothing
 	# it sits above is pushed off the screen.
@@ -726,6 +743,43 @@ func _tag_targets(sz: Vector2i) -> void:
 	await _settle()
 
 
+## The fullest PC break we know (director, 2026-10-11): quarter time, their
+## loose defender to answer, at 1280x720 - every call in view, nothing
+## scrolls, and Match stats sits with the actions.
+func _pc_break_worst_case() -> void:
+	var db = root.get_node("GameDB")
+	var Mu = load("res://scripts/sim/Matchups.gd")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = Vector2i(1280, 720)
+	_check(_state.prepare_interactive_match(), "A live match is prepared for the fullest PC break")
+	var sim = _state.pending_sim
+	var me := int(sim.moment_side)
+	var spare: Dictionary = Mu.best_interceptor((sim.squads[1 - me] as Object).ground, 0.0)
+	sim.set_interceptor(1 - me, str(spare.get("id", "")), false)
+	sim.run_quarter()
+	sim.set_interceptor(1 - me, str(spare.get("id", "")), true)
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	var box: Node = m.find_child("CoachBox", true, false)
+	var bc: Control = box.find_child("BreakColumns", true, false) if box != null else null
+	var bsc: ScrollContainer = null
+	var up: Node = bc
+	while up != null and bsc == null:
+		bsc = up as ScrollContainer
+		up = up.get_parent()
+	var room := bsc.size.y if bsc != null else 0.0
+	var need := (bsc.get_child(0) as Control).get_combined_minimum_size().y if bsc != null else INF
+	_check(box != null and box.find_child("SpareMinderPicker", true, false) != null and need <= room + 1.0,
+			"Quarter time with their loose defender fits 1280x720 without scrolling (%.0f of %.0f)" % [need, room])
+	var stats: Button = box.find_child("BreakStats", true, false) if box != null else null
+	var w: String = await Tap.tap(stats)
+	_check(w == "" and m.find_child("BreakStatsSheet", true, false) != null, "Match stats opens from the actions row with a real tap (%s)" % w)
+	m.queue_free()
+	await _settle()
+
+
 ## A live match is not saved: a career saved and loaded mid-match comes back
 ## with no match and no tag, so no stale target can survive a load.
 func _tag_not_saved() -> void:
@@ -778,8 +832,10 @@ func _minder_cards(sz: Vector2i) -> void:
 	var text := _text(block)
 	_check(block != null and text.begins_with("Assign defensive forward"), "The control is headed Assign defensive forward (%s)" % tag)
 	var all_text := _text(box)
-	_check(not all_text.contains("Their loose defender") and not all_text.contains("Nobody"),
-			"No 'Their loose defender' heading and no 'Nobody' at the break (%s)" % tag)
+	# "Nobody" is the minder's old none option; the play-through notes may
+	# still say "Nobody: the midfield shares the ball." (#634).
+	_check(not all_text.contains("Their loose defender") and not text.contains("Nobody"),
+			"No 'Their loose defender' heading and no 'Nobody' in the control (%s)" % tag)
 	var notes = load("res://scripts/ui/match/MatchNotes.gd")
 	var q: Label = box.find_child("MinderQuestion", true, false)
 	var want_q: String = notes.minder_question(db.player_display_name(spare), db.club_name(opp_club))
@@ -1136,13 +1192,13 @@ func _rings_on_the_oval() -> void:
 	var me := int(m.get("_my_side"))
 	_check(pitch.rings.is_empty(), "No one is ringed before you have made a call")
 	var box: Node = m.find_child("CoachBox", true, false)
-	var focus_id := _first_pick(box, "FocusPickerGrid_")
+	var focus_id := _first_pick(box, "FocusPicker_focus_midGrid_")
 	var tag_id := _first_pick(box, "TagPickerGrid_")
 	_check(focus_id != "" and tag_id != "", "A play-through and a tag are on offer")
 	if focus_id == "" or tag_id == "":
 		m.queue_free()
 		return
-	box.find_child("FocusPickerGrid_" + focus_id, true, false).emit_signal("pressed")
+	box.find_child("FocusPicker_focus_midGrid_" + focus_id, true, false).emit_signal("pressed")
 	box.find_child("TagPickerGrid_" + tag_id, true, false).emit_signal("pressed")
 	box.find_child("StartQuarter", true, false).emit_signal("pressed")
 	await _settle()
