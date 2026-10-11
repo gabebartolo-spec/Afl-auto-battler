@@ -3743,7 +3743,7 @@ func _after_chain() -> void:
 
 			var dur := float((p["attr"] as Dictionary).get("durability", 70.0))
 			var d := ENERGY_DRAIN * per_chain * float(ROLE_DRAIN.get(role, 1.0)) \
-					* (1.2 - 0.4 * dur / 100.0) * fatigue_pace
+					* (1.2 - 0.4 * dur / 100.0) * fatigue_pace * Workload.drain_mult(p)
 			if _trait(p, "engine"):
 				d *= 0.75
 			exertion[id] = float(exertion.get(id, 0.0)) + d
