@@ -6,6 +6,12 @@ extends Control
 ## club's colour from the top that fades away before the content needs the
 ## contrast. Drawn once; never takes a tap.
 
+## Looks under review (director, 2026-10-11: "more club colours in there"):
+## "sweep" diagonal guernsey stripes, "glow" two lights, "yoke" a bold top block
+## with a stripe edge. One is chosen; the others go.
+static var variant := "sweep"
+static var _soft: GradientTexture2D
+
 var _club := ""
 var _settle := 1.0   # 0 arriving -> 1 at rest (live())
 
@@ -43,10 +49,94 @@ func _draw() -> void:
 		i += 1
 	if _club == "":
 		return
-	# The club's most vivid colour that shows on the page.
-	var c := UiKit.club_vivid(_club, UiKit.BG)
-	var top := Color(c, 0.26 + 0.12 * (1.0 - _settle))
-	var none := Color(c, 0.0)
-	var wash := minf(h * 0.45, 360.0) * (1.0 + 0.35 * (1.0 - _settle))
-	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, wash), Vector2(0, wash)]),
-			PackedColorArray([top, top, none, none]))
+	var cols := _colours()
+	match variant:
+		"glow":
+			_draw_glow(w, h, cols)
+		"yoke":
+			_draw_yoke(w, h, cols)
+		_:
+			_draw_sweep(w, h, cols)
+
+
+## The club's colours as they show on the page, most vivid first: its
+## colours, lifted when too dark, a near-white kept (a guernsey's white stripe).
+func _colours() -> Array:
+	var out: Array = []
+	var vivid := UiKit.club_vivid(_club, UiKit.BG)
+	out.append(vivid)
+	for c in GameDB.club_colours(_club):
+		var col: Color = ClubDuel._show(c)
+		var dup := false
+		for o in out:
+			if ClubDuel._diff(col, o) < 0.3:
+				dup = true
+		if not dup:
+			out.append(col)
+	return out
+
+
+func _alpha(c: Color, a: float) -> Color:
+	# A near-white stripe is brighter than a colour: half the strength.
+	return Color(c, a * (0.55 if c.get_luminance() > 0.7 else 1.0))
+
+
+## Wide diagonal stripes of the club's colours across the whole page, sliding
+## into place; heavier at the top, never so strong that body type loses contrast.
+func _draw_sweep(w: float, h: float, cols: Array) -> void:
+	var sw := 150.0
+	var run := h * 0.55   # how far a stripe leans across
+	var slide := (1.0 - _settle) * sw * 5.0
+	var n := int((w + run) / sw) + 8
+	for k in range(-2, n):
+		var c: Color = cols[posmod(k, mini(cols.size(), 3))]
+		var x := float(k) * sw - slide
+		var top := _alpha(c, 0.30)
+		var foot := _alpha(c, 0.07)
+		draw_polygon(PackedVector2Array([Vector2(x, 0), Vector2(x + sw, 0),
+				Vector2(x + sw - run, h), Vector2(x - run, h)]),
+				PackedColorArray([top, top, foot, foot]))
+
+
+## Two lights, the club's two colours, drifting in from opposite corners.
+func _draw_glow(w: float, h: float, cols: Array) -> void:
+	var a: Color = cols[0]
+	var b: Color = cols[1] if cols.size() > 1 else cols[0]
+	var gs := maxf(w, h) * 1.25
+	var move := (1.0 - _settle)
+	_light(Vector2(w * 0.1 - move * w * 0.5, h * 0.12 - move * h * 0.1), gs, _alpha(a, 0.62))
+	_light(Vector2(w * 0.95 + move * w * 0.5, h * 0.82 + move * h * 0.1), gs * 0.9, _alpha(b, 0.5))
+
+
+func _light(at: Vector2, d: float, c: Color) -> void:
+	if _soft == null:
+		var g := Gradient.new()
+		g.set_color(0, Color(1, 1, 1, 1.0))
+		g.set_color(1, Color(1, 1, 1, 0.0))
+		_soft = GradientTexture2D.new()
+		_soft.gradient = g
+		_soft.fill = GradientTexture2D.FILL_RADIAL
+		_soft.fill_from = Vector2(0.5, 0.5)
+		_soft.fill_to = Vector2(1.0, 0.5)
+		_soft.width = 256
+		_soft.height = 256
+	draw_texture_rect(_soft, Rect2(at - Vector2(d, d) / 2.0, Vector2(d, d)), false, c)
+
+
+## A bold block of the club's colour from the top, ending on a hard stripe of
+## its second colour that glides down to rest, with a thin third below.
+func _draw_yoke(w: float, h: float, cols: Array) -> void:
+	var a: Color = cols[0]
+	var b: Color = cols[1] if cols.size() > 1 else cols[0]
+	var c: Color = cols[2] if cols.size() > 2 else b
+	var drop := h * 0.30 * (1.0 + 0.5 * (1.0 - _settle))
+	var top := _alpha(a, 0.50 + 0.15 * (1.0 - _settle))
+	var mid := _alpha(a, 0.16)
+	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, drop), Vector2(0, drop)]),
+			PackedColorArray([top, top, mid, mid]))
+	var lean := 36.0
+	var sh := 14.0
+	draw_polygon(PackedVector2Array([Vector2(0, drop), Vector2(w, drop - lean), Vector2(w, drop - lean + sh), Vector2(0, drop + sh)]),
+			PackedColorArray([_alpha(b, 0.55), _alpha(b, 0.55), _alpha(b, 0.55), _alpha(b, 0.55)]))
+	draw_polygon(PackedVector2Array([Vector2(0, drop + sh + 8), Vector2(w, drop - lean + sh + 8), Vector2(w, drop - lean + sh + 12), Vector2(0, drop + sh + 12)]),
+			PackedColorArray([_alpha(c, 0.4), _alpha(c, 0.4), _alpha(c, 0.4), _alpha(c, 0.4)]))
