@@ -691,7 +691,7 @@ func _run() -> void:
 	_state.relations.erase(Trust.player_key(str(trusted["id"])))
 	Trust.change(_state.relations, Trust.player_key(str(trusted["id"])), 12, "You gave him his chance", _state.season_year, "Round 2")
 	Trust.change(_state.relations, Trust.player_key(str(trusted["id"])), 10, "You promised him his spot back", _state.season_year, "Round 5")
-	var tsheet: Control = PlayerSheet.open(current_scene, trusted)
+	var tsheet: Control = load("res://scripts/ui/PlayerSheet.gd").open(current_scene, trusted)
 	await _settle()
 	var twords: Label = tsheet.find_child("TrustWords", true, false)
 	var twhy: Button = tsheet.find_child("TrustWhy", true, false)
@@ -705,7 +705,7 @@ func _run() -> void:
 			and first_reason.text.begins_with("Round 5, ") and first_reason.text.ends_with("Trust rose."),
 			"A tap on Why shows his reasons, newest first (%s)" % why_tap)
 	tsheet.queue_free()
-	var ssheet: Control = PlayerSheet.open(current_scene, stranger)
+	var ssheet: Control = load("res://scripts/ui/PlayerSheet.gd").open(current_scene, stranger)
 	await _settle()
 	_check(ssheet.find_child("ProfileTrust", true, false) == null,
 			"A player you've had nothing to do with shows no trust line")
