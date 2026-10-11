@@ -79,6 +79,25 @@ func can_go_back() -> bool:
 # ---------------------------------------------------------------------------
 # Back button (Android back gesture, Escape on desktop)
 # ---------------------------------------------------------------------------
+var _web_back = null    # keeps the browser callback alive
+
+
+func _ready() -> void:
+	if OS.has_feature("web"):
+		_hook_browser_back()
+
+
+## In a browser the Back button / Android back gesture would leave the page
+## (and the career with it). Keep one history entry ahead: a Back press lands
+## on it, is turned into the game's own Back, and the entry is put back.
+func _hook_browser_back() -> void:
+	_web_back = JavaScriptBridge.create_callback(func(_args): handle_back(false))
+	JavaScriptBridge.get_interface("window").set("__aflBack", _web_back)
+	JavaScriptBridge.eval("history.pushState({afl:1},'');"
+			+ "window.addEventListener('popstate',function(){history.pushState({afl:1},'');"
+			+ "if(window.__aflBack){window.__aflBack();}});")
+
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		handle_back(true)

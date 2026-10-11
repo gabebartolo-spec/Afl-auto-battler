@@ -203,6 +203,11 @@ func _show_home() -> void:
 		exit.custom_minimum_size = Vector2(120, 48)
 		quiet.add_child(exit)
 	_content.add_child(quiet)
+	var build := UiKit.lbl("Build " + BuildInfo.label(), UiKit.SMALL, UiKit.MUTED)
+	build.name = "BuildLabel"
+	build.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_content.add_child(UiKit.spacer(8))
+	_content.add_child(build)
 
 
 ## A secondary action that reads as text: no box, muted until pressed.
