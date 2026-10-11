@@ -67,7 +67,9 @@ const TEAM_COMPARE := [
 
 const IMPACT_LABELS := {
 	"gameplan": "gameplan", "pep": "pep talk",
-	"legs": "legs (fatigue and rotations)", "calls": "in-game calls",
+	"legs": "legs (fatigue and rotations)", "bursts": "in-game calls",
+	"moments": "calls at the moments", "loose": "loose defender", "matchups": "match-ups",
+	"tag": "tag", "minder": "defensive forward",
 	"traits": "traits and synergies", "form": "team form",
 }
 
@@ -86,6 +88,23 @@ static func impact_lines(now: Array, before: Array, side: int, min_pts := 0.3) -
 			out.append({"label": "Their " + str(IMPACT_LABELS[cause]), "pts": -theirs})
 	out.sort_custom(func(a, b): return absf(float(a["pts"])) > absf(float(b["pts"])))
 	return out
+
+
+## The full-time decision summary's numbers (director, 2026-10-11): what each
+## of `side`'s calls was worth on average (MatchSim.DECISION_CAUSES, a call
+## not made is left out), biggest first, and "the rest" (the players and the
+## bounce of the ball), so that the lines and the rest add up to the margin
+## exactly. {"lines": [{"cause", "pts"}], "rest": float}.
+static func decision_lines(impact: Array, side: int, margin: float) -> Dictionary:
+	var lines := []
+	var total := 0.0
+	for cause in MatchSim.DECISION_CAUSES:
+		var pts := _imp(impact, side, cause)
+		if pts != 0.0:
+			lines.append({"cause": cause, "pts": pts})
+			total += pts
+	lines.sort_custom(func(a, b): return absf(float(a["pts"])) > absf(float(b["pts"])))
+	return {"lines": lines, "rest": margin - total}
 
 
 static func _imp(arr: Array, side: int, cause: String) -> float:
