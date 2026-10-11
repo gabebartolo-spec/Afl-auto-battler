@@ -8,6 +8,7 @@ extends Control
 
 var _cols := [Color.BLACK, Color.BLACK]
 var _fade := 0.55
+var _settle := 1.0   # 0 arriving -> 1 at rest (live())
 
 static var _glow: GradientTexture2D
 
@@ -20,6 +21,16 @@ func setup(left: String, right: String, fade := 0.55) -> ClubDuel:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	resized.connect(queue_redraw)
+	return self
+
+
+## Living, on match day (director, 2026-10-11): on arrival the light slides
+## in to where the two clubs meet and the turf rolls across, over a few
+## seconds; then it holds still and draws nothing more (UiKit.drift).
+func live() -> ClubDuel:
+	UiKit.drift(self, func(t: float) -> void:
+		_settle = t
+		queue_redraw())
 	return self
 
 
@@ -83,16 +94,18 @@ func _draw() -> void:
 	_half([Vector2(cut + slant, 0), Vector2(w, 0), Vector2(w, h), Vector2(cut - slant, h)], _cols[1])
 	# Mown turf: broad diagonal bands, barely there.
 	var band := 34.0
-	var i := -int(h / band) - 2
+	var roll := (1.0 - _settle) * band * 4.0
+	var i := -int(h / band) - 2 - 8
 	while float(i) * band < w + h:
 		if i % 2 == 0:
-			var x := float(i) * band
+			var x := float(i) * band + roll
 			draw_colored_polygon(PackedVector2Array([Vector2(x, 0), Vector2(x + band, 0),
 					Vector2(x + band - h * 0.6, h), Vector2(x - h * 0.6, h)]), Color(0, 0, 0, 0.07))
 		i += 1
 	draw_line(Vector2(cut + slant, 0), Vector2(cut - slant, h), Color(1, 1, 1, 0.55), 2.0, true)
 	var gs := h * 1.6
-	draw_texture_rect(_glow_tex(), Rect2(Vector2(cut - gs / 2.0, -gs * 0.45), Vector2(gs, gs)), false)
+	var gx := cut - (1.0 - _settle) * w * 0.32
+	draw_texture_rect(_glow_tex(), Rect2(Vector2(gx - gs / 2.0, -gs * 0.45), Vector2(gs, gs)), false)
 	if _fade > 0.0:
 		var a := Color(0, 0, 0, 0.0)
 		var b := Color(0, 0, 0, _fade)

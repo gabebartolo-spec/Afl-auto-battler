@@ -448,6 +448,7 @@ func _footer() -> Control:
 	_finish_btn = UiKit.btn("Finish draft" if _draft.intake_mode else "Start season", 14, true)
 	_finish_btn.name = "StartSeason"
 	_finish_btn.pressed.connect(_on_finish)
+	UiKit.feel(_finish_btn, "end")     # the end of the draft: the siren
 	h.add_child(_finish_btn)
 	return p
 
@@ -942,6 +943,20 @@ func _on_pick(player: Dictionary) -> void:
 	if _draft.pick(player):
 		GameState.mark_dirty()
 		_refresh()
+		_land_my_pick()
+
+
+## Your pick lands with weight (director, 2026-10-11): the status line, and
+## the pick's row when the picks are in view. Once, then still.
+func _land_my_pick() -> void:
+	UiKit.land(_status)
+	for i in range(_draft.pick_history.size() - 1, _last_batch_start - 1, -1):
+		var entry: Dictionary = _draft.pick_history[i]
+		if str(entry["club"]) == _club:
+			var row := _history_box.get_node_or_null("HistoryPick_%d" % int(entry["pick"])) as Control
+			if row != null and row.is_visible_in_tree():
+				UiKit.land(row, 0.0, false)
+			return
 
 
 # ---------------------------------------------------------------------------
