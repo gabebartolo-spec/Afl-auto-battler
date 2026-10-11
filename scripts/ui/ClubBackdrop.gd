@@ -11,12 +11,12 @@ extends Control
 ## with a stripe edge. One is chosen; the others go.
 static var variant := "sweep"
 static var _soft: GradientTexture2D
-const YOKE_A := 0.34
+const YOKE_A := 0.38
 const YOKE_B := 0.34
 const SWEEP_TOP := 0.30
 const SWEEP_FOOT := 0.07
-const GLOW_A := 0.62
-const GLOW_B := 0.5
+const GLOW_A := 0.50
+const GLOW_B := 0.42
 
 var _club := ""
 var _settle := 1.0   # 0 arriving -> 1 at rest (live())
@@ -144,7 +144,7 @@ func _draw_yoke(w: float, h: float, cols: Array) -> void:
 	var a: Color = cols[0]
 	var b: Color = cols[1] if cols.size() > 1 else cols[0]
 	var block := h * 0.46
-	var top := _alpha(a, YOKE_A + 0.10 * (1.0 - _settle))
+	var top := _alpha(a, YOKE_A + 0.06 * (1.0 - _settle))
 	var none := Color(a, 0.0)
 	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, block), Vector2(0, block)]),
 			PackedColorArray([top, top, none, none]))
