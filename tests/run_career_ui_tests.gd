@@ -681,6 +681,37 @@ func _run() -> void:
 			and not bool(_state.week_events[0].get("resolved", false)),
 			"Two cards in a big week, each answered on its own by a tap (%s)" % second_tap)
 	_state.week_events = []
+	# His trust on the profile, at phone size: the words, and a finger on Why
+	# shows his reasons, newest first. A player you've had nothing to do with
+	# shows no trust line.
+	var trusted: Dictionary = _state.my_list[0]
+	var stranger: Dictionary = _state.my_list[1]
+	var saved_rel: Dictionary = _state.relations.duplicate(true)
+	_state.relations.erase(Trust.player_key(str(stranger["id"])))
+	_state.relations.erase(Trust.player_key(str(trusted["id"])))
+	Trust.change(_state.relations, Trust.player_key(str(trusted["id"])), 12, "You gave him his chance", _state.season_year, "Round 2")
+	Trust.change(_state.relations, Trust.player_key(str(trusted["id"])), 10, "You promised him his spot back", _state.season_year, "Round 5")
+	var tsheet: Control = PlayerSheet.open(current_scene, trusted)
+	await _settle()
+	var twords: Label = tsheet.find_child("TrustWords", true, false)
+	var twhy: Button = tsheet.find_child("TrustWhy", true, false)
+	var treasons: Control = tsheet.find_child("TrustReasons", true, false)
+	_check(twords != null and twords.text == "Trusts you." and treasons != null and not treasons.visible,
+			"The profile says he trusts you, with the reasons folded away")
+	var why_tap: String = await Tap.tap(twhy) if twhy != null else "missing"
+	await _settle()
+	var first_reason: Label = treasons.get_child(1) if treasons != null and treasons.get_child_count() > 2 else null
+	_check(why_tap == "" and treasons.visible and twhy.size.y >= 44 and first_reason != null
+			and first_reason.text.begins_with("Round 5, ") and first_reason.text.ends_with("Trust rose."),
+			"A tap on Why shows his reasons, newest first (%s)" % why_tap)
+	tsheet.queue_free()
+	var ssheet: Control = PlayerSheet.open(current_scene, stranger)
+	await _settle()
+	_check(ssheet.find_child("ProfileTrust", true, false) == null,
+			"A player you've had nothing to do with shows no trust line")
+	ssheet.queue_free()
+	_state.relations = saved_rel
+	await _settle()
 	root.size = two_cards_size
 
 	# --- Sim round asks first: it plays your match without you --------------
