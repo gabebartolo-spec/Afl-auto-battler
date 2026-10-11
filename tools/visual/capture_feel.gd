@@ -116,6 +116,7 @@ func _run() -> void:
 		var tag := out if effects.size() == 1 else "%s_%s" % [out, e]
 		print("FEEL effect %s at %dx%d, motion %s" % [e, W, H, load("res://scripts/ui/UiKit.gd").motion_on()])
 		await _one(str(e), tag, secs, state, db, str(args.get("club", "COL")))
+		_film = ""   # the clip ends on the last real frame, not the teardown's blank ones
 		for c in root.get_children():
 			if not keep.has(c):
 				c.queue_free()
@@ -191,6 +192,8 @@ func _one(effect: String, out: String, secs: float, state, db, club: String) -> 
 			state.backing_talk = {}
 			if effect == "living":
 				state.week_events = []   # only the colour settling, no card
+				# And no ladder count-up either: the stripe layer alone.
+				hub_script._ladder_seen = {"key": state.season.get_instance_id(), "pos": int(state.my_position())}
 			if effect == "result":
 				state.review_requested = true
 				var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
@@ -210,6 +213,19 @@ func _one(effect: String, out: String, secs: float, state, db, club: String) -> 
 	await process_frame
 	if effect != "settings" and effect != "draft":
 		_shot(out + "_start.png")
+	if effect == "living":
+		# The slide, frame by frame: one new offset on every frame while it runs
+		# (smooth at any frame rate), none once it has stopped.
+		var bd = root.find_child("ClubBackdrop", true, false)
+		var seen := []
+		for i in range(48):
+			await process_frame
+			if bd != null:
+				seen.append(snappedf(bd._settle, 0.001))
+		var distinct := {}
+		for v in seen:
+			distinct[v] = true
+		print("FEEL slide settle per frame (first 48): %s; distinct %d" % [str(seen), distinct.size()])
 	var peak_at := {"result": 0.0, "attention": 0.85, "living": secs * 0.5, "press": 0.0, "hub": 0.85}
 	if effect == "result":
 		# Prove the landing ran: follow the Verdict's scale from when full time
