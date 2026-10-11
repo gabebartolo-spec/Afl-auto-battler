@@ -552,13 +552,13 @@ func _draw() -> void:
 ## The press zone: a barely-there wash of the press side's colour over the part
 ## of the ground it is hunting, under the players and the ball. Three bands
 ## from the sim's own zone table (MatchDirector.press_zone_strength).
-const PRESS_ZONE_ALPHA := 0.16
+const PRESS_ZONE_ALPHA := 0.24
 func _draw_press_zone(c: Vector2, a: float, b: float) -> void:
 	for side in [0, 1]:
 		var fade := float(director.press_fade[side])
 		if fade <= 0.01:
 			continue
-		var base: Color = (_kits[side] as Dictionary).get("base", Color.WHITE)
+		var base := _zone_colour(_kits[side] as Dictionary)
 		var dir := MatchDirector._dir(side)
 		var edges := [-MatchMotion.GOAL_X - 8.0, -MatchSim.PRESS_ZONE_EDGE, MatchSim.PRESS_ZONE_EDGE, MatchMotion.GOAL_X + 8.0]
 		for i in range(3):
@@ -570,6 +570,18 @@ func _draw_press_zone(c: Vector2, a: float, b: float) -> void:
 			var x1 := _w2s(Vector2(float(edges[i + 1]) * dir, 0.0)).x
 			var col := Color(base.r, base.g, base.b, PRESS_ZONE_ALPHA * k * fade)
 			draw_colored_polygon(_stripe(c, a, b, minf(x0, x1), maxf(x0, x1)), col)
+
+
+## The club colour a wash shows best in on the turf: the livelier of the
+## guernsey's two colours, lifted when it is dark (a dark wash only looks like
+## shade on dark grass).
+func _zone_colour(kit: Dictionary) -> Color:
+	var a: Color = kit.get("base", Color.WHITE)
+	var b: Color = kit.get("pattern", a)
+	var pick := a if (a.s + 0.3 * a.v) >= (b.s + 0.3 * b.v) else b
+	if pick.v < 0.55:
+		pick = pick.lerp(Color.WHITE, 0.55)
+	return pick
 
 
 ## A thin light ring on each of your players with a call on him or a run
