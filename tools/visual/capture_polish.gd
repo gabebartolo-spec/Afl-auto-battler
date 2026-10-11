@@ -63,6 +63,10 @@ func _measure(tag: String, want: Callable) -> void:
 				fc.to_html(false), bg.to_html(false), lf])
 
 
+func _top_want(l: Label) -> bool:
+	return l.text.contains("rated") or l.text.contains("Form:") or l.text.contains("on the ladder")
+
+
 func _bottom_want(l: Label) -> bool:
 	if l.text.contains("rated") or l.text.contains("Form:"):
 		return true
@@ -108,7 +112,7 @@ func _run() -> void:
 	for i in range(10):
 		await process_frame
 	await _shot(out + "_hub.png")
-	_measure("top", func(l: Label) -> bool: return l.text.contains("rated") or l.text.contains("Form:") or l.text.contains("on the ladder"))
+	_measure("top", _top_want)
 	for sc in current_scene.find_children("*", "ScrollContainer", true, false):
 		var s := sc as ScrollContainer
 		s.scroll_vertical = 100000
