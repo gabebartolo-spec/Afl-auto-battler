@@ -46,6 +46,8 @@ func _run() -> void:
 		await _coach_descriptions(sz)
 		await _tag_targets(sz)
 		await _minder_cards(sz)
+		await _loose_interceptor(sz)
+		await _main_ruck_picker(sz)
 	await _pc_break_worst_case()
 	await _tag_not_saved()
 	await _bounce_close_up()
@@ -778,6 +780,165 @@ func _pc_break_worst_case() -> void:
 	_check(w == "" and m.find_child("BreakStatsSheet", true, false) != null, "Match stats opens from the actions row with a real tap (%s)" % w)
 	m.queue_free()
 	await _settle()
+## Loose interceptor (director, 2026-10-11): the question, a card per
+## defender with his position, Intercept and the Interceptor trait, the cost
+## line as it was, and your loose man's intercepts so far - the number is his
+## match stat in the sim, and with no loose man there is no line. Real taps.
+func _loose_interceptor(sz: Vector2i) -> void:
+	var tag := "%dx%d" % [sz.x, sz.y]
+	var db = root.get_node("GameDB")
+	var notes = load("res://scripts/ui/match/MatchNotes.gd")
+	var Mu = load("res://scripts/sim/Matchups.gd")
+	for named in [true, false]:
+		_state.reset()
+		_state.start_season("COL", db.club_list("COL"))
+		root.size = sz
+		_check(_state.prepare_interactive_match(), "A live match is prepared for the loose interceptor (%s)" % tag)
+		var sim = _state.pending_sim
+		var me := int(sim.moment_side)
+		var loose: Dictionary = Mu.best_interceptor((sim.squads[me] as Object).ground, 0.0) if named else {}
+		sim.coach_interceptor(me, str(loose.get("id", "")))
+		sim.run_quarter()
+		var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+		root.add_child(m)
+		await _settle()
+		var box: Node = m.find_child("CoachBox", true, false)
+		var block: Node = box.find_child("LooseBlock", true, false) if box != null else null
+		_check(block != null, "Quarter time shows the loose interceptor call (%s, named %s)" % [tag, named])
+		if block == null:
+			m.queue_free()
+			await _settle()
+			continue
+		var tally: Label = block.find_child("LooseTally", true, false)
+		var id := str(sim.interceptor[me])
+		if not named:
+			_check(id == "" and tally == null, "With no loose man there is no intercepts line (%s: %s)" % [tag, id])
+			m.queue_free()
+			await _settle()
+			continue
+		# The number comes from the sim's own count, not from the line.
+		var n := int(float((sim.player_stats.get(id, {}) as Dictionary).get("intercepts", 0.0)))
+		var who: String = db.player_display_name_by_id(id, "")
+		_check(tally != null and tally.text == notes.loose_tally_line(who, n)
+				and (tally.text.contains("%d intercept" % n) if n > 0 else tally.text.contains("no intercepts yet")),
+				"The line says his intercepts this match, %d (%s: %s)" % [n, tag, tally.text if tally else "-"])
+		var ask: Label = block.find_child("LooseQuestion", true, false)
+		_check(ask != null and ask.text == notes.loose_question(), "The call asks who plays loose behind the ball (%s)" % tag)
+		_check(_text(box).contains("He leaves his direct man to attack aerial balls. Another defender covers where possible; if he flies and loses, space opens behind him."),
+				"The cost line stays word for word (%s)" % tag)
+		var bad := []
+		var shown := 0
+		for b in block.find_children("InterceptorPickerGrid_*", "Button", true, false):
+			var bid := str(b.name).trim_prefix("InterceptorPickerGrid_")
+			if bid == "":
+				continue
+			shown += 1
+			var p: Dictionary = {}
+			for q in (sim.squads[me] as Object).ground:
+				if str(q["id"]) == bid:
+					p = q
+			var want := "Intercept %d" % roundi(float((p.get("attr", {}) as Dictionary).get("intercept", 0.0)))
+			var want_m := "Marking %d" % roundi(float((p.get("attr", {}) as Dictionary).get("marking", 0.0)))
+			if p.is_empty() or not b.text.contains(want) or not b.text.contains(want_m) or b.text.contains("Interceptor") != bool(load("res://scripts/sim/Traits.gd").has(p, "interceptor")):
+				bad.append(bid)
+			if b.size.y + 1.0 < b.get_combined_minimum_size().y:
+				bad.append(bid + " cut")
+		_check(shown >= 1 and bad.is_empty(), "Every card shows his Intercept, Marking and the trait, none cut off (%s: %d %s)" % [tag, shown, str(bad)])
+		var none_b: Button = block.find_child("InterceptorPickerGrid_", true, false)
+		var w: String = await Tap.tap(none_b)
+		await _settle()
+		_check(w == "", "A finger reaches the loose interceptor call (%s: %s)" % [tag, w])
+		m.queue_free()
+		await _settle()
+## Main ruck (director, 2026-10-07): a side with two rucks names who goes up.
+## The call is only there with two rucks in the team; each choice says who
+## goes up and who does while he rests; a real tap names him, Start takes it
+## to the engine and the plan line says it; nothing is cut off, and on a PC
+## the whole quarter-time break still fits 1280x720.
+func _main_ruck_picker(sz: Vector2i) -> void:
+	var tag := "%dx%d" % [sz.x, sz.y]
+	var db = root.get_node("GameDB")
+	var Ms = load("res://scripts/sim/MatchSim.gd")
+	# A club with two rucks today and one with a single ruck.
+	var two := ""
+	var one := ""
+	for c in ["BRL", "HAW", "GWS", "WCE", "STK", "COL", "GEE", "CAR", "SYD", "MEL"]:
+		_state.reset()
+		_state.start_season(c, db.club_list(c))
+		if not _state.prepare_interactive_match():
+			continue
+		var sq = _state.pending_sim.squads[int(_state.pending_sim.moment_side)]
+		var n := 0
+		for p in sq.ground:
+			if Ms._is_ruckman(p):
+				n += 1
+		if n >= 2 and two == "":
+			two = c
+		elif n == 1 and one == "":
+			one = c
+	_check(two != "" and one != "", "(setup) a club with two rucks on the ground and one with one (%s: %s, %s)" % [tag, two, one])
+	if two == "" or one == "":
+		return
+	for c in [one, two]:
+		_state.reset()
+		_state.start_season(c, db.club_list(c))
+		root.size = sz
+		_state.prepare_interactive_match()
+		var sim = _state.pending_sim
+		var me := int(sim.moment_side)
+		# Before the first bounce: both rucks are on the ground as picked.
+		var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+		root.add_child(m)
+		await _settle()
+		var box: Node = m.find_child("CoachBox", true, false)
+		var pick: Node = box.find_child("MainRuckPicker", true, false) if box != null else null
+		if c == one:
+			_check(box != null and pick == null, "One ruck on the ground, no Main ruck call (%s, %s)" % [tag, c])
+			m.queue_free()
+			await _settle()
+			continue
+		_check(pick != null, "Two rucks on the ground, a Main ruck call (%s, %s)" % [tag, c])
+		if pick == null:
+			m.queue_free()
+			await _settle()
+			continue
+		var rucks: Array = m.call("_my_rucks", sim)
+		var note: Label = box.find_child("MainRuckNote", true, false)
+		_check(note != null and note.text.begins_with("No main ruck: whoever is in the ruck spot goes up."),
+				"With nobody named, it says the ruck spot decides (%s)" % tag)
+		var b: Button = box.find_child("MainRuckPicker_" + str(rucks[1]["id"]), true, false)
+		var rr := roundi(float((rucks[1]["attr"] as Dictionary).get("ruck", 0.0)))
+		_check(b != null and b.text.contains("Ruck %d" % rr), "His card shows his Ruck rating, %d (%s)" % [rr, tag])
+		var w: String = await Tap.tap(b)
+		await _settle()
+		var nm: String = db.player_display_name(rucks[1])
+		_check(w == "" and note.text.begins_with("%s goes up at every stoppage while he is on the ground" % nm)
+				and note.text.contains(db.player_display_name(rucks[0])) == (rucks.size() == 2),
+				"A finger names the main ruck; the line says he goes up and who does while he rests (%s: %s)" % [tag, note.text])
+		var bad := []
+		for l in pick.get_parent().find_children("*", "Control", true, false) + [note]:
+			if l is Label or l is Button:
+				if (l as Control).size.y + 1.0 < (l as Control).get_combined_minimum_size().y:
+					bad.append(str(l.name))
+		_check(bad.is_empty(), "Nothing in the Main ruck call is cut off (%s: %s)" % [tag, str(bad)])
+		if sz.x >= 1200:
+			var bc: Control = box.find_child("BreakColumns", true, false)
+			var bsc: ScrollContainer = null
+			var up: Node = bc
+			while up != null and bsc == null:
+				bsc = up as ScrollContainer
+				up = up.get_parent()
+			var need := (bsc.get_child(0) as Control).get_combined_minimum_size().y if bsc != null else INF
+			_check(bsc != null and need <= bsc.size.y + 1.0,
+					"The break with a Main ruck call fits 1280x720 without scrolling (%.0f of %.0f)" % [need, bsc.size.y if bsc else 0.0])
+		var gw: String = await Tap.tap(box.find_child("StartQuarter", true, false))
+		await _settle()
+		_check(gw == "" and str((sim.tactics[me] as Dictionary).get("main_ruck", "")) == str(rucks[1]["id"]),
+				"Start takes the main ruck to the engine (%s)" % tag)
+		var line: Label = m.find_child("SetupLine", true, false)
+		_check(line != null and line.text.contains("%s the main ruck" % nm), "The plan line names the main ruck (%s)" % tag)
+		m.queue_free()
+		await _settle()
 
 
 ## A live match is not saved: a career saved and loaded mid-match comes back

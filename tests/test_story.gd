@@ -177,6 +177,19 @@ func _test_trust_rules() -> void:
 	_check(Trust.words(-30) == "Wary of you" and Trust.words(-80) == "Stopped listening", "Low trust in words")
 	_check(Trust.scaled(10, 60) > 10 and Trust.scaled(10, -60) < 10 and Trust.scaled(-5, 60) == -5,
 			"A lift lands harder with trust and softer without; a cost is a cost")
+	# The profile's words: nothing until something has passed between you.
+	var p2 := Trust.player_key("y")
+	var none := {}
+	_check(Trust.profile_words(none, p2) == "", "The profile says nothing about a player you've had nothing to do with")
+	Trust.change(none, p2, 8, "You gave him his chance", 2027, "Round 4")
+	Trust.change(none, p2, -8, "You promised him a game and left him out", 2027, "Round 6")
+	_check(Trust.profile_words(none, p2) == "Has no strong view of you",
+			"Back in the middle after two moments, he has no strong view of you")
+	_check(Trust.profile_words(rel, k) == "Trusts you completely", "Otherwise the profile uses his band's words")
+	var rs := Trust.reasons(none, p2)
+	_check(Trust.reason_text(rs[0]) == "Round 6, 2027. You promised him a game and left him out. Trust fell."
+			and Trust.reason_text(rs[1]) == "Round 4, 2027. You gave him his chance. Trust rose.",
+			"Each reason reads when, what you did, and which way it moved him")
 
 
 # --- The engine ------------------------------------------------------------------
