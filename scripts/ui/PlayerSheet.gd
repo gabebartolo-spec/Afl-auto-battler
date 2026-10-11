@@ -31,7 +31,7 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 	var name_l := UiKit.lbl(GameDB.player_display_name(p), 22, UiKit.TEXT, true)
 	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(name_l)
-	_identity(v, p)
+	var nickname_row := _identity(v, p)
 	var type_l := UiKit.lbl(Roles.label(p), UiKit.H2, UiKit.TEXT, true)
 	type_l.name = "ProfileType"
 	v.add_child(type_l)
@@ -138,8 +138,17 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 
 	# His senior career (Career.gd): games and goals, and the clubs when he
 	# has played for more than one.
-	var tot := Career.totals_text(p)
-	if tot != "":
+	# Career through the last finished season plus this one so far, so it never
+	# trails the "With us" line (which counts this season). Shown only when he
+	# has played for someone else too; at one club the "With us" line is the
+	# same fact once.
+	var tally: Dictionary = GameState.season_tally.get(str(p.get("id", "")), {})
+	var live: bool = int(Career.of(p).get("through", 0)) < GameState.season_year
+	var tot := Career.totals_text(p, int(tally.get("games", 0)) if live else 0,
+			int(tally.get("goals", 0)) if live else 0)
+	var mine := not GameState.list_player(str(p.get("id", ""))).is_empty()
+	var only_us := mine and GameState.with_us_text(p) != "" and _only_club(p, GameState.my_club)
+	if tot != "" and not only_us:
 		v.add_child(UiKit.spacer(4))
 		v.add_child(UiKit.lbl("Career", UiKit.SMALL, UiKit.MUTED))
 		var cl := UiKit.lbl(tot, UiKit.BODY, UiKit.TEXT)
@@ -172,6 +181,9 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 	var attr: Dictionary = p["attr"]
 	for r in ATTR_ROWS:
 		grid.add_child(attr_bar(str(r[0]), str(r[1]), float(attr.get(r[0], 0.0))))
+	if nickname_row != null:
+		v.add_child(UiKit.spacer(6))
+		v.add_child(nickname_row)
 
 	for a in actions:
 		var action: Dictionary = a
@@ -192,6 +204,17 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 			on_close.call())
 	box["footer"].add_child(close)
 	return overlay
+
+
+## True when every season on his record was at this club.
+static func _only_club(p: Dictionary, code: String) -> bool:
+	var stints: Array = Career.of(p).get("stints", [])
+	if stints.is_empty():
+		return false
+	for st in stints:
+		if str(st[0]) != code:
+			return false
+	return true
 
 
 static func attr_bar(key: String, label: String, value: float) -> Control:
@@ -274,7 +297,10 @@ static func _trust(v: VBoxContainer, p: Dictionary) -> void:
 ## FL-005: his nickname beside the full name, and one thing he does outside
 ## footy - quiet text, never a rating, never read by the game. Your own player's
 ## nickname can be changed or removed here.
-static func _identity(v: VBoxContainer, p: Dictionary) -> void:
+## Nickname and the club he followed. Returns the row to add a first nickname
+## when he has none (it goes at the foot of the profile, not at the top as an
+## empty button), else null.
+static func _identity(v: VBoxContainer, p: Dictionary) -> Control:
 	var nick := FictionalIdentity.nickname(p)
 	var row := UiKit.hbox(8)
 	row.name = "ProfileNickname"
@@ -304,18 +330,22 @@ static func _identity(v: VBoxContainer, p: Dictionary) -> void:
 			field.visible = false
 			edit.text = "Nickname" if now == "" else "Change")
 		field.text_submitted.connect(func(_t): edit.emit_signal("pressed"))
-	if nick != "" or mine:
+	var later: Control = null
+	if nick != "":
 		v.add_child(row)
+	elif mine:
+		later = row
 	# The club he followed as a kid (FL-005): a sourced fact for a real player,
 	# else "Not recorded" - never a guess.
 	var fav := FictionalIdentity.favourite_club(p)
-	var fl := UiKit.lbl("Favourite club: %s" % (GameDB.club_short(fav) if fav != "" else "Not recorded"),
-			UiKit.SMALL, UiKit.MUTED)
-	fl.name = "ProfileFavouriteClub"
-	v.add_child(fl)
+	if fav != "":
+		var fl := UiKit.lbl("Favourite club: %s" % GameDB.club_short(fav), UiKit.SMALL, UiKit.MUTED)
+		fl.name = "ProfileFavouriteClub"
+		v.add_child(fl)
 	var what := FictionalIdentity.interest(p)
 	if what != "":
 		var il := UiKit.lbl("Outside footy: %s." % what, UiKit.SMALL, UiKit.MUTED)
 		il.name = "ProfileInterest"
 		il.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(il)
+	return later

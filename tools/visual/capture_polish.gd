@@ -22,6 +22,47 @@ func _shot(path: String) -> void:
 	print("wrote ", path)
 
 
+func _lum(c: Color) -> float:
+	var ch := func(v: float) -> float:
+		return v / 12.92 if v <= 0.03928 else pow((v + 0.055) / 1.055, 2.4)
+	return 0.2126 * ch.call(c.r) + 0.7152 * ch.call(c.g) + 0.0722 * ch.call(c.b)
+
+
+## Real size and contrast of the small type where it sits: the label's font
+## size and line height in pixels, and its colour against the brightest page
+## pixel in a 3 px strip above and below it (the stripes behind it).
+func _measure(tag: String, want: Callable) -> void:
+	var img := root.get_viewport().get_texture().get_image()
+	var seen := {}
+	for n in current_scene.find_children("*", "Label", true, false):
+		var l := n as Label
+		if not l.is_visible_in_tree() or l.text.strip_edges() == "" or not want.call(l):
+			continue
+		var r := l.get_global_rect()
+		if r.end.y > H or r.position.y < 0:
+			continue
+		var key := "%s|%d" % [l.text, int(l.get_theme_font_size("font_size"))]
+		if seen.has(key):
+			continue
+		seen[key] = true
+		var bg := Color.BLACK
+		var best := -1.0
+		for x in range(int(r.position.x), mini(int(r.end.x), W - 1), 3):
+			for y in [int(r.position.y) - 3, int(r.end.y) + 2]:
+				if y < 0 or y >= H:
+					continue
+				var c := img.get_pixel(x, y)
+				if _lum(c) > best:
+					best = _lum(c)
+					bg = c
+		var fc: Color = l.get_theme_color("font_color")
+		var lf := (_lum(fc) + 0.05) / (best + 0.05) if _lum(fc) > best else (best + 0.05) / (_lum(fc) + 0.05)
+		print("POLISH %s [%s] font %d px, line height %d px, text %s on brightest %s: contrast %.1f" % [
+				tag, l.text.substr(0, 28), l.get_theme_font_size("font_size"),
+				int(l.get_theme_font("font").get_height(l.get_theme_font_size("font_size"))),
+				fc.to_html(false), bg.to_html(false), lf])
+
+
 func _run() -> void:
 	var out := "/tmp/polish"
 	var club := "BRL"
@@ -59,10 +100,14 @@ func _run() -> void:
 	for i in range(10):
 		await process_frame
 	await _shot(out + "_hub.png")
+	_measure("top", func(l: Label) -> bool: return l.text.contains("rated") or l.text.contains("Form:") or l.text.contains("on the ladder"))
 	for sc in current_scene.find_children("*", "ScrollContainer", true, false):
 		var s := sc as ScrollContainer
 		s.scroll_vertical = 100000
 	await _shot(out + "_hub_bottom.png")
+	_measure("bottom", func(l: Label) -> bool: return l.text.contains("rated") or l.text.contains("Form:")
+			or l.text in ["Club", "W-L", "Pts", "#", "1", "10", "1-0", "0-1", "4", "0", "Crows", "Giants", "Lions"]
+			or l.get_parent() is VBoxContainer and l.text.begins_with("Mark Keane"))
 	root.get_node("Router").go("list")
 	for i in range(8):
 		await process_frame
