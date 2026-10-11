@@ -339,7 +339,8 @@
 				"result": "{name} says he understands."
 			}
 		],
-		"cooldown": 30
+		"cooldown": 30,
+		"stakes": "Leave it to {name}: Leadership {leadership}. He settles it if his Leadership is 60 or more, or 45 or more and he trusts you. {delegate_line}"
 	},
 	{
 		"id": "captain_group_flat",
@@ -414,7 +415,8 @@
 		"cooldown": 25,
 		"when": {
 			"losing_run_min": 3
-		}
+		},
+		"stakes": "Leave it to {name}: Leadership {leadership}. He settles it if his Leadership is 60 or more, or 45 or more and he trusts you. {delegate_line}"
 	},
 	{
 		"id": "captain_harder_session",
@@ -497,7 +499,7 @@
 			}
 		],
 		"cooldown": 40,
-		"stakes": "The group tires and standards lift."
+		"stakes": "A hard week tires the group and standards lift. Leave it to {name}: Leadership {leadership}. He settles it if his Leadership is 60 or more, or 45 or more and he trusts you. {delegate_line}"
 	},
 	{
 		"id": "captain_young_player",

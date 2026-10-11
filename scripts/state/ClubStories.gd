@@ -153,6 +153,7 @@ static func player_fact(gs, p: Dictionary, selected: bool, i: Dictionary, fit_ra
 	var pot := int(p.get("potential", ovr))
 	var lead := Leadership.of(p)
 	var band := Trust.band(t)
+	var holds: bool = lead >= StoryDeck.HOLDS_AT or (lead >= StoryDeck.HOLDS_WITH_TRUST and (band == "trusts" or band == "close"))
 	return {"id": id, "name": name, "first": name.split(" ")[0], "age": float(p.get("age", 25.0)),
 			"games": gs.games_played(p), "fit": fit, "selected": selected, "overall": ovr, "potential": pot,
 			"pot_gap": pot - ovr, "contract_years": int(p.get("contract_years", 2)), "morale": ClubLife.morale(p),
@@ -173,7 +174,7 @@ static func player_fact(gs, p: Dictionary, selected: bool, i: Dictionary, fit_ra
 			# A dispute left to the captain: held when his Leadership is high enough, or
 			# fairly high and he trusts you (the rule is printed on the choice).
 			"leadership": lead, "captain": Captaincy.role_of(gs.captaincy_record(gs.my_club), id) == "captain",
-			"delegate_holds": lead >= StoryDeck.HOLDS_AT or (lead >= StoryDeck.HOLDS_WITH_TRUST and (band == "trusts" or band == "close"))}
+			"delegate_holds": holds, "delegate_line": "As it stands, it would hold." if holds else "As it stands, it wouldn't hold."}
 
 
 ## One card from the deck about `p` (or the club), built for this week whether

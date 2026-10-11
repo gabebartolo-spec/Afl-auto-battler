@@ -994,6 +994,10 @@ func _test_captain_cards() -> void:
 	_check(leave_detail.contains("Leadership %d" % Leadership.of(cap)) and leave_detail.contains("60 or more")
 			and leave_detail.contains("45 or more") and (leave_detail.contains("it would hold") or leave_detail.contains("it wouldn't hold")),
 			"The choice prints his Leadership, the rule, and what it means now (%s)" % leave_detail)
+	var stakes := str(card.get("stakes", ""))
+	_check(stakes.contains("Leadership %d" % Leadership.of(cap)) and stakes.contains("60 or more") and stakes.contains("45 or more")
+			and (stakes.contains("it would hold") or stakes.contains("it wouldn't hold")),
+			"The card itself, on the hub, prints his Leadership, the rule and what it means now (%s)" % stakes)
 	var holds := StoryDeck.HOLDS_AT
 	for case in [[70, 0, true], [40, 80, false], [50, 40, true], [50, 0, false], [60, 0, true], [44, 90, false]]:
 		var lead := int(case[0])
