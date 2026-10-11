@@ -1270,3 +1270,26 @@ static func synergy_lines(res: Dictionary, my_side: int) -> Array:
 		if fact != "":
 			out.append("%s: %s" % [Traits.label(str(key)), fact])
 	return out
+
+
+## The standing calls the quarter just played broke, for the break's
+## attention pulse (director, 2026-10-11: only what genuinely needs the
+## coach): the tag the match ended, or your play-through player, loose
+## defender or defensive forward gone off hurt. Picker node names. `injuries`
+## is the match's injury log, `last` the calls made at the last break.
+static func broken_calls(res: Dictionary, injuries: Array, my_side: int, q: int, last: Dictionary) -> Array:
+	var out := []
+	if q <= 1:
+		return out
+	if not tag_drop_lines(res, my_side, q - 1).is_empty():
+		out.append("TagPicker")
+	var hurt := {}
+	for inj in injuries:
+		if int(inj.get("side", -1)) == my_side and int(inj.get("q", 0)) == q - 1:
+			hurt[str(inj.get("id", ""))] = true
+	for pair in [["focus_id", "FocusPicker"], ["interceptor_id", "InterceptorPicker"],
+			["spare_minder_id", "SpareMinderPicker"]]:
+		var id := str(last.get(pair[0], ""))
+		if id != "" and hurt.has(id):
+			out.append(pair[1])
+	return out

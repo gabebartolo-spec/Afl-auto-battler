@@ -371,9 +371,11 @@ static func figure(text: String, fs := 30, color := AUTO_COLOUR) -> Label:
 
 ## Motion (director, 2026-10-08: big type and motion). Short and quiet: a
 ## headline fades up, a number counts to itself, a screen eases in. Never in
-## a headless run (tests and tools), so what a check reads is final at once.
+## a headless run (tests and tools), so what a check reads is final at once,
+## and never with Reduced motion on (Settings): the one switch for every
+## moving thing, the turnover shake included.
 static func motion_on() -> bool:
-	return DisplayServer.get_name() != "headless"
+	return (DisplayServer.get_name() != "headless" or Feel.test_motion) and not Feel.reduced
 
 
 ## Fade `c` up from nothing, `delay` seconds after it is shown.
@@ -410,6 +412,123 @@ static func count_up(l: Label, to: int, say: Callable, dur := 0.7, from := 0) ->
 		run.call()
 	else:
 		l.tree_entered.connect(run, CONNECT_ONE_SHOT)
+
+
+## A big moment lands (director, 2026-10-11: result, draft pick, ladder,
+## premiership): `c` drops into place with weight, the sting sounds and a
+## phone gives one firm buzz, `delay` seconds after it is shown. Then it
+## stops. Without motion only the sound and the buzz come. `sound` false for
+## a second thing landing on the same moment.
+static func land(c: Control, delay := 0.0, sound := true) -> void:
+	if c == null:
+		return
+	var hit := func() -> void:
+		if sound:
+			Feel.press("land")
+		if not motion_on() or not is_instance_valid(c):
+			return
+		Feel.moved.append("land")
+		c.pivot_offset = _pivot(c)
+		c.scale = Vector2(1.22, 1.22)
+		c.create_tween().tween_property(c, "scale", Vector2.ONE, 0.5) \
+				.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_after(c, delay if motion_on() else 0.0, hit)
+
+
+## Something that genuinely needs the coach (a call the match broke, a
+## question still unanswered) brightens twice, gently, and then holds still.
+## Never decoration, never a loop.
+static func attention(c: CanvasItem, delay := 0.45) -> void:
+	if c == null or not motion_on():
+		return
+	_after(c, delay, func() -> void:
+		if not is_instance_valid(c):
+			return
+		Feel.moved.append("attention")
+		var tw := c.create_tween()
+		for i in range(2):
+			tw.tween_property(c, "modulate", Color(1.55, 1.55, 1.55), 0.32).set_trans(Tween.TRANS_SINE)
+			tw.tween_property(c, "modulate", Color.WHITE, 0.55).set_trans(Tween.TRANS_SINE))
+
+
+## Living backgrounds (director, 2026-10-11): `apply(t)` is called with t going
+## 0 -> 1 over `secs` (eased out) at `hz` redraws a second, then never again.
+## A slow settle on arrival, not a loop: the screen draws nothing once it's
+## still (low_processor_mode). Without motion it is called once with 1.
+static func drift(n: CanvasItem, apply: Callable, secs := 12.0, hz := 6.0) -> void:
+	if not motion_on():
+		apply.call(1.0)
+		return
+	apply.call(0.0)
+	_after(n, 0.0, func() -> void:
+		if not is_instance_valid(n):
+			return
+		Feel.moved.append("drift")
+		var timer := Timer.new()
+		timer.name = "Drift"
+		timer.wait_time = 1.0 / hz
+		var ticks := [0]
+		var last := maxi(1, roundi(secs * hz))
+		timer.timeout.connect(func() -> void:
+			ticks[0] += 1
+			var k := clampf(float(ticks[0]) / float(last), 0.0, 1.0)
+			apply.call(1.0 - pow(1.0 - k, 3.0))
+			if k >= 1.0:
+				timer.queue_free())
+		n.add_child(timer)
+		timer.start())
+
+
+## Run `f` once `c` is on screen, `delay` seconds later.
+static func _after(c: CanvasItem, delay: float, f: Callable) -> void:
+	var run := func() -> void:
+		if not is_instance_valid(c) or not c.is_inside_tree():
+			return
+		if delay > 0.0:
+			c.get_tree().create_timer(delay).timeout.connect(f)
+		else:
+			f.call()
+	if c.is_inside_tree():
+		run.call()
+	else:
+		c.tree_entered.connect(run, CONNECT_ONE_SHOT)
+
+
+## Where a label grows from: its text's own edge, so a punch doesn't slide it.
+static func _pivot(c: Control) -> Vector2:
+	var x := c.size.x / 2.0
+	if c is Label:
+		match (c as Label).horizontal_alignment:
+			HORIZONTAL_ALIGNMENT_LEFT:
+				x = 0.0
+			HORIZONTAL_ALIGNMENT_RIGHT:
+				x = c.size.x
+	return Vector2(x, c.size.y / 2.0)
+
+
+## Every button answers a finger (director, 2026-10-11): it presses in, and on
+## a real press (not a touch that became a scroll) it sounds and buzzes by its
+## kind: "main" a boot through the ball (the primary action), "soft" a lighter
+## one, "tick" a stud on concrete (a choice, a tab), "end" the siren (the end
+## of a flow). Wired once; a repaint only changes the kind.
+static func feel(b: BaseButton, kind: String) -> void:
+	b.set_meta("feel", kind)
+	if b.has_meta("feel_wired"):
+		return
+	b.set_meta("feel_wired", true)
+	b.button_down.connect(func() -> void: _press_in(b))
+	b.pressed.connect(func() -> void: Feel.press(str(b.get_meta("feel", "soft"))))
+
+
+static func _press_in(b: Control) -> void:
+	if not motion_on() or not is_instance_valid(b):
+		return
+	Feel.moved.append("press")
+	b.pivot_offset = b.size / 2.0
+	var tw := b.create_tween()
+	tw.tween_property(b, "scale", Vector2(0.96, 0.96), 0.05).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(0.08)
+	tw.tween_property(b, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 ## The painted drop shade under display type.
@@ -470,6 +589,7 @@ static func style_button(b: Button, fs := 16, primary := false, danger := false)
 	var focus := style(Color.TRANSPARENT, 0, RADIUS, TEXT)
 	focus.set_border_width_all(2)
 	b.add_theme_stylebox_override("focus", focus)
+	feel(b, "main" if primary else "soft")
 
 
 ## The quiet surface of a secondary control: one step up from the page, so it
@@ -575,6 +695,7 @@ static func paint_tab(b: Button, active: bool) -> void:
 	b.add_theme_color_override("font_color", TEXT if active else MUTED)
 	b.add_theme_color_override("font_hover_color", TEXT)
 	b.add_theme_color_override("font_pressed_color", TEXT)
+	feel(b, "tick")
 
 
 ## A short choice as one line of text (audit §8 Phase 1: the idiom for two
@@ -711,6 +832,7 @@ static func paint_choice(b: Button, on: bool) -> void:
 	b.add_theme_color_override("font_color", TEXT if on else MUTED)
 	b.add_theme_color_override("font_hover_color", TEXT)
 	b.add_theme_color_override("font_pressed_color", TEXT)
+	feel(b, "tick")
 
 
 static func option() -> OptionButton:

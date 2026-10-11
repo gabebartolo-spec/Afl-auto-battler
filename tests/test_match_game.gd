@@ -25,6 +25,7 @@ func run() -> void:
 	_test_set_shot()
 	_test_live_determinism()
 	_test_impact_and_ai()
+	_test_decision_credits()
 	_test_pep_talks()
 	_test_tired_call_holds()
 	_test_play_through()
@@ -3520,3 +3521,77 @@ func _test_six_plans() -> void:
 	_check(CoachReport.plan_label("fast") == "Attack corridor" and CoachReport.plan_label("press") == "Defensive press"
 			and not MatchSim.PLANS.has("fast") and not MatchSim.PLANS.has("press") and MatchSim.PLANS.size() == 5,
 			"Six plans (balanced and five others), and the old names read as the merged ones")
+
+
+## The full-time decision summary (director, 2026-10-11): each call has its
+## own line, worth what it changed on average; a call not made is worth
+## nothing; the lines and "the rest" add up to the margin.
+func _test_decision_credits() -> void:
+	# No calls at all: every decision line is 0 for both sides.
+	var off := _sim(7301)
+	off.run()
+	var zero := true
+	for side in range(2):
+		for cause in MatchSim.DECISION_CAUSES:
+			zero = zero and float((off.impact[side] as Dictionary).get(cause, 0.0)) == 0.0
+	_check(zero, "With no calls made, every decision line is 0 (%s)" % str(off.impact))
+	# Each call on: its own line moves, and only its owner's.
+	var on := _sim(7301)
+	var their_mid := ""
+	for p in (on.squads[1] as Squad).ground:
+		if their_mid == "" and MatchSim.taggable(p):
+			their_mid = str(p["id"])
+	var spare: Dictionary = Matchups.best_interceptor((on.squads[1] as Squad).ground)
+	on.set_tactics(0, {"gameplan": "balanced", "tag_id": their_mid, "spare_accountable": true})
+	on.set_interceptor(1, str(spare.get("id", "")), false)
+	var fwd := ""
+	var to := ""
+	for fid in (on.duels[1] as Dictionary):
+		if fwd == "":
+			fwd = str(fid)
+	for p in (on.squads[1] as Squad).ground:
+		if to == "" and str(p["role"]) == "DEF" and str(p["id"]) != str((on.duels[1] as Dictionary).get(fwd, "")) 				and str(p["id"]) != str(spare.get("id", "")):
+			to = str(p["id"])
+	on.set_matchups(1, {fwd: to})
+	on.run()
+	var i0: Dictionary = on.impact[0]
+	var i1: Dictionary = on.impact[1]
+	_check(float(i0.get("tag", 0.0)) != 0.0 and float(i1.get("tag", 0.0)) == 0.0,
+			"A tag is booked to the side that called it (%.2f, %.2f)" % [float(i0.get("tag", 0.0)), float(i1.get("tag", 0.0))])
+	_check(float(i1.get("loose", 0.0)) != 0.0 and float(i0.get("loose", 0.0)) == 0.0,
+			"A loose defender is booked to his side (%.2f)" % float(i1.get("loose", 0.0)))
+	_check(float(i0.get("minder", 0.0)) > 0.0,
+			"A forward sent to their loose man is worth what he takes off him (%.2f)" % float(i0.get("minder", 0.0)))
+	_check(fwd != "" and to != "" and float(i1.get("matchups", 0.0)) != 0.0 and float(i0.get("matchups", 0.0)) == 0.0,
+			"A changed match-up is booked to the coach who made it (%.2f)" % float(i1.get("matchups", 0.0)))
+	var margin := float(on.score(0) - on.score(1))
+	var sum0 := CoachReport.decision_lines(on.impact, 0, margin)
+	var total := float(sum0["rest"])
+	for l in sum0["lines"]:
+		total += float(l["pts"])
+	_check(is_equal_approx(total, margin) and (sum0["lines"] as Array).size() >= 2,
+			"The decision lines and the rest add up to the margin (%+.1f)" % margin)
+	# An old save's last match booked the bursts as "calls": still shown.
+	var old_lines := CoachReport.impact_lines([{"calls": 2.0}, {}], [{}, {}], 0)
+	_check(old_lines.size() == 1 and str(old_lines[0]["label"]) == "Your in-game calls"
+			and is_equal_approx(float(old_lines[0]["pts"]), 2.0),
+			"An old save's \"calls\" still reads as in-game calls (%s)" % str(old_lines))
+	# A moment: the call is worth its expected points against the default.
+	var live := _sim(7302)
+	live.moment_side = 0
+	var want := 0.0
+	var seen := 0
+	while live.current_quarter <= 4:
+		live.begin_quarter()
+		while not live.continue_quarter():
+			var m: Dictionary = live.pending_moment
+			var pick := int(m.get("default", 0))
+			if str(m.get("kind", "")) == "set_shot":
+				var opts: Array = m["options"]
+				pick = opts.size() - 1
+				want += live._option_points(opts[pick]) - live._option_points(opts[int(m.get("default", 0))])
+				seen += 1
+			live.resolve_moment(pick)
+		live.end_quarter()
+	_check(seen > 0 and is_equal_approx(float((live.impact[0] as Dictionary).get("moments", 0.0)), want) and want != 0.0,
+			"A set-shot call is worth its chances against taking the shot (%d calls, %+.2f)" % [seen, want])
