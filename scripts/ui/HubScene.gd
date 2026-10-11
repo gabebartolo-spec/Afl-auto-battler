@@ -39,6 +39,13 @@ func _ready() -> void:
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	UiKit.apply_insets(margin, 12)
 	add_child(margin)
+	# The club's stripes sweep in first (ClubBackdrop.live, 0.6 s); the screen's
+	# own content fades up 0.2 s later, so the slide is what you see.
+	if UiKit.motion_on():
+		margin.modulate.a = 0.0
+		var fade := create_tween()
+		fade.tween_interval(0.2)
+		fade.tween_property(margin, "modulate:a", 1.0, 0.3)
 
 	_root = UiKit.vbox(10)
 	margin.add_child(_root)

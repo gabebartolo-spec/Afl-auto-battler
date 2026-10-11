@@ -191,6 +191,7 @@ func _one(effect: String, out: String, secs: float, state, db, club: String) -> 
 			state.media_conference = {}
 			state.backing_talk = {}
 			if effect == "living":
+				load("res://scripts/ui/ClubBackdrop.gd").trace = true
 				state.week_events = []   # only the colour settling, no card
 				# And no ladder count-up either: the stripe layer alone.
 				hub_script._ladder_seen = {"key": state.season.get_instance_id(), "pos": int(state.my_position())}
@@ -214,18 +215,11 @@ func _one(effect: String, out: String, secs: float, state, db, club: String) -> 
 	if effect != "settings" and effect != "draft":
 		_shot(out + "_start.png")
 	if effect == "living":
-		# The slide, frame by frame: one new offset on every frame while it runs
-		# (smooth at any frame rate), none once it has stopped.
-		var bd = root.find_child("ClubBackdrop", true, false)
-		var seen := []
-		for i in range(48):
-			await process_frame
-			if bd != null:
-				seen.append(snappedf(bd._settle, 0.001))
-		var distinct := {}
-		for v in seen:
-			distinct[v] = true
-		print("FEEL slide settle per frame (first 48): %s; distinct %d" % [str(seen), distinct.size()])
+		# The slide's value at every frame it drew (from the very first).
+		var trl: Array = load("res://scripts/ui/ClubBackdrop.gd").trail
+		print("FEEL slide per drawn frame: %s" % str(trl.slice(0, 24)))
+		await _wait(1.0)
+		print("FEEL redraws in the second after: %d" % (load("res://scripts/ui/ClubBackdrop.gd").trail.size() - trl.size()))
 	var peak_at := {"result": 0.0, "attention": 0.85, "living": secs * 0.5, "press": 0.0, "hub": 0.85}
 	if effect == "result":
 		# Prove the landing ran: follow the Verdict's scale from when full time

@@ -15,12 +15,15 @@ extends Control
 const FOOT_MIX := 0.30        # how much of the stripe is left at the foot of the page
 const TOP_LUM := 0.034        # brightest a stripe may be (relative luminance): MUTED >= 4.5
 const SLIDE_SECS := 0.6       # the stripes sweep in from off-screen, eased out
-const CREEP_PX := 24.0        # then creep this far over CREEP_SECS: 6 px/s at first, to a stop
-const CREEP_SECS := 12.0
+const GOLD_EDGE := 6.0        # a yellow club's stripes are full-brightness gold this far down from the top, above any text
+
+## Set by a capture tool to record the slide's value at every drawn frame.
+static var trace := false
+static var trail: Array = []
 
 var _club := ""
 var _settle := 1.0   # 0 arriving -> 1 at rest: the slide (live())
-var _creep := 1.0    # 0 -> 1: the slow drift after it
+var _raw: Array = []   # the club colours as they are, under the stripes (the gold edge)
 
 
 func setup(club: String) -> ClubBackdrop:
@@ -32,20 +35,16 @@ func setup(club: String) -> ClubBackdrop:
 	return self
 
 
-## Living (director, 2026-10-11): on arrival the stripes sweep in from off
-## screen over SLIDE_SECS (every frame, eased out), then creep CREEP_PX more
-## over CREEP_SECS at 6 redraws a second, then hold still and draw nothing
-## more (UiKit.drift).
+## Living (director, 2026-10-11): on arrival the stripes sweep in from fully
+## off screen over SLIDE_SECS, a pure ease-out (the biggest step on the first
+## frame), every frame, then hold still and draw nothing more. (A slow creep
+## after it was tried and dropped: at 2-6 px/s the edges step a whole pixel at a
+## time, which is a flicker, not life.)
 func live() -> ClubBackdrop:
 	if not UiKit.motion_on():
 		_settle = 1.0
-		_creep = 1.0
 		return self
 	_settle = 0.0
-	_creep = 0.0
-	UiKit.drift(self, func(t: float) -> void:
-		_creep = t
-		queue_redraw(), CREEP_SECS, 6.0)
 	tree_entered.connect(func() -> void:
 		Feel.moved.append("slide")
 		var tw := create_tween()
@@ -59,6 +58,8 @@ func live() -> ClubBackdrop:
 
 
 func _draw() -> void:
+	if trace:
+		trail.append(snappedf(_settle, 0.001))
 	var w := size.x
 	var h := size.y
 	draw_rect(Rect2(Vector2.ZERO, size), UiKit.BG)
@@ -79,6 +80,7 @@ func _draw() -> void:
 ## then its second, each as the stripe it makes at the top of the page.
 func _colours() -> Array:
 	var out: Array = []
+	_raw = []
 	for c in GameDB.club_colours(_club):
 		var col := stripe_top(c)
 		var dup := false
@@ -87,6 +89,7 @@ func _colours() -> Array:
 				dup = true
 		if not dup:
 			out.append(col)
+			_raw.append(c)
 		if out.size() == 2:
 			break
 	return out
@@ -170,9 +173,8 @@ func _draw_sweep(w: float, h: float, cols: Array) -> void:
 	var sw := 150.0
 	var run := h * 0.55   # how far a stripe leans across
 	var n := int((w + run) / sw) + 8
-	# Off to the right at the start (a whole page-width and the lean away),
-	# then in place; the creep carries it on a few pixels more.
-	var slide := (1.0 - _settle) * (w + run + sw * 3.0) - _creep * CREEP_PX
+	# Off to the right at the start (a whole page-width and the lean away).
+	var slide := (1.0 - _settle) * (w + run + sw * 3.0)
 	var bg := _to_oklab(UiKit.BG)
 	for k in range(-2, n):
 		var c: Color = cols[posmod(k, mini(cols.size(), 2))]
@@ -181,3 +183,17 @@ func _draw_sweep(w: float, h: float, cols: Array) -> void:
 		draw_polygon(PackedVector2Array([Vector2(x, 0), Vector2(x + sw, 0),
 				Vector2(x + sw - run, h), Vector2(x - run, h)]),
 				PackedColorArray([c, c, foot, foot]))
+		if _is_gold(_raw[posmod(k, cols.size())]):
+			# Yellow IS the club: full brightness along the top edge, where no
+			# text sits (the page's own inset keeps type below it).
+			var e := GOLD_EDGE
+			var xe := x - run * e / h
+			draw_polygon(PackedVector2Array([Vector2(x, 0), Vector2(x + sw, 0),
+					Vector2(xe + sw, e), Vector2(xe, e)]), PackedColorArray([_raw[posmod(k, cols.size())]]))
+
+
+static func _is_gold(c: Color) -> bool:
+	var lab := _to_oklab(c)
+	var chroma := Vector2(lab.y, lab.z).length()
+	var hue := atan2(lab.z, lab.y)
+	return chroma > 0.08 and hue > deg_to_rad(80.0) and hue < deg_to_rad(120.0) and lab.x > 0.7

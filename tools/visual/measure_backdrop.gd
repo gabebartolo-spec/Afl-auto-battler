@@ -96,7 +96,7 @@ func _run() -> void:
 			var img := vp.get_texture().get_image()
 			var worst_page := Color.BLACK
 			var wl := -1.0
-			for y in range(0, H, 3):
+			for y in range(9, H, 3):   # below the 6 px gold edge at the very top, where no type sits
 				for x in range(0, W, 3):
 					var c := img.get_pixel(x, y)
 					if _lum(c) > wl:
