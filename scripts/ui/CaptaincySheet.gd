@@ -56,10 +56,7 @@ static func _build(host: Control, box: Dictionary, state: Dictionary, done: Call
 	notes.name = "CaptaincyCosts"
 	if changed:
 		if not bool(pv["ok"]):
-			var why := UiKit.lbl(str(pv["why_not"]), UiKit.BODY, UiKit.BAD)
-			why.name = "CaptaincyWhyNot"
-			why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			notes.add_child(why)
+			pass  # the reason sits right above Confirm, once
 		elif (pv["lines"] as Array).is_empty():
 			var free := UiKit.lbl("No cost.", UiKit.BODY, UiKit.TEXT)
 			free.name = "CaptaincyNoCost"
@@ -92,9 +89,19 @@ static func _build(host: Control, box: Dictionary, state: Dictionary, done: Call
 	close.name = "CaptaincyClose"
 	close.custom_minimum_size = Vector2(0, 48)
 	close.pressed.connect(done)
+	# Why Confirm is off, once, right above it, saying what to do.
 	var off_why := ""
+	var off_bad := false
 	if confirm.disabled:
-		off_why = "Confirm is off: nothing has changed yet." if not changed else "Confirm is off: see above."
+		if changed:
+			off_why = str(pv["why_not"])
+			off_bad = true
+		elif draft.is_empty():
+			off_why = "Pick a captain to continue"
+		elif draft.size() < Captaincy.MAX_LEADERS:
+			off_why = "Pick a vice-captain to continue"
+		else:
+			off_why = "Change a spot to continue"
 	if wide:
 		var cols := UiKit.hbox(18)
 		spots.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -107,11 +114,12 @@ static func _build(host: Control, box: Dictionary, state: Dictionary, done: Call
 		body.add_child(cols)
 	else:
 		body.add_child(spots)
-		footer.add_child(notes)
 		footer.add_child(how)
+		footer.add_child(notes)
 	if off_why != "":
-		var ol := UiKit.lbl(off_why, UiKit.SMALL, UiKit.MUTED)
-		ol.name = "CaptaincyConfirmWhy"
+		var ol := UiKit.lbl(off_why, UiKit.BODY if off_bad else UiKit.SMALL, UiKit.BAD if off_bad else UiKit.MUTED)
+		ol.name = "CaptaincyWhyNot" if off_bad else "CaptaincyConfirmWhy"
+		ol.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		footer.add_child(ol)
 	footer.add_child(confirm)
 	footer.add_child(close)
@@ -136,8 +144,15 @@ static func _slot_row(host: Control, box: Dictionary, state: Dictionary, done: C
 	for st in ["normal", "hover", "pressed", "focus"]:
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = Color(1, 1, 1, 0.04) if st == "hover" or st == "pressed" else Color.TRANSPARENT
-		sb.border_color = UiKit.LINE
-		sb.border_width_bottom = 1
+		if p.is_empty():
+			# An empty spot is an outlined row you can see is a tap.
+			sb.border_color = UiKit.MUTED
+			sb.set_border_width_all(1)
+			sb.set_corner_radius_all(UiKit.RADIUS)
+			sb.content_margin_left = 12
+		else:
+			sb.border_color = UiKit.LINE
+			sb.border_width_bottom = 1
 		pick.add_theme_stylebox_override(st, sb)
 	var inner := UiKit.hbox(8)
 	inner.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -150,14 +165,22 @@ static func _slot_row(host: Control, box: Dictionary, state: Dictionary, done: C
 	inner.add_child(who)
 	if p.is_empty():
 		var want := "Choose a captain" if not has_captain else "Choose a vice-captain"
-		who.add_child(UiKit.ellipsis(want, UiKit.BODY, UiKit.MUTED, true))
+		var wl := UiKit.ellipsis(want, UiKit.BODY, UiKit.TEXT, true)
+		wl.add_theme_constant_override("outline_size", 0)
+		who.add_child(wl)
+		inner.offset_left = 12
 	else:
 		var is_cap := str(named.get("role", "")) == "captain"
 		who.add_child(UiKit.ellipsis("Captain" if is_cap else "Vice-captain", UiKit.SMALL, UiKit.MUTED))
 		who.add_child(UiKit.ellipsis(GameDB.player_display_name(p), UiKit.BODY, UiKit.TEXT, true))
-		var sub := UiKit.ellipsis("Leadership %d  ·  Age %d  ·  %d games" % [Leadership.of(p), int(p.get("age", 0)),
-				Leadership.games(p)], UiKit.SMALL, UiKit.MUTED)
+		# Never ends in an ellipsis: the phone drops games, the wide screen has room.
+		var text := "Leadership %d  ·  Age %d" % [Leadership.of(p), int(p.get("age", 0))]
+		if bool(state["wide"]):
+			text += "  ·  %d games" % Leadership.games(p)
+		var sub := UiKit.lbl(text, UiKit.SMALL, UiKit.MUTED)
 		sub.name = "SlotLeadership"
+		sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		who.add_child(sub)
 	pick.pressed.connect(func(): _open_picker(host, box, state, done, i))
 	h.add_child(pick)
@@ -203,7 +226,15 @@ static func _open_picker(host: Control, sheet: Dictionary, state: Dictionary, do
 	var close := func(): overlay.queue_free()
 	UiKit.close_on_outside_tap(box, close)
 	var pb: VBoxContainer = box["body"]
-	pb.add_child(UiKit.lbl("Choose a leader", 22, UiKit.TEXT, true))
+	var want_captain := (state["draft"] as Array).is_empty()
+	if i < (state["draft"] as Array).size():
+		want_captain = str((state["draft"] as Array)[i]["role"]) == "captain"
+	else:
+		want_captain = true
+		for s in (state["draft"] as Array):
+			if str((s as Dictionary)["role"]) == "captain":
+				want_captain = false
+	pb.add_child(UiKit.lbl("Choose a captain" if want_captain else "Choose a vice-captain", 22, UiKit.TEXT, true))
 	var people := GameState.my_list.duplicate()
 	people.sort_custom(func(a, b): return GameDB.player_display_name(a) < GameDB.player_display_name(b))
 	var draft: Array = state["draft"]
@@ -217,6 +248,7 @@ static func _open_picker(host: Control, sheet: Dictionary, state: Dictionary, do
 	grid.add_theme_constant_override("v_separation", 0)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pb.add_child(grid)
+	pb.add_child(UiKit.spacer(14))
 	for p in people:
 		var id := str(p["id"])
 		var row := Button.new()
