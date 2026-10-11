@@ -235,7 +235,18 @@ func _run() -> void:
 			and current_scene.find_child("NameMode_real", true, false) == null,
 			"The menu itself carries no setup controls")
 	_check(not _screen_text().contains("players ·") and not _screen_text().contains("Quit"),
-			"No data line or Quit on the menu")
+			"No data line or Quit on the menu (the button is Exit game)")
+	# Exit game (director, 2026-10-12): on desktop, a real click saves and quits.
+	var exit_btn: Button = current_scene.find_child("ExitGame", true, false)
+	_check(exit_btn != null and exit_btn.text == "Exit game", "The menu has an Exit game button on desktop")
+	var quits := [0]
+	_router.quit_hook = func() -> void: quits[0] += 1
+	_state.mark_dirty()
+	var exit_tap: String = await Tap.tap(exit_btn) if exit_btn != null else "missing"
+	_check(exit_tap == "" and quits[0] == 1, "A real click on Exit game leaves the game once (%s, %d)" % [exit_tap, quits[0]])
+	_router.handle_back(false)
+	_check(quits[0] == 1, "Escape on the menu still does not quit")
+	_router.quit_hook = Callable()
 	_check(current_scene.find_child("MenuHelp", true, false) != null
 			and current_scene.find_child("MenuSettings", true, false) != null,
 			"How to play and Settings are on the menu")

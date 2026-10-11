@@ -194,6 +194,18 @@ func _show_home() -> void:
 	quiet.add_child(_quiet_btn("How to play", "MenuHelp", _show_help))
 	quiet.add_child(_quiet_btn("Settings", "MenuSettings", _show_settings))
 	_content.add_child(quiet)
+	# Desktop only (director, 2026-10-12): Android's Back already leaves the app
+	# from this menu (Router.handle_back), iOS and the web have no quit of their own.
+	if ScreenLayout.is_desktop():
+		_content.add_child(UiKit.spacer(10))
+		var exit := UiKit.btn("Exit game", UiKit.NAME)
+		exit.name = "ExitGame"
+		exit.custom_minimum_size = Vector2(220, 48)
+		exit.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		for st in ["normal", "hover", "pressed", "hover_pressed"]:
+			exit.add_theme_stylebox_override(st, UiKit.style(Color.TRANSPARENT, 8, UiKit.RADIUS, UiKit.MUTED))
+		exit.pressed.connect(func(): Router.quit_game())
+		_content.add_child(exit)
 
 
 ## A secondary action that reads as text: no box, muted until pressed.
