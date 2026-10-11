@@ -1737,7 +1737,7 @@ func _test_money_copy() -> void:
 	var raw := RegEx.new()
 	raw.compile("[0-9]{5,}")
 	var p: Dictionary = GameDB.club_list("COL")[0].duplicate(true)
-	var card: Dictionary = ClubLife._extension(p)
+	var card: Dictionary = GameState.story_card("contracts_wants_to_extend", p)
 	var words: Array = [str(card["text"])]
 	for o in card["options"]:
 		words.append(str(o.get("detail", "")))

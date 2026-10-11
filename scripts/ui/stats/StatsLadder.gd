@@ -18,11 +18,15 @@ const COL_GAP := 4
 ## wide screen the table is as wide as its columns and sits at the left, the
 ## club right beside its numbers (WIDE_CLUB).
 const WIDE_CLUB := 190
+## "Rating": the club's match-day side today on the OVR scale (TeamRating). A
+## tap on a club says it in full: where the club is in its cycle (Contender,
+## Wildcard, Rebuilding) and the list in three years.
 const LADDER_PHONE := [["pos", "#", 24], ["club", "Club", 0], ["p", "P", 26], ["w", "W", 26],
-		["l", "L", 26], ["d", "D", 24], ["pct", "%", 42], ["pts", "Pts", 34]]
+		["l", "L", 26], ["d", "D", 24], ["pct", "%", 42], ["pts", "Pts", 34], ["rating", "Rating", 46]]
 const LADDER_WIDE := [["pos", "#", 28], ["club", "Club", WIDE_CLUB], ["p", "P", 32], ["w", "W", 32],
 		["l", "L", 32], ["d", "D", 30], ["pf", "PF", 50], ["pa", "PA", 50], ["pct", "%", 50],
-		["pts", "Pts", 40], ["home", "Home", 68], ["away", "Away", 68], ["form", "Form", 76]]
+		["pts", "Pts", 40], ["home", "Home", 68], ["away", "Away", 68], ["form", "Form", 76],
+		["rating", "Rating", 52]]
 ## Team stats: a per-game value for each, from GameState.season_team (only
 ## what is recorded there). One list, so a newly recorded stat joins with one
 ## line: {season_team key, column title, width on a phone, width on a wide
@@ -553,6 +557,8 @@ static func rows(season: Season) -> Array:
 				"d": int(l["d"]), "pf": int(l["pf"]), "pa": int(l["pa"]), "pct": float(l["pct"]),
 				"pts": int(l["pts"]), "home": home.get(code, [0, 0, 0]), "away": away.get(code, [0, 0, 0]),
 				"form": "".join(PackedStringArray((season.club_results(code) as Array).slice(-5)))}
+		var outlook := GameState.team_outlook(code)
+		row["rating"] = int(outlook.get("rating", 0))
 		var t: Dictionary = GameState.season_team.get(code, {})
 		row["games"] = int(t.get("games", 0))
 		# A game each over the games that stat was counted for
@@ -579,7 +585,7 @@ static func _tally(into: Dictionary, code: String, diff: int) -> void:
 ## a team stat per game.
 static func cell_text(r: Dictionary, key: String) -> String:
 	match key:
-		"pos", "p", "w", "l", "d", "pf", "pa", "pts":
+		"pos", "p", "w", "l", "d", "pf", "pa", "pts", "rating":
 			return str(int(r[key]))
 		"pct":
 			return "%.0f" % float(r["pct"])
@@ -661,6 +667,11 @@ static func _side_sheet(host: Control, code: String) -> void:
 	host.call("open_sheet", overlay)
 	var body: VBoxContainer = box["body"]
 	body.add_child(UiKit.ellipsis(GameDB.club_name(code), UiKit.H2, UiKit.TEXT, true))
+	var outlook := GameState.team_outlook(code)
+	if not outlook.is_empty():
+		var tl := UiKit.lbl(str(outlook["line"]), UiKit.BODY, UiKit.TEXT)
+		tl.name = "TeamOutlook"
+		body.add_child(tl)
 	var mine: bool = code == GameState.my_club
 	var named: bool = mine or not (season.selections.get(code, {}) as Dictionary).is_empty()
 	var note := "Your side as it stands" if mine else \
