@@ -2,32 +2,478 @@
 	{
 		"id": "training_extra_session",
 		"category": "training",
-		"cooldown": 4,
-		"subject": {"kind": "club"},
-		"title": ["The coaches want an extra session"],
-		"text": ["A heavy week on the track, or a week to freshen up?"],
+		"cooldown": 15,
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"The coaches want an extra session"
+		],
+		"text": [
+			"A heavy week on the track, or a week to freshen up?"
+		],
 		"choices": [
-			{"key": "heavy", "label": "Heavy session",
-				"effects": [{"op": "xp", "d": 12, "who": "all"}, {"op": "heavy_legs", "who": "all"}],
-				"result": "A heavy week on the track. The legs will know about it on game day."},
-			{"key": "recover", "label": "Recovery week", "note": "No extra development.",
-				"effects": [{"op": "morale", "d": 3, "who": "all"}, {"op": "fresh", "who": "all"}],
-				"result": "A recovery week: fresher bodies and minds."}
+			{
+				"key": "heavy",
+				"label": "Heavy session",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 12,
+						"who": "all"
+					},
+					{
+						"op": "heavy_legs",
+						"who": "all"
+					}
+				],
+				"result": "A heavy week on the track. The legs will know about it on game day."
+			},
+			{
+				"key": "recover",
+				"label": "Recovery week",
+				"note": "No extra development.",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "all"
+					},
+					{
+						"op": "fresh",
+						"who": "all"
+					}
+				],
+				"result": "A recovery week: fresher bodies and minds."
+			}
 		]
 	},
 	{
 		"id": "training_kid_pushing",
 		"category": "training",
-		"cooldown": 4,
-		"subject": {"kind": "player", "where": {"fit": true, "selected": false, "backed": false, "age_max": 21, "pot_gap_min": 8}, "pick": "highest:overall"},
-		"title": ["{name} is pushing for games"],
-		"text": ["The kid's flying at training and wants a senior game."],
+		"cooldown": 10,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"selected": false,
+				"backed": false,
+				"age_max": 21,
+				"pot_gap_min": 8
+			},
+			"pick": "highest:overall"
+		},
+		"title": [
+			"{name} is pushing for games"
+		],
+		"text": [
+			"The kid's flying at training and wants a senior game."
+		],
 		"choices": [
-			{"key": "blood", "label": "Back him for {run_games} games", "note": "Nothing develops a player like AFL footy.",
-				"effects": [{"op": "start_backing"}, {"op": "trust", "d": 8, "why": "You gave him his chance"}]},
-			{"key": "develop", "label": "A week with the development coaches", "note": "It doesn't take a spot in the side, but there's no game for him at all this week.",
-				"effects": [{"op": "xp", "d": 26}, {"op": "rest"}],
-				"result": "{name} spends the week with the development coaches."}
+			{
+				"key": "blood",
+				"label": "Back him for {run_games} games",
+				"note": "Nothing develops a player like AFL footy.",
+				"effects": [
+					{
+						"op": "start_backing"
+					},
+					{
+						"op": "trust",
+						"d": 8,
+						"why": "You gave him his chance"
+					},
+					{
+						"op": "flag",
+						"name": "backed_kid"
+					}
+				]
+			},
+			{
+				"key": "develop",
+				"label": "A week with the development coaches",
+				"note": "It doesn't take a spot in the side, but there's no game for him at all this week.",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 26
+					},
+					{
+						"op": "rest"
+					}
+				],
+				"result": "{name} spends the week with the development coaches."
+			}
+		],
+		"arc": "backed_kid",
+		"beat": "start"
+	},
+	{
+		"id": "training_extra_kicking",
+		"category": "training",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"age_max": 25,
+				"pot_gap_min": 4
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} wants extra goalkicking after training"
+		],
+		"text": [
+			"He's been staying back with the forwards coach most nights. The fitness staff would rather he went home."
+		],
+		"choices": [
+			{
+				"key": "stay",
+				"label": "Let him stay back",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 10
+					},
+					{
+						"op": "heavy_legs"
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You let him put in the extra work"
+					}
+				],
+				"result": "{name} stays back with the forwards coach again."
+			},
+			{
+				"key": "home",
+				"label": "Send him home",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -3
+					},
+					{
+						"op": "fresh"
+					}
+				],
+				"result": "{name} is sent home with the rest of them."
+			}
 		]
+	},
+	{
+		"id": "training_match_sim_heated",
+		"category": "training",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"Match sim got heated"
+		],
+		"text": [
+			"Two of the boys had to be pulled apart at match sim. The assistants reckon it's the edge you've been after."
+		],
+		"choices": [
+			{
+				"key": "leave",
+				"label": "Leave it on the track",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "It stays on the track. The board hears about it anyway."
+			},
+			{
+				"key": "pull",
+				"label": "Pull the group up on it",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -3,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": 2
+					}
+				],
+				"result": "You pull the group up. The standard is set."
+			}
+		]
+	},
+	{
+		"id": "training_seniors_day_off",
+		"category": "training",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"The senior players want a day off"
+		],
+		"text": [
+			"The leaders have asked for Monday off after a long block. The fitness staff are split."
+		],
+		"choices": [
+			{
+				"key": "give",
+				"label": "Give them the day",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 4,
+						"who": "all"
+					},
+					{
+						"op": "fresh",
+						"who": "all"
+					}
+				],
+				"note": "No extra development this week.",
+				"result": "Monday off. Fresh legs on Saturday."
+			},
+			{
+				"key": "train",
+				"label": "We train Monday",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 6,
+						"who": "all"
+					},
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "all"
+					}
+				],
+				"result": "Monday's on. A few long faces."
+			}
+		],
+		"when": {
+			"round_min": 8
+		}
+	},
+	{
+		"id": "training_time_trial",
+		"category": "training",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"The fitness staff want a time trial"
+		],
+		"text": [
+			"A two-kilometre time trial in the middle of the season. It tells you who's fit; nobody loves it."
+		],
+		"choices": [
+			{
+				"key": "run",
+				"label": "Run it",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 5,
+						"who": "all"
+					},
+					{
+						"op": "morale",
+						"d": -3,
+						"who": "all"
+					}
+				],
+				"result": "The time trial's done. Some sore lungs and some honest answers."
+			},
+			{
+				"key": "skip",
+				"label": "Not this week",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 1,
+						"who": "all"
+					}
+				],
+				"result": "No time trial. The group's relieved."
+			}
+		]
+	},
+	{
+		"id": "training_new_stoppage_setup",
+		"category": "training",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"The midfield coach wants a new stoppage set-up"
+		],
+		"text": [
+			"He's been working on it for weeks and wants the whole of Thursday to drill it."
+		],
+		"choices": [
+			{
+				"key": "drill",
+				"label": "Give him Thursday",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 8,
+						"who": "side"
+					},
+					{
+						"op": "heavy_legs",
+						"who": "side"
+					}
+				],
+				"result": "Thursday is all stoppages."
+			},
+			{
+				"key": "hold",
+				"label": "Stick with what we know",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 2,
+						"who": "side"
+					}
+				],
+				"result": "The set-up stays in the drawer for now."
+			}
+		]
+	},
+	{
+		"id": "training_backed_kid_flying",
+		"category": "training",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"morale_min": 70
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} has taken his chance"
+		],
+		"text": [
+			"You gave him his run and he's grabbed it. The other kids have noticed."
+		],
+		"choices": [
+			{
+				"key": "earned",
+				"label": "Tell him he's earned his spot",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 6
+					},
+					{
+						"op": "trust",
+						"d": 5,
+						"why": "You told him he'd earned his spot"
+					}
+				],
+				"result": "{name} hears it from you."
+			},
+			{
+				"key": "grounded",
+				"label": "Keep his feet on the ground",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 8
+					},
+					{
+						"op": "morale",
+						"d": -2
+					}
+				],
+				"result": "You keep {name} working."
+			}
+		],
+		"arc": "backed_kid",
+		"beat": "end",
+		"needs": {
+			"flag": "backed_kid",
+			"after": 4,
+			"within": 20
+		},
+		"cooldown": 0,
+		"subject_cooldown": 0
+	},
+	{
+		"id": "training_backed_kid_struggling",
+		"category": "training",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"morale_max": 60
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} is finding senior footy hard"
+		],
+		"text": [
+			"You backed him for a run of games. It's been tough going."
+		],
+		"choices": [
+			{
+				"key": "again",
+				"label": "Back him in for another week",
+				"effects": [
+					{
+						"op": "expects_game",
+						"sting": 12
+					},
+					{
+						"op": "morale",
+						"d": 5
+					},
+					{
+						"op": "trust",
+						"d": 6,
+						"why": "You kept backing him when it was hard"
+					}
+				]
+			},
+			{
+				"key": "twos",
+				"label": "Send him back to build in the twos",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 10
+					},
+					{
+						"op": "morale",
+						"d": -6
+					},
+					{
+						"op": "trust",
+						"d": -3,
+						"why": "You sent him back to the twos"
+					}
+				],
+				"result": "{name} heads back to the twos."
+			}
+		],
+		"arc": "backed_kid",
+		"beat": "end",
+		"needs": {
+			"flag": "backed_kid",
+			"after": 4,
+			"within": 20
+		},
+		"cooldown": 0,
+		"subject_cooldown": 0
 	}
 ]

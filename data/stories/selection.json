@@ -6,7 +6,7 @@
 			"regular",
 			"finals"
 		],
-		"cooldown": 2,
+		"cooldown": 6,
 		"subject_cooldown": 5,
 		"subject": {
 			"kind": "player",
@@ -98,7 +98,7 @@
 		"phase": [
 			"regular"
 		],
-		"cooldown": 2,
+		"cooldown": 6,
 		"subject_cooldown": 5,
 		"subject": {
 			"kind": "player",
@@ -190,7 +190,7 @@
 		"phase": [
 			"regular"
 		],
-		"cooldown": 2,
+		"cooldown": 6,
 		"subject_cooldown": 5,
 		"subject": {
 			"kind": "player",
@@ -279,7 +279,7 @@
 	{
 		"id": "selection_unhappy",
 		"category": "selection",
-		"cooldown": 2,
+		"cooldown": 8,
 		"subject_cooldown": 5,
 		"subject": {
 			"kind": "player",
@@ -343,5 +343,65 @@
 				"result": "{name} is told to earn his spot. The group respects it."
 			}
 		]
+	},
+	{
+		"id": "selection_finals_experience",
+		"category": "selection",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"selected": false,
+				"games_min": 150
+			},
+			"pick": "highest:games"
+		},
+		"title": [
+			"{name} wants to play in the final"
+		],
+		"text": [
+			"He's played {games} games and knows September footy. You've left him out."
+		],
+		"choices": [
+			{
+				"key": "in",
+				"label": "Bring him in",
+				"effects": [
+					{
+						"op": "expects_game",
+						"sting": 12
+					},
+					{
+						"op": "morale",
+						"d": 8
+					},
+					{
+						"op": "trust",
+						"d": 6,
+						"why": "You trusted his finals experience"
+					}
+				]
+			},
+			{
+				"key": "stick",
+				"label": "Stick with the side",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -6
+					},
+					{
+						"op": "trust",
+						"d": -4,
+						"why": "You left him out of the final"
+					}
+				],
+				"result": "{name} watches from the stands."
+			}
+		],
+		"phase": [
+			"finals"
+		],
+		"cooldown": 3
 	}
 ]

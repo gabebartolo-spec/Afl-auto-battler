@@ -326,6 +326,17 @@ func _test_finals_and_big_weeks() -> void:
 		ctx["week"] = wk
 		max_cards = maxi(max_cards, StoryEngine.pick_week(StoryDeck.all(), ctx, story).size())
 	_check(max_cards <= 1, "An ordinary week brings one card at most")
+	# A season's weeks, finals included, fit inside the week count cooldowns run
+	# on, so a card's cooldown never wraps into the next season early.
+	var s = GameState.season
+	s.start_finals()
+	var finals_weeks := 0
+	while not s.finals_week_matches().is_empty() and finals_weeks < 20:
+		finals_weeks += 1
+		s.finals["week"] = int(s.finals["week"]) + 1
+	_check(finals_weeks > 0 and Season.REGULAR_ROUNDS + finals_weeks < StoryEngine.SEASON_WEEKS,
+			"%d rounds and %d finals weeks fit inside a story season of %d weeks"
+			% [Season.REGULAR_ROUNDS, finals_weeks, StoryEngine.SEASON_WEEKS])
 
 
 ## No card that invents a private life or misconduct can be about a player

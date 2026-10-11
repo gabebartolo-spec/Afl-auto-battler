@@ -1,0 +1,139 @@
+[
+	{
+		"id": "rivals_coach_barb",
+		"category": "rivals",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"{opp}'s coach has had a crack at you"
+		],
+		"text": [
+			"He's told the press your side \"won't handle the heat\" this week."
+		],
+		"choices": [
+			{
+				"key": "fire",
+				"label": "Fire back",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 4,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "You fire back. It's on for Saturday."
+			},
+			{
+				"key": "smile",
+				"label": "Smile and move on",
+				"effects": [
+					{
+						"op": "board",
+						"d": 2
+					},
+					{
+						"op": "morale",
+						"d": -1,
+						"who": "all"
+					}
+				],
+				"result": "You smile and say nothing."
+			}
+		]
+	},
+	{
+		"id": "rivals_spy_at_training",
+		"category": "rivals",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"Someone from {opp} was spotted at your training"
+		],
+		"text": [
+			"One of their analysts, in a hoodie, by the fence."
+		],
+		"choices": [
+			{
+				"key": "close",
+				"label": "Close training this week",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 4,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": -1
+					}
+				],
+				"result": "The gates are shut. The members are annoyed."
+			},
+			{
+				"key": "let",
+				"label": "Let them watch",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 2,
+						"who": "all"
+					}
+				],
+				"result": "Let them watch. The players find it funny."
+			}
+		]
+	},
+	{
+		"id": "rivals_mouthing_off",
+		"category": "rivals",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"{opp}'s players have been mouthing off"
+		],
+		"text": [
+			"It's all over social media. The group has seen it."
+		],
+		"choices": [
+			{
+				"key": "pin",
+				"label": "Pin it to the noticeboard",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 4,
+						"who": "side"
+					},
+					{
+						"op": "heavy_legs",
+						"who": "side"
+					}
+				],
+				"result": "It's on the noticeboard. Training is fierce."
+			},
+			{
+				"key": "calm",
+				"label": "Keep the group calm",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 1,
+						"who": "all"
+					},
+					{
+						"op": "fresh",
+						"who": "side"
+					}
+				],
+				"result": "You tell the group to ignore it."
+			}
+		]
+	}
+]
