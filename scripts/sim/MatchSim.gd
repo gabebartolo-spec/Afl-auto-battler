@@ -3683,8 +3683,10 @@ func _after_chain() -> void:
 		var holding := _burst(side, "hold")
 		var flooding := _burst(side, "flood")
 		var stacking := _burst(side, "stack")
-		# Whoever goes up at the stoppages does a ruck's work, wherever he stands.
-		var up: Array = _contestant(sq)
+		# The man you name as main ruck does a ruck's work, wherever he stands.
+		# With no main ruck named, the drain is exactly what it was (qa W7: a
+		# stand-in who tired like a ruck changed every match, the AI's included).
+		var up: Array = _contestant(sq) if str((tactics[side] as Dictionary).get("main_ruck", "")) != "" else []
 		var up_id := str((up[0] as Dictionary)["id"]) if not up.is_empty() else ""
 		for p in sq.ground:
 			var id := str(p["id"])
