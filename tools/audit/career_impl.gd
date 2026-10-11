@@ -259,7 +259,7 @@ func run() -> void:
 				margins[b] += 1
 				if club in [str(res["home"]), str(res["away"])]:
 					mine_m[b] += 1
-			if str(GameState.week_event.get("key", "")) == "extension":
+			if str(GameState.week_event.get("key", "")) == "contracts_wants_to_extend":
 				ext[str(GameState.week_event.get("player_id", ""))] = true
 				if policy == "light":
 					GameState.resolve_week_event(0)

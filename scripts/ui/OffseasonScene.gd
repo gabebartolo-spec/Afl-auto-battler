@@ -594,11 +594,15 @@ func _trade(body: VBoxContainer) -> void:
 		_build())
 	who.add_child(change)
 	body.add_child(who)
-	var phase := GameState.club_phase(_trade_club)
-	var stance := {"rebuilding": "are rebuilding: they guard young talent and want players for the future.",
-			"building": "are building: they weigh this season and the future evenly.",
-			"contending": "are contending: they want players who help them win now."}
-	var cycle := _para("%s %s" % [GameDB.club_name(_trade_club), str(stance.get(phase, ""))], 13, UiKit.MUTED)
+	var outlook := GameState.team_outlook(_trade_club)
+	var phase := str(outlook.get("phase", GameState.club_phase(_trade_club)))
+	var rating := _para(str(outlook.get("line", "")), 14, UiKit.TEXT)
+	rating.name = "TradeClubOutlook"
+	body.add_child(rating)
+	var stance := {"rebuilding": "They guard young talent and want players for the future.",
+			"building": "They weigh this season and the future evenly.",
+			"contending": "They want players who help them win now."}
+	var cycle := _para(str(stance.get(phase, "")), 13, UiKit.MUTED)
 	cycle.name = "TradeClubPhase"
 	body.add_child(cycle)
 	body.add_child(UiKit.spacer(4))
@@ -780,7 +784,8 @@ func _trade_club_sheet(body: VBoxContainer) -> void:
 	var options := []
 	for code in GameDB.active_clubs(GameState.season_year):
 		if code != GameState.my_club:
-			options.append([code, GameDB.club_name(code)])
+			options.append([code, "%s · %s" % [GameDB.club_name(code),
+					TeamRating.category(GameState.club_phase(code))]])
 	body.add_child(UiKit.choice_grid("TradeClubChoice", options, _trade_club, 2, func(code: String):
 		if code != _trade_club:
 			_theirs = []

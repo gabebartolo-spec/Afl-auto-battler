@@ -1532,7 +1532,8 @@ func _refresh_order() -> void:
 		var v := UiKit.vbox(2)
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(v)
-		var badge := UiKit.club_badge(code, 14, true)
+		# The club by its guernsey and name, as the ladder shows it.
+		var badge := UiKit.club_badge(code, 14, false, true)
 		badge.alignment = BoxContainer.ALIGNMENT_BEGIN
 		v.add_child(badge)
 		var description := "Up next"
@@ -1543,6 +1544,12 @@ func _refresh_order() -> void:
 			description = _entry_player_name(entry) if not entry.is_empty() \
 					else "passed - list full"
 		v.add_child(UiKit.ellipsis(description, UiKit.SMALL, UiKit.MUTED))
+		# Where the club is in its cycle and its list today (TeamRating).
+		var outlook := GameState.team_outlook(code)
+		if not outlook.is_empty():
+			var tl := UiKit.ellipsis("%s · %d" % [str(outlook["category"]), int(outlook["rating"])], UiKit.SMALL, UiKit.MUTED)
+			tl.name = "OrderOutlook_%d" % index
+			v.add_child(tl)
 		var comp := _draft.comp_at(index)
 		if not comp.is_empty():
 			var why := UiKit.ellipsis("Compensation for losing %s" % str(comp.get("name", "a free agent")), UiKit.SMALL, UiKit.TEXT)
