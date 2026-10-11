@@ -114,6 +114,9 @@ func _run() -> void:
 	await _shot(out + "_hub.png")
 	_measure("top", _top_want)
 	for sc in current_scene.find_children("*", "ScrollContainer", true, false):
+		var sx := sc as ScrollContainer
+		print("POLISH hub scroll %s: size %s, content %s, mode %d, visible %s, parent %s" % [sx.name, str(sx.size), str(sx.get_combined_minimum_size()), sx.vertical_scroll_mode, str(sx.is_visible_in_tree()), str(sx.get_parent().name)])
+	for sc in current_scene.find_children("*", "ScrollContainer", true, false):
 		var s := sc as ScrollContainer
 		s.scroll_vertical = 100000
 	await _shot(out + "_hub_bottom.png")
