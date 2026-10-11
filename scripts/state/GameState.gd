@@ -260,6 +260,9 @@ func _ready() -> void:
 	_apply_sound_mute(bool(cfg.get_value("ui", "mute_sounds", false)))
 	AudioLevels.apply(AudioLevels.MUSIC, AudioLevels.valid(str(cfg.get_value("ui", "music_level", "normal"))))
 	AudioLevels.apply(AudioLevels.CROWD, AudioLevels.valid(str(cfg.get_value("ui", "crowd_level", "normal"))))
+	AudioLevels.apply(AudioLevels.INTERFACE, AudioLevels.valid(str(cfg.get_value("ui", "button_sounds", "normal"))))
+	Feel.haptics = bool(cfg.get_value("ui", "haptics", true))
+	Feel.reduced = bool(cfg.get_value("ui", "reduced_motion", false))
 	ScreenLayout.set_screen_size(str(cfg.get_value("ui", "screen_size", "standard")))
 	if bool(cfg.get_value("ui", "fullscreen", false)):
 		ScreenLayout.set_fullscreen(true)
@@ -356,6 +359,39 @@ func crowd_level() -> String:
 func set_crowd_level(level: String) -> void:
 	set_setting("crowd_level", AudioLevels.valid(level))
 	AudioLevels.apply(AudioLevels.CROWD, AudioLevels.valid(level))
+
+
+## Game feel (director, 2026-10-11): the boot-on-leather click of a button,
+## the stud tick of a choice, the siren at the end of a flow, the sting when a
+## big moment lands. "off", "quiet" or "normal", on its own bus.
+func button_sounds() -> String:
+	return AudioLevels.valid(str(get_setting("button_sounds", "normal")))
+
+
+func set_button_sounds(level: String) -> void:
+	set_setting("button_sounds", AudioLevels.valid(level))
+	AudioLevels.apply(AudioLevels.INTERFACE, AudioLevels.valid(level))
+
+
+## A light buzz under a press and a big moment, on a phone. On by default.
+func haptics_on() -> bool:
+	return bool(get_setting("haptics", true))
+
+
+func set_haptics_on(on: bool) -> void:
+	set_setting("haptics", on)
+	Feel.haptics = on
+
+
+## Reduced motion: no fades, count-ups, press-ins, pulses, moving backgrounds
+## or screen shake. Off by default; every fact shows the same either way.
+func reduced_motion() -> bool:
+	return bool(get_setting("reduced_motion", false))
+
+
+func set_reduced_motion(on: bool) -> void:
+	set_setting("reduced_motion", on)
+	Feel.reduced = on
 
 
 ## Mute the Master bus so future music and SFX automatically honour the same
