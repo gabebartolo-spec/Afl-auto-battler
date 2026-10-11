@@ -52,12 +52,12 @@ func _draw() -> void:
 	_draw_sweep(w, h, _colours())
 
 
-## The club's colours as they show on the page, most vivid first: its
-## colours, lifted when too dark, a near-white kept (a guernsey's white stripe).
+## The club's own colours as they show on the page, its primary first (the
+## home colour in the club data), then its second: Adelaide navy and red,
+## Brisbane maroon and blue, Richmond yellow and black. Lifted when too dark to
+## show, a near-white kept (a guernsey's white stripe).
 func _colours() -> Array:
 	var out: Array = []
-	var vivid := _warm(UiKit.club_vivid(_club, UiKit.BG))
-	out.append(vivid)
 	for c in GameDB.club_colours(_club):
 		var col: Color = _warm(ClubDuel._show(c))
 		var dup := false
