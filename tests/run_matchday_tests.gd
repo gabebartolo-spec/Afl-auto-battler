@@ -48,6 +48,7 @@ func _run() -> void:
 		await _minder_cards(sz)
 		await _loose_interceptor(sz)
 		await _main_ruck_picker(sz)
+	_break_units_keep_followups()
 	for club in ["COL", "GWS", "STK"]:
 		await _pc_break_worst_case(club)
 	await _tag_not_saved()
@@ -752,6 +753,47 @@ func _tag_targets(sz: Vector2i) -> void:
 ## The fullest PC break we know (director, 2026-10-11): quarter time, their
 ## loose defender to answer, at 1280x720 - every call in view, nothing
 ## scrolls, and Match stats sits with the actions.
+## Walking up from a follow-up at `at` in `par`, the first sibling that starts
+## a call (marked break_unit, not a follow-up itself) is its question.
+func _follows_its_question(par: Node, at: int) -> bool:
+	for i in range(at - 1, -1, -1):
+		var n: Node = par.get_child(i)
+		if n.has_meta("break_unit") and not n.has_meta("break_follow"):
+			return true
+	return false
+
+
+## The packer's grouping on a made-up break (a follow-up is the first thing in
+## the next column): it stays with its question, whichever column holds it.
+func _break_units_keep_followups() -> void:
+	var ms = load("res://scripts/ui/MatchScene.gd")
+	var cols := []
+	for i in range(3):
+		var c := VBoxContainer.new()
+		cols.append(c)
+	var mk := func(col: int, nm: String, unit: bool, follow: bool) -> Control:
+		var n := Control.new()
+		n.name = nm
+		if unit:
+			n.set_meta("break_unit", true)
+		if follow:
+			n.set_meta("break_follow", true)
+		(cols[col] as Node).add_child(n)
+		return n
+	mk.call(0, "tag", true, false)
+	mk.call(0, "tag_note", false, false)
+	mk.call(1, "who_tags", true, true)
+	mk.call(1, "pep", true, false)
+	mk.call(2, "loose", true, false)
+	mk.call(2, "loose_cards", true, true)
+	var units: Array = ms.call("_break_units", cols)
+	var names := units.map(func(u): return (u as Array).map(func(n): return str(n.name)))
+	_check(str(names) == '[[tag, tag_note, who_tags], [pep], [loose, loose_cards]]',
+			"A follow-up joins its question's unit, across columns (%s)" % str(names))
+	for c in cols:
+		c.free()
+
+
 func _pc_break_worst_case(club := "COL") -> void:
 	var db = root.get_node("GameDB")
 	var Mu = load("res://scripts/sim/Matchups.gd")
@@ -801,6 +843,17 @@ func _pc_break_worst_case(club := "COL") -> void:
 			if col.get_child_count() > 0 and col.get_child(0) is Label and (col.get_child(0) as Label).text.ends_with("."):
 				bare.append("%s: %s" % [col.name, (col.get_child(0) as Label).text.left(30)])
 	_check(bare.is_empty(), "No break column opens on a line cut loose from its call (%s: %s)" % [club, str(bare)])
+	# A follow-up (Tag, then who tags) sits right after its own question, in
+	# the same column, never first in a column or apart from it.
+	var apart := []
+	if bc != null:
+		for f in bc.find_children("*", "Control", true, false):
+			if f.has_meta("break_follow"):
+				var par: Node = f.get_parent()
+				var at := f.get_index()
+				if at == 0 or not par.get_child(at - 1) is Control or not _follows_its_question(par, at):
+					apart.append(str(f.name))
+	_check(apart.is_empty(), "A follow-up never sits before or apart from its question (%s: %s)" % [club, str(apart)])
 	var syn: Node = null
 	for l in box.find_children("*", "Label", true, false) if box != null else []:
 		if (l as Label).text.begins_with("Your synergies"):
