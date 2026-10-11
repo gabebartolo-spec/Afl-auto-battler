@@ -686,6 +686,30 @@ static func reach_words(kept: float) -> String:
 ## has the trait, and his Pressure (the one attribute the job runs on).
 ## `wide` is the list sheet's single line; the grid card puts the trait on
 ## its own line.
+static func loose_question() -> String:
+	return "Who plays loose behind the ball?"
+
+
+## Your loose man's intercepts this match, in a line: "Jake Lever: 4
+## intercepts so far." Nothing hidden: the number is his match stat.
+static func loose_tally_line(who: String, n: int) -> String:
+	if n <= 0:
+		return "%s: no intercepts yet." % who
+	return "%s: %d intercept%s so far." % [who, n, "" if n == 1 else "s"]
+
+
+## A defender's card for the loose interceptor call: where he plays, his
+## Intercept and Marking (his read of the ball is 0.55 Intercept + 0.30
+## Marking + 0.15 Pressure, Matchups.interceptor_score) and "Interceptor"
+## when he has the trait.
+## `wide` is the list sheet's single line (MatchNotes.card_detail).
+static func loose_card_detail(p: Dictionary, wide: bool) -> String:
+	var attr: Dictionary = p.get("attr", {})
+	return card_detail(p, "Interceptor" if Traits.has(p, "interceptor") else "",
+			PackedStringArray(["Intercept %d" % roundi(float(attr.get("intercept", 0.0))),
+			"Marking %d" % roundi(float(attr.get("marking", 0.0)))]), wide)
+
+
 static func minder_card_detail(p: Dictionary, wide: bool) -> String:
 	var pressure := roundi(float((p.get("attr", {}) as Dictionary).get("pressure", 0.0)))
 	return card_detail(p, "Defensive forward" if Traits.has(p, "def_forward") else "",

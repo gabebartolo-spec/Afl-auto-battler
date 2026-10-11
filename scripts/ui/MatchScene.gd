@@ -767,10 +767,10 @@ func _show_coach_box() -> void:
 	# he plays, whether he is a Defensive forward and his Pressure, the one
 	# attribute the job runs on; the choice is yours.
 	var opp_spare := sim._roaming_interceptor(1 - _my_side)
-	var minder_box := UiKit.vbox(6)
+	var minder_box := UiKit.vbox(4 if _pc_break else 6)
 	minder_box.name = "MinderBlock"
 	minder_box.set_meta("break_unit", true)
-	minder_box.add_child(UiKit.lbl("Assign defensive forward", UiKit.SMALL, UiKit.MUTED, true))
+	minder_box.add_child(_call_heading("Assign defensive forward"))
 	if opp_spare.is_empty():
 		var none_note := UiKit.lbl(MatchNotes.minder_none_line(), UiKit.SMALL, UiKit.MUTED)
 		none_note.name = "MinderNote"
@@ -779,7 +779,7 @@ func _show_coach_box() -> void:
 	else:
 		var fwds := Matchups.minder_candidates(my_ground)
 		var ask := UiKit.lbl(MatchNotes.minder_question(GameDB.player_display_name(opp_spare),
-				GameDB.club_name(str((sim.squads[1 - _my_side] as Squad).code))), UiKit.BODY, UiKit.TEXT)
+				GameDB.club_name(str((sim.squads[1 - _my_side] as Squad).code))), UiKit.BODY, UiKit.TEXT, true)
 		ask.name = "MinderQuestion"
 		ask.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		minder_box.add_child(ask)
@@ -814,8 +814,29 @@ func _show_coach_box() -> void:
 	var interceptors := Matchups.interceptor_candidates(def_ground)
 	var roam_first: Array = interceptors.slice(0, mini(quick if quick > 0 else 3, interceptors.size()))
 	var roam := _player_choice("InterceptorPicker", "No loose defender", def_ground, roam_first,
-			calls, "interceptor_id", "Who roams behind the ball?")
-	var roam_block := _call_block("Loose interceptor", roam)
+			calls, "interceptor_id", MatchNotes.loose_question(), Callable(),
+			func(p: Dictionary, wide_line: bool) -> String: return MatchNotes.loose_card_detail(p, wide_line))
+	# Loose interceptor (director, 2026-10-11): the question in a coach's
+	# words, a card per defender, and how your loose man is going so far.
+	var roam_block := UiKit.vbox(4 if _pc_break else 6)
+	roam_block.set_meta("break_unit", true)
+	roam_block.name = "LooseBlock"
+	roam_block.add_child(_call_heading("Loose interceptor"))
+	var roam_ask := UiKit.lbl(MatchNotes.loose_question(), UiKit.BODY, UiKit.TEXT, true)
+	roam_ask.name = "LooseQuestion"
+	roam_ask.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	roam_block.add_child(roam_ask)
+	roam_block.add_child(roam)
+	# His intercepts this match, from quarter time on: only your loose man's,
+	# only while one is named.
+	var loose_now := str(sim.interceptor[_my_side])
+	if q > 1 and loose_now != "":
+		var stats: Dictionary = (_res.get("players", {}) as Dictionary).get(loose_now, {})
+		var tally := UiKit.lbl(MatchNotes.loose_tally_line(GameDB.player_display_name_by_id(loose_now, "Your loose man"),
+				int(float(stats.get("intercepts", 0.0)))), UiKit.SMALL, UiKit.TEXT)
+		tally.name = "LooseTally"
+		tally.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		roam_block.add_child(tally)
 	more.add_child(roam_block)
 	var roam_note := UiKit.lbl(
 			"He leaves his direct man to attack aerial balls. Another defender covers where possible; if he flies and loses, space opens behind him.",
@@ -1290,10 +1311,19 @@ func _on_moment_choice(i: int) -> void:
 
 
 ## A call and its choices, heading above.
+## A call's heading on the break: bold, in the text colour rather than
+## muted, so it reads at a glance (director, 2026-10-11); the lines under it
+## stay regular.
+func _call_heading(label: String) -> Label:
+	var l := UiKit.lbl(label, UiKit.SMALL, UiKit.TEXT, true)
+	l.name = "CallHeading"
+	return l
+
+
 func _call_block(label: String, control: Control) -> Control:
-	var v := UiKit.vbox(6)
+	var v := UiKit.vbox(4 if _pc_break else 6)
 	v.set_meta("break_unit", true)
-	v.add_child(UiKit.lbl(label, UiKit.SMALL, UiKit.MUTED, true))
+	v.add_child(_call_heading(label))
 	v.add_child(control)
 	return v
 
@@ -1354,6 +1384,11 @@ func _player_choice(node_name: String, none_label: String, roster: Array, first:
 					on_change.call(id)
 				self_ref.call(self_ref)))
 		grid.add_child(other)
+		# On a PC, cards with a detail line sit together in their own row and
+		# "Other player..." beside the none choice: two short buttons share a
+		# row instead of each standing beside a tall card.
+		if _pc_break and detail.is_valid():
+			grid.move_child(other, 1)
 		if _pc_break:
 			for gb in grid.get_children():
 				(gb as Control).custom_minimum_size.y = 40.0
