@@ -137,6 +137,8 @@ func _test_market_opens_fresh() -> void:
 	GameState.open_offseason()
 	var with_stale := _market_sig()
 	GameState.load_career()
+	# The save does not keep them: a career loaded in a fresh game has none.
+	GameState._targets_signed = {}
 	GameState.open_offseason()
 	var reloaded := _market_sig()
 	_check(with_stale != "" and with_stale == reloaded,
