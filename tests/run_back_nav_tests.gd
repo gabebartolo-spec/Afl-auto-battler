@@ -56,6 +56,8 @@ func _run() -> void:
 	await _draft()
 	await _match()
 	await _crawl()
+	await _rest()
+	await _new_career_flow()
 
 	print("BACKTABLE")
 	for line in _table:
@@ -262,34 +264,36 @@ func _closer(roots: Array) -> Button:
 			continue
 		for b in r.find_children("*", "Button", true, false):
 			var t := str((b as Button).text).strip_edges()
-			if (b as Button).is_visible_in_tree() and ["Close", "Done", "Back", "Cancel", "Not now", "Back to your calls", "Back to hub", "OK", "Skip", "Got it", "Continue", "Start"].has(t):
+			if (b as Button).is_visible_in_tree() and ["Close", "Done", "Back", "Cancel", "Not now", "Back to your calls", "Back to hub", "OK", "Skip", "Got it", "Continue", "Start", "To the draft"].has(t):
 				return b
 	return null
 
 
 ## One overlay, left four ways. After the first step back the screen is still
 ## there as it was; one more Escape then leaves it for the screen before.
-func _overlay_case(label: String, key: String, opener: Callable, prep := Callable()) -> void:
-	for way in WAYS:
+func _overlay_case(label: String, key: String, opener: Callable, prep := Callable(), pre_clicks := []) -> void:
+	if key == "draft":
+		await _open_view("draft", pre_clicks)
+	else:
 		_fresh_career()
 		if prep.is_valid():
 			prep.call()
 		await _open(key)
-		var scene := current_scene
-		await _settle(3)
+	var scene := current_scene
+	await _settle(3)
+	var depth: int = (_router.stack as Array).size()
+	# The ways run one after another on the same screen (the overlay is opened
+	# again each time); Escape goes last because its second step leaves.
+	for way in ["click", "mouse_back", "android", "escape"]:
+		if current_scene != scene or not is_instance_valid(scene):
+			break
 		var ids := _control_ids(scene)
-		var depth: int = (_router.stack as Array).size()
 		await opener.call(scene)
 		await _settle(8)
 		var roots := _new_roots(scene, ids)
 		var opened := _alive(roots)
 		_check(opened, "%s: the overlay opens (%s)" % [label, way])
 		if not opened:
-			var fresh := []
-			for c in scene.find_children("*", "Control", true, false):
-				if not ids.has(c.get_instance_id()):
-					fresh.append("%s(%s vis=%s)" % [c.name, c.get_class(), str(c.is_visible_in_tree())])
-			print("DBG %s new controls: %s | scene %s | current %s" % [label, str(fresh.slice(0, 8)), str(scene.name), str(current_scene.name)])
 			_table.append("%s | %s | did not open" % [label, way])
 			continue
 		var before := _fingerprint()
@@ -307,7 +311,7 @@ func _overlay_case(label: String, key: String, opener: Callable, prep := Callabl
 		if ok and way == "escape":
 			await _key_escape()
 			await _settle(10)
-			var before_key := "main" if key == "hub" else "hub"
+			var before_key := "main" if (key == "hub" or key == "draft") else "hub"
 			var left: bool = _router.current() == before_key and (_router.stack as Array).size() == depth - 1
 			_check(left, "%s: the next Back leaves %s for %s, one step (now %s)" % [label, key, before_key, _router.current()])
 			if not left:
@@ -448,41 +452,37 @@ func _live_match() -> bool:
 
 
 func _match() -> void:
-	# Break: Match stats opens from the break and every way out closes it.
-	for way in WAYS:
-		_check(await _live_match(), "a live match is prepared (%s)" % way)
-		var m := current_scene
-		var at_break: bool = await _to_break()
-		_check(at_break, "the match reaches a break (%s)" % way)
-		if not at_break:
-			_table.append("match break: Match stats | %s | no break reached" % way)
-			continue
-		var ids := _control_ids(m)
-		var clicked: String = await _click_named(m, "BreakStats")
-		await _settle(8)
-		var roots := _new_roots(m, ids)
-		_check(_alive(roots), "Match stats opens from the break (%s: %s)" % [way, clicked])
-		var closer := _closer(roots)
-		if way == "click":
-			_check(closer != null, "Match stats has an on-screen way out")
-		var why: String = await _leave(way, closer)
-		await _settle(8)
-		var ok: bool = why == "" and not _alive(roots) and _router.current() == "match" and m.find_child("CoachBox", true, false) != null
-		_check(ok, "match break: Back by %s closes Match stats and keeps the break (%s)" % [way, why])
-		_table.append("match break: Match stats | %s | %s" % [way, "ok" if ok else "FAIL %s now=%s" % [why, _router.current()]])
-	# Break with nothing open: Back is refused (a live match is not left half way) with a hint.
-	for way in ["escape", "mouse_back", "android"]:
-		_check(await _live_match(), "a live match is prepared (%s)" % way)
-		var m2 := current_scene
-		await _to_break()
-		var depth: int = (_router.stack as Array).size()
-		await _leave(way, null)
-		await _settle(8)
-		var stays: bool = _router.current() == "match" and (_router.stack as Array).size() == depth and current_scene == m2
-		_check(stays, "a live match is not left by %s" % way)
-		var hint := m2.find_child("Hint", true, false)
-		var note := "ok, stays, hint shown" if hint != null else "ok, stays, NO HINT SHOWN"
-		_table.append("match break: bare Back (refused by design) | %s | %s" % [way, note if stays else "FAIL left the match"])
+	# One live match, taken to a break: Match stats opens and every way out closes
+	# it; then Back with nothing open is refused (a live match is not left half
+	# way) with a visible hint.
+	_check(await _live_match(), "a live match is prepared")
+	var m := current_scene
+	var at_break: bool = await _to_break()
+	_check(at_break, "the match reaches a break")
+	if at_break:
+		for way in WAYS:
+			var ids := _control_ids(m)
+			var clicked: String = await _click_named(m, "BreakStats")
+			await _settle(8)
+			var roots := _new_roots(m, ids)
+			_check(_alive(roots), "Match stats opens from the break (%s: %s)" % [way, clicked])
+			var closer := _closer(roots)
+			if way == "click":
+				_check(closer != null, "Match stats has an on-screen way out")
+			var why: String = await _leave(way, closer)
+			await _settle(8)
+			var ok: bool = why == "" and not _alive(roots) and _router.current() == "match" and m.find_child("CoachBox", true, false) != null
+			_check(ok, "match break: Back by %s closes Match stats and keeps the break (%s)" % [way, why])
+			_table.append("match break: Match stats | %s | %s" % [way, "ok" if ok else "FAIL %s now=%s" % [why, _router.current()]])
+		for way in ["escape", "mouse_back", "android"]:
+			var depth: int = (_router.stack as Array).size()
+			await _leave(way, null)
+			await _settle(8)
+			var stays: bool = _router.current() == "match" and (_router.stack as Array).size() == depth and current_scene == m
+			_check(stays, "a live match is not left by %s" % way)
+			var hint := m.find_child("Hint", true, false)
+			var note := "ok, stays, hint shown" if hint != null else "ok, stays, NO HINT SHOWN"
+			_table.append("match break: bare Back (refused by design) | %s | %s" % [way, note if stays else "FAIL left the match"])
 	# Full time: Continue and every Back lands on the hub, one step.
 	for way in WAYS:
 		_check(await _live_match(), "a live match is prepared (%s)" % way)
@@ -517,8 +517,35 @@ func _match() -> void:
 # screen must close with Escape and with its own Close, leaving the screen as
 # it was (this finds the sheets and popups nobody listed above)
 # ---------------------------------------------------------------------------
-const CRAWL_SCREENS := ["hub", "list", "training", "coaching", "staff", "stats", "selection", "offseason", "season_review"]
-const CRAWL_PER_SCREEN := 9
+## [screen, buttons to click first (a section, a tab, a club)]: the crawl opens
+## the screen, clicks these for real, then samples the buttons of that view.
+const CRAWL_VIEWS := [
+	["hub", []], ["list", []], ["training", []], ["coaching", []], ["staff", []], ["selection", []],
+	["season_review", []],
+	["stats", ["Section_ladder"]], ["stats", ["Section_players"]], ["stats", ["Section_ratings"]],
+	["stats", ["Section_awards"]], ["stats", ["Section_fixture"]], ["stats", ["Section_trophies"]],
+	["offseason", []], ["offseason", ["Tab_agents"]], ["offseason", ["Tab_trade"]],
+	["draft", ["Choose_COL"]], ["draft", ["Choose_COL", "Tab_picks"]],
+]
+const CRAWL_PER_SCREEN := 4
+
+
+## Open a view as a player gets there: the screen, then its pre-clicks.
+func _open_view(key: String, pre: Array) -> void:
+	if key == "draft":
+		_state.reset()
+		_router.stack = []
+		_router.go("main")
+		await _settle()
+		_router.go("draft")
+		await _settle(8)
+	else:
+		_fresh_career()
+		await _open(key)
+	await _settle(3)
+	for name in pre:
+		await _click_named(current_scene, str(name))
+		await _settle(8)
 
 
 func _crawl_buttons(scene: Node) -> Array:
@@ -530,9 +557,11 @@ func _crawl_buttons(scene: Node) -> Array:
 
 
 func _crawl() -> void:
-	for key in CRAWL_SCREENS:
-		_fresh_career()
-		await _open(key)
+	for view in CRAWL_VIEWS:
+		var key := str(view[0])
+		var pre: Array = view[1]
+		var vname := key if pre.is_empty() else "%s/%s" % [key, str(pre[pre.size() - 1])]
+		await _open_view(key, pre)
 		var count: int = _crawl_buttons(current_scene).size()
 		var picks := []
 		if count > 0:
@@ -542,37 +571,150 @@ func _crawl() -> void:
 				picks.append(int(at))
 				at += step
 		for idx in picks:
-			var opened_label := ""
+			await _open_view(key, pre)
+			var scene := current_scene
+			var buttons := _crawl_buttons(scene)
+			if idx >= buttons.size():
+				continue
+			var btn: Button = buttons[idx]
+			var label := "%s > %s" % [vname, str(btn.text).strip_edges().left(24) if str(btn.text).strip_edges() != "" else str(btn.name)]
+			var depth: int = (_router.stack as Array).size()
+			var screen_now: String = _router.current()
 			for way in ["escape", "close"]:
-				if way == "close" and opened_label == "":
+				if not is_instance_valid(btn) or current_scene != scene:
 					break
-				_fresh_career()
-				await _open(key)
-				await _settle(3)
-				var scene := current_scene
-				var buttons := _crawl_buttons(scene)
-				if idx >= buttons.size():
-					break
-				var btn: Button = buttons[idx]
-				var label := "%s > %s" % [key, str(btn.text).strip_edges().left(24) if str(btn.text).strip_edges() != "" else str(btn.name)]
 				var ids := _control_ids(scene)
-				var depth: int = (_router.stack as Array).size()
 				var before := _fingerprint()
 				await _click(btn)
 				await _settle(8)
-				if _router.current() != key or current_scene != scene:
+				if _router.current() != screen_now or current_scene != scene:
 					break   # it went to another screen: the screens above cover that
 				var roots := _new_roots(scene, ids)
 				if not _alive(roots):
 					break   # nothing opened over the screen
-				opened_label = label
 				var closer := _closer(roots)
 				if way == "close" and closer == null:
 					_check(false, "crawl %s: the overlay has no on-screen Close or Done" % label)
 					_table.append("crawl: %s | close | FAIL no on-screen Close or Done" % label)
-					continue
+					break
 				var why: String = await _leave("escape" if way == "escape" else "click", closer)
 				await _settle(8)
-				var ok: bool = why == "" and not _alive(roots) and _router.current() == key 						and (_router.stack as Array).size() == depth and current_scene == scene and _fingerprint() == before
-				_check(ok, "crawl %s: %s closes it and stays on %s (%s; now %s)" % [label, way, key, why, _router.current()])
+				var ok: bool = why == "" and not _alive(roots) and _router.current() == screen_now \
+						and (_router.stack as Array).size() == depth and current_scene == scene and _fingerprint() == before
+				_check(ok, "crawl %s: %s closes it and stays put (%s; now %s)" % [label, way, why, _router.current()])
 				_table.append("crawl: %s | %s | %s" % [label, way, "ok" if ok else "FAIL %s now=%s alive=%s" % [why, _router.current(), str(_alive(roots))]])
+				if not ok:
+					break
+
+
+# ---------------------------------------------------------------------------
+# The rest: the draft board and its sheets, the trade view, the save / load menus
+# ---------------------------------------------------------------------------
+func _rest() -> void:
+	# Draft board: the screen's own Back, and a player sheet opened from the pool.
+	for way in WAYS:
+		await _open_view("draft", ["Choose_COL"])
+		var scene := current_scene
+		var btn: Control = scene.find_child("BackToMenu", true, false)
+		var why: String = await _leave(way, btn)
+		await _settle(10)
+		var ok: bool = why == "" and _router.current() == "main" and (_router.stack as Array).size() == 1 and current_scene != scene
+		_check(ok, "draft board: Back by %s returns to the menu (%s; now %s, stack %s)" % [way, why, _router.current(), str(_router.stack)])
+		_table.append("draft board | %s | %s" % [way, "ok" if ok else "FAIL %s now=%s stack=%s" % [why, _router.current(), str(_router.stack)]])
+	var pool_id := ""
+	for p in _db.all_players_sorted():
+		pool_id = str(p["id"])
+		break
+	await _overlay_case("draft: player sheet", "draft", func(sc): sc.call("_open_player", pool_id), Callable(), ["Choose_COL"])
+	await _overlay_case("draft: recruiting meeting", "draft", func(sc): sc.call("_show_meeting"), Callable(), ["Choose_COL"])
+	# Trade: the club chooser steps back to the trade view, then the screen leaves.
+	for way in WAYS:
+		await _open_view("offseason", ["Tab_trade"])
+		var scene4 := current_scene
+		var depth4: int = (_router.stack as Array).size()
+		await _click_named(scene4, "TradeClub")
+		await _settle(8)
+		var chooser: bool = bool(scene4.get("_choosing_club"))
+		_check(chooser, "trade: the club chooser opens (%s)" % way)
+		if not chooser:
+			_table.append("trade: club chooser | %s | did not open" % way)
+			continue
+		var back_btn: Control = scene4.find_child("TopBarBack", true, false)
+		var why4: String = await _leave(way, back_btn)
+		await _settle(8)
+		var stayed: bool = _router.current() == "offseason" and not bool(scene4.get("_choosing_club")) and (_router.stack as Array).size() == depth4
+		# The top bar's own arrow leaves the screen outright: it has no
+		# in-screen step, so for a click the expectation is the screen before.
+		var ok4: bool = why4 == "" and (stayed or (way == "click" and _router.current() == "hub"))
+		_check(ok4, "trade club chooser: Back by %s (%s; now %s)" % [way, why4, _router.current()])
+		_table.append("trade: club chooser | %s | %s" % [way, ("ok, " + ("stays on trade" if stayed else "left to hub")) if ok4 else "FAIL %s now=%s" % [why4, _router.current()]])
+
+
+# ---------------------------------------------------------------------------
+# A career on disk survives every Back out of the new-career flow, and Back on
+# Choose your club steps back to the New career options (qa web pass, 2026-10-12)
+# ---------------------------------------------------------------------------
+func _saved_club() -> String:
+	return str(_state.saved_career_meta().get("club", ""))
+
+
+func _continue_shows_old_career(menu: Node) -> bool:
+	var cont := menu.find_child("ContinueCareer", true, false)
+	var meta := menu.find_child("CareerMeta", true, false)
+	return cont != null and meta != null and str((meta as Label).text).contains(_db.club_name("COL"))
+
+
+func _new_career_flow() -> void:
+	for way in WAYS:
+		_state.reset()
+		_state.start_season("COL", _db.club_list("COL"))
+		_check(_state.save_career(), "(setup) an old career is saved (%s)" % way)
+		_state.reset()   # the app has just started: nothing in memory, the career on disk
+		_router.stack = []
+		_router.go("main")
+		await _settle(8)
+		var menu := current_scene
+		_check(_continue_shows_old_career(menu), "the title offers Continue for the old career (%s)" % way)
+		# Step 1: the New career options, left by Back.
+		await _click_named(menu, "NewCareer")
+		await _settle(8)
+		_check(str(menu.get("_mode")) == "setup", "New career opens its options (%s)" % way)
+		var why1: String = await _leave(way, menu.find_child("TopBarBack", true, false))
+		await _settle(8)
+		var ok1: bool = why1 == "" and str(menu.get("_mode")) != "setup" and _saved_club() == "COL" and _continue_shows_old_career(current_scene)
+		_check(ok1, "new career, step 1: Back by %s keeps the old career and Continue (%s; saved %s)" % [way, why1, _saved_club()])
+		_table.append("new career: options | %s | %s" % [way, "ok" if ok1 else "FAIL %s saved=%s" % [why1, _saved_club()]])
+		# Step 2: Choose your club asks to replace the career; Back or Cancel keeps it.
+		menu = current_scene
+		await _click_named(menu, "NewCareer")
+		await _settle(8)
+		var ids := _control_ids(menu)
+		await _click_named(menu, "StartCareer")
+		await _settle(8)
+		var roots := _new_roots(menu, ids)
+		_check(_alive(roots), "starting asks to replace the saved career (%s)" % way)
+		var why2: String = await _leave(way, _closer(roots))
+		await _settle(8)
+		var ok2: bool = why2 == "" and not _alive(roots) and _router.current() == "main" and _saved_club() == "COL"
+		_check(ok2, "new career, step 2 (confirm): Back by %s keeps the old career (%s; saved %s)" % [way, why2, _saved_club()])
+		_table.append("new career: replace? confirmation | %s | %s" % [way, "ok" if ok2 else "FAIL %s saved=%s" % [why2, _saved_club()]])
+		# Step 3: confirmed, on Choose your club; Back steps back to the options and the old career is still there.
+		await _click_named(menu, "StartCareer")
+		await _settle(8)
+		await _click_named(menu, "ConfirmNewCareer")
+		await _settle(10)
+		_check(_router.current() == "draft", "confirming reaches Choose your club (%s)" % way)
+		var draft_scene := current_scene
+		_check(_saved_club() == "COL", "the old career is still on disk on Choose your club (%s)" % way)
+		var why3: String = await _leave(way, draft_scene.find_child("BackToMenu", true, false))
+		await _settle(10)
+		var menu3 := current_scene
+		var ok3: bool = why3 == "" and _router.current() == "main" and str(menu3.get("_mode")) == "setup" and _saved_club() == "COL"
+		_check(ok3, "Choose your club: Back by %s steps back to the New career options (%s; now %s, mode %s)" % [way, why3, _router.current(), str(menu3.get("_mode"))])
+		_table.append("new career: Choose your club | %s | %s" % [way, "ok" if ok3 else "FAIL %s now=%s mode=%s saved=%s" % [why3, _router.current(), str(menu3.get("_mode")), _saved_club()]])
+		# One more step back reaches the title, and Continue still shows the old career.
+		var why4: String = await _leave(way, menu3.find_child("TopBarBack", true, false))
+		await _settle(8)
+		var ok4: bool = why4 == "" and _continue_shows_old_career(current_scene) and _saved_club() == "COL"
+		_check(ok4, "then the title still offers Continue for the old career (%s: %s)" % [way, why4])
+		_table.append("new career: back to the title | %s | %s" % [way, "ok" if ok4 else "FAIL %s" % why4])
