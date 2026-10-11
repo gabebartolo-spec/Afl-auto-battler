@@ -30,6 +30,8 @@ func run() -> void:
 	_test_play_through()
 	_test_play_through_by_job()
 	_test_play_through_three()
+	_test_main_ruck()
+	_test_main_ruck_costs_an_easy_role()
 	_test_hothead()
 	_test_lockdown_midfielder()
 	_test_traits()
@@ -66,6 +68,7 @@ func run() -> void:
 	_test_momentum()
 	_test_moment_calls_matter()
 	_test_ai_chases_and_controlled_needs_ball_users()
+	_test_coach_styles()
 	_test_tag_tradeoff()
 	_test_through_stars()
 	_test_set_shot_bands()
@@ -1407,6 +1410,125 @@ func _test_play_through_three() -> void:
 	_check(on["top"] < 45.0, "Nobody becomes the only one who gets it (most in a game %d)" % int(on["top"]))
 
 
+## Main ruck (director, 2026-10-07, dual-ruck sides): the man you name goes up
+## at every stoppage while he is on the ground, wherever he stands, and does
+## a ruck's work for it (he tires like a ruck); resting, the usual rule. It
+## moves the hit-outs between the two rucks, it does not make more of them.
+func _test_main_ruck() -> void:
+	var club := ""
+	var rucks := []
+	# A dual-ruck side: both rucks start on the ground, one in the ruck and one
+	# elsewhere (St Kilda, the Bulldogs). A second ruck who starts on the bench
+	# mostly comes on for the first, through the ruck spot, so the call has
+	# little to move there (audit mainruck_impl: Brisbane 28 v 24 contests a
+	# game; St Kilda 54 v 29).
+	for c in ["GEE", "COL", "MEL", "CAR", "SYD", "BRL", "HAW", "ESS", "FRE", "ADE", "GWS", "STK", "WCE", "WBD"]:
+		var sim := _sim(70, c, "COL" if c != "COL" else "GEE")
+		var found := []
+		for q in (sim.squads[0] as Squad).ground:
+			if MatchSim._is_ruckman(q):
+				found.append(q)
+		if found.size() >= 2:
+			club = c
+			rucks = found
+			break
+	_check(club != "", "(setup) a club that starts two rucks on the ground")
+	if club == "":
+		return
+	var opp := "COL" if club != "COL" else "GEE"
+	var probe := _sim(70, club, opp)
+	var first: Array = probe._contestant(probe.squads[0])
+	var other := ""
+	for r in rucks:
+		if first.is_empty() or str(r["id"]) != str(first[0]["id"]):
+			other = str(r["id"])
+			break
+	# Named but resting on the bench: the usual rule still picks.
+	probe.set_tactics(0, {"main_ruck": other})
+	var on_ground := false
+	for q in (probe.squads[0] as Squad).ground:
+		on_ground = on_ground or str(q["id"]) == other
+	var now: Array = probe._contestant(probe.squads[0])
+	_check(not now.is_empty() and (str(now[0]["id"]) == other) == on_ground,
+			"The main ruck goes up when he is on the ground, and only then")
+	var n := 16
+	var ho_on := 0.0
+	var ho_off := 0.0
+	var side_on := 0.0
+	var side_off := 0.0
+	var ex_on := 0.0
+	var ex_off := 0.0
+	for i in range(n):
+		# Your side is the coach's, not the AI's: an AI club picks its plan
+		# afresh every quarter, which would drop the call after the first.
+		var a := _sim(1100 + i, club, opp)
+		(a.squads[0] as Squad).ai_plans = false
+		a.set_tactics(0, {"main_ruck": other})
+		var ra := a.run()
+		var b := _sim(1100 + i, club, opp)
+		(b.squads[0] as Squad).ai_plans = false
+		var rb := b.run()
+		ho_on += float(((ra["players"] as Dictionary).get(other, {}) as Dictionary).get("hitouts", 0.0))
+		ho_off += float(((rb["players"] as Dictionary).get(other, {}) as Dictionary).get("hitouts", 0.0))
+		side_on += float(((ra["team"] as Array)[0] as Dictionary).get("hitouts", 0.0))
+		side_off += float(((rb["team"] as Array)[0] as Dictionary).get("hitouts", 0.0))
+		ex_on += float((ra["exertion"] as Dictionary).get(other, 0.0))
+		ex_off += float((rb["exertion"] as Dictionary).get(other, 0.0))
+	_check(ho_on > ho_off * 1.2, "Named main ruck, he takes more of the hit-outs (%.1f v %.1f a game)" % [ho_on / n, ho_off / n])
+	# (b) A ruck who already lines up in a drain-heavier role (a midfielder, 1.25 v
+	# the ruck's 1.15) is not asked to work less or more: the call changes who goes
+	# up, not what he costs, so his exertion is the same with and without it.
+	if str(_role_of(rucks, other)) == "MID" or str(_role_of(rucks, other)) == "RUCK":
+		_check(absf(ex_on - ex_off) / n < 0.5,
+				"...a ruck who already drains like one (or more) is unchanged by the call (exertion %.1f v %.1f)" % [ex_on / n, ex_off / n])
+	_check(absf(side_on - side_off) / side_off < 0.15,
+			"The side's hit-outs move between the rucks, not from nowhere (%.1f v %.1f)" % [side_on / n, side_off / n])
+
+
+func _role_of(list: Array, id: String) -> String:
+	for q in list:
+		if str(q["id"]) == id:
+			return str(q["role"])
+	return ""
+
+
+## (a) The call has a cost when it moves a man out of an easier job: a second ruck
+## who lines up in defence or forward (drain 0.85 / 0.9) works a ruck's 1.15 once
+## he goes up, so his exertion over the first quarter is higher with the call than
+## without it. Read at quarter one's end, before rotations pull the two matches
+## apart (a tired man rests, which hides the drain in a whole-match total; the
+## first version of this check, over a match, went 108 v 116 once #647 merged).
+func _test_main_ruck_costs_an_easy_role() -> void:
+	var club := ""
+	var man := ""
+	for c in ["WBD", "STK", "GEE", "COL", "MEL", "CAR", "SYD", "BRL", "HAW", "ESS", "FRE", "ADE", "GWS", "WCE"]:
+		var sim := _sim(70, c, "COL" if c != "COL" else "GEE")
+		for q in (sim.squads[0] as Squad).ground:
+			if MatchSim._is_ruckman(q) and (str(q["role"]) == "DEF" or str(q["role"]) == "FWD"):
+				club = c
+				man = str(q["id"])
+		if club != "":
+			break
+	_check(club != "", "(setup) a club that starts a ruck in a defensive or forward role")
+	if club == "":
+		return
+	var opp := "COL" if club != "COL" else "GEE"
+	var n := 16
+	var left_on := 0.0
+	var left_off := 0.0
+	for i in range(n):
+		var a := _sim(1100 + i, club, opp)
+		(a.squads[0] as Squad).ai_plans = false
+		a.set_tactics(0, {"main_ruck": man})
+		a.run_quarter()
+		left_on += float(a.exertion.get(man, 0.0))
+		var b := _sim(1100 + i, club, opp)
+		(b.squads[0] as Squad).ai_plans = false
+		b.run_quarter()
+		left_off += float(b.exertion.get(man, 0.0))
+	_check(left_on > left_off, "A second ruck from defence or forward works harder in the first quarter once he goes up (exertion %.1f v %.1f)" % [left_on / n, left_off / n])
+
+
 func _job_mult(sim: MatchSim, p: Dictionary, purpose: String, zone: String) -> float:
 	var ctx := sim._pick_ctx(0)
 	ctx["zone"] = zone
@@ -2618,6 +2740,60 @@ func _test_moment_calls_matter() -> void:
 				s3.resolve_moment(int(m.get("default", 0)))
 			s3.end_quarter()
 	_check(best.size() >= 2, "No set-shot call is always right: the best one changes with the shot (%s)" % str(best))
+
+
+## Rival coaches' tendencies (director, 2026-10-11): readable, characteristic
+## calls on the same rule, never dice. Each style's call shows under its own
+## condition where a balanced coach would hold; your own club is never
+## given one; a coach keeps his style on his record across a save.
+func _test_coach_styles() -> void:
+	var call := func(style: String, margin: int, q: int, ai := true) -> Dictionary:
+		var m := _sim(8440, "GEE", "COL")
+		var sq: Squad = m.squads[1]
+		sq.ai_plans = ai
+		sq.coach_style = style
+		sq.tactics_read = 0.0
+		m.standing[1] = "balanced"
+		m.current_quarter = q
+		# The scoreboard: side 1 is `margin` points up (in behinds).
+		m.team_stats[0] = {"goals": 0.0, "behinds": 40.0}
+		m.team_stats[1] = {"goals": 0.0, "behinds": 40.0 + float(margin)}
+		var t := m.ai_tactics(1)
+		t["loose"] = m._ai_interceptor(1, sq.ground)
+		return t
+	# react is 18 points for this coach (read 0).
+	var plan := func(style: String, margin: int, q: int) -> String:
+		return str(call.call(style, margin, q)["gameplan"])
+	_check(plan.call("cautious", 10, 2) == "controlled" and plan.call("balanced", 10, 2) == "balanced",
+			"A coach who sits on a lead shuts up shop 10 points up; a balanced one does not")
+	_check(plan.call("gambler", -10, 2) == "attacking" and plan.call("balanced", -10, 2) == "balanced",
+			"A coach who goes for broke chases 10 down in the second quarter; a balanced one does not")
+	_check(plan.call("reactive", 12, 2) == "controlled" and plan.call("reactive", -12, 2) == "attacking"
+			and plan.call("balanced", 12, 2) == "balanced",
+			"A coach who throws the magnets around moves at 12 points either way")
+	_check(plan.call("stubborn", -20, 3) == "balanced" and plan.call("balanced", -20, 3) == "attacking",
+			"A coach who backs his structure keeps his plan 20 down; a balanced one chases")
+	var keeps := str(call.call("stubborn", -30, 4)["loose"]) != ""
+	var pulls := str(call.call("balanced", -30, 4)["loose"]) == ""
+	var had := str(call.call("balanced", 0, 1)["loose"]) != ""
+	_check(not had or (keeps and pulls),
+			"Backing his structure keeps the loose man 30 down late; a balanced coach pulls him")
+	# Your club: whatever is on the squad, you are the coach.
+	_check(str(call.call("gambler", -10, 2, false)["gameplan"]) == "balanced",
+			"Your own club never plays to a style")
+	# His style is his: kept on his record, the same after a save.
+	var c := {"cid": "C_test_coach", "skills": {"tactics": 60, "manage": 60, "teach": 60}}
+	var s1 := Coaches.style(c)
+	var back: Dictionary = JSON.parse_string(JSON.stringify(c))
+	_check(Coaches.STYLES.has(s1) and str(back.get("style", "")) == s1 and Coaches.style(back) == s1,
+			"A coach's style is kept on his record and survives a save (%s)" % s1)
+	var sharp := {"cid": "C_test_coach", "skills": {"tactics": 85, "manage": 60, "teach": 60}}
+	_check(Coaches.style(sharp) == "balanced", "A sharp tactician reads the game as it is")
+	var seen := {}
+	var world := Coaches.seed("GEE")
+	for cid in world:
+		seen[Coaches.style(world[cid])] = true
+	_check(seen.size() >= 4, "The league's coaches have a spread of tendencies (%s)" % str(seen.keys()))
 
 
 ## Playtest: a defensive AI sat in its press all game while losing, and

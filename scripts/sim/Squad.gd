@@ -24,6 +24,9 @@ var ai_plans := false
 ## Your club: the assistant takes the routine match-day calls you leave to
 ## him - the loose defender and the key defenders' match-ups (MatchSim).
 var assistant := false
+## An AI club's senior coach's match-day tendency (Coaches.STYLES): when and
+## how hard he reacts to the scoreboard. "balanced" for your club, always.
+var coach_style := "balanced"
 
 ## Role-group strengths
 var ruck := 45.0

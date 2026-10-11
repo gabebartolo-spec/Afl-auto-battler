@@ -44,6 +44,13 @@ const SEED_CSV := "res://data/coaches_2026.csv"
 const SEED_YEAR := 2026
 
 const JOBS := ["SC", "SA", "MID", "FWD", "DEF", "DEV"]
+## A senior coach's match-day tendency (director, 2026-10-11): readable,
+## characteristic calls, never dice. The rule's numbers are
+## MatchSim.COACH_STYLES; the names are internal, never shown about a real
+## coach (the copy says what he does: "sits on a lead", "goes for broke").
+const STYLES := ["balanced", "stubborn", "reactive", "gambler", "cautious"]
+## A senior coach this sharp tactically reads the game as it is: balanced.
+const STYLE_SHARP := 78
 const JOB_LABEL := {
 	"SC": "Senior coach", "SA": "Senior assistant", "MID": "Midfield & ruck",
 	"FWD": "Forwards", "DEF": "Defence", "DEV": "Development",
@@ -150,6 +157,30 @@ static func experience_word(c: Dictionary, job: String) -> String:
 	if held == lv - 1:
 		return "Ready to step up"
 	return "New to this level"
+
+
+## His match-day tendency, kept on his record ("style") once it is first
+## read, so it never changes with his ratings or a reload. A coach with no
+## style yet (a new record, or a save from before styles) gets one from his
+## id: STYLE_SHARP tactics or better is balanced; otherwise one of STYLES by
+## a fixed hash of his id, a man-manager (manage 80+) sitting on a lead
+## rather than flipping between plans.
+static func style(c: Dictionary) -> String:
+	var s := str(c.get("style", ""))
+	if STYLES.has(s):
+		return s
+	var sk: Dictionary = c.get("skills", {})
+	if int(sk.get("tactics", 0)) >= STYLE_SHARP:
+		s = "balanced"
+	else:
+		var h := 0
+		for ch in str(c.get("cid", "")).to_utf8_buffer():
+			h = (h * 31 + int(ch)) % 1000003
+		s = str(STYLES[h % STYLES.size()])
+		if s == "reactive" and int(sk.get("manage", 0)) >= 80:
+			s = "cautious"
+	c["style"] = s
+	return s
 
 
 ## A club's staff: job -> cid, read from the records.
