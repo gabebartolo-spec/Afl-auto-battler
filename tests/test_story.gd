@@ -44,6 +44,7 @@ func run() -> void:
 	_test_culture()
 	_test_culture_news()
 	_test_culture_reasons_read_cleanly()
+	_test_culture_settles()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	GameState.stories_on = true
@@ -941,21 +942,21 @@ func _test_culture() -> void:
 	# The movers.
 	_check(Culture.run_step(4, 0)[1] == -3 and Culture.run_step(0, 5)[1] == 3 and Culture.run_step(3, 0).is_empty()
 			and Culture.run_step(5, 0).is_empty(), "A run of losses or wins moves Togetherness only when it reaches its mark")
-	var steps := Culture.season_steps(1, 18, true, 28.0, 5.0)
+	var steps := Culture.season_steps(1, 18, true, 2.0, 5.0)
 	var by := {}
 	for st in steps:
 		by[str(st["strand"])] = int(st["d"])
 	_check(by.get("together", 0) > 0 and by.get("ambition", 0) > 0 and by.get("standards", 0) > 0,
 			"Premiers with an old, disciplined side lift every strand")
-	var bad := Culture.season_steps(17, 18, false, 23.0, -6.0)
+	var bad := Culture.season_steps(17, 18, false, -2.0, -6.0)
 	var by2 := {}
 	for st in bad:
 		by2[str(st["strand"])] = int(st["d"])
 	_check(by2.get("together", 0) < 0 and by2.get("ambition", 0) < 0 and by2.get("standards", 0) < 0,
 			"A bottom finish with a young, loose side lowers every strand")
-	_check(Culture.season_steps(10, 18, false, 26.0, 0.0).is_empty(), "A mid-table, mid-age season moves nothing")
-	_check(Culture.new_faces_step(8)[0]["d"] < 0 and Culture.new_faces_step(0)[0]["d"] > 0 and Culture.new_faces_step(4).is_empty(),
-			"Many new faces cost Togetherness; a settled list helps")
+	_check(Culture.season_steps(10, 18, false, 0.0, 0.0).is_empty(), "A mid-table, mid-age season moves nothing")
+	_check(Culture.new_faces_step(12, 6.0)[0]["d"] < 0 and Culture.new_faces_step(2, 6.0)[0]["d"] > 0 and Culture.new_faces_step(7, 6.0).is_empty() and Culture.new_faces_step(8, 8.0).is_empty(),
+			"Well more new faces than the league median costs Togetherness; well fewer helps; normal churn does nothing")
 	for strand in Culture.STRANDS:
 		for t in [-100, -60, -30, 0, 30, 60, 100]:
 			var w := Culture.words(str(strand[0]), t)
@@ -1013,14 +1014,14 @@ func _test_culture() -> void:
 	var before := Culture.value(GameState.relations, rival, "together")
 	var n := 0
 	for p in GameState.season.lists[rival]:
-		if n < 8:
+		if n < 16:
 			p["career"] = {"games": 50, "goals": 0, "stints": [["ZZZ", 2025, 2025, 20, 0]], "through": 2026, "unknown": []}
 			n += 1
 	GameState._culture_marks()["roll"] = 0
 	GameState._culture_rollover()
 	var rs2 := Culture.reasons(GameState.relations, rival, "together")
 	_check(Culture.value(GameState.relations, rival, "together") == before - 4 and str(rs2[0]["why"]).contains("new faces"),
-			"Eight new faces from other clubs cost Togetherness at the rollover, with the reason")
+			"Sixteen new faces from other clubs cost Togetherness at the rollover, with the reason")
 
 	# A promise you broke is a fact about your club.
 	GameState._culture_move(GameState.my_club, "together", -2, "You broke your word on a player's run of games")
@@ -1103,5 +1104,20 @@ func _test_culture_reasons_read_cleanly() -> void:
 	_check(Culture.quiet_words(0, false) == "Nothing stands out yet" and Culture.quiet_words(0, true) == "Back to normal"
 			and Culture.quiet_words(6, true) == "Starting to build" and Culture.quiet_words(-6, true) == "Starting to slip",
 			"A strand with no named band does not contradict its reasons")
-	var ages := Culture.season_steps(10, 18, false, 28.0, 0.0)
+	var ages := Culture.season_steps(10, 18, false, 1.5, 0.0)
 	_check(not str(ages[0]["why"]).contains("28"), "An age reason carries no number")
+
+
+func _test_culture_settles() -> void:
+	var rel := {}
+	for i in range(5):
+		Culture.change(rel, "GEE", "together", 6, "Played finals", 2027, "Off-season")
+	var before := Culture.value(rel, "GEE", "together")
+	Culture.settle(rel, "GEE", "together")
+	var after := Culture.value(rel, "GEE", "together")
+	_check(after < before and after > 0 and Culture.reasons(rel, "GEE", "together").size() == 5,
+			"A strand settles back a little each season without adding a reason (%d to %d)" % [before, after])
+	var quiet := {}
+	Culture.change(quiet, "GEE", "standards", 2, "x", 2027, "Round 1")
+	Culture.settle(quiet, "GEE", "standards")
+	_check(Culture.value(quiet, "GEE", "standards") == 2, "A strand near neutral does not settle further")

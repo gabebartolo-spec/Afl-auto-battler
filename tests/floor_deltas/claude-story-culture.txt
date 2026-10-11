@@ -1,2 +1,2 @@
-story +46
+story +48
 roles +4

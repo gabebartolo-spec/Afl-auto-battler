@@ -25,12 +25,15 @@ const WINNING_RUNS := [5, 10]
 ## Season-end thresholds.
 const FINALS_PLACES := 8
 const BOTTOM_PLACES := 4
-const OLD_SIDE_AGE := 27.0
-const YOUNG_SIDE_AGE := 24.5
-const DISCIPLINE_GAP := 4.0
-## New faces from other clubs at the rollover.
-const MANY_NEW_FACES := 6
-const FEW_NEW_FACES := 1
+## Age and discipline are read against the league at season close, so a strand
+## moves for the clubs that stand out and the league as a whole never drifts.
+const AGE_GAP := 1.0
+const DISCIPLINE_GAP := 2.5
+## Each season a strand settles back a little towards neutral: culture is slow.
+const SETTLE_RATE := 0.12
+## New faces from other clubs at the rollover, against the league median.
+const FACES_ABOVE := 4.0
+const FACES_BELOW := 3.0
 
 ## Bands, highest first: [floor, key, words on the club's page, news phrase].
 const BANDS := {
@@ -81,6 +84,19 @@ static func band_key(strand: String, t: int) -> String:
 ## "A tight group", or "" while nothing stands out.
 static func words(strand: String, t: int) -> String:
 	return str(_band(strand, t)[2])
+
+
+## A strand settles back a little towards neutral (no reason kept: it is the
+## passing of time, not an event).
+static func settle(rel: Dictionary, club: String, strand: String) -> void:
+	var k := key(club, strand)
+	var entry: Dictionary = rel.get(k, {})
+	var t := int(entry.get("t", 0))
+	if absi(t) < 3:
+		return
+	var step := maxi(1, int(round(float(absi(t)) * SETTLE_RATE)))
+	entry["t"] = t - step if t > 0 else t + step
+	rel[k] = entry
 
 
 ## Does a band make the league news for a rival? Never a negative claim about
@@ -187,9 +203,10 @@ static func run_step(losses: int, wins: int) -> Array:
 
 
 ## The season's close for one club: [{"strand", "d", "why"}].
-## `position` is 1-based on the ladder of `clubs`; `avg_age` is the best 22's
-## average; `discipline_gap` is the list's discipline rating minus the league's.
-static func season_steps(position: int, clubs: int, premier: bool, avg_age: float,
+## `position` is 1-based on the ladder of `clubs`; `age_gap` is the best 22's
+## average age minus the league's; `discipline_gap` is the list's discipline
+## rating minus the league's.
+static func season_steps(position: int, clubs: int, premier: bool, age_gap: float,
 		discipline_gap: float) -> Array:
 	var out := []
 	if premier:
@@ -198,9 +215,9 @@ static func season_steps(position: int, clubs: int, premier: bool, avg_age: floa
 		out.append({"strand": "together", "d": 3, "why": "Played finals"})
 	elif position > clubs - BOTTOM_PLACES:
 		out.append({"strand": "together", "d": -3, "why": "Finished near the bottom of the ladder"})
-	if avg_age >= OLD_SIDE_AGE:
+	if age_gap >= AGE_GAP:
 		out.append({"strand": "ambition", "d": 4, "why": "An experienced side"})
-	elif avg_age <= YOUNG_SIDE_AGE:
+	elif age_gap <= -AGE_GAP:
 		out.append({"strand": "ambition", "d": -4, "why": "A young side"})
 	if discipline_gap >= DISCIPLINE_GAP:
 		out.append({"strand": "standards", "d": 4, "why": "The list's discipline is well above the league's"})
@@ -209,12 +226,14 @@ static func season_steps(position: int, clubs: int, premier: bool, avg_age: floa
 	return out
 
 
-## New faces from other clubs at the rollover: [{"strand", "d", "why"}] or [].
-static func new_faces_step(n: int) -> Array:
-	if n >= MANY_NEW_FACES:
-		return [{"strand": "together", "d": -4, "why": "%s new faces from other clubs" % _count(n).capitalize()}]
-	if n <= FEW_NEW_FACES:
-		return [{"strand": "together", "d": 3, "why": "A settled list: hardly a new face from another club"}]
+## New faces from other clubs at the rollover, against the league's median for
+## the off-season (some churn is normal): well above it costs Togetherness,
+## well below it helps. [{"strand", "d", "why"}] or [].
+static func new_faces_step(n: int, median: float) -> Array:
+	if float(n) >= median + FACES_ABOVE:
+		return [{"strand": "together", "d": -4, "why": "%s new faces from other clubs, well more than most" % _count(n).capitalize()}]
+	if float(n) <= median - FACES_BELOW:
+		return [{"strand": "together", "d": 3, "why": "A settled list: far fewer new faces from other clubs than most"}]
 	return []
 
 

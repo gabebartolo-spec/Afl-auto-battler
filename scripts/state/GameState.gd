@@ -8616,19 +8616,26 @@ func _culture_season() -> void:
 		league_n += n
 	var league_mean := league_sum / maxf(1.0, float(league_n))
 	var champion := premier()
-	for k in range(table.size()):
-		var code := str(table[k]["code"])
-		var roster: Array = season.lists.get(code, [])
-		var best := roster.duplicate()
+	var ages := {}
+	var age_sum := 0.0
+	for code in season.lists:
+		var best: Array = (season.lists[code] as Array).duplicate()
 		best.sort_custom(func(x, y): return int(x.get("overall", 0)) > int(y.get("overall", 0)))
 		var age := 0.0
 		var count := mini(22, best.size())
 		for j in range(count):
 			age += float(best[j].get("age", 25.0))
 		age /= maxf(1.0, float(count))
-		for st in Culture.season_steps(k + 1, table.size(), code == champion, age,
-				float(disc.get(code, league_mean)) - league_mean):
+		ages[str(code)] = age
+		age_sum += age
+	var age_mean := age_sum / maxf(1.0, float(ages.size()))
+	for k in range(table.size()):
+		var code := str(table[k]["code"])
+		for st in Culture.season_steps(k + 1, table.size(), code == champion,
+				float(ages.get(code, age_mean)) - age_mean, float(disc.get(code, league_mean)) - league_mean):
 			_culture_move(code, str(st["strand"]), int(st["d"]), str(st["why"]))
+		for s in Culture.STRANDS:
+			Culture.settle(relations, code, str(s[0]))
 
 
 ## At the rollover, every club: how many new faces came from other clubs.
@@ -8639,14 +8646,24 @@ func _culture_rollover() -> void:
 	if int(marks["roll"]) == season_year:
 		return
 	marks["roll"] = season_year
+	var faces := {}
+	var counts := []
 	for code in season.lists:
-		var faces := 0
+		var n := 0
 		for p in season.lists[code]:
 			var c = (p as Dictionary).get("career")
 			if not (c is Dictionary):
 				continue
 			var stints: Array = (c as Dictionary).get("stints", [])
 			if not stints.is_empty() and str((stints[stints.size() - 1] as Array)[0]) != str(code):
-				faces += 1
-		for st in Culture.new_faces_step(faces):
+				n += 1
+		faces[str(code)] = n
+		counts.append(n)
+	counts.sort()
+	var median := 0.0
+	if not counts.is_empty():
+		var mid := counts.size() / 2
+		median = float(counts[mid]) if counts.size() % 2 == 1 else (float(counts[mid - 1]) + float(counts[mid])) / 2.0
+	for code in faces:
+		for st in Culture.new_faces_step(int(faces[code]), median):
 			_culture_move(str(code), str(st["strand"]), int(st["d"]), str(st["why"]))
