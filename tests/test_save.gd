@@ -18,6 +18,8 @@ func run() -> void:
 	GameState.replay_seed = SUITE_SEED
 	_test_mid_season_round_trip()
 	_test_reload_plays_like_straight()
+	_test_market_opens_fresh()
+	_test_second_offseason_after_reload()
 	_test_review_after_reload()
 	_test_training_survives()
 	_test_adjusted_players_survive()
@@ -121,6 +123,45 @@ func _test_reload_plays_like_straight() -> void:
 	_check(bad == "" and a.size() == b.size(), "Season stats match after a reload (%s)" % bad)
 
 
+## The off-season market opens from the lists as they are, never from the last
+## market's signings (qa, 2026-10-11: a second career in one process, or a
+## career reloaded before the off-season, played a different off-season).
+func _test_market_opens_fresh() -> void:
+	_new_season("MEL")
+	while not GameState.season.is_season_over():
+		GameState.advance()
+	_check(GameState.save_career(), "(setup) the finished season saves")
+	# Stale signings from a market long closed, as a last career would leave.
+	var stale := {}
+	for code in GameState.season.lists:
+		stale[str(code)] = 2
+	GameState._targets_signed = stale.duplicate()
+	GameState.open_offseason()
+	var with_stale := _market_sig()
+	GameState.load_career()
+	# The save does not keep them: a career loaded in a fresh game has none.
+	GameState._targets_signed = {}
+	GameState.open_offseason()
+	var reloaded := _market_sig()
+	_check(with_stale != "" and with_stale == reloaded,
+			"The market opens the same after a reload as with a last market's signings left over")
+	GameState._targets_signed = stale.duplicate()
+	GameState.market_stats = {"improve": 3}
+	GameState._bars = {"MEL": {}}
+	GameState.reset()
+	_check(GameState._targets_signed.is_empty() and GameState.market_stats.is_empty() and GameState._bars.is_empty()
+			and CoachEffects.table.is_empty(), "A new career starts with no market or coaching tables from the last")
+
+
+## Every free agent's offers as the market opens: who, how much, how long.
+func _market_sig() -> String:
+	var parts := []
+	for p in GameState.free_agents:
+		var offers := []
+		for o in p.get("offers", []):
+			offers.append("%s %d %d" % [str(o["club"]), int(o["salary"]), int(o["years"])])
+		parts.append("%s:%s" % [str(p.get("id", "")), ",".join(offers)])
+	return "|".join(parts)
 ## "Review match" after a reload shows what the player saw at full time
 ## (qa, 2026-10-11): the key match-ups, your synergies, the injuries and the
 ## coach's report, line for line, for several rounds.
@@ -156,6 +197,64 @@ func _review_text(res: Dictionary) -> Dictionary:
 		"stats": MatchNotes.key_stats(res, me),
 		"payoffs": GameState.payoff_lines(res),
 	}
+
+
+## A career saved in season 2 and loaded in a fresh game plays the second
+## off-season and season 3 as one played straight through (qa, 2026-10-11:
+## the free-agency signings were never saved, and the second off-season
+## opened from last year's).
+func _test_second_offseason_after_reload() -> void:
+	_new_season("MEL")
+	_play_offseason()
+	for i in range(5):
+		GameState.advance()
+	_check(GameState.save_career(), "(setup) a season-2 career saves")
+	var straight := _through_second_offseason()
+	_check(GameState.load_career(), "(setup) the season-2 save loads")
+	# A fresh game: nothing the save does not keep.
+	GameState._targets_signed = {}
+	GameState.market_stats = {}
+	GameState._bars = {}
+	var reloaded := _through_second_offseason()
+	var bad := []
+	for k in straight:
+		if str(straight[k]) != str(reloaded.get(k, "")):
+			bad.append(k)
+	_check(bad.is_empty(), "Saved in season 2 and loaded fresh, the second off-season and season 3 play the same (%s)" % ", ".join(bad))
+
+
+func _play_offseason() -> void:
+	while not GameState.season.is_season_over():
+		GameState.advance()
+	GameState.open_offseason()
+	if GameState.begin_intake_draft():
+		var d: Draft = GameState.draft
+		var guard := 0
+		while not d.is_finished() and guard < 5000:
+			guard += 1
+			var c: Dictionary = d._best_ai_pick(d.current_club())
+			if c.is_empty() or not d._draft_pick(d.current_club(), c):
+				d._skip_current_pick()
+		GameState.finish_intake_draft()
+	else:
+		GameState.start_next_season()
+
+
+func _through_second_offseason() -> Dictionary:
+	_play_offseason()
+	var rounds := []
+	for i in range(2):
+		GameState.advance()
+		rounds.append(_round_sig(GameState.last_results))
+	var lists := []
+	for code in GameState.season.lists:
+		var ids := []
+		for p in GameState.season.lists[code]:
+			ids.append(str(p.get("id", "")))
+		ids.sort()
+		lists.append("%s:%s" % [code, ",".join(ids)])
+	return {"year": GameState.season_year, "rounds": rounds, "lists": lists,
+			"offseason_log": str(GameState.offseason_log)}
 
 
 func _ten_rounds(save_after: int) -> Dictionary:
