@@ -191,7 +191,8 @@
 				],
 				"result": "The club sends a signed jumper."
 			}
-		]
+		],
+		"private": true
 	},
 	{
 		"id": "community_school_visit",
