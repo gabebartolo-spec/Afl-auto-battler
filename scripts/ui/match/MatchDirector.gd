@@ -1759,7 +1759,14 @@ const PRESS_NARROW := 0.78
 const PRESS_FROM := -10.0
 
 
+## Debug only (capture_match --noshape): draw the plan without its shape, the
+## sim untouched, so a clip pair differs in the formation alone.
+static var debug_no_press_shape := false
+
+
 func _pressing(side: int, bx: float) -> bool:
+	if debug_no_press_shape:
+		return false
 	return str((_tac[side] as Dictionary).get("plan", "")) == "defensive" and bx > PRESS_FROM
 
 

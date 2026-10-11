@@ -21,6 +21,7 @@ extends SceneTree
 ##   --tag SIDE      that side tags the other side's best midfielder
 ##   --flood SIDE    that side floods behind the ball all match (0 home, 1 away)
 ##   --press SIDE    that side plays the Defensive press all match (--balanced SIDE: Balanced)
+##   --noshape       with --press: the sim keeps the press, the oval does not draw its shape
 ##   --stack SIDE    that side stacks every centre ball-up
 ##   --kside S       with --kind, only events by side S
 ##   --shake F       the turnover shake's size as a share of the oval's height
@@ -92,6 +93,7 @@ func _run() -> void:
 		# --stack SIDE: that side stacks every centre ball-up (the attacking
 		# setup, for the second demonstration).
 		(sim.bursts[int(args["stack"])] as Dictionary)["stack"] = 100000
+	MatchDirector.debug_no_press_shape = args.has("noshape")
 	var res: Dictionary
 	var call := str(args.get("call", ""))
 	if call == "":
