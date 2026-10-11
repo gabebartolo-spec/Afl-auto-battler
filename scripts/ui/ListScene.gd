@@ -65,6 +65,16 @@ func _build() -> void:
 	if injured > 0:
 		count += "  ·  %d injured" % injured
 	_root.add_child(UiKit.lbl(count, UiKit.SMALL, UiKit.MUTED))
+	var named := PackedStringArray()
+	var cap_rec := GameState.captaincy_record(GameState.my_club)
+	for id in Captaincy.ids(cap_rec):
+		for q in GameState.my_list:
+			if str(q.get("id", "")) == str(id):
+				named.append(GameDB.player_display_name(q))
+	var cap_link := UiKit.section_link("Captaincy", ", ".join(named) if not named.is_empty() else "No captain named ›",
+			"CaptaincyOpen")
+	cap_link.pressed.connect(func(): _open_captaincy())
+	_root.add_child(cap_link)
 
 	if _narrow():
 		var tabs := UiKit.hbox(2)
@@ -268,6 +278,13 @@ func _open_profile(id: String) -> void:
 		return
 	_close_profile()
 	_profile = PlayerSheet.open(self, p, func(): _profile = null)
+
+
+func _open_captaincy() -> void:
+	_close_profile()
+	_profile = CaptaincySheet.open(self, func():
+		_profile = null
+		_build())
 
 
 func _close_profile() -> void:
