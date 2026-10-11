@@ -25,6 +25,28 @@ func _shot(path: String) -> void:
 	print("wrote ", path)
 
 
+## A finger's tap, as tests/tap.gd sends it, with the point scaled from the
+## canvas to the window (the capture window is not at the canvas scale the
+## suites run at). Returns "" when the button took it.
+func _tap(c: Control) -> String:
+	var at := Tap.screen_point(c) * (Vector2(root.size) / root.get_visible_rect().size)
+	var hit := [false]
+	var on_press := func(): hit[0] = true
+	(c as BaseButton).pressed.connect(on_press)
+	for down in [true, false]:
+		var touch := InputEventScreenTouch.new()
+		touch.index = 0
+		touch.position = at
+		touch.pressed = down
+		Input.parse_input_event(touch)
+		Input.flush_buffered_events()
+		for i in range(3):
+			await process_frame
+	if is_instance_valid(c):
+		(c as BaseButton).pressed.disconnect(on_press)
+	return "" if hit[0] else "the tap missed"
+
+
 func _run() -> void:
 	var out := "/tmp/cult"
 	var a := OS.get_cmdline_user_args()
@@ -59,7 +81,7 @@ func _run() -> void:
 				await process_frame
 		print("visible ", root.get_visible_rect().size)
 	else:
-		DisplayServer.window_set_size(Vector2i(W, H))
+		# As the suites do it (root size only), so a real tap lands where it should.
 		root.size = Vector2i(W, H)
 	for i in range(3):
 		await process_frame
@@ -84,13 +106,13 @@ func _run() -> void:
 	var open_btn: Button = current_scene.find_child("CultureOpen", true, false)
 	# A real tap where the capture window maps touches true (the roles suite proves
 	# the tap on its own); else the press, so the shot is still taken.
-	var why: String = await Tap.tap(open_btn)
+	var why: String = await _tap(open_btn) if W < 760 else "not tapped on the PC canvas"
 	if why != "" or current_scene.find_child("CultureSheet", true, false) == null:
 		print("tap not mapped here (", why, "): pressing instead")
 		open_btn.emit_signal("pressed")
 	await _shot(out + "_culture.png")
 	for b in current_scene.find_children("StrandWhy", "Button", true, false):
-		if await Tap.tap(b) != "":
+		if W >= 760 or await _tap(b) != "":
 			b.emit_signal("pressed")
 	await _shot(out + "_why.png")
 	quit(0)
