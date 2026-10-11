@@ -33,29 +33,29 @@ static func _strand(strand: String, label: String, club: String) -> Control:
 	var words := Culture.words(strand, t)
 	var col := UiKit.vbox(4)
 	col.name = "Strand_" + strand
-	col.add_child(UiKit.spacer(6))
-	col.add_child(UiKit.lbl(label, UiKit.SMALL, UiKit.MUTED))
+	col.add_child(UiKit.spacer(24))
+	col.add_child(UiKit.lbl(label, UiKit.BODY, UiKit.MUTED, true))
 	var row := UiKit.hbox(8)
 	col.add_child(row)
 	var reasons := Culture.grouped(GameState.relations, club, strand)
-	var wl := UiKit.lbl(words if words != "" else Culture.quiet_words(t, not reasons.is_empty()), UiKit.BODY,
+	var latest := int(reasons[0]["latest"]) if not reasons.is_empty() else 0
+	var wl := UiKit.lbl(words if words != "" else Culture.quiet_words(latest, not reasons.is_empty()), UiKit.BODY,
 			UiKit.TEXT if words != "" else UiKit.MUTED)
 	wl.name = "StrandWords"
 	wl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	wl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(wl)
-	var list := UiKit.vbox(10)
+	var list := UiKit.vbox(12)
 	list.name = "StrandReasons"
 	list.visible = false
-	if reasons.is_empty():
-		var none := UiKit.lbl("Nothing has moved this yet.", UiKit.BODY, UiKit.MUTED)
-		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		list.add_child(none)
 	for r in reasons:
 		var rl := UiKit.lbl(Culture.group_text(label, r), UiKit.BODY, UiKit.TEXT)
 		rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		list.add_child(rl)
+	if reasons.is_empty():
+		col.add_child(list)
+		return col  # nothing to explain: no Why, no empty list
 	var why := _secondary("Why", UiKit.SMALL)
 	why.name = "StrandWhy"
 	why.custom_minimum_size = Vector2(84, 48)

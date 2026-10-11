@@ -1101,9 +1101,15 @@ func _test_culture_reasons_read_cleanly() -> void:
 	_check(g.size() == 2 and int(g[1]["n"]) == 2
 			and Culture.group_text("Togetherness", g[1]) == "Round 4 and Round 12, 2027. A run of four losses, twice. Togetherness fell.",
 			"The same reason twice in a season is one line: %s" % Culture.group_text("Togetherness", g[1]))
-	_check(Culture.quiet_words(0, false) == "Nothing stands out yet" and Culture.quiet_words(0, true) == "Back to normal"
-			and Culture.quiet_words(6, true) == "Starting to build" and Culture.quiet_words(-6, true) == "Starting to slip",
-			"A strand with no named band does not contradict its reasons")
+	var yrs := {}
+	for y in [2025, 2026, 2027]:
+		Culture.change(yrs, "GEE", "standards", 4, "The list's discipline is well above the league's", y, "Off-season")
+	var gy := Culture.grouped(yrs, "GEE", "standards")
+	_check(gy.size() == 1 and Culture.group_text("Standards", gy[0]) == "Off-season, 2025 to 2027. The list's discipline is well above the league's, three off-seasons running. Standards rose.",
+			"The same reason in three off-seasons is one line: %s" % Culture.group_text("Standards", gy[0]))
+	_check(Culture.quiet_words(0, false) == "Nothing stands out yet" and Culture.quiet_words(3, true) == "Starting to build"
+			and Culture.quiet_words(-3, true) == "Starting to slip" and not Culture.quiet_words(3, true).contains("normal"),
+			"A strand with no named band follows its latest move and never contradicts it")
 	var ages := Culture.season_steps(10, 18, false, 1.5, 0.0)
 	_check(not str(ages[0]["why"]).contains("28"), "An age reason carries no number")
 

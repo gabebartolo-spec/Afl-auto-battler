@@ -131,54 +131,74 @@ static func reason_text(strand_label: String, r: Dictionary) -> String:
 			"rose" if int(r.get("d", 0)) > 0 else "fell"]
 
 
-## The same reason repeated (a run of losses twice in a season) as one entry:
-## [{"why", "y", "whens", "d", "n"}], newest first.
+## The same reason repeated (a run of losses twice, discipline three seasons
+## running) as one entry: [{"why", "y0", "y1", "whens", "d", "n", "latest"}],
+## newest first. `latest` is the direction of the newest move in the entry.
 static func grouped(rel: Dictionary, club: String, strand: String) -> Array:
 	var out := []
 	var at := {}
 	for r in reasons(rel, club, strand):
-		var k := "%s|%d" % [str(r.get("why", "")), int(r.get("y", 0))]
+		var k := str(r.get("why", ""))
+		var y := int(r.get("y", 0))
 		if at.has(k):
 			var g: Dictionary = out[int(at[k])]
 			(g["whens"] as Array).append(str(r.get("w", "")))
 			g["d"] = int(g["d"]) + int(r.get("d", 0))
 			g["n"] = int(g["n"]) + 1
+			g["y0"] = mini(int(g["y0"]), y)
+			g["y1"] = maxi(int(g["y1"]), y)
 		else:
 			at[k] = out.size()
-			out.append({"why": str(r.get("why", "")), "y": int(r.get("y", 0)), "whens": [str(r.get("w", ""))],
-					"d": int(r.get("d", 0)), "n": 1})
+			out.append({"why": k, "y0": y, "y1": y, "whens": [str(r.get("w", ""))],
+					"d": int(r.get("d", 0)), "n": 1, "latest": int(r.get("d", 0))})
 	return out
 
 
 ## One grouped reason as a line: "Round 4 and Round 12, 2027. A run of four
-## losses, twice. Togetherness fell."
+## losses, twice. Togetherness fell." or "Off-season, 2025 to 2027. ... three
+## off-seasons running."
 static func group_text(strand_label: String, g: Dictionary) -> String:
 	var whens: Array = g["whens"].duplicate()
 	whens.reverse()
-	var when: String = str(whens[0])
-	if whens.size() > 1:
-		var head := PackedStringArray()
-		for w in whens.slice(0, whens.size() - 1):
-			head.append(str(w))
-		when = ", ".join(head) + " and " + str(whens[whens.size() - 1])
-	var why := str(g["why"]).strip_edges().trim_suffix(".")
 	var n := int(g["n"])
-	if n == 2:
-		why += ", twice"
-	elif n > 2:
-		why += ", %s times" % _count(n)
-	return "%s, %d. %s. %s %s." % [when, int(g["y"]), why, strand_label, "rose" if int(g["d"]) > 0 else "fell"]
+	var why := str(g["why"]).strip_edges().trim_suffix(".")
+	var when := ""
+	var years := ""
+	var repeat := ""
+	var off_seasons := true
+	for w in whens:
+		if str(w) != "Off-season":
+			off_seasons = false
+	if int(g["y0"]) != int(g["y1"]):
+		years = "%d to %d" % [int(g["y0"]), int(g["y1"])]
+		when = "Off-season" if off_seasons else "Over the seasons"
+		repeat = (", %s off-seasons running" if off_seasons else ", %s times") % _count(n)
+	else:
+		years = str(int(g["y0"]))
+		if whens.size() == 1:
+			when = str(whens[0])
+		else:
+			var head := PackedStringArray()
+			for w in whens.slice(0, whens.size() - 1):
+				head.append(str(w))
+			when = ", ".join(head) + " and " + str(whens[whens.size() - 1])
+		if n == 2:
+			repeat = ", twice"
+		elif n > 2:
+			repeat = ", %s times" % _count(n)
+	return "%s, %s. %s%s. %s %s." % [when, years, why, repeat, strand_label, "rose" if int(g["d"]) > 0 else "fell"]
 
 
-## What a strand reads when no band is named: nothing yet, or how it is drifting.
-static func quiet_words(t: int, has_reasons: bool) -> String:
+## What a strand reads when no band is named: nothing yet, or which way its
+## latest move went (so it never contradicts the reason below it).
+static func quiet_words(latest: int, has_reasons: bool) -> String:
 	if not has_reasons:
 		return "Nothing stands out yet"
-	if t >= 4:
+	if latest > 0:
 		return "Starting to build"
-	if t <= -4:
+	if latest < 0:
 		return "Starting to slip"
-	return "Back to normal"
+	return "Holding steady"
 
 
 ## The strands that stand out, in words: "A tight group. Pushing to win now."

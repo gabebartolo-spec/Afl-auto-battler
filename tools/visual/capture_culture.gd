@@ -96,6 +96,11 @@ func _run() -> void:
 	for y in [state.season_year - 2, state.season_year - 1, state.season_year]:
 		Culture.change(state.relations, state.my_club, "standards", 4,
 				"The list's discipline is well above the league's", y, "Off-season")
+	# Five and more reasons on Togetherness, so the PC sheet has to scroll with Close pinned.
+	var y0: int = state.season_year
+	for why in ["Played finals", "A run of five wins", "A settled list: far fewer new faces from other clubs than most",
+			"A run of four losses", "Finished near the bottom of the ladder", "Premiers"]:
+		Culture.change(state.relations, state.my_club, "together", 3, why, y0 - 1, "Off-season")
 	root.get_node("Router").go("list")
 	for i in range(8):
 		await process_frame
