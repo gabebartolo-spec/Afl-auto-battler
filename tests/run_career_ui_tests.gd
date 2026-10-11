@@ -237,6 +237,9 @@ func _run() -> void:
 	_check(not _screen_text().contains("players ·") and not _screen_text().contains("Quit"),
 			"No data line or Quit on the menu (the button is Exit game)")
 	# Exit game (director, 2026-10-12): on desktop, a real click saves and quits.
+	var size_pre := root.size
+	root.size = Vector2i(1280, 720)   # a desktop window, so the tap lands on screen
+	await _settle()
 	var exit_btn: Button = current_scene.find_child("ExitGame", true, false)
 	_check(exit_btn != null and exit_btn.text == "Exit game", "The menu has an Exit game button on desktop")
 	var quits := [0]
@@ -247,6 +250,7 @@ func _run() -> void:
 	_router.handle_back(false)
 	_check(quits[0] == 1, "Escape on the menu still does not quit")
 	_router.quit_hook = Callable()
+	root.size = size_pre
 	_check(exit_btn != null and exit_btn.custom_minimum_size.y >= 48.0
 			and exit_btn.get_parent().get_child(exit_btn.get_parent().get_child_count() - 1) == exit_btn,
 			"Exit game is last in the How to play / Settings row, at least 48 px tall")
