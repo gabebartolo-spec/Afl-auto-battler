@@ -86,8 +86,10 @@ If the screen is black or stuck, also ask for the browser console text (desktop:
 
 ## 5. Updating the build
 
-Upload the new zip over the old one (same project, same file slot) or push it with butler if you
-use it; testers get the new build on their next load. Saves from the older build keep loading.
+Upload the new zip, then delete the old upload so only one file is marked to play in the browser
+(itch's own advice is to upload the new zip and delete the old one; its docs don't say more about
+caching, so if a tester still sees the old build, ask them to hard-refresh (Ctrl+Shift+R, or on a
+phone close the tab and reopen the link) and check the build label on the main menu). Testers get the new build on their next load. Saves from the older build keep loading.
 
 ## Known issues
 
