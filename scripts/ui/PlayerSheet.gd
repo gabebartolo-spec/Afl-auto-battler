@@ -182,8 +182,9 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 	for r in ATTR_ROWS:
 		grid.add_child(attr_bar(str(r[0]), str(r[1]), float(attr.get(r[0], 0.0))))
 	if nickname_row != null:
-		v.add_child(UiKit.spacer(6))
+		v.add_child(UiKit.spacer(10))
 		v.add_child(nickname_row)
+		v.add_child(UiKit.spacer(14))   # clear of Close
 
 	for a in actions:
 		var action: Dictionary = a
@@ -302,22 +303,38 @@ static func _trust(v: VBoxContainer, p: Dictionary) -> void:
 ## empty button), else null.
 static func _identity(v: VBoxContainer, p: Dictionary) -> Control:
 	var nick := FictionalIdentity.nickname(p)
-	var row := UiKit.hbox(8)
+	var row: Control = UiKit.hbox(8)
 	row.name = "ProfileNickname"
 	var nl := UiKit.lbl("\"%s\"" % nick if nick != "" else "", UiKit.BODY, UiKit.MUTED)
 	nl.name = "NicknameText"
 	row.add_child(nl)
 	var mine := not GameState.list_player(str(p.get("id", ""))).is_empty()
 	if mine:
-		var edit := UiKit.btn("Nickname" if nick == "" else "Change", UiKit.SMALL)
+		var add_text := "Add a nickname"
+		var edit := UiKit.btn(add_text if nick == "" else "Change", UiKit.SMALL)
 		edit.name = "NicknameEdit"
+		if nick == "":
+			# No nickname yet: a full-width outline button at the foot, not a chip.
+			edit.custom_minimum_size = Vector2(0, 48)
+			edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			for st in ["normal", "hover", "pressed", "hover_pressed"]:
+				edit.add_theme_stylebox_override(st, UiKit.style(Color.TRANSPARENT, 8, UiKit.RADIUS, UiKit.MUTED))
 		var field := UiKit.search_field(nick, "Nickname (blank for none)")
 		field.name = "NicknameField"
 		field.max_length = GameState.NICKNAME_MAX
 		field.visible = false
 		field.custom_minimum_size = Vector2(180, 0)
-		row.add_child(field)
-		row.add_child(edit)
+		if nick == "":
+			# The field opens above the button.
+			var stack := UiKit.vbox(6)
+			stack.name = "ProfileNickname"
+			field.custom_minimum_size = Vector2(0, 44)
+			stack.add_child(field)
+			stack.add_child(edit)
+			row = stack
+		else:
+			row.add_child(field)
+			row.add_child(edit)
 		edit.pressed.connect(func():
 			if not field.visible:
 				field.visible = true
@@ -328,7 +345,7 @@ static func _identity(v: VBoxContainer, p: Dictionary) -> Control:
 			var now := GameState.set_player_nickname(str(p["id"]), field.text)
 			nl.text = "\"%s\"" % now if now != "" else ""
 			field.visible = false
-			edit.text = "Nickname" if now == "" else "Change")
+			edit.text = add_text if now == "" else "Change")
 		field.text_submitted.connect(func(_t): edit.emit_signal("pressed"))
 	var later: Control = null
 	if nick != "":
