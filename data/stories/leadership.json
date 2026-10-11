@@ -257,5 +257,1103 @@
 				"result": "You have a word with {name} after the meeting."
 			}
 		]
+	},
+	{
+		"id": "captain_selection_word",
+		"category": "leadership",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"captain": true,
+				"fit": true,
+				"selected": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} wants a word about selection"
+		],
+		"text": [
+			"Some of the boys out of the side want to know why. {name} has come to you with it."
+		],
+		"choices": [
+			{
+				"key": "talk",
+				"label": "Talk him through it",
+				"effects": [
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You talked him through a selection call"
+					},
+					{
+						"op": "morale",
+						"d": 2,
+						"who": "subject"
+					}
+				],
+				"result": "{name} takes it back to the group."
+			},
+			{
+				"key": "leave",
+				"label": "Leave it to {name}",
+				"effects": [
+					{
+						"op": "delegate",
+						"held": [
+							{
+								"op": "morale",
+								"d": 2,
+								"who": "all"
+							}
+						],
+						"failed": [
+							{
+								"op": "morale",
+								"d": -2,
+								"who": "all"
+							}
+						],
+						"held_result": "{name} sorted it with the group.",
+						"failed_result": "It didn't land with the group."
+					}
+				],
+				"result": "",
+				"note": "Leadership {leadership}. He settles it if his Leadership is 60 or more, or 45 or more and he trusts you."
+			},
+			{
+				"key": "coaches",
+				"label": "Selection's the coaches' call",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -3,
+						"who": "subject"
+					},
+					{
+						"op": "trust",
+						"d": -2,
+						"why": "You told him selection was the coaches' call"
+					}
+				],
+				"result": "{name} says he understands."
+			}
+		],
+		"cooldown": 30
+	},
+	{
+		"id": "captain_group_flat",
+		"category": "leadership",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"captain": true,
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} says the group looks flat"
+		],
+		"text": [
+			"That's {losing_run} losses in a row. {name} says the mood at training is low."
+		],
+		"choices": [
+			{
+				"key": "dayoff",
+				"label": "Give them a day off",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "all"
+					}
+				],
+				"result": "A day off, and the group's brighter."
+			},
+			{
+				"key": "hard",
+				"label": "Run a hard session",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "all"
+					}
+				],
+				"result": "A hard session. The group got through it."
+			},
+			{
+				"key": "leave",
+				"label": "Leave it to {name}",
+				"effects": [
+					{
+						"op": "delegate",
+						"held": [
+							{
+								"op": "morale",
+								"d": 3,
+								"who": "all"
+							}
+						],
+						"failed": [
+							{
+								"op": "morale",
+								"d": -2,
+								"who": "all"
+							}
+						],
+						"held_result": "{name} gave the group a talk and it lifted them.",
+						"failed_result": "The group stayed flat."
+					}
+				],
+				"result": "",
+				"note": "Leadership {leadership}. He settles it if his Leadership is 60 or more, or 45 or more and he trusts you."
+			}
+		],
+		"cooldown": 25,
+		"when": {
+			"losing_run_min": 3
+		}
+	},
+	{
+		"id": "captain_harder_session",
+		"category": "leadership",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"captain": true,
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} wants a harder training week"
+		],
+		"text": [
+			"{name} thinks the group's been coasting and wants a tougher week."
+		],
+		"choices": [
+			{
+				"key": "back",
+				"label": "Back him: a hard week",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "all"
+					},
+					{
+						"op": "xp",
+						"d": 4,
+						"who": "all"
+					}
+				],
+				"result": "A hard week. {name} led from the front."
+			},
+			{
+				"key": "keep",
+				"label": "Keep the plan",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "subject"
+					}
+				],
+				"result": "{name} accepts it."
+			},
+			{
+				"key": "run",
+				"label": "Let {name} run it",
+				"effects": [
+					{
+						"op": "delegate",
+						"held": [
+							{
+								"op": "xp",
+								"d": 4,
+								"who": "all"
+							},
+							{
+								"op": "morale",
+								"d": 1,
+								"who": "all"
+							}
+						],
+						"failed": [
+							{
+								"op": "morale",
+								"d": -2,
+								"who": "all"
+							}
+						],
+						"held_result": "{name} ran a tight session.",
+						"failed_result": "The session fell apart."
+					}
+				],
+				"result": "",
+				"note": "Leadership {leadership}. He settles it if his Leadership is 60 or more, or 45 or more and he trusts you."
+			}
+		],
+		"cooldown": 40,
+		"stakes": "The group tires and standards lift."
+	},
+	{
+		"id": "captain_young_player",
+		"category": "leadership",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"captain": true,
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} thinks {kid_name} is ready"
+		],
+		"text": [
+			"{name} says {kid_name} has been the best of the young group at training."
+		],
+		"choices": [
+			{
+				"key": "give",
+				"label": "Give {kid_name} a run",
+				"effects": [
+					{
+						"op": "back_kid"
+					},
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You backed the young player he put forward"
+					}
+				],
+				"result": ""
+			},
+			{
+				"key": "notyet",
+				"label": "Not yet",
+				"effects": [],
+				"result": "{name} tells {kid_name} to keep going.",
+				"note": "Nothing changes."
+			}
+		],
+		"cooldown": 40,
+		"when": {
+			"has_kid": true
+		}
+	},
+	{
+		"id": "captain_leaders_meeting",
+		"category": "leadership",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"captain": true,
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"The leaders want the room to themselves"
+		],
+		"text": [
+			"{name} and the leadership group ask for a meeting without the coaches."
+		],
+		"choices": [
+			{
+				"key": "room",
+				"label": "Give them the room",
+				"effects": [
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You gave the leaders the room"
+					},
+					{
+						"op": "morale",
+						"d": 2,
+						"who": "all"
+					}
+				],
+				"result": "They talked it through."
+			},
+			{
+				"key": "sit",
+				"label": "Sit in",
+				"effects": [
+					{
+						"op": "trust",
+						"d": -1,
+						"why": "You sat in on the leaders' meeting"
+					}
+				],
+				"result": "You sat in. It was a short meeting."
+			},
+			{
+				"key": "notweek",
+				"label": "Not this week",
+				"effects": [
+					{
+						"op": "trust",
+						"d": -2,
+						"why": "You put the leaders' meeting off"
+					}
+				],
+				"result": "{name} takes it on the chin."
+			}
+		],
+		"cooldown": 40
+	},
+	{
+		"id": "captain_big_week",
+		"category": "leadership",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"captain": true,
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} wants to speak to the group"
+		],
+		"text": [
+			"It's a big week. {name} would like to speak before the game."
+		],
+		"choices": [
+			{
+				"key": "speak",
+				"label": "Let him speak",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "all"
+					},
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You let him speak to the group"
+					}
+				],
+				"result": "{name} spoke well."
+			},
+			{
+				"key": "me",
+				"label": "I'll do it",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 1,
+						"who": "all"
+					},
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "subject"
+					}
+				],
+				"result": "You spoke to the group."
+			}
+		],
+		"cooldown": 40,
+		"when": {
+			"finals_week_min": 1
+		},
+		"phase": [
+			"finals"
+		]
+	},
+	{
+		"id": "captain_holding_group",
+		"category": "leadership",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"captain": true,
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} is keeping the group grounded"
+		],
+		"text": [
+			"That's {winning_run} wins in a row. {name}'s been pulling the group back to the next game."
+		],
+		"choices": [
+			{
+				"key": "noticed",
+				"label": "Tell him it's noticed",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "subject"
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You told him his leadership was noticed"
+					}
+				],
+				"result": "{name} says thanks."
+			},
+			{
+				"key": "letbe",
+				"label": "Let it be",
+				"effects": [],
+				"result": "Nothing needs saying.",
+				"note": "Nothing changes."
+			}
+		],
+		"cooldown": 40,
+		"when": {
+			"winning_run_min": 3
+		}
+	},
+	{
+		"id": "captain_rest_ask",
+		"category": "leadership",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"captain": true,
+				"fit": true,
+				"selected": true,
+				"age_min": 30
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} asks for a week off his legs"
+		],
+		"text": [
+			"{name} has played every week. His legs are heavy."
+		],
+		"choices": [
+			{
+				"key": "rest",
+				"label": "Rest him",
+				"effects": [
+					{
+						"op": "rest"
+					}
+				],
+				"result": "{name} sits one out."
+			},
+			{
+				"key": "play",
+				"label": "Play him",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -3,
+						"who": "subject"
+					},
+					{
+						"op": "trust",
+						"d": -2,
+						"why": "You played him on heavy legs"
+					}
+				],
+				"result": "{name} plays on."
+			}
+		],
+		"cooldown": 30
+	},
+	{
+		"id": "captain_slump_start",
+		"category": "leadership",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"captain": true,
+				"fit": true,
+				"selected": true,
+				"morale_max": 45
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} has lost his touch"
+		],
+		"text": [
+			"{name}'s been off for a few weeks. He's quiet about it."
+		],
+		"choices": [
+			{
+				"key": "talk",
+				"label": "Have a quiet word",
+				"effects": [
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You had a quiet word about his form"
+					},
+					{
+						"op": "morale",
+						"d": 4,
+						"who": "subject"
+					},
+					{
+						"op": "flag",
+						"name": "cs_start"
+					},
+					{
+						"op": "flag",
+						"name": "cs_good"
+					}
+				],
+				"result": "{name} talked it through."
+			},
+			{
+				"key": "back",
+				"label": "Back him for a run of games",
+				"effects": [
+					{
+						"op": "start_backing"
+					},
+					{
+						"op": "flag",
+						"name": "cs_start"
+					},
+					{
+						"op": "flag",
+						"name": "cs_good"
+					}
+				],
+				"result": ""
+			},
+			{
+				"key": "rest",
+				"label": "Rest him a week",
+				"effects": [
+					{
+						"op": "rest"
+					},
+					{
+						"op": "flag",
+						"name": "cs_start"
+					}
+				],
+				"result": "{name} gets a week to reset."
+			}
+		],
+		"cooldown": 80,
+		"private": true,
+		"arc": "captain_slump",
+		"beat": "start"
+	},
+	{
+		"id": "captain_slump_mid",
+		"category": "leadership",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"captain": true,
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name}'s still searching for it"
+		],
+		"text": [
+			"Better, but not his best."
+		],
+		"choices": [
+			{
+				"key": "keep",
+				"label": "Keep backing him",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "subject"
+					},
+					{
+						"op": "flag",
+						"name": "cs_good"
+					}
+				],
+				"result": "{name} knows you're still with him."
+			},
+			{
+				"key": "word",
+				"label": "Have another word",
+				"effects": [
+					{
+						"op": "trust",
+						"d": 2,
+						"why": "You had another word about his form"
+					},
+					{
+						"op": "flag",
+						"name": "cs_good"
+					}
+				],
+				"result": "{name} appreciates it."
+			},
+			{
+				"key": "leave",
+				"label": "Leave it",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "subject"
+					}
+				],
+				"result": "{name} keeps his head down."
+			}
+		],
+		"cooldown": 80,
+		"private": true,
+		"arc": "captain_slump",
+		"beat": "middle",
+		"needs": {
+			"flag": "cs_start",
+			"after": 3,
+			"within": 8
+		}
+	},
+	{
+		"id": "captain_slump_good",
+		"category": "leadership",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"captain": true,
+				"fit": true,
+				"flag": "cs_good"
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name}'s back to his best"
+		],
+		"text": [
+			"{name} looks like himself again. The group's noticed."
+		],
+		"choices": [
+			{
+				"key": "noticed",
+				"label": "Tell him you noticed",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 4,
+						"who": "subject"
+					},
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You told him you'd noticed his form"
+					}
+				],
+				"result": "{name} grins."
+			},
+			{
+				"key": "letbe",
+				"label": "Let it be",
+				"effects": [],
+				"result": "He doesn't need telling.",
+				"note": "Nothing changes."
+			}
+		],
+		"cooldown": 80,
+		"private": true,
+		"arc": "captain_slump",
+		"beat": "end",
+		"needs": {
+			"flag": "cs_start",
+			"after": 5,
+			"within": 12
+		}
+	},
+	{
+		"id": "captain_slump_flat",
+		"category": "leadership",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"captain": true,
+				"fit": true,
+				"no_flag": "cs_good"
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} hasn't found his form"
+		],
+		"text": [
+			"{name}'s still flat, and the group's noticed."
+		],
+		"choices": [
+			{
+				"key": "nerve",
+				"label": "Hold your nerve",
+				"effects": [],
+				"result": "You back him to come good.",
+				"note": "He's left to find it himself."
+			},
+			{
+				"key": "rest",
+				"label": "Rest him a week",
+				"effects": [
+					{
+						"op": "rest"
+					}
+				],
+				"result": "{name} sits one out."
+			}
+		],
+		"cooldown": 80,
+		"private": true,
+		"arc": "captain_slump",
+		"beat": "end",
+		"needs": {
+			"flag": "cs_start",
+			"after": 5,
+			"within": 12
+		}
+	},
+	{
+		"id": "captain_contract_start",
+		"category": "leadership",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"captain": true,
+				"fit": true,
+				"contract_years_max": 1
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name}'s contract is up this year"
+		],
+		"text": [
+			"The group's watching to see what happens with {name}."
+		],
+		"choices": [
+			{
+				"key": "talk",
+				"label": "Talk to him now",
+				"effects": [
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You opened contract talks early"
+					},
+					{
+						"op": "flag",
+						"name": "cc_start"
+					}
+				],
+				"result": "You opened the talks early."
+			},
+			{
+				"key": "wait",
+				"label": "Wait until later",
+				"effects": [
+					{
+						"op": "trust",
+						"d": -2,
+						"why": "You told him you'd wait on his contract"
+					},
+					{
+						"op": "flag",
+						"name": "cc_start"
+					}
+				],
+				"result": "You said you'd wait."
+			}
+		],
+		"cooldown": 120,
+		"arc": "captain_contract",
+		"beat": "start"
+	},
+	{
+		"id": "captain_contract_wait",
+		"category": "leadership",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"captain": true,
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"The group's asking about {name}"
+		],
+		"text": [
+			"The group wants to know if {name} is staying."
+		],
+		"choices": [
+			{
+				"key": "offer",
+				"label": "Offer him a new deal",
+				"effects": [
+					{
+						"op": "extend_early"
+					}
+				],
+				"result": ""
+			},
+			{
+				"key": "hand",
+				"label": "Tell the group it's in hand",
+				"effects": [],
+				"result": "The group takes you at your word.",
+				"note": "Nothing changes yet."
+			},
+			{
+				"key": "ride",
+				"label": "Let it ride",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -1,
+						"who": "all"
+					}
+				],
+				"result": "The group will have to wait."
+			}
+		],
+		"cooldown": 120,
+		"arc": "captain_contract",
+		"beat": "middle",
+		"needs": {
+			"flag": "cc_start",
+			"after": 6,
+			"within": 20
+		}
+	},
+	{
+		"id": "captain_contract_signed",
+		"category": "leadership",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"captain": true,
+				"fit": true,
+				"contract_years_min": 2
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name}'s re-signed"
+		],
+		"text": [
+			"{name}'s re-signed. The group sees the club backing its captain."
+		],
+		"choices": [
+			{
+				"key": "good",
+				"label": "Good news",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "subject"
+					},
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You re-signed your captain"
+					}
+				],
+				"result": "{name} is happy to stay."
+			},
+			{
+				"key": "letbe",
+				"label": "Let it be",
+				"effects": [],
+				"result": "Nothing more to say.",
+				"note": "Nothing changes."
+			}
+		],
+		"cooldown": 120,
+		"arc": "captain_contract",
+		"beat": "end",
+		"needs": {
+			"flag": "cc_start",
+			"after": 4,
+			"within": 30
+		}
+	},
+	{
+		"id": "captain_contract_open",
+		"category": "leadership",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"captain": true,
+				"fit": true,
+				"contract_years_max": 1
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name}'s contract is still open"
+		],
+		"text": [
+			"{name}'s contract is still open. The club will settle it at the end of the season."
+		],
+		"choices": [
+			{
+				"key": "understood",
+				"label": "Understood",
+				"effects": [],
+				"result": "It waits for the end of the season.",
+				"note": "It waits for the end of the season."
+			},
+			{
+				"key": "now",
+				"label": "Open talks now",
+				"effects": [
+					{
+						"op": "extend_early"
+					}
+				],
+				"result": ""
+			}
+		],
+		"cooldown": 120,
+		"arc": "captain_contract",
+		"beat": "end",
+		"needs": {
+			"flag": "cc_start",
+			"after": 4,
+			"within": 30
+		}
+	},
+	{
+		"id": "captain_succession_start",
+		"category": "leadership",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"captain": true,
+				"fit": true,
+				"age_min": 34
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{vice_name} is running more of the group"
+		],
+		"text": [
+			"{name} has been captain a long time. {vice_name} has been picking up more of the leadership lately."
+		],
+		"choices": [
+			{
+				"key": "handover",
+				"label": "Talk about a handover",
+				"effects": [
+					{
+						"op": "trust",
+						"d": 2,
+						"why": "You talked about what comes next"
+					},
+					{
+						"op": "flag",
+						"name": "su_start"
+					}
+				],
+				"result": "You and {name} talked about what comes next."
+			},
+			{
+				"key": "asks",
+				"label": "He leads as long as he wants",
+				"effects": [
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You told him the armband's his as long as he wants"
+					},
+					{
+						"op": "flag",
+						"name": "su_start"
+					}
+				],
+				"result": "{name} appreciates it."
+			},
+			{
+				"key": "notyet",
+				"label": "Not yet",
+				"effects": [
+					{
+						"op": "flag",
+						"name": "su_start"
+					}
+				],
+				"result": "Nothing changes.",
+				"note": "Nothing changes."
+			}
+		],
+		"cooldown": 160,
+		"when": {
+			"has_vice": true
+		},
+		"private": true,
+		"arc": "captain_succession",
+		"beat": "start"
+	},
+	{
+		"id": "captain_succession_next",
+		"category": "leadership",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"captain": true,
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"Who's next?"
+		],
+		"text": [
+			"{name} says {vice_name}'s ready when he is."
+		],
+		"choices": [
+			{
+				"key": "now",
+				"label": "Make {vice_name} captain now",
+				"effects": [
+					{
+						"op": "captaincy_swap"
+					}
+				],
+				"result": ""
+			},
+			{
+				"key": "later",
+				"label": "At the end of the season",
+				"effects": [],
+				"result": "It waits for the end of the year.",
+				"note": "{vice_name} waits."
+			}
+		],
+		"cooldown": 160,
+		"when": {
+			"has_vice": true
+		},
+		"private": true,
+		"arc": "captain_succession",
+		"beat": "end",
+		"needs": {
+			"flag": "su_start",
+			"after": 8,
+			"within": 20
+		}
 	}
 ]

@@ -395,6 +395,12 @@ static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
 			return "Win and the board is won over; lose and it costs you."
 		"explain":
 			return "{kpi_or_need} Nothing is promised."
+		"delegate":
+			return "As it stands, it would hold." if bool(facts.get("delegate_holds", false)) else "As it stands, it wouldn't hold."
+		"back_kid":
+			return "{kid_name} is promised the next {run_games} games; leave him out fit and the promise breaks."
+		"captaincy_swap":
+			return "{vice_name} takes the armband and {name} stays on as a vice-captain. The Captaincy costs apply."
 	return ""
 
 
