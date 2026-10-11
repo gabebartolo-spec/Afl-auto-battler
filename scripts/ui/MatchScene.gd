@@ -569,6 +569,7 @@ func _show_coach_box() -> void:
 	var bv: BoxContainer = UiKit.hbox(16) if wide else UiKit.vbox(2)
 	var band := ClubDuel.band(str(_res["home"]), str(_res["away"]), bv, 14)
 	band.name = "BreakBand"
+	(band.get_child(0) as ClubDuel).live()   # match day's atmosphere settles in (Feel)
 	v.add_child(band)
 	# Wide (PC, director 2026-10-11: no column scrolls at 1280x720): the
 	# quarter just played and the key match-ups, then the calls in three
@@ -772,11 +773,13 @@ func _show_coach_box() -> void:
 	# calls" button).
 	var more: VBoxContainer = col_c
 	var syn_line := _synergy_line()
+	var syn_label: Label = null
 	if syn_line != "":
 		var sl := UiKit.lbl(syn_line, UiKit.SMALL, UiKit.MUTED)
 		sl.set_meta("break_unit", true)
 		sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		more.add_child(sl)
+		syn_label = sl
 
 	var mine := _roster_side(_my_side)
 
@@ -904,6 +907,13 @@ func _show_coach_box() -> void:
 			n.get_parent().remove_child(n)
 			tail.add_child(n)
 	(rep if rep != v else tail).add_child(_legs_view())
+	# The synergies line is about the two sides' strengths, like the legs line:
+	# on a PC sheet it sits right under it, never alone at the top of a column
+	# without a heading (BOSS QC, 2026-10-11).
+	if wide and syn_label != null and syn_label.get_parent() != null:
+		syn_label.get_parent().remove_child(syn_label)
+		syn_label.remove_meta("break_unit")
+		(rep if rep != v else tail).add_child(syn_label)
 
 	var start := UiKit.btn("Start quarter" if q > 1 else "Ball it up", UiKit.HEADING, true)
 	start.name = "StartQuarter"
@@ -941,7 +951,8 @@ func _show_coach_box() -> void:
 		acts.add_child(skip)
 		acts.add_child(start)
 		box["footer"].add_child(acts)
-		# A mouse, not a thumb: the choices sit 40 tall on the PC sheet.
+		# A mouse, not a thumb: the choices sit 34 tall on the PC sheet, so the
+		# fullest break (both loose men, a tag card, your tally) fits 1280x720.
 		for b in cols.find_children("*", "Button", true, false):
 			if (b as Button).custom_minimum_size.y == 44.0:
 				(b as Button).custom_minimum_size.y = 40.0
@@ -949,6 +960,11 @@ func _show_coach_box() -> void:
 	else:
 		box["footer"].add_child(start)
 		box["footer"].add_child(skip)
+	# A call the quarter broke brightens twice (Feel; never a nag).
+	for picker in MatchNotes.broken_calls(_res, sim.injuries, _my_side, q, _last_tactics):
+		var found := overlay.find_child(str(picker) + "*", true, false)
+		if found != null:
+			UiKit.attention(found.get_parent() as CanvasItem)
 
 
 ## A PC break's calls read in one order down and across the call columns;
@@ -960,13 +976,7 @@ func _balance_break_columns(cols: Array) -> void:
 	if not is_instance_valid(cols[0]):
 		return
 	# Calls in reading order: a call starts a unit; its notes go with it.
-	var units: Array = []
-	for c in cols:
-		for n in (c as Node).get_children():
-			if units.is_empty() or (n as Node).has_meta("break_unit"):
-				units.append([n])
-			else:
-				(units[-1] as Array).append(n)
+	var units := _break_units(cols)
 	var sep := float((cols[0] as VBoxContainer).get_theme_constant("separation"))
 	var h: Array = []
 	for u in units:
@@ -986,6 +996,92 @@ func _balance_break_columns(cols: Array) -> void:
 		for n in units[k]:
 			(n as Node).get_parent().remove_child(n)
 			dest.add_child(n)
+	# The reading order is kept while it fits. When even the best run of units
+	# is too tall for the screen (both loose men, a tag card, your tally), pack
+	# by height instead: the tallest call goes to the shortest column, and each
+	# column still lists its calls in reading order.
+	await get_tree().process_frame
+	if not is_instance_valid(cols[0]):
+		return
+	var sc: ScrollContainer = null
+	var up: Node = cols[0]
+	while up != null and sc == null:
+		sc = up as ScrollContainer
+		up = up.get_parent()
+	if sc == null or (sc.get_child(0) as Control).get_combined_minimum_size().y <= sc.size.y + 1.0:
+		return
+	var order := range(n_units)
+	order.sort_custom(func(a, b): return float(h[a]) > float(h[b]))
+	var load_h: Array = []
+	var picks: Array = []
+	for c in range(cols.size()):
+		load_h.append(0.0)
+		picks.append([])
+	for k in order:
+		var lo := 0
+		for c in range(1, cols.size()):
+			if float(load_h[c]) < float(load_h[lo]):
+				lo = c
+		load_h[lo] = float(load_h[lo]) + float(h[k])
+		(picks[lo] as Array).append(k)
+	# Then improve it: move or swap units out of the tallest column while that
+	# lowers the tallest column.
+	var improved := true
+	while improved:
+		improved = false
+		var tall := 0
+		for c in range(1, cols.size()):
+			if float(load_h[c]) > float(load_h[tall]):
+				tall = c
+		var top := float(load_h[tall])
+		for k in (picks[tall] as Array).duplicate():
+			for c in range(cols.size()):
+				if c == tall:
+					continue
+				if float(load_h[c]) + float(h[k]) < top - 0.5:
+					(picks[tall] as Array).erase(k)
+					(picks[c] as Array).append(k)
+					load_h[tall] = float(load_h[tall]) - float(h[k])
+					load_h[c] = float(load_h[c]) + float(h[k])
+					improved = true
+					break
+				for k2 in (picks[c] as Array).duplicate():
+					var d := float(h[k]) - float(h[k2])
+					if d > 0.5 and float(load_h[c]) + d < top - 0.5:
+						(picks[tall] as Array).erase(k)
+						(picks[c] as Array).erase(k2)
+						(picks[tall] as Array).append(k2)
+						(picks[c] as Array).append(k)
+						load_h[tall] = float(load_h[tall]) - d
+						load_h[c] = float(load_h[c]) + d
+						improved = true
+						break
+				if improved:
+					break
+			if improved:
+				break
+	for c in range(cols.size()):
+		(picks[c] as Array).sort()
+		for k in picks[c]:
+			for n in units[k]:
+				(n as Node).get_parent().remove_child(n)
+				(cols[c] as Node).add_child(n)
+
+
+## The break's calls as units in reading order: a node marked "break_unit"
+## starts one, and the nodes after it (its notes) go with it. A node marked
+## "break_follow" is the follow-up to the question before it (Tag, then who
+## tags; a loose man, then his cards): it never starts a unit, so a packing
+## pass can never put the answer before its question or in another column.
+static func _break_units(cols: Array) -> Array:
+	var units: Array = []
+	for c in cols:
+		for n in (c as Node).get_children():
+			if units.is_empty() or ((n as Node).has_meta("break_unit") and not (n as Node).has_meta("break_follow")):
+				units.append([n])
+			else:
+				(units[-1] as Array).append(n)
+	return units
 
 
 ## Split heights h, in order, into `parts` runs so the largest run is
@@ -2101,8 +2197,11 @@ func _show_fulltime() -> void:
 	leave.name = "FullTimeContinue"
 	leave.custom_minimum_size = Vector2(0, 48)
 	leave.pressed.connect(func(): Router.back())
+	UiKit.feel(leave, "end")     # the end of the match: the siren
 	box["footer"].add_child(leave)
 	_render_ft()
+	UiKit.land(overlay.find_child("Verdict", true, false) as Control, 0.3)   # the result lands (Feel)
+	UiKit.land(overlay.find_child("LadderMove", true, false) as Control, 1.0, false)   # then the ladder move
 
 
 func _ft_tab_list() -> Array:

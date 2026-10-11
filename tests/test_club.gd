@@ -298,7 +298,7 @@ func _test_event_tradeoffs() -> void:
 		if str(p["id"]) == str(kid2["id"]):
 			on_ground = true
 	_check(on_ground, "Auto-pick names the kid you gave a game (%s)" % GameState.week_event.get("outcome", ""))
-	_check(str(GameState.week_event.get("outcome", "")).contains("Auto-pick names him"),
+	_check(str(GameState.week_event.get("outcome", "")).contains("in the side this week"),
 			"The outcome says auto-pick has him")
 	kid2.erase("expects_game")
 	# An unhappy player: sitting down with him commits you to a game.
@@ -932,7 +932,7 @@ func _test_backing_flow() -> void:
 			and int(kid.get("expects_game", 0)) == Backing.STING and bool(Backing.current(kid)["debut"]),
 			"Backing a kid on the card starts a run on his debut: thrilled, and he expects to be picked")
 	_check(str(GameState.week_event.get("outcome", "")).contains("run of three games")
-			and str(GameState.week_event.get("outcome", "")).contains("Auto-pick names him"),
+			and str(GameState.week_event.get("outcome", "")).contains("in the side this week"),
 			"The card says it is a run, and that auto-pick has him")
 	# The tap: a player auto-pick would not name.
 	var low := _kid(_spare_kid([str(kid["id"])]), 2)

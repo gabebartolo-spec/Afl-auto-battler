@@ -6,6 +6,7 @@ extends RefCounted
 
 const MUSIC := "Music"
 const CROWD := "Crowd"
+const INTERFACE := "Interface"   # button sounds and stings (Feel)
 const LEVELS := [["off", "Off"], ["quiet", "Quiet"], ["normal", "Normal"]]
 const QUIET_DB := -10.0
 

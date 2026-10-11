@@ -1,0 +1,261 @@
+[
+	{
+		"id": "leadership_group_selection_say",
+		"category": "leadership",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"The leadership group want a say on selection"
+		],
+		"text": [
+			"They're not asking to pick the side. They want to be in the room."
+		],
+		"choices": [
+			{
+				"key": "hear",
+				"label": "Bring them in each week",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 4,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "The leaders are in the selection meeting."
+			},
+			{
+				"key": "no",
+				"label": "Selection is the coaches' call",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -3,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": 1
+					}
+				],
+				"result": "Selection stays with the coaches."
+			}
+		]
+	},
+	{
+		"id": "leadership_senior_runs_session",
+		"category": "leadership",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"games_min": 150
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} wants to take the young players for a session"
+		],
+		"text": [
+			"Skills, standards, how to go about it. His way."
+		],
+		"choices": [
+			{
+				"key": "yes",
+				"label": "Let him run it",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 4
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You let him lead the young group"
+					},
+					{
+						"op": "xp",
+						"d": 4,
+						"who": "others"
+					}
+				],
+				"result": "{name} takes the kids on Wednesday."
+			},
+			{
+				"key": "no",
+				"label": "Keep it with the coaches",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -3
+					}
+				],
+				"result": "The coaches keep the session."
+			}
+		]
+	},
+	{
+		"id": "leadership_late_to_meeting",
+		"category": "leadership",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"Two players were late to the team meeting"
+		],
+		"text": [
+			"Not the first time this year. The group's waiting to see what you do."
+		],
+		"choices": [
+			{
+				"key": "example",
+				"label": "Make an example of them",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": 2
+					}
+				],
+				"result": "The pair train on their own on Sunday."
+			},
+			{
+				"key": "quiet",
+				"label": "Handle it quietly",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 1,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": -1
+					}
+				],
+				"result": "A quiet word, and it's done."
+			}
+		]
+	},
+	{
+		"id": "leadership_players_meeting",
+		"category": "leadership",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"The players have called their own meeting"
+		],
+		"text": [
+			"After the losing run, the senior players want the coaches out of the room."
+		],
+		"choices": [
+			{
+				"key": "room",
+				"label": "Let them have the room",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 5,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": -3
+					}
+				],
+				"result": "The players meet alone. They come out talking."
+			},
+			{
+				"key": "stay",
+				"label": "The coaches stay in",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -3,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": 1
+					}
+				],
+				"result": "The coaches stay. The meeting is short."
+			}
+		],
+		"when": {
+			"losing_run_min": 3
+		}
+	},
+	{
+		"id": "leadership_young_voice",
+		"category": "leadership",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"age_max": 23,
+				"games_min": 30
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} spoke up in the review"
+		],
+		"text": [
+			"He questioned the game plan in front of the whole group."
+		],
+		"choices": [
+			{
+				"key": "back",
+				"label": "Back him for speaking up",
+				"effects": [
+					{
+						"op": "trust",
+						"d": 8,
+						"why": "You backed him for speaking up in the review"
+					},
+					{
+						"op": "morale",
+						"d": 4
+					},
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "others"
+					}
+				],
+				"result": "You back {name} in front of everyone. A few of the older heads bristle."
+			},
+			{
+				"key": "pull",
+				"label": "Pull him up afterwards",
+				"effects": [
+					{
+						"op": "trust",
+						"d": -6,
+						"why": "You pulled him up for questioning the game plan"
+					},
+					{
+						"op": "morale",
+						"d": -4
+					},
+					{
+						"op": "morale",
+						"d": 2,
+						"who": "others"
+					}
+				],
+				"result": "You have a word with {name} after the meeting."
+			}
+		]
+	}
+]

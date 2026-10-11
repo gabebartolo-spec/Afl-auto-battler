@@ -39,6 +39,14 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 	_row(v, "Crowd", "SettingsCrowd", AudioLevels.LEVELS, GameState.crowd_level(),
 			"The crowd at a match you watch. The match tells you the same either way.",
 			func(k): GameState.set_crowd_level(k))
+	_row(v, "Button sounds", "SettingsButtonSounds", AudioLevels.LEVELS, GameState.button_sounds(),
+			"A boot through the ball when you press a button, a stud tap on a choice, the siren at the end of a match or a draft, and the crowd when a result lands.",
+			func(k): GameState.set_button_sounds(k))
+	if Feel.phone():
+		_row(v, "Vibration", "SettingsVibration", [["on", "On"], ["off", "Off"]],
+				"on" if GameState.haptics_on() else "off",
+				"A light buzz when you press a button, and a firmer one when a result lands.",
+				func(k): GameState.set_haptics_on(k == "on"))
 	_row(v, "Ask before playing a round for me", "SettingsSimConfirm", [["on", "On"], ["off", "Off"]],
 			"on" if GameState.confirm_sim_round() else "off",
 			"Play round plays out your own match without you. With this on, it asks first.",
@@ -68,6 +76,10 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 			"on" if GameState.screen_shake_on() else "off",
 			"A small shake of the oval when the ball is turned over. Off keeps the screen still; the Turnover label still shows.",
 			func(k): GameState.set_screen_shake_on(k == "on"))
+	_row(v, "Reduced motion", "SettingsReducedMotion", [["off", "Off"], ["on", "On"]],
+			"on" if GameState.reduced_motion() else "off",
+			"On keeps the screen still: no fades, counting numbers, pulses, moving backgrounds or shake. Everything shows the same.",
+			func(k): GameState.set_reduced_motion(k == "on"))
 	_row(v, "Vignettes", "SettingsVignettes", [["on", "On"], ["off", "Off"]],
 			"on" if GameState.vignettes_on() else "off",
 			"The match-day scenes: the banner, the centre ball-up, replays, the press conference and the awards. Off skips the scenes; every call and result stays the same.",

@@ -39,6 +39,7 @@ func run() -> void:
 	_test_stories_never_move_the_dice()
 	_test_save_round_trip()
 	_test_old_save()
+	_test_leadership()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	GameState.stories_on = true
@@ -339,6 +340,17 @@ func _test_finals_and_big_weeks() -> void:
 		ctx["week"] = wk
 		max_cards = maxi(max_cards, StoryEngine.pick_week(StoryDeck.all(), ctx, story).size())
 	_check(max_cards <= 1, "An ordinary week brings one card at most")
+	# A season's weeks, finals included, fit inside the week count cooldowns run
+	# on, so a card's cooldown never wraps into the next season early.
+	var s = GameState.season
+	s.start_finals()
+	var finals_weeks := 0
+	while not s.finals_week_matches().is_empty() and finals_weeks < 20:
+		finals_weeks += 1
+		s.finals["week"] = int(s.finals["week"]) + 1
+	_check(finals_weeks > 0 and Season.REGULAR_ROUNDS + finals_weeks < StoryEngine.SEASON_WEEKS,
+			"%d rounds and %d finals weeks fit inside a story season of %d weeks"
+			% [Season.REGULAR_ROUNDS, finals_weeks, StoryEngine.SEASON_WEEKS])
 
 
 ## No card that invents a private life or misconduct can be about a player
@@ -370,7 +382,16 @@ func _test_private_cards() -> void:
 						f[key.trim_suffix("_max")] = float(t["subject"]["where"][k])
 					elif key.ends_with("_min"):
 						f[key.trim_suffix("_min")] = float(t["subject"]["where"][k])
-			var who := StoryEngine.eligible_subject(t, ctx, StoryEngine.new_state(), 10, RandomNumberGenerator.new())
+			# An arc follow-up needs his flag and an open arc: give every player both.
+			var st := StoryEngine.new_state()
+			var needs: Dictionary = t.get("needs", {})
+			if not needs.is_empty():
+				for f in players:
+					var pid := str(f["id"])
+					st["flags"][pid] = {str(needs["flag"]): 10 - int(needs.get("after", 1))}
+					if str(t.get("arc", "")) != "":
+						st["arcs"][str(t["arc"]) + "|" + pid] = {"state": "open"}
+			var who := StoryEngine.eligible_subject(t, ctx, st, 10, RandomNumberGenerator.new())
 			if named and not who.is_empty():
 				leaks.append(str(t["id"]))
 			if not named and not who.is_empty():
@@ -578,3 +599,134 @@ func _test_old_save() -> void:
 	_check(tid_ok, "The old card is redrawn from the deck (%s)" % str(GameState.week_events.map(func(c): return c.get("key", ""))))
 	GameState.advance()
 	_check(GameState.season.round_index >= 1, "...and the season plays on")
+
+
+# --- Leadership (P2-1) --------------------------------------------------------
+
+## The rating is a derived number: public facts for a real player, a fixed
+## spread for an invented one, never his playing quality, never stored.
+func _test_leadership() -> void:
+	Leadership.reload()
+	var everyone := GameDB.all_players_sorted()
+	var by_real := {}
+	for p in everyone:
+		var rn := str((p as Dictionary).get("real_name", "")).strip_edges().to_lower()
+		if rn != "":
+			var rk := "%s|%s" % [str(p.get("club", "")), rn]
+			by_real[rk] = int(by_real.get(rk, 0)) + 1
+	var lines := FileAccess.get_file_as_string(Leadership.PATH).split("
+", false)
+	var bad := []
+	for i in range(lines.size()):
+		var row := lines[i].strip_edges()
+		if row.begins_with("#") or row.begins_with("club,"):
+			continue
+		var c := row.split(",")
+		var key := "%s|%s" % [c[0], ("%s %s" % [c[1], c[2]]).to_lower()]
+		if int(by_real.get(key, 0)) != 1 or not Leadership.ROLE_BONUS.has(c[3]):
+			bad.append(key)
+	_check(bad.is_empty() and lines.size() > 80,
+			"Every leadership-record row is one real player with a known role (%s)" % ", ".join(PackedStringArray(bad)))
+
+	var twin := {"real_name": "Pat Example", "id": "x1", "age": 27.0, "club": "GEE", "gm": 20,
+			"career": {"games": 150, "stints": [["GEE", 2019, 2025, 150, 10]]}, "overall": 70,
+			"attr": {"disposal": 80}}
+	var higher := twin.duplicate(true)
+	higher["overall"] = 95
+	higher["attr"] = {"disposal": 99, "star": 99}
+	_check(Leadership.of(twin) == Leadership.of(higher),
+			"Leadership ignores his playing quality (OVR and attributes)")
+	var veteran := twin.duplicate(true)
+	veteran["career"]["games"] = 300
+	veteran["age"] = 31.0
+	_check(Leadership.of(veteran) > Leadership.of(twin), "More games and years raise it")
+	var real_cap: Dictionary = {}
+	for p in everyone:
+		if Leadership.role_2026(p) == "captain":
+			real_cap = p
+			break
+	_check(not real_cap.is_empty(), "A real captain is found in the pool")
+	if not real_cap.is_empty():
+		var same := (real_cap as Dictionary).duplicate(true)
+		same["real_name"] = "Not A Captain"
+		_check(Leadership.of(real_cap) - Leadership.of(same) == int(Leadership.ROLE_BONUS["captain"]),
+				"A captain's 2026 role adds the captain bonus and nothing else")
+		var traded := (real_cap as Dictionary).duplicate(true)
+		traded["club"] = "ZZZ"
+		_check(Leadership.role_2026(traded) == "captain" and Leadership.role_club(traded) == str(real_cap["club"]),
+				"A traded captain keeps his role, still named for the club that gave it")
+		_check(Leadership.role_line(traded, 2027, func(code): return "Club " + code) == "Club %s captain" % real_cap["club"]
+				and Leadership.role_line(real_cap, 2027, func(code): return "Club " + code) == "Captain",
+				"A traded captain reads with his old club; at his own club it is plain Captain")
+		var namesake := (real_cap as Dictionary).duplicate(true)
+		namesake["club"] = "ZZZ"
+		namesake["career"] = {"games": 5, "stints": [["ZZZ", 2026, 2026, 5, 0]]}
+		_check(Leadership.role_2026(namesake) == "", "A namesake at another club does not inherit the role")
+		_check(Leadership.role_line(real_cap, 2027) == "Captain" and Leadership.role_line(real_cap, 2028) == "",
+				"The role reads \"Captain\" through the first season, then the rating carries it")
+
+	var a := twin.duplicate(true)
+	var b := twin.duplicate(true)
+	b["real_name"] = "Other Real"
+	b["id"] = "x2"
+	_check(Leadership.of(a) == Leadership.of(b), "A real player's number is facts only: no per-player jitter")
+	var spread := {}
+	for i in range(40):
+		var f := twin.duplicate(true)
+		f["real_name"] = ""
+		f["id"] = "G%d" % i
+		spread[Leadership.of(f)] = true
+		_check(absi(Leadership.of(f) - Leadership.of(a)) <= Leadership.SPREAD, "An invented player stays within the spread")
+	_check(spread.size() >= 5, "Invented players with the same games and age are not clones (%d values)" % spread.size())
+
+	var fixed := twin.duplicate(true)
+	fixed["real_name"] = ""
+	_check(Leadership.of(fixed) == Leadership.of(fixed.duplicate(true)), "The same player always gets the same number")
+	var before := JSON.stringify(twin)
+	Leadership.of(twin)
+	_check(JSON.stringify(twin) == before, "Reading Leadership stores nothing on the player")
+
+	var bare := {"id": "old"}
+	var n := Leadership.of(bare)
+	_check(n >= Leadership.FLOOR and n <= Leadership.CEILING, "A player an older save left bare still rates (%d)" % n)
+
+	var lo := 99
+	var hi := 1
+	var xs := []
+	var ys := []
+	for p in everyone:
+		var v := Leadership.of(p)
+		lo = mini(lo, v)
+		hi = maxi(hi, v)
+		xs.append(float(v))
+		ys.append(float(p.get("overall", 0)))
+	_check(lo >= 1 and hi <= 99 and hi - lo >= 30, "Across the league it spans a real range (%d-%d)" % [lo, hi])
+	_check(absf(_corr(xs, ys)) < 0.6, "It is not just OVR in disguise (r = %.2f)" % _corr(xs, ys))
+	var trainable := false
+	for t in GameState.TRAIN_STATS:
+		if str(t[0]) == "leadership":
+			trainable = true
+	_check(not trainable, "Leadership cannot be trained")
+
+
+func _corr(xs: Array, ys: Array) -> float:
+	var n := float(xs.size())
+	if n < 2.0:
+		return 0.0
+	var mx := 0.0
+	var my := 0.0
+	for i in range(xs.size()):
+		mx += float(xs[i])
+		my += float(ys[i])
+	mx /= n
+	my /= n
+	var sxy := 0.0
+	var sxx := 0.0
+	var syy := 0.0
+	for i in range(xs.size()):
+		sxy += (float(xs[i]) - mx) * (float(ys[i]) - my)
+		sxx += pow(float(xs[i]) - mx, 2.0)
+		syy += pow(float(ys[i]) - my, 2.0)
+	if sxx <= 0.0 or syy <= 0.0:
+		return 0.0
+	return sxy / sqrt(sxx * syy)
