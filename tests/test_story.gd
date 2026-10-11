@@ -48,6 +48,7 @@ func run() -> void:
 	_test_culture_signs_match_words()
 	_test_culture_headline()
 	_test_culture_order_and_tails()
+	_test_culture_sentences()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	GameState.stories_on = true
@@ -1102,13 +1103,13 @@ func _test_culture_reasons_read_cleanly() -> void:
 	Culture.change(rel, "GEE", "together", 3, "Played finals", 2027, "Off-season")
 	var g := Culture.grouped(rel, "GEE", "together")
 	_check(g.size() == 2 and int(g[1]["n"]) == 2
-			and Culture.group_text("Togetherness", g[1]) == "Round 4 and Round 12, 2027. A run of four losses, twice. It cost Togetherness.",
+			and Culture.group_text("Togetherness", g[1]) == "A run of four losses, twice, in rounds 4 and 12, 2027. It cost Togetherness.",
 			"The same reason twice in a season is one line: %s" % Culture.group_text("Togetherness", g[1]))
 	var yrs := {}
 	for y in [2025, 2026, 2027]:
 		Culture.change(yrs, "GEE", "standards", 4, "The list holds itself to a higher standard than most clubs", y, "Off-season")
 	var gy := Culture.grouped(yrs, "GEE", "standards")
-	_check(gy.size() == 1 and Culture.group_text("Standards", gy[0]) == "Off-season, 2025 to 2027. The list holds itself to a higher standard than most clubs, three off-seasons running.",
+	_check(gy.size() == 1 and Culture.group_text("Standards", gy[0]) == "The list has held itself to a higher standard than most clubs for three off-seasons.",
 			"The same reason in three off-seasons is one line: %s" % Culture.group_text("Standards", gy[0]))
 	_check(Culture.quiet_words(0, false) == "Nothing stands out yet" and Culture.quiet_words(3, true) == "Starting to build"
 			and Culture.quiet_words(-3, true) == "Starting to slip" and not Culture.quiet_words(3, true).contains("normal"),
@@ -1187,6 +1188,23 @@ func _test_culture_order_and_tails() -> void:
 	var g := Culture.grouped(rel, "GEE", "together")
 	_check(g.size() == 3 and str(g[0]["why"]) == "Played finals" and str(g[1]["why"]) == "A run of four losses" and str(g[2]["why"]) == "Premiers",
 			"Reasons run newest season first")
-	_check(not Culture.group_text("Togetherness", g[0]).contains("Togetherness") and not Culture.group_text("Togetherness", g[2]).contains("rose")
-			and Culture.group_text("Togetherness", g[1]).ends_with("It cost Togetherness."),
+	_check(Culture.group_text("Togetherness", g[0]) == "Played finals in 2027." and Culture.group_text("Togetherness", g[2]) == "Premiers in 2025."
+			and Culture.group_text("Togetherness", g[1]) == "A run of four losses in round 10, 2026. It cost Togetherness.",
 			"A rise carries no tail (the page says it once); only a fall says it cost the strand")
+
+
+func _test_culture_sentences() -> void:
+	var rel := {}
+	Culture.change(rel, "GEE", "together", 3, "A settled list: far fewer new faces from other clubs than most", 2027, "Off-season")
+	Culture.change(rel, "GEE", "together", 3, "Played finals", 2026, "Off-season")
+	Culture.change(rel, "GEE", "together", 3, "Played finals", 2027, "Off-season")
+	Culture.change(rel, "GEE", "together", 3, "Five wins in a row", 2025, "Round 14")
+	Culture.change(rel, "GEE", "together", 3, "Five wins in a row", 2026, "Round 6")
+	var g := Culture.grouped(rel, "GEE", "together")
+	var texts := PackedStringArray()
+	for x in g:
+		texts.append(Culture.group_text("Togetherness", x))
+	_check("A settled list in 2027: far fewer new faces from other clubs than most." in texts
+			and "Played finals in 2026 and 2027." in texts and "Five wins in a row in 2025 and 2026." in texts,
+			"Reasons read as football sentences with the time at the end (%s)" % " | ".join(texts))
+	_check(Culture.group_text("Togetherness", g[0]).contains("2027"), "The newest year leads (%s)" % texts[0])

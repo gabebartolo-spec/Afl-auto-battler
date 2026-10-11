@@ -65,24 +65,23 @@ func _run() -> void:
 	state.settings_path = "user://capture_cult_settings.cfg"
 	state.show_real_names = true
 	state.reset()
+	state.career_seed = 2031
+	state.replay_seed = 2031
 	state.set_setting("seen_weekly_loop_intro", true)
-	if W >= 760:
-		# A PC window, laid out on the 1280x720 desktop canvas as the game does.
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-		DisplayServer.window_set_size(Vector2i(W, H))
-		for i in range(10):
-			await process_frame
-		# The canvas is laid out in device-independent pixels: grow the window by
-		# the display scale until the canvas is the 1280x720 a PC player gets.
-		var factor := float(W) / maxf(1.0, root.get_visible_rect().size.x)
-		if factor > 1.05:
-			DisplayServer.window_set_size(Vector2i(int(W * factor), int(H * factor)))
-			for i in range(10):
-				await process_frame
-		print("visible ", root.get_visible_rect().size)
-	else:
-		# As the suites do it (root size only), so a real tap lands where it should.
-		root.size = Vector2i(W, H)
+	# The canvas is the size a player's screen gives the game: 1280x720 on a PC, 390x844 on a
+	# phone. ScreenLayout would scale it by this machine's display density, so undo that here.
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_size(Vector2i(W, H))
+	for i in range(10):
+		await process_frame
+	var layout = root.get_node("ScreenLayout")
+	var base: float = layout.desktop_density(Vector2(root.size), DisplayServer.screen_get_scale(),
+			DisplayServer.screen_get_dpi() if OS.get_name() == "Windows" else 0)
+	layout.ui_scale = 1.0 / maxf(1.0, base)
+	layout._update_scale()
+	for i in range(10):
+		await process_frame
+	print("canvas ", root.get_visible_rect().size)
 	for i in range(3):
 		await process_frame
 	state.start_season("GEE", db.club_list("GEE"))
@@ -130,11 +129,7 @@ func _run() -> void:
 	await _shot(out + "_culture.png")
 	var whys := current_scene.find_children("StrandWhy", "Button", true, false)
 	for b in whys:
-		if not is_instance_valid(b):
-			continue
-		for i in range(8):
-			await process_frame
-		if is_instance_valid(b):
+		if is_instance_valid(b) and b.get_parent().get_parent().name == "Strand_together":
 			b.emit_signal("pressed")  # the roles suite proves the Why tap; only the row is tapped here
 	await _shot(out + "_why.png")
 	quit(0)

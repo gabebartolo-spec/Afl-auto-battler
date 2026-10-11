@@ -56,7 +56,7 @@ static func _strand(strand: String, label: String, club: String) -> Control:
 	if reasons.is_empty():
 		col.add_child(list)
 		return col  # nothing to explain: no Why, no empty list
-	var intro := UiKit.lbl("Each reason below lifted %s, unless it says it cost it." % label, UiKit.SMALL, UiKit.MUTED)
+	var intro := UiKit.lbl("These lifted %s. Any that cost it say so." % label, UiKit.SMALL, UiKit.MUTED)
 	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	list.add_child(intro)
 	for r in reasons:
@@ -66,9 +66,17 @@ static func _strand(strand: String, label: String, club: String) -> Control:
 	var why := UiKit.text_action("Why", UiKit.SMALL)
 	why.name = "StrandWhy"
 	why.custom_minimum_size = Vector2(72, 48)
+	why.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	why.set_meta("culture_why", true)
 	why.pressed.connect(func():
-		list.visible = not list.visible
-		why.text = "Hide" if list.visible else "Why")
+		var open := not list.visible
+		# One strand's reasons at a time, so the sheet never grows past the screen.
+		for other in col.get_parent().find_children("StrandReasons", "VBoxContainer", true, false):
+			other.visible = false
+		for other_why in col.get_parent().find_children("StrandWhy", "Button", true, false):
+			other_why.text = "Why"
+		list.visible = open
+		why.text = "Hide" if open else "Why")
 	row.add_child(why)
 	col.add_child(list)
 	return col

@@ -145,12 +145,13 @@ static func grouped(rel: Dictionary, club: String, strand: String) -> Array:
 			(g["whens"] as Array).append(str(r.get("w", "")))
 			g["d"] = int(g["d"]) + int(r.get("d", 0))
 			g["n"] = int(g["n"]) + 1
+			(g["years"] as Array).append(y)
 			g["y0"] = mini(int(g["y0"]), y)
 			g["y1"] = maxi(int(g["y1"]), y)
 		else:
 			at[k] = out.size()
 			out.append({"why": k, "y0": y, "y1": y, "whens": [str(r.get("w", ""))],
-					"d": int(r.get("d", 0)), "n": 1, "latest": int(r.get("d", 0))})
+					"d": int(r.get("d", 0)), "n": 1, "latest": int(r.get("d", 0)), "years": [y]})
 	# Newest season first; within a season, the order they came.
 	var order := []
 	for i in range(out.size()):
@@ -162,42 +163,70 @@ static func grouped(rel: Dictionary, club: String, strand: String) -> Array:
 	return sorted
 
 
-## One grouped reason as a line: "Round 4 and Round 12, 2027. A run of four
-## losses, twice. Togetherness fell." or "Off-season, 2025 to 2027. ... three
-## off-seasons running."
+## Reasons that read differently when they run across seasons.
+const PERFECT := {
+	"The list holds itself to a higher standard than most clubs": "The list has held itself to a higher standard than most clubs",
+	"The list lets its standards slip more than most clubs": "The list has let its standards slip more than most clubs",
+}
+
+
+## One grouped reason as a football sentence, the time at the end:
+## "Played finals in 2026 and 2027." / "A run of four losses in round 10, 2026. It
+## cost Togetherness." / "Five wins in a row, twice, in 2025 and 2026."
 static func group_text(strand_label: String, g: Dictionary) -> String:
-	var whens: Array = g["whens"].duplicate()
-	whens.reverse()
-	var n := int(g["n"])
 	var why := str(g["why"]).strip_edges().trim_suffix(".")
-	var when := ""
-	var years := ""
-	var repeat := ""
-	var off_seasons := true
-	for w in whens:
-		if str(w) != "Off-season":
-			off_seasons = false
-	if int(g["y0"]) != int(g["y1"]):
-		years = "%d to %d" % [int(g["y0"]), int(g["y1"])]
-		when = "Off-season" if off_seasons else "Over the seasons"
-		repeat = (", %s off-seasons running" if off_seasons else ", %s times") % _count(n)
+	var n := int(g["n"])
+	var years := _distinct_sorted(g["years"] if g.has("years") else [int(g["y0"]), int(g["y1"])])
+	var whens: Array = (g["whens"] as Array).duplicate()
+	whens.reverse()
+	var line := ""
+	if PERFECT.has(why) and years.size() > 1:
+		line = "%s for %s off-seasons." % [PERFECT[why], _count(n)]
 	else:
-		years = str(int(g["y0"]))
-		if whens.size() == 1:
-			when = str(whens[0])
-		else:
-			var head := PackedStringArray()
-			for w in whens.slice(0, whens.size() - 1):
-				head.append(str(w))
-			when = ", ".join(head) + " and " + str(whens[whens.size() - 1])
-		if n == 2:
-			repeat = ", twice"
-		elif n > 2:
-			repeat = ", %s times" % _count(n)
-	var line := "%s, %s. %s%s." % [when, years, why, repeat]
+		var when := _years_text(years)
+		if years.size() == 1:
+			var rounds := PackedStringArray()
+			for w in whens:
+				if str(w).begins_with("Round "):
+					rounds.append(str(w).trim_prefix("Round "))
+			if rounds.size() == 1:
+				when = "round %s, %d" % [rounds[0], years[0]]
+			elif rounds.size() > 1:
+				when = "rounds %s and %s, %d" % [", ".join(rounds.slice(0, rounds.size() - 1)), rounds[rounds.size() - 1], years[0]]
+		var count := ""
+		if n > years.size():
+			count = "twice" if n == 2 else "%s times" % _count(n)
+		var head := why
+		var tail := ""
+		if why.contains(":"):
+			head = why.substr(0, why.find(":"))
+			tail = why.substr(why.find(":"))
+		if count != "":
+			head += ", " + count + ","
+		line = "%s in %s%s." % [head, when, tail]
 	if int(g["d"]) <= 0:
 		line += " It cost %s." % strand_label
 	return line
+
+
+static func _years_text(years: Array) -> String:
+	var ys := PackedStringArray()
+	for y in years:
+		ys.append(str(y))
+	if ys.size() == 1:
+		return ys[0]
+	return ", ".join(ys.slice(0, ys.size() - 1)) + " and " + ys[ys.size() - 1]
+
+
+static func _distinct_sorted(years: Array) -> Array:
+	var seen := {}
+	var out := []
+	for y in years:
+		if not seen.has(int(y)):
+			seen[int(y)] = true
+			out.append(int(y))
+	out.sort()
+	return out
 
 
 ## What a strand reads when no band is named: nothing yet, or which way its
