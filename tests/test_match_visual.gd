@@ -1386,26 +1386,28 @@ func _test_press_shape(res: Dictionary) -> void:
 			and is_equal_approx(MatchDirector.press_zone_strength(0.0), 0.25)
 			and MatchDirector.press_zone_strength(-40.0) == 0.0,
 			"The press zone follows the sim's zones: full in their back third, a quarter in the middle, none in their forward third")
+	# The field is soft-edged (no step between zones, none anywhere), and full / none far in.
+	var jump := 0.0
+	var xs := -70.0
+	while xs < 70.0:
+		jump = maxf(jump, absf(MatchDirector.press_zone_field(xs + 0.5) - MatchDirector.press_zone_field(xs)))
+		xs += 0.5
+	_check(jump < 0.06 and is_equal_approx(MatchDirector.press_zone_field(60.0), 1.0) and MatchDirector.press_zone_field(-60.0) == 0.0,
+			"The press zone's edges are feathered, never a step (largest change per half metre %.3f)" % jump)
 	d._tac[1] = {"side": 1, "plan": "defensive", "bursts": []}
 	d._poss = 0
 	d.ball["pos"] = Vector2(-30.0, 0.0)
-	d.press_fade = [0.0, 0.0]
-	d._fade_press_zone(0.1)
-	var f1 := float(d.press_fade[1])
-	_check(f1 > 0.0 and f1 < 0.2 and float(d.press_fade[0]) == 0.0, "The zone starts to fade in with the press, on the press side only (%.2f)" % f1)
-	for i in range(20):
-		d._fade_press_zone(0.1)
-	_check(is_equal_approx(float(d.press_fade[1]), 1.0), "...and is fully in after about a second")
+	_check(d.press_zone_on(1) and not d.press_zone_on(0), "The zone is on for the press side only, while it hunts")
 	d._poss = 1
-	d._fade_press_zone(0.1)
-	var f2 := float(d.press_fade[1])
-	_check(f2 < 1.0 and f2 > 0.8, "...and fades out, not pops, when the ball turns over (%.2f)" % f2)
-	MatchDirector.debug_no_press_shape = true
-	d.press_fade = [0.0, 0.0]
+	_check(not d.press_zone_on(1), "...and off when it has the ball")
 	d._poss = 0
-	d._fade_press_zone(0.5)
-	_check(float(d.press_fade[1]) == 0.0, "No zone when the shape is off")
+	MatchDirector.debug_no_press_shape = true
+	_check(not d.press_zone_on(1), "No zone when the shape is off")
 	MatchDirector.debug_no_press_shape = false
+	var pvs = load("res://scripts/ui/PitchView.gd")
+	_check(pvs.ease_fade(0.0) == 0.0 and pvs.ease_fade(1.0) == 1.0 and pvs.ease_fade(0.1) < 0.05
+			and is_equal_approx(pvs.ease_fade(0.5), 0.5) and float(pvs.PRESS_FADE_SECS) >= 0.9,
+			"The zone eases in and out over 0.9 s, not linearly")
 	d._tac[1] = {}
 	# The line, once: only the pressing side's opponents' disposals open it.
 	var tl := [{"at": 0, "side": 1, "plan": "defensive"}, {"at": 0, "side": 0, "plan": "balanced"}]

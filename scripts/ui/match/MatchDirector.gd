@@ -305,7 +305,6 @@ func _tick(h: float) -> void:
 		MatchMotion.step(t, h)
 	MatchMotion.separate(tokens)
 	_update_ball(h)
-	_fade_press_zone(h)
 	if not flash.is_empty():
 		flash["left"] = float(flash["left"]) - h
 		if float(flash["left"]) <= 0.0:
@@ -1773,19 +1772,13 @@ const PRESS_FRAME_SHIFT := 9.0    # ...and looks toward its high line
 const PRESS_FROM := -10.0
 
 
-## The press zone, drawn: a barely-there tint on the turf over where the press
-## side hunts, fading in and out with the press (no pop). `press_fade[side]` is
-## 0..1; the zone's strength by distance comes from the sim's own table.
-var press_fade := [0.0, 0.0]
-const PRESS_FADE_SECS := 0.9
-
-
-func _fade_press_zone(h: float) -> void:
+## The press zone, drawn: whether `side` is pressing right now (without the
+## ball, its plan the press, the ball in its opponents' back half or the
+## middle). The view fades the wash in and out in real time.
+func press_zone_on(side: int) -> bool:
 	if _tac.size() < 2 or tokens.is_empty():
-		return
-	for side in [0, 1]:
-		var on: bool = side != _poss and _pressing(side, (ball["pos"] as Vector2).x * _dir(side))
-		press_fade[side] = move_toward(float(press_fade[side]), 1.0 if on else 0.0, h / PRESS_FADE_SECS)
+		return false
+	return side != _poss and _pressing(side, (ball["pos"] as Vector2).x * _dir(side))
 
 
 ## How strongly the press side is hunting at `x_side` metres up the ground
@@ -1798,6 +1791,17 @@ static func press_zone_strength(x_side: float) -> float:
 	var zone := 0 if x_side > MatchSim.PRESS_ZONE_EDGE else (2 if x_side < -MatchSim.PRESS_ZONE_EDGE else 1)
 	var heavy := float(table[0]) - 1.0
 	return clampf((float(table[zone]) - 1.0) / heavy, 0.0, 1.0)
+
+
+## The same field with soft edges: between two zones the strength eases across
+## PRESS_ZONE_FEATHER metres either side of the edge, never a step.
+const PRESS_ZONE_FEATHER := 14.0
+static func press_zone_field(x_side: float) -> float:
+	var e := MatchSim.PRESS_ZONE_EDGE
+	var back := smoothstep(e - PRESS_ZONE_FEATHER, e + PRESS_ZONE_FEATHER, x_side)
+	var fwd := smoothstep(-e - PRESS_ZONE_FEATHER, -e + PRESS_ZONE_FEATHER, x_side)
+	var mid := press_zone_strength(0.0)
+	return lerpf(lerpf(press_zone_strength(-e - 1.0), mid, fwd), press_zone_strength(e + 1.0), back)
 
 
 ## Debug only (capture_match --noshape): draw the plan without its shape, the
