@@ -546,6 +546,9 @@ const ROTATION_SHORT := {"hard": "Freshness", "normal": "Balanced", "stars": "Ke
 func _show_coach_box() -> void:
 	if _coach_overlay != null and is_instance_valid(_coach_overlay):
 		return
+	# A new break: nothing to pack again until this one is built.
+	_break_pack_cols = []
+	_break_reading = []
 	_pitch.pause()
 	_sync_controls()
 	var sim: MatchSim = GameState.pending_sim
@@ -743,8 +746,12 @@ func _show_coach_box() -> void:
 	# tag (the fullest PC break then still fits without scrolling).
 	var who_block: Array = []
 	var sync_tag := func(_key: String) -> void:
+		var shown_before := who_block.any(func(b): return (b as Control).visible)
 		for b in who_block:
 			(b as Control).visible = str(calls["tag_id"]) != ""
+		var shown_now := who_block.any(func(b): return (b as Control).visible)
+		if _pc_break and shown_now != shown_before and not _break_pack_cols.is_empty():
+			_balance_break_columns.call_deferred(_break_pack_cols)
 		var who = my_mids.get(str(calls["tagger_id"]), tagger)
 		if str(calls["tag_id"]) == "":
 			tag_note.text = "No tag: your midfielders play their own game."
@@ -1000,7 +1007,9 @@ func _show_coach_box() -> void:
 		for b in cols.find_children("*", "Button", true, false):
 			if (b as Button).custom_minimum_size.y == 44.0:
 				(b as Button).custom_minimum_size.y = 40.0
-		_balance_break_columns.call_deferred([rep, col_a, col_b, col_c] if rep != v else [col_a, col_b, col_c])
+		_break_pack_cols = [rep, col_a, col_b, col_c] if rep != v else [col_a, col_b, col_c]
+		_break_reading = []
+		_balance_break_columns.call_deferred(_break_pack_cols)
 	else:
 		box["footer"].add_child(start)
 		box["footer"].add_child(skip)
@@ -1011,6 +1020,12 @@ func _show_coach_box() -> void:
 			UiKit.attention(found.get_parent() as CanvasItem)
 
 
+## The PC break's call columns and its calls in the order it was built, so a
+## call shown later (Who tags, once there is a tag) packs the break again.
+var _break_pack_cols: Array = []
+var _break_reading: Array = []
+
+
 ## A PC break's calls read in one order down and across the call columns;
 ## where each column ends follows what is in it this break (a loose defender
 ## of theirs, a second ruck), so the tallest column is as short as it can be
@@ -1019,6 +1034,17 @@ func _balance_break_columns(cols: Array) -> void:
 	await get_tree().process_frame
 	if not is_instance_valid(cols[0]):
 		return
+	# Packed again (a call shown or hidden since): from the reading order the
+	# break was built in, never from the last packing.
+	if _break_reading.is_empty():
+		for c in cols:
+			for n in (c as Node).get_children():
+				_break_reading.append(n)
+	else:
+		for n in _break_reading:
+			if is_instance_valid(n):
+				(n as Node).get_parent().remove_child(n)
+				(cols[0] as Node).add_child(n)
 	# Calls in reading order: a call starts a unit; its notes go with it.
 	var units := _break_units(cols)
 	var sep := float((cols[0] as VBoxContainer).get_theme_constant("separation"))
