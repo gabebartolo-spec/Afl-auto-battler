@@ -132,6 +132,10 @@ func _run() -> void:
 	await _frames(8)
 	await _shoot(scene.find_child("TagPicker", true, false), out + "_tag.png")
 	await _frames(8)
+	# The next quarter's choices first: the gameplan scrolled to the top, every
+	# option clear above the pinned Start button.
+	await _shoot(scene.find_child("PlanPicker", true, false), out + "_gameplan.png")
+	await _frames(8)
 	# Best so far: the top of each side by rating, right on the break.
 	await _shoot(scene.find_child("BestSoFar", true, false), out + "_best.png")
 	await _frames(8)

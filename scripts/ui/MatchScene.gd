@@ -637,10 +637,6 @@ func _show_coach_box() -> void:
 		else:
 			rep.add_child(stats)
 			rep.add_child(UiKit.spacer(UiKit.GAP))
-		# Who is playing well, right on the break (director, 2026-10-11): the top
-		# few of each side by match rating so far, the full table a tap away.
-		rep.add_child(_best_so_far())
-		# The quarter just played, by name: what happened, not what is happening.
 		var played := UiKit.section(str({2: "First quarter", 3: "Second quarter",
 				4: "Third quarter"}.get(q, "Last quarter")))
 		played.name = "QuarterHeading"
@@ -910,6 +906,10 @@ func _show_coach_box() -> void:
 			n.get_parent().remove_child(n)
 			tail.add_child(n)
 	(rep if rep != v else tail).add_child(_legs_view())
+	# Who is playing well, on the break (director, 2026-10-11): on a PC in the
+	# report column; on a phone below the choices, so nothing the next quarter
+	# depends on is pushed under the pinned Start button.
+	(rep if rep != v else tail).add_child(_best_so_far())
 	# The synergies line is about the two sides' strengths, like the legs line:
 	# on a PC sheet it sits right under it, never alone at the top of a column
 	# without a heading (BOSS QC, 2026-10-11).
@@ -1644,22 +1644,42 @@ func _best_so_far() -> Control:
 	var title := UiKit.section("Best so far")
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(title)
-	var all := UiKit.text_action("All player stats", UiKit.BODY)
+	var all := UiKit.btn("All player stats", UiKit.BODY)
 	all.name = "BestSoFarAll"
+	all.custom_minimum_size = Vector2(0, 38 if _pc_break else 44)
 	all.pressed.connect(func(): _show_break_stats(true))
-	# On a PC the way to the table sits in the heading row, so the block is
-	# shorter and the fullest break still fits 1280x720.
+	# On a PC the way to the table sits in the heading row (shorter block: the
+	# fullest break still fits 1280x720); a phone has it under the list.
 	if _pc_break:
-		all.custom_minimum_size = Vector2(0, 32)
 		head.add_child(all)
-	else:
-		all.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	box.add_child(head)
+	# Your club first, then theirs, each under its own name, best rated first;
+	# the same number each side, two on a PC (height), three on a phone.
 	for side in [_my_side, 1 - _my_side]:
-		# Three of yours; a PC break, tight for height, shows two of theirs.
-		for p in MatchNotes.standouts(_res, side, 2 if (_pc_break and side != _my_side) else 3):
-			var row := _standout_row(p, side, false)
+		var code := str(_res["home"] if side == 0 else _res["away"])
+		var sh := UiKit.hbox(8)
+		var club := UiKit.lbl(GameDB.club_name(code), UiKit.NAME, UiKit.TEXT, true)
+		club.name = "BestClub_%d" % side
+		club.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sh.add_child(club)
+		var rh := UiKit.lbl("Rating", 14, UiKit.MUTED)
+		rh.custom_minimum_size.x = 56
+		rh.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		sh.add_child(rh)
+		box.add_child(sh)
+		for p in MatchNotes.standouts(_res, side, 2 if _pc_break else 3):
+			var row := UiKit.hbox(8)
 			row.name = "BestRow_%s" % str(p["id"])
+			var col := UiKit.vbox(0)
+			col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			col.add_child(UiKit.ellipsis(str(p["name"]), UiKit.BODY, UiKit.TEXT, true))
+			col.add_child(UiKit.ellipsis(str(p["line"]), 14, UiKit.MUTED))
+			row.add_child(col)
+			var r := UiKit.line(MatchNotes.rating_text(float(p["rating"])), 20, UiKit.TEXT, true)
+			r.name = "StandoutRating"
+			r.custom_minimum_size.x = 56
+			r.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			row.add_child(r)
 			box.add_child(row)
 	if not _pc_break:
 		box.add_child(all)

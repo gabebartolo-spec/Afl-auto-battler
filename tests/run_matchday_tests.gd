@@ -833,7 +833,7 @@ func _best_so_far(sz: Vector2i) -> void:
 			var st: Dictionary = (res["players"] as Dictionary).get(str(p["id"]), {})
 			ranked.append([str(p["id"]), int(notes.rating(st)), int(float(st.get("disposals", 0.0)))])
 		ranked.sort_custom(func(a, b): return a[1] > b[1] or (a[1] == b[1] and a[2] > b[2]))
-		for r in ranked.slice(0, 2 if (sz.x >= 900 and side != me) else 3):
+		for r in ranked.slice(0, 2 if sz.x >= 900 else 3):
 			want.append(r)
 	var bad := []
 	var found := 0
@@ -847,6 +847,15 @@ func _best_so_far(sz: Vector2i) -> void:
 		if rating_l == null or rating_l.text != str(r[1]):
 			bad.append("%s rating %s v %d" % [str(r[0]), rating_l.text if rating_l else "-", int(r[1])])
 	_check(found == want.size() and bad.is_empty(), "Best so far lists the best of each side with the match's own ratings (%s: %s)" % [tag, str(bad)])
+	# Each side under its own club name, even numbers each; on a phone the
+	# block sits below the controls, so the next quarter's choices are never
+	# pushed under the pinned Start button.
+	_check(block.find_child("BestClub_%d" % me, true, false) != null and block.find_child("BestClub_%d" % (1 - me), true, false) != null
+			and found == (4 if sz.x >= 900 else 6), "Best so far has a heading per club and the same number each (%s: %d rows)" % [tag, found])
+	var plan_pick: Node = box.find_child("PlanPicker", true, false)
+	if sz.x < 900 and plan_pick != null:
+		_check((plan_pick as Control).global_position.y < (block as Control).global_position.y,
+				"On a phone Best so far sits below the gameplan choices (%s)" % tag)
 	var all_b: Button = block.find_child("BestSoFarAll", true, false)
 	_check(all_b != null and (await Tap.tap(all_b)) == "", "All player stats takes a real tap (%s)" % tag)
 	await _settle()
