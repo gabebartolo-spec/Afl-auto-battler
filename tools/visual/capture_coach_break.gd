@@ -9,6 +9,7 @@ extends SceneTree
 ##   --size WxH   window size (default 390x844)    --light   light appearance
 ##   --club CODE  your club (default MEL)    --their-loose  they run a loose
 ##                defender at quarter time (the fullest break)
+##   --plain      nobody plays loose on either side (the ordinary break)
 ## A fresh Melbourne career's first match at quarter time. Never touches a
 ## real save.
 
@@ -25,6 +26,7 @@ func _run() -> void:
 	var mode := "dark"
 	var club := "MEL"
 	var their_loose := false
+	var plain := false
 	var a := OS.get_cmdline_user_args()
 	for i in range(a.size()):
 		match str(a[i]):
@@ -40,6 +42,8 @@ func _run() -> void:
 				club = str(a[i + 1])
 			"--their-loose":
 				their_loose = true
+			"--plain":
+				plain = true
 	await process_frame
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
@@ -64,6 +68,9 @@ func _run() -> void:
 	state.pending_sim.run_quarter()
 	if their_loose:
 		state.pending_sim.set_interceptor(1 - int(state.pending_sim.moment_side), str(spare.get("id", "")), true)
+	if plain:
+		for sd in [0, 1]:
+			state.pending_sim.set_interceptor(sd, "", false)
 	UK.apply_appearance(mode)
 	root.size = Vector2i(_w, _h)
 	DisplayServer.window_set_size(Vector2i(_w, _h))
