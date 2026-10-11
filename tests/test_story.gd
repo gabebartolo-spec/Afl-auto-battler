@@ -45,6 +45,7 @@ func run() -> void:
 	_test_culture_news()
 	_test_culture_reasons_read_cleanly()
 	_test_culture_settles()
+	_test_culture_signs_match_words()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	GameState.stories_on = true
@@ -1127,3 +1128,39 @@ func _test_culture_settles() -> void:
 	Culture.change(quiet, "GEE", "standards", 2, "x", 2027, "Round 1")
 	Culture.settle(quiet, "GEE", "standards")
 	_check(Culture.value(quiet, "GEE", "standards") == 2, "A strand near neutral does not settle further")
+
+
+## Every mover's sign matches its words: a loss fell, a win rose, a bottom finish
+## fell, premiers rose; the reasons the director reads never contradict.
+func _test_culture_signs_match_words() -> void:
+	var ok := true
+	var losses := Culture.run_step(4, 0)
+	var wins := Culture.run_step(0, 5)
+	ok = ok and int(losses[1]) < 0 and str(losses[2]).contains("loss") and int(wins[1]) > 0 and str(wins[2]).contains("win")
+	_check(ok, "A run of losses lowers Togetherness and a run of wins lifts it")
+	var by_why := {}
+	for args in [[1, 18, true, 0.0, 0.0], [6, 18, false, 0.0, 0.0], [17, 18, false, 0.0, 0.0],
+			[10, 18, false, 2.0, 5.0], [10, 18, false, -2.0, -5.0]]:
+		for st in Culture.season_steps(args[0], args[1], args[2], args[3], args[4]):
+			by_why[str(st["why"])] = int(st["d"])
+	var want := {"Premiers": 1, "Played finals": 1, "Finished near the bottom of the ladder": -1,
+			"An experienced side": 1, "A young side": -1,
+			"The list's discipline is well above the league's": 1, "The list's discipline is well below the league's": -1}
+	var wrong := []
+	for w in want:
+		if not by_why.has(w) or (int(by_why[w]) > 0) != (int(want[w]) > 0):
+			wrong.append(w)
+	_check(wrong.is_empty(), "Every season mover's sign matches its words (%s)" % ", ".join(PackedStringArray(wrong)))
+	var more := Culture.new_faces_step(12, 6.0)
+	var fewer := Culture.new_faces_step(1, 6.0)
+	_check(int(more[0]["d"]) < 0 and str(more[0]["why"]).contains("more") and int(fewer[0]["d"]) > 0 and str(fewer[0]["why"]).contains("fewer"),
+			"New faces: more than most lowers Togetherness, fewer lifts it")
+	# One season never says both premiers and a bottom finish.
+	var both := 0
+	for pos in range(1, 19):
+		var whys := PackedStringArray()
+		for st in Culture.season_steps(pos, 18, pos == 1, 0.0, 0.0):
+			whys.append(str(st["why"]))
+		if "Premiers" in whys and "Finished near the bottom of the ladder" in whys:
+			both += 1
+	_check(both == 0, "No season is both premiers and a bottom finish")

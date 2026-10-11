@@ -96,11 +96,23 @@ func _run() -> void:
 	for y in [state.season_year - 2, state.season_year - 1, state.season_year]:
 		Culture.change(state.relations, state.my_club, "standards", 4,
 				"The list's discipline is well above the league's", y, "Off-season")
-	# Five and more reasons on Togetherness, so the PC sheet has to scroll with Close pinned.
+	# Six reasons on Togetherness from the real movers, each with its own sign and
+	# never two opposed finishes in one season, so the PC sheet scrolls with Close pinned.
 	var y0: int = state.season_year
-	for why in ["Played finals", "A run of five wins", "A settled list: far fewer new faces from other clubs than most",
-			"A run of four losses", "Finished near the bottom of the ladder", "Premiers"]:
-		Culture.change(state.relations, state.my_club, "together", 3, why, y0 - 1, "Off-season")
+	var moves := [
+		[y0 - 2, "Round 6", Culture.run_step(0, 5)],
+		[y0 - 2, "Off-season", _first(Culture.season_steps(1, 18, true, 0.0, 0.0), "together")],
+		[y0 - 1, "Round 10", Culture.run_step(4, 0)],
+		[y0 - 1, "Round 20", Culture.run_step(0, 5)],
+		[y0 - 1, "Off-season", _first(Culture.season_steps(6, 18, false, 0.0, 0.0), "together")],
+		[y0, "Off-season", _first(Culture.new_faces_step(1, 6.0), "together")],
+	]
+	for m in moves:
+		var mv = m[2]
+		if mv is Array:
+			Culture.change(state.relations, state.my_club, str(mv[0]), int(mv[1]), str(mv[2]), int(m[0]), str(m[1]))
+		elif mv is Dictionary:
+			Culture.change(state.relations, state.my_club, str(mv["strand"]), int(mv["d"]), str(mv["why"]), int(m[0]), str(m[1]))
 	root.get_node("Router").go("list")
 	for i in range(8):
 		await process_frame
@@ -121,3 +133,10 @@ func _run() -> void:
 			b.emit_signal("pressed")
 	await _shot(out + "_why.png")
 	quit(0)
+
+
+func _first(steps: Array, strand: String):
+	for st in steps:
+		if str(st["strand"]) == strand:
+			return st
+	return null
