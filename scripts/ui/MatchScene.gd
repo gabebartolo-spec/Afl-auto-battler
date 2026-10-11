@@ -844,11 +844,19 @@ func _show_coach_box() -> void:
 	if rucks.size() >= 2:
 		var ruck_opts := [["", "No main ruck"]]
 		for r in rucks:
-			# His Ruck rating on the card, so a weak tap man is plain before
-			# he is named.
-			var ruck_rating := PackedStringArray(["Ruck %d" % roundi(float((r["attr"] as Dictionary).get("ruck", 0.0)))])
+			# His Ruck and Contested ratings, named as the Ratings screen names
+			# them, so a weak tap man is plain before he is named. The position
+			# line keeps only what "Ruck 73" does not already say.
+			var at := r["attr"] as Dictionary
+			var skills := "Ruck %d · Contested %d" % [roundi(float(at.get("ruck", 0.0))), roundi(float(at.get("contested", 0.0)))]
+			var places := PackedStringArray()
+			for pos in Ratings.positions(r):
+				if str(pos) != "RUCK":
+					places.append(str(UiKit.ROLE_LABEL.get(str(pos), str(pos))))
+			var detail := skills if places.is_empty() else "/".join(places) + "
+" + skills
 			ruck_opts.append([str(r["id"]), "%s
-%s" % [GameDB.player_display_name(r), MatchNotes.card_detail(r, "", ruck_rating, false)]])
+%s" % [GameDB.player_display_name(r), detail]])
 		var ruck_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 		ruck_note.name = "MainRuckNote"
 		ruck_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
