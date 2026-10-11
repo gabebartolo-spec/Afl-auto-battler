@@ -616,8 +616,11 @@ func _test_leadership() -> void:
 	var lines := FileAccess.get_file_as_string(Leadership.PATH).split("
 ", false)
 	var bad := []
-	for i in range(1, lines.size()):
-		var c := lines[i].strip_edges().split(",")
+	for i in range(lines.size()):
+		var row := lines[i].strip_edges()
+		if row.begins_with("#") or row.begins_with("club,"):
+			continue
+		var c := row.split(",")
 		var key := ("%s %s" % [c[1], c[2]]).to_lower()
 		if int(by_real.get(key, 0)) != 1 or not Leadership.ROLE_BONUS.has(c[3]):
 			bad.append(key)
@@ -647,7 +650,8 @@ func _test_leadership() -> void:
 		same["real_name"] = "Not A Captain"
 		_check(Leadership.of(real_cap) - Leadership.of(same) == int(Leadership.ROLE_BONUS["captain"]),
 				"A captain's 2026 role adds the captain bonus and nothing else")
-		_check(Leadership.role_line(real_cap) == "Captain in 2026", "The role reads \"Captain in 2026\"")
+		_check(Leadership.role_line(real_cap, 2027) == "Captain" and Leadership.role_line(real_cap, 2028) == "",
+				"The role reads \"Captain\" through the first season, then the rating carries it")
 
 	var a := twin.duplicate(true)
 	var b := twin.duplicate(true)

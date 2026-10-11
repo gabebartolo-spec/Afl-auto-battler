@@ -26,6 +26,9 @@ const CEILING := 96
 const ROLE_BONUS := {"captain": 16, "vice": 11, "group": 7}
 const ROLE_WORDS := {"captain": "Captain", "vice": "Vice-captain", "group": "Leadership group"}
 const SEASON := 2026
+## The record is shown as his role through the first playable season; after that
+## the rating alone carries what it built.
+const SHOWN_THROUGH := 2027
 ## Experience: one point per this many games (to 28), then age and tenure.
 const GAMES_PER_POINT := 8.0
 const GAMES_MAX := 28.0
@@ -55,8 +58,11 @@ static func _load() -> void:
 	if not FileAccess.file_exists(PATH):
 		return
 	var lines := FileAccess.get_file_as_string(PATH).split("\n", false)
-	for i in range(1, lines.size()):
-		var c := lines[i].strip_edges().split(",")
+	for i in range(lines.size()):
+		var row := lines[i].strip_edges()
+		if row.begins_with("#") or row.begins_with("club,"):
+			continue
+		var c := row.split(",")
 		if c.size() < 4:
 			continue
 		var key := ("%s %s" % [c[1], c[2]]).to_lower()
@@ -77,12 +83,13 @@ static func role_2026(p: Dictionary) -> String:
 	return str(_roles.get(real, ""))
 
 
-## "Captain in 2026" and so on, or "" for anyone without a role on record.
-static func role_line(p: Dictionary) -> String:
+## "Captain", "Vice-captain" or "Leadership group" for a player with a role on
+## the 2026 record, while that record is current (the first season); else "".
+static func role_line(p: Dictionary, year: int = SEASON + 1) -> String:
 	var r := role_2026(p)
-	if r == "":
+	if r == "" or year > SHOWN_THROUGH:
 		return ""
-	return "%s in %d" % [ROLE_WORDS[r], SEASON]
+	return str(ROLE_WORDS[r])
 
 
 static func is_real(p: Dictionary) -> bool:
@@ -129,4 +136,4 @@ static func of(p: Dictionary) -> int:
 
 ## One line for the profile's drill-down: what the number is made of.
 static func basis_text() -> String:
-	return "Leadership comes from games played, age, years at his club and any captaincy or leadership-group role. It is not his playing quality, and it is never trained."
+	return "Built on experience, years at the club and captaincy."

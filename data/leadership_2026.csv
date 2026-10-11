@@ -1,3 +1,8 @@
+# Source: AFL.com.au, "Who's in, who's out? Your club's captains, leadership group for 2026"
+# https://www.afl.com.au/news/1460664/whos-in-whos-out-your-clubs-captains-leadership-group-for-2026
+# Retrieved 2026-10-11. Public record of the clubs' own announcements; no character judgements.
+# Left out: Nic Martin (ESS) and Tom Green (GWS), listed in the article but not in players_enriched_2026.csv.
+# Lines starting with # are skipped. Roles: captain, vice (vice-captain), group (leadership group).
 club,first,last,role,source
 ADE,Jordan,Dawson,captain,afl.com.au 2026 captains and leadership groups
 ADE,Ben,Keays,vice,afl.com.au 2026 captains and leadership groups
