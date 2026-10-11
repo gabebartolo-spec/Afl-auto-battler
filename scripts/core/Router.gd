@@ -55,6 +55,10 @@ func _ease_in() -> void:
 func replace(key: String) -> void:
 	if not stack.is_empty():
 		stack.pop_back()
+	# Going "back" to a screen already under this one must not stack it twice
+	# (draft -> menu left the menu in the stack two deep).
+	while not stack.is_empty() and str(stack[stack.size() - 1]) == key:
+		stack.pop_back()
 	go(key)
 
 
@@ -86,6 +90,15 @@ func _notification(what: int) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
+		get_viewport().set_input_as_handled()
+		handle_back(false)
+
+
+## The mouse's back button (the thumb button on most mice) steps back like
+## Escape. It is read before the GUI, so it works over any panel or overlay,
+## not only over empty ground.
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_XBUTTON1:
 		get_viewport().set_input_as_handled()
 		handle_back(false)
 
