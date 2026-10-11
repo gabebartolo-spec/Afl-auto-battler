@@ -110,7 +110,11 @@ static func decision_lines(impact: Array, side: int, margin: float) -> Dictionar
 static func _imp(arr: Array, side: int, cause: String) -> float:
 	if arr.size() <= side:
 		return 0.0
-	return float((arr[side] as Dictionary).get(cause, 0.0))
+	var d: Dictionary = arr[side]
+	# A match saved before the decision summary booked the bursts as "calls".
+	if cause == "bursts" and not d.has("bursts"):
+		return float(d.get("calls", 0.0))
+	return float(d.get(cause, 0.0))
 
 
 static func plan_label(key: String) -> String:

@@ -3434,6 +3434,11 @@ func _test_decision_credits() -> void:
 		total += float(l["pts"])
 	_check(is_equal_approx(total, margin) and (sum0["lines"] as Array).size() >= 2,
 			"The decision lines and the rest add up to the margin (%+.1f)" % margin)
+	# An old save's last match booked the bursts as "calls": still shown.
+	var old_lines := CoachReport.impact_lines([{"calls": 2.0}, {}], [{}, {}], 0)
+	_check(old_lines.size() == 1 and str(old_lines[0]["label"]) == "Your in-game calls"
+			and is_equal_approx(float(old_lines[0]["pts"]), 2.0),
+			"An old save's \"calls\" still reads as in-game calls (%s)" % str(old_lines))
 	# A moment: the call is worth its expected points against the default.
 	var live := _sim(7302)
 	live.moment_side = 0
