@@ -8565,7 +8565,15 @@ func _culture_move(code: String, strand: String, d: int, why: String) -> void:
 	if int(told.get(code, 0)) == season_year:
 		return
 	told[code] = season_year
-	add_news("culture", "%s %s." % [GameDB.club_name(code), Culture.news_phrase(strand, after)])
+	var line := "%s %s." % [GameDB.club_name(code), Culture.news_phrase(strand, after)]
+	# The season's close keeps the premiers on top of the feed: its news waits for
+	# the rollover.
+	if season != null and season.is_season_over():
+		var pending: Array = _culture_marks().get("pending", [])
+		pending.append(line)
+		_culture_marks()["pending"] = pending
+		return
+	add_news("culture", line)
 
 
 ## After each round, every club: a run of losses or wins that has just reached
@@ -8646,6 +8654,9 @@ func _culture_rollover() -> void:
 	if int(marks["roll"]) == season_year:
 		return
 	marks["roll"] = season_year
+	for line in marks.get("pending", []):
+		add_news("culture", str(line))
+	marks["pending"] = []
 	var faces := {}
 	var counts := []
 	for code in season.lists:
