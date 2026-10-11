@@ -40,7 +40,7 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 		who.append("%d years old" % int(p["age"]))
 	if float(p.get("height_cm", 0.0)) > 0.0:
 		who.append("%d cm" % int(p["height_cm"]))
-	var role := Leadership.role_line(p, GameState.season_year)
+	var role := Leadership.role_line(p, GameState.season_year, func(code): return GameDB.club_short(code))
 	if role != "":
 		who.append(role)
 	v.add_child(UiKit.lbl("  ·  ".join(who), UiKit.SMALL, UiKit.MUTED))

@@ -6,7 +6,7 @@ extends RefCounted
 ## playing quality: OVR and the attributes never feed it, and appointing a
 ## captain does not raise it. It is worked out when asked, from facts the save
 ## already holds, so an older save simply has it and nothing new is stored:
-##   - senior games (career total, this season included),
+##   - senior games (his career total),
 ##   - age,
 ##   - years at his current club,
 ##   - a captaincy or leadership-group role in the 2026 public record
@@ -69,27 +69,65 @@ static func _load() -> void:
 		var role := str(c[3])
 		if not ROLE_BONUS.has(role):
 			continue
-		# A player on two lists keeps the better role.
-		if not _roles.has(key) or int(ROLE_BONUS[role]) > int(ROLE_BONUS[_roles[key]]):
-			_roles[key] = role
+		# Keyed by name, each entry carrying the club that named him: two real
+		# players can share a name (Max King, Bailey Williams).
+		var list: Array = _roles.get(key, [])
+		var entry := [str(c[0]), role]
+		for e in list:
+			if str(e[0]) == str(c[0]):
+				entry = []
+				if int(ROLE_BONUS[role]) > int(ROLE_BONUS[e[1]]):
+					e[1] = role
+		if not entry.is_empty():
+			list.append(entry)
+		_roles[key] = list
+
+
+## The record entry for this player, [club, role], or []: the name matches and
+## the club that named him is his club now or one he played for last (a traded
+## captain still counts).
+static func _entry(p: Dictionary) -> Array:
+	_load()
+	var real := str(p.get("real_name", "")).strip_edges().to_lower()
+	if real == "" or not _roles.has(real):
+		return []
+	var clubs := {str(p.get("club", "")): true}
+	var c = p.get("career")
+	if c is Dictionary:
+		var stints: Array = (c as Dictionary).get("stints", [])
+		if not stints.is_empty():
+			clubs[str((stints[stints.size() - 1] as Array)[0])] = true
+	var best: Array = []
+	for e in _roles[real]:
+		if clubs.has(str(e[0])) and (best.is_empty() or int(ROLE_BONUS[e[1]]) > int(ROLE_BONUS[best[1]])):
+			best = e
+	return best
 
 
 ## His 2026 role from the public record: "captain", "vice", "group" or "".
 static func role_2026(p: Dictionary) -> String:
-	_load()
-	var real := str(p.get("real_name", "")).strip_edges().to_lower()
-	if real == "":
-		return ""
-	return str(_roles.get(real, ""))
+	var e := _entry(p)
+	return "" if e.is_empty() else str(e[1])
+
+
+## The club that named him in the record, or "".
+static func role_club(p: Dictionary) -> String:
+	var e := _entry(p)
+	return "" if e.is_empty() else str(e[0])
 
 
 ## "Captain", "Vice-captain" or "Leadership group" for a player with a role on
 ## the 2026 record, while that record is current (the first season); else "".
-static func role_line(p: Dictionary, year: int = SEASON + 1) -> String:
-	var r := role_2026(p)
-	if r == "" or year > SHOWN_THROUGH:
+## A player now at another club reads with the club that named him
+## ("Adelaide captain"): `club_name` turns a code into a name.
+static func role_line(p: Dictionary, year: int = SEASON + 1, club_name: Callable = Callable()) -> String:
+	var e := _entry(p)
+	if e.is_empty() or year > SHOWN_THROUGH:
 		return ""
-	return str(ROLE_WORDS[r])
+	var words := str(ROLE_WORDS[e[1]])
+	if str(e[0]) != str(p.get("club", "")) and club_name.is_valid():
+		return "%s %s" % [club_name.call(str(e[0])), words.to_lower()]
+	return words
 
 
 static func is_real(p: Dictionary) -> bool:

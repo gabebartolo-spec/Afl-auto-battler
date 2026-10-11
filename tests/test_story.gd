@@ -612,7 +612,8 @@ func _test_leadership() -> void:
 	for p in everyone:
 		var rn := str((p as Dictionary).get("real_name", "")).strip_edges().to_lower()
 		if rn != "":
-			by_real[rn] = int(by_real.get(rn, 0)) + 1
+			var rk := "%s|%s" % [str(p.get("club", "")), rn]
+			by_real[rk] = int(by_real.get(rk, 0)) + 1
 	var lines := FileAccess.get_file_as_string(Leadership.PATH).split("
 ", false)
 	var bad := []
@@ -621,7 +622,7 @@ func _test_leadership() -> void:
 		if row.begins_with("#") or row.begins_with("club,"):
 			continue
 		var c := row.split(",")
-		var key := ("%s %s" % [c[1], c[2]]).to_lower()
+		var key := "%s|%s" % [c[0], ("%s %s" % [c[1], c[2]]).to_lower()]
 		if int(by_real.get(key, 0)) != 1 or not Leadership.ROLE_BONUS.has(c[3]):
 			bad.append(key)
 	_check(bad.is_empty() and lines.size() > 80,
@@ -650,6 +651,17 @@ func _test_leadership() -> void:
 		same["real_name"] = "Not A Captain"
 		_check(Leadership.of(real_cap) - Leadership.of(same) == int(Leadership.ROLE_BONUS["captain"]),
 				"A captain's 2026 role adds the captain bonus and nothing else")
+		var traded := (real_cap as Dictionary).duplicate(true)
+		traded["club"] = "ZZZ"
+		_check(Leadership.role_2026(traded) == "captain" and Leadership.role_club(traded) == str(real_cap["club"]),
+				"A traded captain keeps his role, still named for the club that gave it")
+		_check(Leadership.role_line(traded, 2027, func(code): return "Club " + code) == "Club %s captain" % real_cap["club"]
+				and Leadership.role_line(real_cap, 2027, func(code): return "Club " + code) == "Captain",
+				"A traded captain reads with his old club; at his own club it is plain Captain")
+		var namesake := (real_cap as Dictionary).duplicate(true)
+		namesake["club"] = "ZZZ"
+		namesake["career"] = {"games": 5, "stints": [["ZZZ", 2026, 2026, 5, 0]]}
+		_check(Leadership.role_2026(namesake) == "", "A namesake at another club does not inherit the role")
 		_check(Leadership.role_line(real_cap, 2027) == "Captain" and Leadership.role_line(real_cap, 2028) == "",
 				"The role reads \"Captain\" through the first season, then the rating carries it")
 
