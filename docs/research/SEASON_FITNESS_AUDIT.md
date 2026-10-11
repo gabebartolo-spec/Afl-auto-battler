@@ -17,6 +17,10 @@ reaches a match only through three stamps on each listed player:
 | Legs off the energy cap (`cond_cap`) | up to 8 of the season's load given back, never above fresh | 2 off |
 | Soft-tissue risk (`cond_injury`) | x0.75 | x1.125 |
 
+The tiring multiplier also scales the match exertion that Workload carries into next week, on
+purpose: a side building hard carries more load from week to week, a peaked side less (dev-sim
+review of #650).
+
 The department (high performance: Minimal, Standard, Strong, Elite) sets the peak's height
 (0.6, 0.8, 0.9, 1.0 of the full peak) and how precisely it lands (timing spread 4, 3, 2, 1 weeks).
 
@@ -24,7 +28,8 @@ The department (high performance: Minimal, Standard, Strong, Elite) sets the pea
 
 `checksum` (one seeded home-and-away season, 207 matches, every result hashed):
 hash 333725435 on main, on the hooks-only commit and on the full model with every club Steady
-(runs 38078963346 at 1ae70caf, 38081921687 at fb2f1a06).
+(runs 38078963346 at 1ae70caf, 38081921687 at fb2f1a06). Main has moved since; the PR body carries
+the current pair of runs.
 
 ## Step 0: what each lever is worth in a match
 
@@ -67,7 +72,7 @@ then carrying a Peak for September stamp at its department's seeded timing in fi
 What it says: a side that peaks on time against a Steady side gets about half a goal a finals
 game at a Standard department and close to a goal at Elite, and loses fewer players. That sits
 in the spec's "a few points a game" (BOSS's aim, 2 to 4) at Standard; Elite is a point above it,
-inside one error. The levers are kept as they are. A bigger tiring lever would buy a bigger
+inside one error. The levers are kept as they are: **BOSS accepted 2026-10-11** (Elite is a paid department and should be worth more); revisit if play shows finals decided by fitness. A bigger tiring lever would buy a bigger
 edge (about +1.2 points for each extra 0.15).
 
 ## Whole seasons, finals included

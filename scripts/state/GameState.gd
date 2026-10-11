@@ -176,8 +176,10 @@ var career_seed := 0
 ## Season conditioning (Conditioning.gd): club code -> this season's record
 ## {"year", "changes": [[week, plan]], "offset"}. Missing = Steady.
 var conditioning := {}
-## Audits and tests only (never saved): false keeps every AI club Steady.
-var fitness_ai_by_phase := true
+## Whether AI clubs choose a season plan by phase (never saved). Off until
+## the plan screen lands (BOSS, 2026-10-11): a coach who cannot choose a plan
+## yet must not face AI clubs running theirs. Audits and tests switch it on.
+var fitness_ai_by_phase := false
 ## Audits only (never saved): club -> high-performance level, for AI clubs.
 var fitness_hp_override := {}
 ## Club Forge: the career's created club as its spec (ClubForge), or {}.
