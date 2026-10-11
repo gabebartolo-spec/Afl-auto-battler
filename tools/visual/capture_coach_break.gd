@@ -5,11 +5,13 @@ extends SceneTree
 ##       -f args="--size 390x844"
 ## Writes <out>_focus.png (a forward picked for Play through), <out>_pep.png (Pep talk and Rotations, the neutral choices picked, so
 ## their descriptions show), <out>_tag.png (Tag with no tag picked) and
-## <out>_plan.png (the match screen with a long plan line: every call in full).
+## <out>_plan.png (the match screen with a long plan line: every call in full),
+## <out>_tagger.png (a tag picked: the Who tags cards).
 ##   --size WxH   window size (default 390x844)    --light   light appearance
 ##   --club CODE  your club (default MEL)    --their-loose  they run a loose
 ##                defender at quarter time (the fullest break)
 ##   --plain      nobody plays loose on either side (the ordinary break)
+##   --rounds N   play N rounds first (a season's numbers on the cards)
 ## A fresh Melbourne career's first match at quarter time. Never touches a
 ## real save.
 
@@ -28,6 +30,7 @@ func _run() -> void:
 	var their_loose := false
 	var plain := false
 	var ruck_mode := false
+	var rounds := 0
 	var a := OS.get_cmdline_user_args()
 	for i in range(a.size()):
 		match str(a[i]):
@@ -47,6 +50,8 @@ func _run() -> void:
 				plain = true
 			"--ruck":
 				ruck_mode = true
+			"--rounds":
+				rounds = int(a[i + 1])
 	await process_frame
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
@@ -75,6 +80,8 @@ func _run() -> void:
 				break
 		print("ruck club ", club)
 	state.start_season(club, db.club_list(club))
+	for _r in range(rounds):
+		state.advance()
 	if not state.prepare_interactive_match():
 		push_error("no match to prepare")
 		quit(1)
@@ -132,6 +139,21 @@ func _run() -> void:
 	await _frames(8)
 	await _shoot(scene.find_child("TagPicker", true, false), out + "_tag.png")
 	await _frames(8)
+	# A tag picked: the Who tags cards, each with what he gives up of his game.
+	var tagged: Button = null
+	var tp: Node = scene.find_child("TagPicker", true, false)
+	if tp != null:
+		for b in tp.find_children("TagPickerGrid_*", "Button", true, false):
+			if str(b.name) != "TagPickerGrid_":
+				tagged = b
+				break
+	if tagged != null:
+		tagged.emit_signal("pressed")
+		await _frames(8)
+		await _shoot(scene.find_child("TaggerPicker", true, false), out + "_tagger.png")
+		await _frames(8)
+		scene.find_child("TagPickerGrid_", true, false).emit_signal("pressed")
+		await _frames(6)
 	# The loose interceptor call: question, cards, his intercepts so far.
 	await _shoot(scene.find_child("LooseBlock", true, false), out + "_loose.png")
 	await _frames(8)
