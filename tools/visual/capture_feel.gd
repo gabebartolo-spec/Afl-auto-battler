@@ -98,8 +98,6 @@ func _run() -> void:
 	state.set_vignettes_on(false)
 	# --no-music: only the game-feel sounds in the clip (to measure them).
 	state.set_music_level("off" if args.has("no-music") else "normal")
-	if args.has("look"):
-		load("res://scripts/ui/ClubBackdrop.gd").variant = str(args["look"])
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))
 	if Engine.get_write_movie_path() != "":

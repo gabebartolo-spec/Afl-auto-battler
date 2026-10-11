@@ -50,42 +50,76 @@ func _run() -> void:
 	var BD = load("res://scripts/ui/ClubBackdrop.gd")
 	var text: Color = ui.TEXT
 	var muted: Color = ui.MUTED
-	print("MEASURE page %dx%d  TEXT vs bg and MUTED vs bg; floor 4.5" % [W, H])
-	for club in ["COL", "GCS", "RIC", "ADE"]:
-		for look in ["sweep", "glow", "yoke"]:
-			for settle in [1.0, 0.0]:
-				BD.variant = look
-				var vp := SubViewport.new()
-				vp.size = Vector2i(W, H)
-				vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-				root.add_child(vp)
-				var bd = BD.new().setup(club)
-				bd._settle = settle
-				vp.add_child(bd)
-				await process_frame
-				await process_frame
-				await process_frame
-				var img := vp.get_texture().get_image()
-				var lums := []
-				var worst := Color.BLACK
-				var wl := -1.0
-				for y in range(0, H, 3):
-					for x in range(0, W, 3):
+	print("MEASURE page %dx%d; contrast of TEXT / MUTED type vs the club backdrop, floor 4.5" % [W, H])
+	var state = root.get_node("GameState")
+	var db = root.get_node("GameDB")
+	state.autosave_enabled = false
+	state.save_path = "user://measure_bd.save"
+	state.settings_path = "user://measure_bd_settings.cfg"
+	state.set_vignettes_on(false)
+	root.size = Vector2i(W, H)
+	for club in ["COL", "GCS", "RIC", "ADE", "BRL"]:
+		state.reset()
+		state.replay_seed = 2027
+		state.set_setting("seen_weekly_loop_intro", true)
+		state.start_season(club, db.club_list(club))
+		state.tutorials = false
+		state.media_conference = {}
+		state.backing_talk = {}
+		# The real hub, then every muted line on it: where grey type sits.
+		var hub: Control = load("res://scenes/HubScene.tscn").instantiate()
+		root.add_child(hub)
+		await process_frame
+		await process_frame
+		await process_frame
+		var rects: Array = []
+		for n in hub.find_children("*", "Label", true, false):
+			var l := n as Label
+			if not l.is_visible_in_tree() or l.text.strip_edges() == "":
+				continue
+			var fc: Color = l.get_theme_color("font_color")
+			if _cr(fc, muted) < 1.05:
+				rects.append(l.get_global_rect())
+		hub.queue_free()
+		await process_frame
+		for settle in [1.0, 0.0]:
+			var vp := SubViewport.new()
+			vp.size = Vector2i(W, H)
+			vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+			root.add_child(vp)
+			var bd = BD.new().setup(club)
+			bd._settle = settle
+			vp.add_child(bd)
+			await process_frame
+			await process_frame
+			await process_frame
+			var img := vp.get_texture().get_image()
+			var worst_page := Color.BLACK
+			var wl := -1.0
+			for y in range(0, H, 3):
+				for x in range(0, W, 3):
+					var c := img.get_pixel(x, y)
+					if _lum(c) > wl:
+						wl = _lum(c)
+						worst_page = c
+			var worst_m := Color.BLACK
+			var ml := -1.0
+			for r in rects:
+				var rr: Rect2 = r
+				for y in range(int(rr.position.y), int(rr.end.y), 2):
+					for x in range(int(rr.position.x), int(rr.end.x), 4):
+						if x < 0 or y < 0 or x >= W or y >= H:
+							continue
 						var c := img.get_pixel(x, y)
-						var l := _lum(c)
-						lums.append(l)
-						if l > wl:
-							wl = l
-							worst = c
-				lums.sort()
-				var p99: float = lums[int(lums.size() * 0.99)]
-				var pc := Color(p99, p99, p99)
-				var t99 := (0.85 + 0.05) / (p99 + 0.05)
-				print("MEASURE %s %-5s %s  worst %s  TEXT %.1f MUTED %.1f | p99 TEXT %.1f MUTED %.1f" % [
-						club, look, "rest " if settle == 1.0 else "start", worst.to_html(false),
-						_cr(text, worst), _cr(muted, worst), t99, (_lum(muted) + 0.05) / (p99 + 0.05)])
-				if settle == 1.0:
-					img.save_png("%s_%s_%s.png" % [str(args.get("out", "/tmp/m")), club, look])
-				vp.queue_free()
-				await process_frame
+						if _lum(c) > ml:
+							ml = _lum(c)
+							worst_m = c
+			print("MEASURE %s %s  brightest page pixel %s TEXT %.1f MUTED %.1f | under %d muted lines: brightest %s MUTED %.1f" % [
+					club, "rest " if settle == 1.0 else "start", worst_page.to_html(false),
+					_cr(text, worst_page), _cr(muted, worst_page), rects.size(),
+					worst_m.to_html(false), _cr(muted, worst_m)])
+			if settle == 1.0:
+				img.save_png("%s_%s.png" % [str(args.get("out", "/tmp/m")), club])
+			vp.queue_free()
+			await process_frame
 	quit(0)
