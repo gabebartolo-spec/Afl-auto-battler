@@ -45,6 +45,13 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 		who.append("%d years old" % int(p["age"]))
 	if float(p.get("height_cm", 0.0)) > 0.0:
 		who.append("%d cm" % int(p["height_cm"]))
+	# His armband now (every club's record); a leader traded away since the
+	# 2026 record still reads with the club that named him, in the first season.
+	var role := GameState.captaincy_word(p)
+	if role == "" and Leadership.role_club(p) != "" and Leadership.role_club(p) != str(p.get("club", "")):
+		role = Leadership.role_line(p, GameState.season_year, func(code): return GameDB.club_short(code))
+	if role != "":
+		who.append(role)
 	v.add_child(UiKit.lbl("  ·  ".join(who), UiKit.SMALL, UiKit.MUTED))
 
 	# Now: available or not, and how he is feeling.
@@ -181,6 +188,14 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 	var attr: Dictionary = p["attr"]
 	for r in ATTR_ROWS:
 		grid.add_child(attr_bar(str(r[0]), str(r[1]), float(attr.get(r[0], 0.0))))
+	var lead := attr_bar("leadership", "Leadership", float(Leadership.of(p)))
+	lead.name = "ProfileLeadership"
+	grid.add_child(lead)
+	v.add_child(UiKit.spacer(4))
+	var lead_note := UiKit.lbl(Leadership.basis_text(), UiKit.SMALL, UiKit.MUTED)
+	lead_note.name = "ProfileLeadershipNote"
+	lead_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(lead_note)
 	if nickname_row != null:
 		v.add_child(UiKit.spacer(10))
 		v.add_child(nickname_row)
