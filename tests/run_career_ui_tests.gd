@@ -249,12 +249,12 @@ func _run() -> void:
 	_router.quit_hook = Callable()
 	# Fit to the screen (director, 2026-10-12): a desktop opens fullscreen unless
 	# the player chose Window, in which case the window opens maximised.
-	var layout = load("res://scripts/core/ScreenLayout.gd")
+	var screen_layout = load("res://scripts/core/ScreenLayout.gd")
 	var cfg_default := ConfigFile.new()
 	var cfg_window := ConfigFile.new()
 	cfg_window.set_value("ui", "fullscreen", false)
-	_check(layout.start_mode(cfg_default) == DisplayServer.WINDOW_MODE_FULLSCREEN
-			and layout.start_mode(cfg_window) == DisplayServer.WINDOW_MODE_MAXIMIZED,
+	_check(screen_layout.start_mode(cfg_default) == DisplayServer.WINDOW_MODE_FULLSCREEN
+			and screen_layout.start_mode(cfg_window) == DisplayServer.WINDOW_MODE_MAXIMIZED,
 			"The window mode on start is fullscreen, or maximised when Window was chosen")
 	var was_full: bool = _state.fullscreen()
 	var alt_enter := InputEventKey.new()
