@@ -86,16 +86,6 @@ func _run() -> void:
 	for i in range(3):
 		await process_frame
 	state.start_season("GEE", db.club_list("GEE"))
-	var guard := 0
-	while not state.season.is_season_over() and guard < 40:
-		if state.week_event_pending():
-			state.resolve_week_event(0)
-		state.advance()
-		guard += 1
-	# Three seasons of a well-disciplined list, so Standards reads a named band.
-	for y in [state.season_year - 2, state.season_year - 1, state.season_year]:
-		Culture.change(state.relations, state.my_club, "standards", 4,
-				"The list's discipline is well above the league's", y, "Off-season")
 	# Six reasons on Togetherness from the real movers, each with its own sign and
 	# never two opposed finishes in one season, so the PC sheet scrolls with Close pinned.
 	var y0: int = state.season_year
@@ -113,6 +103,16 @@ func _run() -> void:
 			Culture.change(state.relations, state.my_club, str(mv[0]), int(mv[1]), str(mv[2]), int(m[0]), str(m[1]))
 		elif mv is Dictionary:
 			Culture.change(state.relations, state.my_club, str(mv["strand"]), int(mv["d"]), str(mv["why"]), int(m[0]), str(m[1]))
+	var guard := 0
+	while not state.season.is_season_over() and guard < 40:
+		if state.week_event_pending():
+			state.resolve_week_event(0)
+		state.advance()
+		guard += 1
+	# Three seasons of a well-disciplined list, so Standards reads a named band.
+	for y in [state.season_year - 2, state.season_year - 1, state.season_year]:
+		Culture.change(state.relations, state.my_club, "standards", 4,
+				"The list holds itself to a higher standard than most clubs", y, "Off-season")
 	root.get_node("Router").go("list")
 	for i in range(8):
 		await process_frame

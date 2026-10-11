@@ -78,6 +78,10 @@ func _build() -> void:
 	var culture_link := UiKit.section_link("Club culture", Culture.headline(GameState.relations, GameState.my_club) + " ›",
 			"CultureOpen")
 	culture_link.pressed.connect(func(): _open_culture())
+	for link in [cap_link, culture_link]:
+		var value: Node = link.find_child("SectionLeadsTo", true, false)
+		if value is Label:
+			(value as Label).add_theme_color_override("font_color", UiKit.TEXT)
 	_root.add_child(culture_link)
 
 	if _narrow():

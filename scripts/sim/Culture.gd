@@ -151,7 +151,15 @@ static func grouped(rel: Dictionary, club: String, strand: String) -> Array:
 			at[k] = out.size()
 			out.append({"why": k, "y0": y, "y1": y, "whens": [str(r.get("w", ""))],
 					"d": int(r.get("d", 0)), "n": 1, "latest": int(r.get("d", 0))})
-	return out
+	# Newest season first; within a season, the order they came.
+	var order := []
+	for i in range(out.size()):
+		order.append(i)
+	order.sort_custom(func(a, b): return int(out[a]["y1"]) > int(out[b]["y1"]) or (int(out[a]["y1"]) == int(out[b]["y1"]) and a < b))
+	var sorted := []
+	for i in order:
+		sorted.append(out[i])
+	return sorted
 
 
 ## One grouped reason as a line: "Round 4 and Round 12, 2027. A run of four
@@ -186,7 +194,10 @@ static func group_text(strand_label: String, g: Dictionary) -> String:
 			repeat = ", twice"
 		elif n > 2:
 			repeat = ", %s times" % _count(n)
-	return "%s, %s. %s%s. %s %s." % [when, years, why, repeat, strand_label, "rose" if int(g["d"]) > 0 else "fell"]
+	var line := "%s, %s. %s%s." % [when, years, why, repeat]
+	if int(g["d"]) <= 0:
+		line += " It cost %s." % strand_label
+	return line
 
 
 ## What a strand reads when no band is named: nothing yet, or which way its
@@ -201,19 +212,16 @@ static func quiet_words(latest: int, has_reasons: bool) -> String:
 	return "Holding steady"
 
 
-## How many strands stand out, for the row that leads to the sheet: the words
-## when one does, a count when several do, "Nothing stands out yet" when none.
+## The strands that stand out, by name, for the row that leads to the sheet:
+## "Standards, togetherness" (sentence case), or "Nothing stands out yet".
 static func headline(rel: Dictionary, club: String) -> String:
-	var named := []
+	var names := PackedStringArray()
 	for s in STRANDS:
-		var w := words(str(s[0]), value(rel, club, str(s[0])))
-		if w != "":
-			named.append(w)
-	if named.is_empty():
+		if words(str(s[0]), value(rel, club, str(s[0]))) != "":
+			names.append(str(s[1]) if names.is_empty() else str(s[1]).to_lower())
+	if names.is_empty():
 		return "Nothing stands out yet"
-	if named.size() == 1:
-		return str(named[0])
-	return "%s stand out" % ["", "", "Two", "Three"][named.size()]
+	return ", ".join(names)
 
 
 ## The strands that stand out, in words: "A tight group. Pushing to win now."
@@ -255,9 +263,9 @@ static func season_steps(position: int, clubs: int, premier: bool, age_gap: floa
 	elif age_gap <= -AGE_GAP:
 		out.append({"strand": "ambition", "d": -4, "why": "A young side"})
 	if discipline_gap >= DISCIPLINE_GAP:
-		out.append({"strand": "standards", "d": 4, "why": "The list's discipline is well above the league's"})
+		out.append({"strand": "standards", "d": 4, "why": "The list holds itself to a higher standard than most clubs"})
 	elif discipline_gap <= -DISCIPLINE_GAP:
-		out.append({"strand": "standards", "d": -4, "why": "The list's discipline is well below the league's"})
+		out.append({"strand": "standards", "d": -4, "why": "The list lets its standards slip more than most clubs"})
 	return out
 
 

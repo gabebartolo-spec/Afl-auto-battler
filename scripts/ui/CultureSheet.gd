@@ -6,7 +6,7 @@ extends RefCounted
 
 
 static func open(host: Control, on_close: Callable = Callable()) -> Control:
-	var box := UiKit.modal_box(host, 560.0, 0.0)
+	var box := UiKit.modal_box(host, 480.0, 0.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = "CultureSheet"
 	var done := func():
@@ -20,11 +20,15 @@ static func open(host: Control, on_close: Callable = Callable()) -> Control:
 	for s in Culture.STRANDS:
 		v.add_child(_strand(str(s[0]), str(s[1]), club))
 	v.add_child(UiKit.spacer(10))
+	v.add_child(UiKit.spacer(20))
 	var close := _secondary("Close", UiKit.NAME)
 	close.name = "CultureClose"
 	close.custom_minimum_size = Vector2(0, 48)
 	close.pressed.connect(done)
 	box["footer"].add_child(close)
+	# On a PC the sheet's buttons grow to 240; Close is sized to its word.
+	close.custom_minimum_size.x = 0
+	close.size_flags_horizontal = Control.SIZE_SHRINK_END if UiKit.view_width(host) >= 760.0 else Control.SIZE_FILL
 	return overlay
 
 
@@ -40,7 +44,7 @@ static func _strand(strand: String, label: String, club: String) -> Control:
 	var reasons := Culture.grouped(GameState.relations, club, strand)
 	var latest := int(reasons[0]["latest"]) if not reasons.is_empty() else 0
 	var wl := UiKit.lbl(words if words != "" else Culture.quiet_words(latest, not reasons.is_empty()), UiKit.BODY,
-			UiKit.TEXT if words != "" else UiKit.MUTED)
+			UiKit.TEXT)
 	wl.name = "StrandWords"
 	wl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	wl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -49,16 +53,19 @@ static func _strand(strand: String, label: String, club: String) -> Control:
 	var list := UiKit.vbox(12)
 	list.name = "StrandReasons"
 	list.visible = false
+	if reasons.is_empty():
+		col.add_child(list)
+		return col  # nothing to explain: no Why, no empty list
+	var intro := UiKit.lbl("Each reason below lifted %s, unless it says it cost it." % label, UiKit.SMALL, UiKit.MUTED)
+	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	list.add_child(intro)
 	for r in reasons:
 		var rl := UiKit.lbl(Culture.group_text(label, r), UiKit.BODY, UiKit.TEXT)
 		rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		list.add_child(rl)
-	if reasons.is_empty():
-		col.add_child(list)
-		return col  # nothing to explain: no Why, no empty list
-	var why := _secondary("Why", UiKit.SMALL)
+	var why := UiKit.text_action("Why", UiKit.SMALL)
 	why.name = "StrandWhy"
-	why.custom_minimum_size = Vector2(84, 48)
+	why.custom_minimum_size = Vector2(72, 48)
 	why.pressed.connect(func():
 		list.visible = not list.visible
 		why.text = "Hide" if list.visible else "Why")

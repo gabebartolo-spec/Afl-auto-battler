@@ -47,6 +47,7 @@ func run() -> void:
 	_test_culture_settles()
 	_test_culture_signs_match_words()
 	_test_culture_headline()
+	_test_culture_order_and_tails()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	GameState.stories_on = true
@@ -1101,13 +1102,13 @@ func _test_culture_reasons_read_cleanly() -> void:
 	Culture.change(rel, "GEE", "together", 3, "Played finals", 2027, "Off-season")
 	var g := Culture.grouped(rel, "GEE", "together")
 	_check(g.size() == 2 and int(g[1]["n"]) == 2
-			and Culture.group_text("Togetherness", g[1]) == "Round 4 and Round 12, 2027. A run of four losses, twice. Togetherness fell.",
+			and Culture.group_text("Togetherness", g[1]) == "Round 4 and Round 12, 2027. A run of four losses, twice. It cost Togetherness.",
 			"The same reason twice in a season is one line: %s" % Culture.group_text("Togetherness", g[1]))
 	var yrs := {}
 	for y in [2025, 2026, 2027]:
-		Culture.change(yrs, "GEE", "standards", 4, "The list's discipline is well above the league's", y, "Off-season")
+		Culture.change(yrs, "GEE", "standards", 4, "The list holds itself to a higher standard than most clubs", y, "Off-season")
 	var gy := Culture.grouped(yrs, "GEE", "standards")
-	_check(gy.size() == 1 and Culture.group_text("Standards", gy[0]) == "Off-season, 2025 to 2027. The list's discipline is well above the league's, three off-seasons running. Standards rose.",
+	_check(gy.size() == 1 and Culture.group_text("Standards", gy[0]) == "Off-season, 2025 to 2027. The list holds itself to a higher standard than most clubs, three off-seasons running.",
 			"The same reason in three off-seasons is one line: %s" % Culture.group_text("Standards", gy[0]))
 	_check(Culture.quiet_words(0, false) == "Nothing stands out yet" and Culture.quiet_words(3, true) == "Starting to build"
 			and Culture.quiet_words(-3, true) == "Starting to slip" and not Culture.quiet_words(3, true).contains("normal"),
@@ -1146,7 +1147,7 @@ func _test_culture_signs_match_words() -> void:
 			by_why[str(st["why"])] = int(st["d"])
 	var want := {"Premiers": 1, "Played finals": 1, "Finished near the bottom of the ladder": -1,
 			"An experienced side": 1, "A young side": -1,
-			"The list's discipline is well above the league's": 1, "The list's discipline is well below the league's": -1}
+			"The list holds itself to a higher standard than most clubs": 1, "The list lets its standards slip more than most clubs": -1}
 	var wrong := []
 	for w in want:
 		if not by_why.has(w) or (int(by_why[w]) > 0) != (int(want[w]) > 0):
@@ -1172,7 +1173,20 @@ func _test_culture_headline() -> void:
 	_check(Culture.headline(rel, "GEE") == "Nothing stands out yet", "The row says when nothing stands out")
 	for i in range(3):
 		Culture.change(rel, "GEE", "together", 6, "Played finals", 2027, "Off-season")
-	_check(Culture.headline(rel, "GEE") == "A tight group", "One strand reads in its own words")
+	_check(Culture.headline(rel, "GEE") == "Togetherness", "One strand reads by its name")
 	for i in range(3):
 		Culture.change(rel, "GEE", "standards", 6, "x", 2027, "Off-season")
-	_check(Culture.headline(rel, "GEE") == "Two stand out", "Several read as a count, so the row never truncates its title")
+	_check(Culture.headline(rel, "GEE") == "Standards, togetherness", "Several read by name: %s" % Culture.headline(rel, "GEE"))
+
+
+func _test_culture_order_and_tails() -> void:
+	var rel := {}
+	Culture.change(rel, "GEE", "together", 3, "Premiers", 2025, "Off-season")
+	Culture.change(rel, "GEE", "together", -3, "A run of four losses", 2026, "Round 10")
+	Culture.change(rel, "GEE", "together", 3, "Played finals", 2027, "Off-season")
+	var g := Culture.grouped(rel, "GEE", "together")
+	_check(g.size() == 3 and str(g[0]["why"]) == "Played finals" and str(g[1]["why"]) == "A run of four losses" and str(g[2]["why"]) == "Premiers",
+			"Reasons run newest season first")
+	_check(not Culture.group_text("Togetherness", g[0]).contains("Togetherness") and not Culture.group_text("Togetherness", g[2]).contains("rose")
+			and Culture.group_text("Togetherness", g[1]).ends_with("It cost Togetherness."),
+			"A rise carries no tail (the page says it once); only a fall says it cost the strand")
