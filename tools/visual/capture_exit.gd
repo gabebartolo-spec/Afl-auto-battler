@@ -52,12 +52,17 @@ func _run() -> void:
 	print("EXIT window %s, content scale %s, image %dx%d (%.2f px per UI unit), window mode %d" % [
 			str(root.size), str(root.content_scale_size), img.get_width(), img.get_height(), k, DisplayServer.window_get_mode()])
 	if current_scene.find_child("ExitGame", true, false) != null:
-		var r: Rect2 = (current_scene.find_child("ExitGame", true, false) as Control).get_global_rect()
-		var box := Rect2((r.position - Vector2(120, 120)) * k, (r.size + Vector2(240, 160)) * k)
+		var row: Control = (current_scene.find_child("ExitGame", true, false) as Control).get_parent()
+		var r: Rect2 = row.get_global_rect()
+		var box := Rect2((r.position - Vector2(60, 40)) * k, (r.size + Vector2(120, 80)) * k)
 		box = box.intersection(Rect2(Vector2.ZERO, Vector2(img.get_size())))
 		var crop := img.get_region(Rect2i(box))
 		crop.resize(crop.get_width() * 2, crop.get_height() * 2, Image.INTERPOLATE_NEAREST)
 		crop.save_png(out + "_exit_crop2x.png")
+	for n in ["NewCareer", "MenuHelp", "MenuSettings", "ExitGame"]:
+		var c: Control = current_scene.find_child(n, true, false)
+		if c != null:
+			print("EXIT %s text [%s] at y %d x %d" % [n, str(c.get("text")), int(c.get_global_rect().position.y), int(c.get_global_rect().position.x)])
 	print("EXIT button %s, rect %s" % ["missing" if btn == null else str(btn.get("text")), "-" if btn == null else str(btn.get_global_rect())])
 	state.start_season("COL", db.club_list("COL"))
 	state.tutorials = false

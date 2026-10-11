@@ -270,6 +270,10 @@ func _run() -> void:
 	root.size = wide
 	_router.to_main_menu(false)
 	await _settle()
+	_check(sl.desktop_for(["windows"]) and sl.desktop_for(["linuxbsd"]) and sl.desktop_for(["macos"])
+			and not sl.desktop_for(["web"]) and not sl.desktop_for(["android"]) and not sl.desktop_for(["ios"])
+			and not sl.desktop_for(["web", "wasm32"]),
+			"Exit game, Display and Alt+Enter follow is_desktop: false on a web export, Android and iOS")
 	_check(narrow_has and not phone_has, "Exit game: shown in a narrow desktop window, hidden on a phone (is_desktop false)")
 	# Fit to the screen (director, 2026-10-12): a desktop opens fullscreen unless
 	# the player chose Window, in which case the window opens maximised.

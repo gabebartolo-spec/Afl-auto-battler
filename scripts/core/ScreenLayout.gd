@@ -97,7 +97,17 @@ static var force_phone := false
 static func is_desktop() -> bool:
 	if force_phone:
 		return false
-	return not (OS.has_feature("android") or OS.has_feature("ios") or OS.has_feature("web"))
+	var on := []
+	for f in ["android", "ios", "web"]:
+		if OS.has_feature(f):
+			on.append(f)
+	return desktop_for(on)
+
+
+## The platform rule on its own, so a test can ask it about a web export:
+## desktop means none of android, ios or web is among the features.
+static func desktop_for(features: Array) -> bool:
+	return not (features.has("android") or features.has("ios") or features.has("web"))
 
 
 func set_screen_size(key: String) -> void:
