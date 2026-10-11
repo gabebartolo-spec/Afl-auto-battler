@@ -730,11 +730,19 @@ func _show_coach_box() -> void:
 	others.sort_custom(func(a, b): return int(rank.get(str(a["id"]), 99)) < int(rank.get(str(b["id"]), 99)))
 	var tag_detail := func(r: Dictionary, wide: bool) -> String:
 		var p: Dictionary = my_mids.get(str(r["id"]), r)
-		return MatchNotes.tagger_card_detail(p, float(sim.energy.get(str(r["id"]), 100.0)), wide)
+		var book: Dictionary = GameState.season_stats.get(str(r["id"]), {})
+		var games := int(book.get("games", 0))
+		var per_game := float((book.get("s", {}) as Dictionary).get("disposals", 0.0)) / games if games > 0 else -1.0
+		return MatchNotes.tagger_card_detail(p, float(sim.energy.get(str(r["id"]), 100.0)), wide, per_game)
 	var tag_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	tag_note.name = "TagNote"
 	tag_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# Who goes to him is only a question once there is a him: hidden with no
+	# tag (the fullest PC break then still fits without scrolling).
+	var who_block: Array = []
 	var sync_tag := func(_key: String) -> void:
+		for b in who_block:
+			(b as Control).visible = str(calls["tag_id"]) != ""
 		var who = my_mids.get(str(calls["tagger_id"]), tagger)
 		if str(calls["tag_id"]) == "":
 			tag_note.text = "No tag: your midfielders play their own game."
@@ -750,7 +758,9 @@ func _show_coach_box() -> void:
 	if tagger != null and not others.is_empty():
 		var who_tags := _player_choice("TaggerPicker", GameDB.player_display_name(tagger), others, others.slice(0, 3),
 				calls, "tagger_id", "Who goes to him?", sync_tag, tag_detail)
-		col_a.add_child(_call_block("Who tags", who_tags))
+		var wb := _call_block("Who tags", who_tags)
+		who_block.append(wb)
+		col_a.add_child(wb)
 	sync_tag.call("")
 	col_a.add_child(tag_note)
 

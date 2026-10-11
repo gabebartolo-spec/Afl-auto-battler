@@ -737,7 +737,10 @@ static func card_detail(p: Dictionary, trait_name: String, ratings: PackedString
 ## legs in the game's words (legs_word, no number), and what going to the tag
 ## gives up of his own game (MatchSim.tag_give_up: disposal, and contested
 ## ball unless he plays on a wing).
-static func tagger_card_detail(p: Dictionary, legs: float, wide: bool) -> String:
+## per_game: his disposals a game this season (-1 when he has not played):
+## what sending him to the tag costs, in words (BOSS, 2026-10-11: the trade-off
+## must read at the pick). Before he has a season, his ball-winning ratings.
+static func tagger_card_detail(p: Dictionary, legs: float, wide: bool, per_game := -1.0) -> String:
 	var places := PackedStringArray()
 	for r in Ratings.positions(p):
 		places.append(str(UiKit.ROLE_LABEL.get(str(r), str(r))))
@@ -748,8 +751,10 @@ static func tagger_card_detail(p: Dictionary, legs: float, wide: bool) -> String
 	var gives := "disposal %d" % roundi(float(a.get("disposal", 0)))
 	if not Roles.on_wing(p):
 		gives = "contested %d, %s" % [roundi(float(a.get("contested", 0))), gives]
+	if per_game >= 0.0:
+		gives = "%d disposals a game" % roundi(per_game)
 	var lw := legs_word(legs)
-	var second := "%s%s  ·  Gives up: %s" % [lw.left(1).to_upper(), lw.substr(1), gives]
+	var second := "%s%s  ·  Gives up his own game: %s" % [lw.left(1).to_upper(), lw.substr(1), gives]
 	return (first + "  ·  " + second) if wide else (first + "\n" + second)
 
 
