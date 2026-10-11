@@ -131,13 +131,18 @@ static func _rel_lum(c: Color) -> float:
 
 
 ## The club colour at its brightest the page can carry: its OKLCH hue and
-## chroma kept (chroma only shrinks to stay inside sRGB), lightness lowered
+## chroma kept (chroma only shrinks to stay inside sRGB; yellow leans to amber),
+## lightness lowered
 ## until the stripe's luminance is TOP_LUM or less. A colour already darker
 ## than that keeps its own lightness, but never darker than the page itself.
 static func stripe_top(c: Color) -> Color:
 	var lab := _to_oklab(c)
 	var chroma := Vector2(lab.y, lab.z).length()
 	var hue := atan2(lab.z, lab.y)
+	# A yellow this dark can only be olive; leaning it to amber (OKLCH 75 deg)
+	# keeps it reading as gold (Suns, Tigers, Crows' second colour).
+	if chroma > 0.08 and hue > deg_to_rad(80.0) and hue < deg_to_rad(120.0):
+		hue = deg_to_rad(75.0)
 	var floor_l := _to_oklab(UiKit.BG).x + 0.02
 	var l := lab.x
 	var guard := 0
