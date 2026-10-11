@@ -72,5 +72,9 @@ func _run() -> void:
 			fwd = q
 			break
 	current_scene.call("_open_profile", str(fwd["id"]))
+	for l in current_scene.find_children("*", "Label", true, false):
+		var t := (l as Label).text
+		if t.begins_with("#") or l.name == "ProfileType":
+			print("POLISH label %s: [%s]" % [l.name, t])
 	await _shot(out + "_profile.png")
 	quit(0)
