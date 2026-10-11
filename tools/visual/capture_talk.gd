@@ -73,7 +73,7 @@ func _run() -> void:
 		(side[k] as Array).erase(wid)
 	side["OUT"] = [wid]
 	gs.set_selection(side)
-	var e: Dictionary = load("res://scripts/sim/ClubLife.gd")._unhappy(who, case, gs.talk_info({})[wid])
+	var e: Dictionary = gs.story_card("selection_talk_" + case, who)
 	e["round"] = gs.season.round_index + 1
 	gs.week_event = e
 	var px := Vector2i(roundi(390 * scale), roundi(844 * scale))

@@ -1,0 +1,20 @@
+[
+	{
+		"id": "contracts_wants_to_extend",
+		"category": "contracts",
+		"cooldown": 4,
+		"per_season": 1,
+		"subject_cooldown": 30,
+		"subject": {"kind": "player", "where": {"fit": true, "extension_ok": true}, "pick": "highest:overall"},
+		"title": ["{name} wants to talk contract"],
+		"text": ["He's out of contract at season's end and wants security now. Today his rating is worth {ask} a season."],
+		"default": 1,
+		"choices": [
+			{"key": "extend", "label": "Extend him now", "note": "A premium for certainty.",
+				"effects": [{"op": "extend_early"}]},
+			{"key": "wait", "label": "Wait for the off-season", "note": "No commitment yet. He'll ask what his rating is worth then: less if he drops, more if he improves.",
+				"effects": [{"op": "morale", "d": -5}, {"op": "trust", "d": -3, "why": "You made him wait on a new deal"}],
+				"result": "{name} is disappointed, but it can wait for the off-season."}
+		]
+	}
+]

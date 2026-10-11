@@ -354,7 +354,9 @@ static func calls_lines(res: Dictionary, my_side: int, q: int) -> Array:
 			if stars >= 0:
 				out.append(("%s: your stars had %d disposals" % [label, stars])
 						+ ((", from %d%s." % [_stars_disposals(res, was, before, my_side), prev]) if q >= 2 else "."))
-	for key in [["tag_id", "Tag on %s: %d disposal%s", opp], ["focus_id", "Through %s: %d disposal%s", my_side]]:
+	for key in [["tag_id", "Tag on %s: %d disposal%s", opp], ["focus_mid", "Through %s: %d disposal%s", my_side],
+			["focus_fwd", "Through %s: %d disposal%s", my_side], ["focus_def", "Through %s: %d disposal%s", my_side],
+			["focus_id", "Through %s: %d disposal%s", my_side]]:
 		var id := str(calls.get(key[0], ""))
 		if id == "":
 			continue
@@ -398,6 +400,34 @@ const FOCUS_ROLES := {
 	"DEF": ["our key distributor", "first use of the ball out of the back half"],
 	"RUCK": ["our key man in the middle", "the ball goes to him more often"],
 }
+
+
+## The three play-through calls (director, 2026-10-07): [heading, his job,
+## what it does, with nobody picked, the spot it works from].
+const FOCUS_SLOT_TEXT := {
+	"focus_mid": ["Midfield pillar", "our midfield pillar",
+			"the ball goes to him more often through the midfield",
+			"Nobody: the midfield shares the ball.", "the midfield"],
+	"focus_fwd": ["Forward target", "our key forward target",
+			"more of the ball up forward and more of the shots at goal",
+			"Nobody: the forwards share the entries.", "the forward line"],
+	"focus_def": ["Backline distributor", "our backline distributor",
+			"first use of the ball out of the back half",
+			"Nobody: the backs share the ball out of defence.", "the back line"],
+}
+
+
+## Under a play-through call: his job and what it does; with nobody, what that
+## means; and, when he is not in the spot the call works from, that it waits.
+static func focus_slot_note(slot: String, name: String, working: bool, benched: bool) -> String:
+	var t: Array = FOCUS_SLOT_TEXT[slot]
+	if name == "":
+		return str(t[3])
+	if benched:
+		return "%s is on the bench: the call waits until he is back on." % name
+	if not working:
+		return "%s is not in %s now: the call waits until he is back there." % [name, str(t[4])]
+	return "%s is %s: %s." % [name, str(t[1]), str(t[2])]
 
 
 static func focus_role_text(name: String, role: String) -> String:
@@ -657,16 +687,25 @@ static func reach_words(kept: float) -> String:
 ## `wide` is the list sheet's single line; the grid card puts the trait on
 ## its own line.
 static func minder_card_detail(p: Dictionary, wide: bool) -> String:
+	var pressure := roundi(float((p.get("attr", {}) as Dictionary).get("pressure", 0.0)))
+	return card_detail(p, "Defensive forward" if Traits.has(p, "def_forward") else "",
+			PackedStringArray(["Pressure %d" % pressure]), wide)
+
+
+## A player card's detail under his name, in groups: where he plays (and the
+## trait, when he has it) on one line, the ratings on the next, so a line
+## only ever breaks between groups, never at a "·" (BOSS QC 2026-10-11).
+## `wide` is the list sheet's single line.
+static func card_detail(p: Dictionary, trait_name: String, ratings: PackedStringArray, wide: bool) -> String:
 	var places := PackedStringArray()
 	for r in Ratings.positions(p):
 		places.append(str(UiKit.ROLE_LABEL.get(str(r), str(r))))
-	var pressure := roundi(float((p.get("attr", {}) as Dictionary).get("pressure", 0.0)))
-	var spec := Traits.has(p, "def_forward")
-	var base := "%s  ·  Pressure %d" % ["/".join(places), pressure]
-	if spec:
-		return ("%s  ·  Defensive forward" % ["/".join(places)] + "  ·  Pressure %d" % pressure) if wide else (base + "
-Defensive forward")
-	return base
+	# No-break spaces hold each "·" to the words either side.
+	var dot := "\u00a0·\u00a0"
+	var where := "/".join(places)
+	if trait_name != "":
+		where += dot + trait_name
+	return where + dot + dot.join(ratings) if wide else where + "\n" + dot.join(ratings)
 
 
 ## The best few players of a side by influence: [{"id", "name", "line"}].
