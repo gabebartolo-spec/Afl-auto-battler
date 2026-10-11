@@ -284,7 +284,7 @@ func _header(title_text: String, sub: String) -> Control:
 	back.name = "BackToMenu"
 	back.custom_minimum_size = Vector2(44, 44)
 	back.tooltip_text = "Back to menu. Your draft stays available to resume."
-	back.pressed.connect(func(): Router.replace("main"))
+	back.pressed.connect(back_to_menu)
 	h.add_child(back)
 	var v := UiKit.vbox(0)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -358,7 +358,7 @@ func _compact_header() -> Control:
 	var h := UiKit.hbox(10)
 	var back := UiKit.btn("‹", UiKit.GLYPH)
 	back.custom_minimum_size.x = 44
-	back.pressed.connect(func(): Router.replace("main"))
+	back.pressed.connect(back_to_menu)
 	h.add_child(back)
 	var v := UiKit.vbox(0)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -968,6 +968,15 @@ func handle_back() -> bool:
 		_close_player()
 		return true
 	return false
+
+
+## Back from the draft: from Choose your club, one step back is the New career
+## options it came from; once a club is chosen it is the title, where the draft
+## waits to be resumed.
+func back_to_menu() -> void:
+	if _phase == "club":
+		GameState.new_career_setup_requested = true
+	Router.replace("main")
 
 
 func _player_by_id(id: String) -> Dictionary:

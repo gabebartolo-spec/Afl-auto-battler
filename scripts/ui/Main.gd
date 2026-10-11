@@ -389,7 +389,9 @@ func _start_new_career() -> void:
 	GameState.set_show_real_names(_pick_real)
 	GameState.set_new_career_difficulty(_pick_difficulty)
 	GameState.set_new_career_tutorials(_pick_tutorials)
-	GameState.delete_saved_career()
+	# The old save stays on disk until the new career has a club and its first
+	# save replaces it: backing out of Choose your club must not cost the player
+	# the career they had (reset() clears memory only).
 	GameState.reset()
 	# A created club has no real 2026 list, so it only joins a League redraft.
 	if _pick_club and _pick_start != "real":
