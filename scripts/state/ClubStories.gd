@@ -230,14 +230,14 @@ static func _apply(gs, e: Dictionary, p: Dictionary, facts: Dictionary, applied:
 				q[str(e["op"])] = true
 		"expects_game":
 			p["expects_game"] = int(e.get("sting", 12))
-			return ("%s feels heard. Auto-pick names him this week." if gs.my_selection().is_empty()
+			return ("%s feels heard. He's in the side this week." if gs.my_selection().is_empty()
 					else "%s feels heard, and expects a game this week.") % name
 		"start_backing":
 			# His chance: a run of senior games (Backing). Leaving him out
 			# while fit breaks the promise, and that stings.
 			gs._start_backing(p)
 			var run := MatchNotes.count_word(Backing.RUN_GAMES)
-			return ("%s is told he has a run of %s games. Auto-pick names him this week." if gs.my_selection().is_empty()
+			return ("%s is told he has a run of %s games. He's in the side this week." if gs.my_selection().is_empty()
 					else "%s is told he has a run of %s games. Pick him this week.") % [name, run]
 		"extend_early":
 			return _extend(gs, p, name)

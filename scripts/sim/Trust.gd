@@ -83,6 +83,26 @@ static func reasons(rel: Dictionary, key: String) -> Array:
 	return log
 
 
+## His profile's line: his band's words, or, once something has moved him but
+## he is back in the middle, that he has no strong view. "" when nothing has
+## happened between you (a neutral player with no reasons says nothing).
+static func profile_words(rel: Dictionary, key: String) -> String:
+	var t := value(rel, key)
+	if words(t) != "":
+		return words(t)
+	return "Has no strong view of you" if not reasons(rel, key).is_empty() else ""
+
+
+## One reason as the profile lists it: "Round 5, 2026. You promised him a game
+## and left him out. Trust fell."
+static func reason_text(r: Dictionary) -> String:
+	var why := str(r.get("why", "")).strip_edges()
+	if why != "" and not why.ends_with("."):
+		why += "."
+	return "%s, %d. %s %s" % [str(r.get("w", "")), int(r.get("y", 0)), why,
+			"Trust rose." if int(r.get("d", 0)) > 0 else "Trust fell."]
+
+
 ## A lift that depends on trust, scaled by his band. Only lifts scale; a cost
 ## is the same whoever pays it.
 static func scaled(d: int, t: int) -> int:

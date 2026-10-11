@@ -49,6 +49,9 @@ func run() -> void:
 	var weeks_total := 0
 	var cards_total := 0
 	var two_card_weeks := 0
+	# Private cards (family, the papers) shown about a real-named player: must stay 0.
+	var private_real := 0
+	var private_seen := 0
 	for s in range(seasons):
 		var year := GameState.season_year
 		var weeks := 0
@@ -63,6 +66,10 @@ func run() -> void:
 				seen[tid] = int(seen.get(tid, 0)) + 1
 				cats[str(c.get("category", "?"))] = int(cats.get(str(c.get("category", "?")), 0)) + 1
 				cards_season += 1
+				if bool(StoryDeck.by_id(StoryDeck.all(), tid).get("private", false)):
+					private_seen += 1
+					if bool((c.get("facts", {}) as Dictionary).get("real_named", false)):
+						private_real += 1
 				var opts: Array = c.get("options", [])
 				var pick := answer.randi_range(0, opts.size() - 1)
 				for e in (opts[pick] as Dictionary).get("effects", []):
@@ -101,6 +108,7 @@ func run() -> void:
 		bands[b] = int(bands.get(b, 0)) + 1
 	var ranked := seen.keys()
 	ranked.sort_custom(func(a, b): return int(seen[a]) > int(seen[b]))
+	print("PRIVATE seen %d | about a real-named player %d" % [private_seen, private_real])
 	for tid in ranked:
 		print("REPEAT %s %d" % [tid, int(seen[tid])])
 	var top: PackedStringArray = []

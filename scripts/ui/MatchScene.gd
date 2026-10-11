@@ -677,6 +677,7 @@ func _show_coach_box() -> void:
 		"focus_mid": str(_last_tactics.get("focus_mid", "")),
 		"focus_fwd": str(_last_tactics.get("focus_fwd", "")),
 		"focus_def": str(_last_tactics.get("focus_def", "")),
+		"main_ruck": str(_last_tactics.get("main_ruck", "")),
 		"interceptor_id": str(sim.interceptor[_my_side]),
 		"minder_id": str((sim.tactics[_my_side] as Dictionary).get("spare_minder_id", "")) 				if bool((sim.tactics[_my_side] as Dictionary).get("spare_accountable", false)) else "",
 		"pep": "steady",
@@ -807,11 +808,13 @@ func _show_coach_box() -> void:
 	# calls" button).
 	var more: VBoxContainer = col_c
 	var syn_line := _synergy_line()
+	var syn_label: Label = null
 	if syn_line != "":
 		var sl := UiKit.lbl(syn_line, UiKit.SMALL, UiKit.MUTED)
 		sl.set_meta("break_unit", true)
 		sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		more.add_child(sl)
+		syn_label = sl
 
 	var mine := _roster_side(_my_side)
 
@@ -872,6 +875,37 @@ func _show_coach_box() -> void:
 		block.add_child(note)
 		more.add_child(block)
 
+	# Main ruck (director, 2026-10-07), after the play-through calls: who
+	# goes up is a job like theirs. Only for a side with two rucks in the
+	# team. The one you name goes up whenever he is on the ground; with none
+	# named, whoever stands in the ruck spot does.
+	var rucks := _my_rucks(sim)
+	if rucks.size() >= 2:
+		var ruck_opts := [["", "No main ruck"]]
+		for r in rucks:
+			# His Ruck and Contested ratings, named as the Ratings screen names
+			# them, so a weak tap man is plain before he is named. The position
+			# line keeps only what "Ruck 73" does not already say.
+			var at := r["attr"] as Dictionary
+			var skills := "Ruck %d · Contested %d" % [roundi(float(at.get("ruck", 0.0))), roundi(float(at.get("contested", 0.0)))]
+			var places := PackedStringArray()
+			for pos in Ratings.positions(r):
+				if str(pos) != "RUCK":
+					places.append(str(UiKit.ROLE_LABEL.get(str(pos), str(pos))))
+			var detail := skills if places.is_empty() else "/".join(places) + "
+" + skills
+			ruck_opts.append([str(r["id"]), "%s
+%s" % [GameDB.player_display_name(r), detail]])
+		var ruck_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+		ruck_note.name = "MainRuckNote"
+		ruck_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var sync_ruck := func(id: String) -> void:
+			ruck_note.text = _main_ruck_note(rucks, id)
+		var ruck := _choice_grid("MainRuckPicker", ruck_opts, calls, "main_ruck", 2, sync_ruck)
+		more.add_child(_call_block("Main ruck", ruck))
+		more.add_child(ruck_note)
+		sync_ruck.call(str(calls["main_ruck"]))
+
 	# Wide: the pep talk sits under the tag; rotations and both loose men,
 	# yours and theirs, share a column, so every column fits a 720-unit
 	# screen.
@@ -908,6 +942,13 @@ func _show_coach_box() -> void:
 			n.get_parent().remove_child(n)
 			tail.add_child(n)
 	(rep if rep != v else tail).add_child(_legs_view())
+	# The synergies line is about the two sides' strengths, like the legs line:
+	# on a PC sheet it sits right under it, never alone at the top of a column
+	# without a heading (BOSS QC, 2026-10-11).
+	if wide and syn_label != null and syn_label.get_parent() != null:
+		syn_label.get_parent().remove_child(syn_label)
+		syn_label.remove_meta("break_unit")
+		(rep if rep != v else tail).add_child(syn_label)
 
 	var start := UiKit.btn("Start quarter" if q > 1 else "Ball it up", UiKit.HEADING, true)
 	start.name = "StartQuarter"
@@ -919,6 +960,7 @@ func _show_coach_box() -> void:
 			"focus_mid": str(calls["focus_mid"]),
 			"focus_fwd": str(calls["focus_fwd"]),
 			"focus_def": str(calls["focus_def"]),
+			"main_ruck": str(calls["main_ruck"]),
 			"tag_id": str(calls["tag_id"]),
 			"tagger_id": str(calls["tagger_id"]),
 			"interceptor_id": str(calls["interceptor_id"]),
@@ -945,7 +987,8 @@ func _show_coach_box() -> void:
 		acts.add_child(skip)
 		acts.add_child(start)
 		box["footer"].add_child(acts)
-		# A mouse, not a thumb: the choices sit 40 tall on the PC sheet.
+		# A mouse, not a thumb: the choices sit 34 tall on the PC sheet, so the
+		# fullest break (both loose men, a tag card, your tally) fits 1280x720.
 		for b in cols.find_children("*", "Button", true, false):
 			if (b as Button).custom_minimum_size.y == 44.0:
 				(b as Button).custom_minimum_size.y = 40.0
@@ -990,6 +1033,76 @@ func _balance_break_columns(cols: Array) -> void:
 		for n in units[k]:
 			(n as Node).get_parent().remove_child(n)
 			dest.add_child(n)
+	# The reading order is kept while it fits. When even the best run of units
+	# is too tall for the screen (both loose men, a tag card, your tally), pack
+	# by height instead: the tallest call goes to the shortest column, and each
+	# column still lists its calls in reading order.
+	await get_tree().process_frame
+	if not is_instance_valid(cols[0]):
+		return
+	var sc: ScrollContainer = null
+	var up: Node = cols[0]
+	while up != null and sc == null:
+		sc = up as ScrollContainer
+		up = up.get_parent()
+	if sc == null or (sc.get_child(0) as Control).get_combined_minimum_size().y <= sc.size.y + 1.0:
+		return
+	var order := range(n_units)
+	order.sort_custom(func(a, b): return float(h[a]) > float(h[b]))
+	var load_h: Array = []
+	var picks: Array = []
+	for c in range(cols.size()):
+		load_h.append(0.0)
+		picks.append([])
+	for k in order:
+		var lo := 0
+		for c in range(1, cols.size()):
+			if float(load_h[c]) < float(load_h[lo]):
+				lo = c
+		load_h[lo] = float(load_h[lo]) + float(h[k])
+		(picks[lo] as Array).append(k)
+	# Then improve it: move or swap units out of the tallest column while that
+	# lowers the tallest column.
+	var improved := true
+	while improved:
+		improved = false
+		var tall := 0
+		for c in range(1, cols.size()):
+			if float(load_h[c]) > float(load_h[tall]):
+				tall = c
+		var top := float(load_h[tall])
+		for k in (picks[tall] as Array).duplicate():
+			for c in range(cols.size()):
+				if c == tall:
+					continue
+				if float(load_h[c]) + float(h[k]) < top - 0.5:
+					(picks[tall] as Array).erase(k)
+					(picks[c] as Array).append(k)
+					load_h[tall] = float(load_h[tall]) - float(h[k])
+					load_h[c] = float(load_h[c]) + float(h[k])
+					improved = true
+					break
+				for k2 in (picks[c] as Array).duplicate():
+					var d := float(h[k]) - float(h[k2])
+					if d > 0.5 and float(load_h[c]) + d < top - 0.5:
+						(picks[tall] as Array).erase(k)
+						(picks[c] as Array).erase(k2)
+						(picks[tall] as Array).append(k2)
+						(picks[c] as Array).append(k)
+						load_h[tall] = float(load_h[tall]) - d
+						load_h[c] = float(load_h[c]) + d
+						improved = true
+						break
+				if improved:
+					break
+			if improved:
+				break
+	for c in range(cols.size()):
+		(picks[c] as Array).sort()
+		for k in picks[c]:
+			for n in units[k]:
+				(n as Node).get_parent().remove_child(n)
+				(cols[c] as Node).add_child(n)
 
 
 ## Split heights h, in order, into `parts` runs so the largest run is
@@ -1615,6 +1728,27 @@ func _apply_quarter_tactics(t: Dictionary) -> void:
 	sim.set_tactics(1 - _my_side, sim.ai_tactics(1 - _my_side))
 
 
+## Your rucks on the ground now, the best tap man first: a ruckman by his own
+## listing, wherever he lines up. Two of them is a dual-ruck side, where the
+## call changes who goes up (BOSS 2026-10-11; audit mainruck_impl: a second
+## ruck on the bench mostly comes on for the first, through the ruck spot).
+func _my_rucks(sim: MatchSim) -> Array:
+	var sq: Squad = sim.squads[_my_side]
+	var out := sq.ground.filter(func(p): return MatchSim._is_ruckman(p))
+	out.sort_custom(func(a, b): return float(a["attr"]["ruck"]) > float(b["attr"]["ruck"]))
+	return out
+
+
+## Under the Main ruck call: who goes up, and who does while he rests.
+func _main_ruck_note(rucks: Array, id: String) -> String:
+	if id == "":
+		return "No main ruck: whoever is in the ruck spot goes up. While he is on the bench, another ruck does."
+	var others := rucks.filter(func(r): return str(r["id"]) != id)
+	var next := GameDB.player_display_name(others[0]) if others.size() == 1 else "another ruck"
+	return "%s goes up at every stoppage while he is on the ground, wherever he lines up, and tires like a ruck for it. While he is on the bench, %s does." % [
+			GameDB.player_display_name_by_id(id, "Your ruck"), next]
+
+
 ## The player you play through, with his job this match: the slot he fills on
 ## the ground (or filled last, off it) - "Matthew Jefferson our key forward target".
 func _focus_player(id: String) -> Dictionary:
@@ -1677,6 +1811,9 @@ func _show_setup(t: Dictionary) -> void:
 		var on_him: Dictionary = sim_now._spare_minder(_my_side) if sim_now != null else {}
 		var who := GameDB.player_display_name(on_him) if not on_him.is_empty() 				else GameDB.player_display_name_by_id(str(t.get("spare_minder_id", "")), "a forward")
 		bits.append(who + " on their spare")
+	var ruck_id := str(t.get("main_ruck", ""))
+	if ruck_id != "":
+		bits.append(GameDB.player_display_name_by_id(ruck_id, "your ruck") + " the main ruck")
 	_setup_line.text = "  ·  ".join(bits)
 	_setup_line.visible = true
 
