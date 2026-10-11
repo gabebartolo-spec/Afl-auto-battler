@@ -142,8 +142,11 @@ static func interceptor_candidates(ground: Array) -> Array:
 
 
 ## Empty when the side has nobody credible enough to justify sacrificing a
-## direct assignment for the role.
-static func best_interceptor(ground: Array, minimum := 66.0) -> Dictionary:
+## direct assignment for the role: by default a read of the ball of at least
+## MatchSim.LOOSE_AI_MIN_READ (where the call starts to pay).
+static func best_interceptor(ground: Array, minimum := -1.0) -> Dictionary:
+	if minimum < 0.0:
+		minimum = MatchSim.LOOSE_READ_FLOOR + MatchSim.LOOSE_READ_SPAN * MatchSim.LOOSE_AI_MIN_READ
 	var candidates := interceptor_candidates(ground)
 	if candidates.is_empty() or interceptor_score(candidates[0]) < minimum:
 		return {}
