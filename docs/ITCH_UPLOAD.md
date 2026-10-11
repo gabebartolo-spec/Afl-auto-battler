@@ -89,6 +89,12 @@ If the screen is black or stuck, also ask for the browser console text (desktop:
 Upload the new zip over the old one (same project, same file slot) or push it with butler if you
 use it; testers get the new build on their next load. Saves from the older build keep loading.
 
+## Known issues
+
+- Once in testing, after resizing the window and reloading, the menu drew zoomed in. A reload fixed it
+  and it did not come back in repeated tries. If a tester sees the screen zoomed in, ask them to
+  reload the page, and tell you the build label and device.
+
 ## Notes
 
 - Anything that is not in the zip is not online: there is no server, no account and no network use.
