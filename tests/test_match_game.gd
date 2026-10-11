@@ -30,6 +30,8 @@ func run() -> void:
 	_test_play_through()
 	_test_play_through_by_job()
 	_test_play_through_three()
+	_test_main_ruck()
+	_test_main_ruck_costs_an_easy_role()
 	_test_hothead()
 	_test_lockdown_midfielder()
 	_test_traits()
@@ -1405,6 +1407,125 @@ func _test_play_through_three() -> void:
 	_check(absf(on["td"] - base["td"]) / base["td"] < 0.03,
 			"The calls move who gets it, not how much the side has (%.0f v %.0f disposals)" % [on["td"] / n, base["td"] / n])
 	_check(on["top"] < 45.0, "Nobody becomes the only one who gets it (most in a game %d)" % int(on["top"]))
+
+
+## Main ruck (director, 2026-10-07, dual-ruck sides): the man you name goes up
+## at every stoppage while he is on the ground, wherever he stands, and does
+## a ruck's work for it (he tires like a ruck); resting, the usual rule. It
+## moves the hit-outs between the two rucks, it does not make more of them.
+func _test_main_ruck() -> void:
+	var club := ""
+	var rucks := []
+	# A dual-ruck side: both rucks start on the ground, one in the ruck and one
+	# elsewhere (St Kilda, the Bulldogs). A second ruck who starts on the bench
+	# mostly comes on for the first, through the ruck spot, so the call has
+	# little to move there (audit mainruck_impl: Brisbane 28 v 24 contests a
+	# game; St Kilda 54 v 29).
+	for c in ["GEE", "COL", "MEL", "CAR", "SYD", "BRL", "HAW", "ESS", "FRE", "ADE", "GWS", "STK", "WCE", "WBD"]:
+		var sim := _sim(70, c, "COL" if c != "COL" else "GEE")
+		var found := []
+		for q in (sim.squads[0] as Squad).ground:
+			if MatchSim._is_ruckman(q):
+				found.append(q)
+		if found.size() >= 2:
+			club = c
+			rucks = found
+			break
+	_check(club != "", "(setup) a club that starts two rucks on the ground")
+	if club == "":
+		return
+	var opp := "COL" if club != "COL" else "GEE"
+	var probe := _sim(70, club, opp)
+	var first: Array = probe._contestant(probe.squads[0])
+	var other := ""
+	for r in rucks:
+		if first.is_empty() or str(r["id"]) != str(first[0]["id"]):
+			other = str(r["id"])
+			break
+	# Named but resting on the bench: the usual rule still picks.
+	probe.set_tactics(0, {"main_ruck": other})
+	var on_ground := false
+	for q in (probe.squads[0] as Squad).ground:
+		on_ground = on_ground or str(q["id"]) == other
+	var now: Array = probe._contestant(probe.squads[0])
+	_check(not now.is_empty() and (str(now[0]["id"]) == other) == on_ground,
+			"The main ruck goes up when he is on the ground, and only then")
+	var n := 16
+	var ho_on := 0.0
+	var ho_off := 0.0
+	var side_on := 0.0
+	var side_off := 0.0
+	var ex_on := 0.0
+	var ex_off := 0.0
+	for i in range(n):
+		# Your side is the coach's, not the AI's: an AI club picks its plan
+		# afresh every quarter, which would drop the call after the first.
+		var a := _sim(1100 + i, club, opp)
+		(a.squads[0] as Squad).ai_plans = false
+		a.set_tactics(0, {"main_ruck": other})
+		var ra := a.run()
+		var b := _sim(1100 + i, club, opp)
+		(b.squads[0] as Squad).ai_plans = false
+		var rb := b.run()
+		ho_on += float(((ra["players"] as Dictionary).get(other, {}) as Dictionary).get("hitouts", 0.0))
+		ho_off += float(((rb["players"] as Dictionary).get(other, {}) as Dictionary).get("hitouts", 0.0))
+		side_on += float(((ra["team"] as Array)[0] as Dictionary).get("hitouts", 0.0))
+		side_off += float(((rb["team"] as Array)[0] as Dictionary).get("hitouts", 0.0))
+		ex_on += float((ra["exertion"] as Dictionary).get(other, 0.0))
+		ex_off += float((rb["exertion"] as Dictionary).get(other, 0.0))
+	_check(ho_on > ho_off * 1.2, "Named main ruck, he takes more of the hit-outs (%.1f v %.1f a game)" % [ho_on / n, ho_off / n])
+	# (b) A ruck who already lines up in a drain-heavier role (a midfielder, 1.25 v
+	# the ruck's 1.15) is not asked to work less or more: the call changes who goes
+	# up, not what he costs, so his exertion is the same with and without it.
+	if str(_role_of(rucks, other)) == "MID" or str(_role_of(rucks, other)) == "RUCK":
+		_check(absf(ex_on - ex_off) / n < 0.5,
+				"...a ruck who already drains like one (or more) is unchanged by the call (exertion %.1f v %.1f)" % [ex_on / n, ex_off / n])
+	_check(absf(side_on - side_off) / side_off < 0.15,
+			"The side's hit-outs move between the rucks, not from nowhere (%.1f v %.1f)" % [side_on / n, side_off / n])
+
+
+func _role_of(list: Array, id: String) -> String:
+	for q in list:
+		if str(q["id"]) == id:
+			return str(q["role"])
+	return ""
+
+
+## (a) The call has a cost when it moves a man out of an easier job: a second ruck
+## who lines up in defence or forward (drain 0.85 / 0.9) works a ruck's 1.15 once
+## he goes up, so his exertion over the first quarter is higher with the call than
+## without it. Read at quarter one's end, before rotations pull the two matches
+## apart (a tired man rests, which hides the drain in a whole-match total; the
+## first version of this check, over a match, went 108 v 116 once #647 merged).
+func _test_main_ruck_costs_an_easy_role() -> void:
+	var club := ""
+	var man := ""
+	for c in ["WBD", "STK", "GEE", "COL", "MEL", "CAR", "SYD", "BRL", "HAW", "ESS", "FRE", "ADE", "GWS", "WCE"]:
+		var sim := _sim(70, c, "COL" if c != "COL" else "GEE")
+		for q in (sim.squads[0] as Squad).ground:
+			if MatchSim._is_ruckman(q) and (str(q["role"]) == "DEF" or str(q["role"]) == "FWD"):
+				club = c
+				man = str(q["id"])
+		if club != "":
+			break
+	_check(club != "", "(setup) a club that starts a ruck in a defensive or forward role")
+	if club == "":
+		return
+	var opp := "COL" if club != "COL" else "GEE"
+	var n := 16
+	var left_on := 0.0
+	var left_off := 0.0
+	for i in range(n):
+		var a := _sim(1100 + i, club, opp)
+		(a.squads[0] as Squad).ai_plans = false
+		a.set_tactics(0, {"main_ruck": man})
+		a.run_quarter()
+		left_on += float(a.exertion.get(man, 0.0))
+		var b := _sim(1100 + i, club, opp)
+		(b.squads[0] as Squad).ai_plans = false
+		b.run_quarter()
+		left_off += float(b.exertion.get(man, 0.0))
+	_check(left_on > left_off, "A second ruck from defence or forward works harder in the first quarter once he goes up (exertion %.1f v %.1f)" % [left_on / n, left_off / n])
 
 
 func _job_mult(sim: MatchSim, p: Dictionary, purpose: String, zone: String) -> float:
