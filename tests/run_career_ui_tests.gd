@@ -247,6 +247,24 @@ func _run() -> void:
 	_router.handle_back(false)
 	_check(quits[0] == 1, "Escape on the menu still does not quit")
 	_router.quit_hook = Callable()
+	# Fit to the screen (director, 2026-10-12): a desktop opens fullscreen unless
+	# the player chose Window, in which case the window opens maximised.
+	var layout = load("res://scripts/core/ScreenLayout.gd")
+	var cfg_default := ConfigFile.new()
+	var cfg_window := ConfigFile.new()
+	cfg_window.set_value("ui", "fullscreen", false)
+	_check(layout.start_mode(cfg_default) == DisplayServer.WINDOW_MODE_FULLSCREEN
+			and layout.start_mode(cfg_window) == DisplayServer.WINDOW_MODE_MAXIMIZED,
+			"The window mode on start is fullscreen, or maximised when Window was chosen")
+	var was_full: bool = _state.fullscreen()
+	var alt_enter := InputEventKey.new()
+	alt_enter.keycode = KEY_ENTER
+	alt_enter.alt_pressed = true
+	alt_enter.pressed = true
+	root.get_node("ScreenLayout")._input(alt_enter)
+	_check(_state.fullscreen() == not was_full, "Alt+Enter switches between fullscreen and window")
+	root.get_node("ScreenLayout")._input(alt_enter)
+	_check(_state.fullscreen() == was_full, "and back again")
 	_check(current_scene.find_child("MenuHelp", true, false) != null
 			and current_scene.find_child("MenuSettings", true, false) != null,
 			"How to play and Settings are on the menu")

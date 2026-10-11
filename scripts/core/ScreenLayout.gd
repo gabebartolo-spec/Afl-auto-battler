@@ -102,11 +102,37 @@ func set_screen_size(key: String) -> void:
 	_update_scale()
 
 
+## The window mode a desktop wants: borderless fullscreen on the current
+## monitor (not exclusive: Alt+Tab and the OS scaling stay as they are), or a
+## maximised window. Rendering stays at the screen's native resolution either
+## way (window/dpi/allow_hidpi, canvas_items stretch: _update_scale).
+static func wanted_mode(fullscreen: bool) -> int:
+	return DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen else DisplayServer.WINDOW_MODE_MAXIMIZED
+
+
+## The mode a saved settings file asks for at start: fullscreen unless the
+## player chose Window.
+static func start_mode(cfg: ConfigFile) -> int:
+	return wanted_mode(bool(cfg.get_value("ui", "fullscreen", true)))
+
+
 func set_fullscreen(on: bool) -> void:
 	if DisplayServer.get_name() == "headless" or not is_desktop():
 		return
-	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if on
-			else DisplayServer.WINDOW_MODE_WINDOWED)
+	# A tool run with --script sets its own window size: leave it alone.
+	if OS.get_cmdline_args().has("--script") or OS.get_cmdline_args().has("-s"):
+		return
+	DisplayServer.window_set_mode(wanted_mode(on))
+
+
+## Alt+Enter switches between fullscreen and window, on a desktop.
+func _input(event: InputEvent) -> void:
+	if not is_desktop() or not (event is InputEventKey):
+		return
+	var key := event as InputEventKey
+	if key.pressed and not key.echo and key.alt_pressed 			and (key.keycode == KEY_ENTER or key.keycode == KEY_KP_ENTER):
+		get_viewport().set_input_as_handled()
+		GameState.set_fullscreen(not GameState.fullscreen())
 
 
 ## Insets in UI units, for notches and gesture/home-indicator areas. The OS

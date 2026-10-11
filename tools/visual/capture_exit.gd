@@ -43,6 +43,18 @@ func _run() -> void:
 	root.get_node("Router").to_main_menu(false)
 	await _shot(out + "_fresh.png")
 	var btn: Control = current_scene.find_child("ExitGame", true, false)
+	var img := root.get_viewport().get_texture().get_image()
+	var vis := root.get_visible_rect().size
+	var k := float(img.get_width()) / vis.x
+	print("EXIT window %s, content scale %s, image %dx%d (%.2f px per UI unit), window mode %d" % [
+			str(root.size), str(root.content_scale_size), img.get_width(), img.get_height(), k, DisplayServer.window_get_mode()])
+	if current_scene.find_child("ExitGame", true, false) != null:
+		var r: Rect2 = (current_scene.find_child("ExitGame", true, false) as Control).get_global_rect()
+		var box := Rect2((r.position - Vector2(120, 120)) * k, (r.size + Vector2(240, 160)) * k)
+		box = box.intersection(Rect2(Vector2.ZERO, Vector2(img.get_size())))
+		var crop := img.get_region(Rect2i(box))
+		crop.resize(crop.get_width() * 2, crop.get_height() * 2, Image.INTERPOLATE_NEAREST)
+		crop.save_png(out + "_exit_crop2x.png")
 	print("EXIT button %s, rect %s" % ["missing" if btn == null else str(btn.get("text")), "-" if btn == null else str(btn.get_global_rect())])
 	state.start_season("COL", db.club_list("COL"))
 	state.tutorials = false
