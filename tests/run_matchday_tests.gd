@@ -787,9 +787,14 @@ func _break_units_keep_followups() -> void:
 	mk.call(2, "loose", true, false)
 	mk.call(2, "loose_cards", true, true)
 	var units: Array = ms.call("_break_units", cols)
-	var names := units.map(func(u): return (u as Array).map(func(n): return str(n.name)))
-	_check(str(names) == '[[tag, tag_note, who_tags], [pep], [loose, loose_cards]]',
-			"A follow-up joins its question's unit, across columns (%s)" % str(names))
+	var names := PackedStringArray()
+	for u in units:
+		var one := PackedStringArray()
+		for n in u:
+			one.append(str(n.name))
+		names.append(",".join(one))
+	_check("|".join(names) == "tag,tag_note,who_tags|pep|loose,loose_cards",
+			"A follow-up joins its question's unit, across columns (%s)" % "|".join(names))
 	for c in cols:
 		c.free()
 
