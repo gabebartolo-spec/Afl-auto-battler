@@ -1,0 +1,18 @@
+[
+	{
+		"id": "members_open_training",
+		"category": "members",
+		"cooldown": 6,
+		"subject": {"kind": "club"},
+		"title": ["Members want an open training day"],
+		"text": ["The fans would love it. The coaches would rather work."],
+		"choices": [
+			{"key": "open", "label": "Open the doors",
+				"effects": [{"op": "board", "d": 4}, {"op": "morale", "d": 3, "who": "all"}],
+				"result": "The members loved it."},
+			{"key": "closed", "label": "Closed session",
+				"effects": [{"op": "xp", "d": 8, "who": "all"}],
+				"result": "A closed session. The coaches got their work done."}
+		]
+	}
+]

@@ -1765,6 +1765,14 @@ const LOOSE_REACH_RANGE := 0.7
 ## How often he leaves his post for an entry: as often as a top reader gets
 ## there, so a poor reader goes just as often and arrives late instead.
 const LOOSE_GO := LOOSE_REACH_MIN + LOOSE_REACH_RANGE
+## The least read of the ball (_loose_read) for which a coach plays a man
+## loose: the AI, your assistant and the pre-match facts all use it
+## (Matchups.best_interceptor). Below it the call stops paying: with the
+## best defender's read pinned, points conceded against no loose man were
+## +0.6 at 0.18, 0.29 and 0.41 and -1.9 at 0.52, -2.6 at 0.63 (960 pairs
+## each, audit runs 38076174976, 38076182331, 38076189216, 38076195850,
+## 38076202407). 14/26 (about 0.54) is exactly the old bar, interceptor score 66.
+const LOOSE_AI_MIN_READ := 14.0 / 26.0
 ## How much more dangerous the entry is when he went and got there late, for
 ## the poorest reader: {unmarked, marked}. He isn't there at all, so the space
 ## behind him is bigger than when he flies and loses (0.08 / 0.15).

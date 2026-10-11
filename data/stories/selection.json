@@ -1,0 +1,347 @@
+[
+	{
+		"id": "selection_talk_dropped",
+		"category": "selection",
+		"phase": [
+			"regular",
+			"finals"
+		],
+		"cooldown": 2,
+		"subject_cooldown": 5,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"talk_case": "dropped"
+			},
+			"pick": "highest:games"
+		},
+		"title": [
+			"{name} wants a word"
+		],
+		"text": [
+			"{talk_text}"
+		],
+		"choices": [
+			{
+				"key": "explain",
+				"label": "{explain_label}",
+				"effects": [
+					{
+						"op": "explain"
+					},
+					{
+						"op": "morale",
+						"d": 5,
+						"scale": "trust"
+					},
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You talked him through being dropped"
+					},
+					{
+						"op": "talk_note",
+						"said": "explain"
+					}
+				]
+			},
+			{
+				"key": "talk",
+				"label": "Promise him a game this week",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 15,
+						"scale": "trust"
+					},
+					{
+						"op": "expects_game",
+						"sting": 12
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You promised him his spot back"
+					},
+					{
+						"op": "talk_note",
+						"said": "promise"
+					}
+				]
+			},
+			{
+				"key": "call",
+				"label": "It's my call",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -5
+					},
+					{
+						"op": "trust",
+						"d": -4,
+						"why": "You told him the side was your call when he was dropped"
+					},
+					{
+						"op": "talk_note",
+						"said": "call"
+					}
+				],
+				"result": "You tell {name} selection is your call, and it stands."
+			}
+		]
+	},
+	{
+		"id": "selection_talk_back",
+		"category": "selection",
+		"phase": [
+			"regular"
+		],
+		"cooldown": 2,
+		"subject_cooldown": 5,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"talk_case": "back"
+			},
+			"pick": "highest:games"
+		},
+		"title": [
+			"{name} wants a word"
+		],
+		"text": [
+			"{talk_text}"
+		],
+		"choices": [
+			{
+				"key": "explain",
+				"label": "{explain_label}",
+				"effects": [
+					{
+						"op": "explain"
+					},
+					{
+						"op": "morale",
+						"d": 5,
+						"scale": "trust"
+					},
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You told him where he stood after his injury"
+					},
+					{
+						"op": "talk_note",
+						"said": "explain"
+					}
+				]
+			},
+			{
+				"key": "talk",
+				"label": "Promise him a game this week",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 15,
+						"scale": "trust"
+					},
+					{
+						"op": "expects_game",
+						"sting": 12
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You promised him a game on his return"
+					},
+					{
+						"op": "talk_note",
+						"said": "promise"
+					}
+				]
+			},
+			{
+				"key": "call",
+				"label": "It's my call",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -5
+					},
+					{
+						"op": "trust",
+						"d": -4,
+						"why": "You told him the side was your call when he came back from injury"
+					},
+					{
+						"op": "talk_note",
+						"said": "call"
+					}
+				],
+				"result": "You tell {name} selection is your call, and it stands."
+			}
+		]
+	},
+	{
+		"id": "selection_talk_waiting",
+		"category": "selection",
+		"phase": [
+			"regular"
+		],
+		"cooldown": 2,
+		"subject_cooldown": 5,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"talk_case": "waiting"
+			},
+			"pick": "highest:games"
+		},
+		"title": [
+			"{name} wants a word"
+		],
+		"text": [
+			"{talk_text}"
+		],
+		"choices": [
+			{
+				"key": "explain",
+				"label": "{explain_label}",
+				"effects": [
+					{
+						"op": "explain"
+					},
+					{
+						"op": "morale",
+						"d": 5,
+						"scale": "trust"
+					},
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You told him what he has to show for a game"
+					},
+					{
+						"op": "talk_note",
+						"said": "explain"
+					}
+				]
+			},
+			{
+				"key": "talk",
+				"label": "Promise him a game this week",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 15,
+						"scale": "trust"
+					},
+					{
+						"op": "expects_game",
+						"sting": 12
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You promised him his first game in weeks"
+					},
+					{
+						"op": "talk_note",
+						"said": "promise"
+					}
+				]
+			},
+			{
+				"key": "call",
+				"label": "It's my call",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -5
+					},
+					{
+						"op": "trust",
+						"d": -4,
+						"why": "You told him the side was your call while he waited for a game"
+					},
+					{
+						"op": "talk_note",
+						"said": "call"
+					}
+				],
+				"result": "You tell {name} selection is your call, and it stands."
+			}
+		]
+	},
+	{
+		"id": "selection_unhappy",
+		"category": "selection",
+		"cooldown": 2,
+		"subject_cooldown": 5,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"morale_max": 34,
+				"talk_case": ""
+			},
+			"pick": "lowest:morale"
+		},
+		"title": [
+			"{name} is unhappy"
+		],
+		"text": [
+			"He feels he's being overlooked. An unhappy player plays below his best and costs more to re-sign."
+		],
+		"choices": [
+			{
+				"key": "talk",
+				"label": "Sit down with him",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 15,
+						"scale": "trust"
+					},
+					{
+						"op": "expects_game",
+						"sting": 12
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You sat down with him when he was unhappy"
+					},
+					{
+						"op": "talk_note",
+						"said": "promise"
+					}
+				]
+			},
+			{
+				"key": "earn",
+				"label": "Tell him to earn it",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -5
+					},
+					{
+						"op": "morale",
+						"d": 2,
+						"who": "others"
+					},
+					{
+						"op": "trust",
+						"d": -4,
+						"why": "You told him to earn his spot"
+					}
+				],
+				"result": "{name} is told to earn his spot. The group respects it."
+			}
+		]
+	}
+]
