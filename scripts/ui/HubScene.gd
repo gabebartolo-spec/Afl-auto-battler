@@ -297,6 +297,12 @@ func _standing_card() -> Control:
 	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	pos_row.add_child(title)
 	cv.add_child(pos_row)
+	# Your list as one number and where the club is in its cycle (TeamRating).
+	var outlook := GameState.team_outlook(GameState.my_club)
+	if not outlook.is_empty():
+		var tl := UiKit.ellipsis(str(outlook["line"]), UiKit.SECONDARY, UiKit.MUTED)
+		tl.name = "MyTeamOutlook"
+		cv.add_child(tl)
 	var form := GameState.club_form_info(GameState.my_club)
 	cv.add_child(_form_row(form))
 	var last := _last_match_button()
@@ -338,16 +344,17 @@ func _last_match_button() -> Control:
 	return b
 
 
-## This week's decision. Answer it here; unanswered when the round is
-## played, it changes nothing - or costs what its hint says (ClubLife).
-func _event_card() -> Control:
-	var e: Dictionary = GameState.week_event
+## One of this week's decisions (usually one, two in a big week). Answer it
+## here; unanswered when the round is played, it changes nothing - or costs
+## what its hint says (data/stories, StoryEngine).
+func _event_card(index: int) -> Control:
+	var e: Dictionary = GameState.week_events[index]
 	var card := UiKit.panel(UiKit.PANEL, 12)
-	card.name = "WeekEvent"
+	card.name = "WeekEvent" if index == 0 else "WeekEvent_%d" % index
 	var v := UiKit.vbox(6)
 	card.add_child(v)
 	v.add_child(UiKit.lbl(str(e.get("title", "")), UiKit.BODY, UiKit.TEXT, true))
-	if GameState.week_event_pending():
+	if not bool(e.get("resolved", false)):
 		var t := UiKit.lbl(str(e.get("text", "")), 12, UiKit.TEXT)
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(t)
@@ -362,7 +369,7 @@ func _event_card() -> Control:
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			b.tooltip_text = str(o.get("detail", ""))
 			b.pressed.connect(func():
-				GameState.resolve_week_event(i)
+				GameState.resolve_card(index, i)
 				_build())
 			row.add_child(b)
 		var hints: PackedStringArray = []
@@ -527,6 +534,19 @@ func _week_section(season: Season) -> Control:
 				GameState.form_line(their, "form").trim_prefix("form: ")], UiKit.SMALL, UiKit.MUTED)
 		standing.name = "OppFormLine"
 		nv.add_child(standing)
+		# Their list: the club's guernsey and name, then its line (TeamRating).
+		var their_list := GameState.team_outlook(opp)
+		if not their_list.is_empty():
+			var row := UiKit.hbox(6)
+			row.name = "OppTeamOutlookRow"
+			var mark := UiKit.club_marker(opp, 18.0)
+			mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			row.add_child(mark)
+			var tl := UiKit.ellipsis("%s  %s" % [GameDB.club_short(opp), str(their_list["line"])], UiKit.SMALL, UiKit.MUTED)
+			tl.name = "OppTeamOutlook"
+			tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(tl)
+			nv.add_child(row)
 		# The football: two or three facts, then anything on our side.
 		var facts := GameState.opponent_facts(opp)
 		var notes := GameState.my_week_notes()
@@ -544,9 +564,10 @@ func _week_section(season: Season) -> Control:
 					UiKit.BAD if str(notes[i].get("key", "")) == "own_injury" else UiKit.TEXT)
 			nl.name = "OwnNote_%d" % i
 			nv.add_child(nl)
-	if not GameState.week_event.is_empty() and not season.is_season_over():
-		nv.add_child(UiKit.spacer(4))
-		nv.add_child(_event_card())
+	if not season.is_season_over():
+		for i in range(GameState.week_events.size()):
+			nv.add_child(UiKit.spacer(4))
+			nv.add_child(_event_card(i))
 	nv.add_child(UiKit.spacer(4))
 	nv.add_child(_week_actions(season))
 	return nv

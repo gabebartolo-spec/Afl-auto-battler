@@ -1,0 +1,43 @@
+[
+	{
+		"id": "board_wants_answers",
+		"category": "board",
+		"cooldown": 2,
+		"subject": {
+			"kind": "club"
+		},
+		"when": {
+			"losing_run_every": 3
+		},
+		"title": [
+			"The board wants answers"
+		],
+		"text": [
+			"Another loss, and the chairman's on the phone. He wants to know what happens next."
+		],
+		"default": 1,
+		"choices": [
+			{
+				"key": "promise",
+				"label": "Promise a win this week",
+				"effects": [
+					{
+						"op": "promise_win"
+					}
+				],
+				"result": "You promise the board a win this week."
+			},
+			{
+				"key": "patience",
+				"label": "Ask for patience",
+				"effects": [
+					{
+						"op": "board",
+						"d": -3
+					}
+				],
+				"result": "The board grudgingly agrees to wait."
+			}
+		]
+	}
+]
