@@ -46,10 +46,48 @@ func _play(h: String, a: String, seed: int) -> MatchSim:
 	return sim
 
 
+## validate: is a line worth what the call really changes? The same matches
+## with the home coach's call on and off (no other AI calls at home): the
+## paired margin change against the line's mean. call: loose, tag, minder.
+func _arm(h: String, a: String, seed: int, call: String, on: bool) -> MatchSim:
+	var home := Squad.new(h, GameDB.club_list(h), true, h)
+	var away := Squad.new(a, GameDB.club_list(a), false, a)
+	var sim := MatchSim.new(home, away, seed)
+	sim.moment_side = -1
+	if on and call == "loose":
+		sim.set_interceptor(0, str(Matchups.best_interceptor(home.ground).get("id", "")), false)
+	if call == "minder":
+		sim.set_interceptor(1, str(Matchups.best_interceptor(away.ground).get("id", "")), false)
+		sim.set_tactics(0, {"gameplan": "balanced", "spare_accountable": on})
+	if on and call == "tag":
+		var best := {}
+		for p in away.ground:
+			if MatchSim.taggable(p) and (best.is_empty() or int(p["overall"]) > int(best["overall"])):
+				best = p
+		sim.set_tactics(0, {"gameplan": "balanced", "tag_id": str(best.get("id", ""))})
+	sim.run()
+	return sim
+
+
+func _validate(call: String, seeds: int) -> void:
+	var diffs := []
+	var lines := []
+	for pr in PAIRS:
+		for s in range(seeds):
+			var on := _arm(pr[0], pr[1], 9100 + s, call, true)
+			var off := _arm(pr[0], pr[1], 9100 + s, call, false)
+			diffs.append(float(on.score(0) - on.score(1)) - float(off.score(0) - off.score(1)))
+			lines.append(float((on.impact[0] as Dictionary).get(call, 0.0)))
+	print("DECISION validate %s | paired margin %s | line %s" % [call, _mean_se(diffs), _mean_se(lines)])
+
+
 func run() -> void:
 	var args := OS.get_cmdline_user_args()
 	var mode := str(args[1]) if args.size() > 1 else "lines"
 	var seeds := int(args[2]) if args.size() > 2 else 40
+	if mode == "validate":
+		_validate(str(args[3]) if args.size() > 3 else "loose", seeds)
+		return
 	var vals := {}
 	var rest := []
 	var check := 0
