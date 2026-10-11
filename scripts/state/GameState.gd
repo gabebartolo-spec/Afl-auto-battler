@@ -1858,6 +1858,10 @@ func start_season(club_code: String, list: Array) -> void:
 		for code in GameDB.club_order:
 			var source: Array = list if code == club_code else GameDB.club_list(code)
 			lists[code] = _career_copies(source)
+			# The raw data can hold two players in one number (SYD 36): the
+			# same rule as every other start, or a reload renumbers him and
+			# the saved career no longer matches the one played straight.
+			unique_jumpers(lists[code])
 	# Career copies, not the shared database rows. Training must not rewrite
 	# the draft pool for the next career.
 	my_list = lists.get(my_club, [])
