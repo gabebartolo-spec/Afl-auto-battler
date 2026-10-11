@@ -194,6 +194,11 @@ func _show_home() -> void:
 	quiet.add_child(_quiet_btn("How to play", "MenuHelp", _show_help))
 	quiet.add_child(_quiet_btn("Settings", "MenuSettings", _show_settings))
 	_content.add_child(quiet)
+	var build := UiKit.lbl("Build " + BuildInfo.label(), UiKit.SMALL, UiKit.MUTED)
+	build.name = "BuildLabel"
+	build.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_content.add_child(UiKit.spacer(8))
+	_content.add_child(build)
 
 
 ## A secondary action that reads as text: no box, muted until pressed.

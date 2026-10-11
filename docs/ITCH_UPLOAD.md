@@ -48,6 +48,42 @@ Visibility and access, at the bottom of the project's Edit page:
 - Desktop: Chrome, Edge or Firefox. Phone: Android Chrome and iOS Safari (iOS needs the tester to
   tap once before sound starts, as for any web game).
 
+## First test on your phone
+
+Do this once yourself before sending the link to testers (iOS Safari and real-device speed are
+the two things nobody could check from a computer):
+
+1. Open the itch page on your phone and tap Run game. Hold the phone upright first.
+2. Wait for the loading bar. Note roughly how long it took on your connection.
+3. Does the menu fill the screen with no page scrolling or zooming? (Pinch and double-tap should
+   do nothing.)
+4. Tap New career and play through to the draft, or load a career if you have one. Do taps land
+   where your finger is, on every screen?
+5. Play a live match: tap Ball it up, watch the oval, use a quarter-time break. Is it smooth, or
+   does it stutter? Tell us the phone model if it does.
+6. Is there sound after your first tap? (iOS needs that first tap; check the silent switch too.)
+7. Turn the phone sideways and back. The layout should change with it and keep your place.
+8. Use the phone's Back (Android gesture or browser Back). It should take you one screen back in
+   the game and never leave the page. (Leaving the game from the main menu is the browser's own
+   tab or home button.)
+9. Save, close the tab, reopen the link: Continue should show your career. Private tabs won't.
+10. Note anything cut off by the notch or the bottom bar.
+
+Send back: phone model, browser (Chrome or Safari) and what felt wrong.
+
+## Reporting a problem
+
+Tell testers to send you four things, by whatever channel you choose (a message, an email, a form;
+nothing about how to reach you is stored in the game or the repo):
+
+1. **Build**: the small grey line at the bottom of the main menu, for example "Build 0.1.0 (a1b2c3d)".
+   Settings shows the same line as the version. It says exactly which upload they played.
+2. **Device and browser**: for example "Pixel 8, Chrome" or "iPhone 14, Safari" or "Windows, Edge".
+3. **What happened**: what they tapped, what they expected, what they saw. A screenshot helps.
+4. **Could it be repeated?** Once, or every time.
+
+If the screen is black or stuck, also ask for the browser console text (desktop: F12, Console).
+
 ## 5. Updating the build
 
 Upload the new zip over the old one (same project, same file slot) or push it with butler if you

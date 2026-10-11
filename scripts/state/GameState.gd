@@ -3816,8 +3816,6 @@ func coaches_award_leaders(n := 5) -> Array:
 	return rows.slice(0, n)
 
 
-## After a round: every club that played is a week closer to getting its
-## injured back, then this round's new injuries (from the matches) go on.
 ## Browser builds have no threads: the round's other matches play one per
 ## frame while yours is on screen (see Season.pump).
 func _process(_delta: float) -> void:
@@ -3825,6 +3823,8 @@ func _process(_delta: float) -> void:
 		Season.pump(_others)
 
 
+## After a round: every club that played is a week closer to getting its
+## injured back, then this round's new injuries (from the matches) go on.
 func _process_injuries(results: Array) -> void:
 	if season == null:
 		return
