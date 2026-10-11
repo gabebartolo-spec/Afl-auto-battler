@@ -19,6 +19,7 @@ static func open(host: Control, on_close: Callable = Callable()) -> Control:
 	var club := GameState.my_club
 	for s in Culture.STRANDS:
 		v.add_child(_strand(str(s[0]), str(s[1]), club))
+	v.add_child(UiKit.spacer(10))
 	var close := _secondary("Close", UiKit.NAME)
 	close.name = "CultureClose"
 	close.custom_minimum_size = Vector2(0, 48)
@@ -36,28 +37,28 @@ static func _strand(strand: String, label: String, club: String) -> Control:
 	col.add_child(UiKit.lbl(label, UiKit.SMALL, UiKit.MUTED))
 	var row := UiKit.hbox(8)
 	col.add_child(row)
-	var wl := UiKit.lbl(words if words != "" else "Nothing stands out yet", UiKit.BODY,
+	var reasons := Culture.grouped(GameState.relations, club, strand)
+	var wl := UiKit.lbl(words if words != "" else Culture.quiet_words(t, not reasons.is_empty()), UiKit.BODY,
 			UiKit.TEXT if words != "" else UiKit.MUTED)
 	wl.name = "StrandWords"
 	wl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	wl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(wl)
-	var reasons := Culture.reasons(GameState.relations, club, strand)
-	var list := UiKit.vbox(4)
+	var list := UiKit.vbox(10)
 	list.name = "StrandReasons"
 	list.visible = false
 	if reasons.is_empty():
-		var none := UiKit.lbl("Nothing has moved this yet.", UiKit.SMALL, UiKit.MUTED)
+		var none := UiKit.lbl("Nothing has moved this yet.", UiKit.BODY, UiKit.MUTED)
 		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		list.add_child(none)
 	for r in reasons:
-		var rl := UiKit.lbl(Culture.reason_text(label, r), UiKit.SMALL, UiKit.TEXT)
+		var rl := UiKit.lbl(Culture.group_text(label, r), UiKit.BODY, UiKit.TEXT)
 		rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		list.add_child(rl)
 	var why := _secondary("Why", UiKit.SMALL)
 	why.name = "StrandWhy"
-	why.custom_minimum_size = Vector2(72, 48)
+	why.custom_minimum_size = Vector2(84, 48)
 	why.pressed.connect(func():
 		list.visible = not list.visible
 		why.text = "Hide" if list.visible else "Why")

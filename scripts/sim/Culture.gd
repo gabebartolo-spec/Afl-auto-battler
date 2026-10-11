@@ -83,6 +83,13 @@ static func words(strand: String, t: int) -> String:
 	return str(_band(strand, t)[2])
 
 
+## Does a band make the league news for a rival? Never a negative claim about
+## a real club: only the positive bands, and the patient and rebuilding ones.
+## The negative bands show on your own club's page and nowhere else.
+static func news_ok(strand: String, t: int) -> bool:
+	return not ["loose", "slack", "cliques", "split"].has(band_key(strand, t)) and words(strand, t) != ""
+
+
 ## "have become a tight group", for the league news.
 static func news_phrase(strand: String, t: int) -> String:
 	return str(_band(strand, t)[3])
@@ -106,6 +113,56 @@ static func reason_text(strand_label: String, r: Dictionary) -> String:
 		why += "."
 	return "%s, %d. %s %s %s." % [str(r.get("w", "")), int(r.get("y", 0)), why, strand_label,
 			"rose" if int(r.get("d", 0)) > 0 else "fell"]
+
+
+## The same reason repeated (a run of losses twice in a season) as one entry:
+## [{"why", "y", "whens", "d", "n"}], newest first.
+static func grouped(rel: Dictionary, club: String, strand: String) -> Array:
+	var out := []
+	var at := {}
+	for r in reasons(rel, club, strand):
+		var k := "%s|%d" % [str(r.get("why", "")), int(r.get("y", 0))]
+		if at.has(k):
+			var g: Dictionary = out[int(at[k])]
+			(g["whens"] as Array).append(str(r.get("w", "")))
+			g["d"] = int(g["d"]) + int(r.get("d", 0))
+			g["n"] = int(g["n"]) + 1
+		else:
+			at[k] = out.size()
+			out.append({"why": str(r.get("why", "")), "y": int(r.get("y", 0)), "whens": [str(r.get("w", ""))],
+					"d": int(r.get("d", 0)), "n": 1})
+	return out
+
+
+## One grouped reason as a line: "Round 4 and Round 12, 2027. A run of four
+## losses, twice. Togetherness fell."
+static func group_text(strand_label: String, g: Dictionary) -> String:
+	var whens: Array = g["whens"].duplicate()
+	whens.reverse()
+	var when: String = str(whens[0])
+	if whens.size() > 1:
+		var head := PackedStringArray()
+		for w in whens.slice(0, whens.size() - 1):
+			head.append(str(w))
+		when = ", ".join(head) + " and " + str(whens[whens.size() - 1])
+	var why := str(g["why"]).strip_edges().trim_suffix(".")
+	var n := int(g["n"])
+	if n == 2:
+		why += ", twice"
+	elif n > 2:
+		why += ", %s times" % _count(n)
+	return "%s, %d. %s. %s %s." % [when, int(g["y"]), why, strand_label, "rose" if int(g["d"]) > 0 else "fell"]
+
+
+## What a strand reads when no band is named: nothing yet, or how it is drifting.
+static func quiet_words(t: int, has_reasons: bool) -> String:
+	if not has_reasons:
+		return "Nothing stands out yet"
+	if t >= 4:
+		return "Starting to build"
+	if t <= -4:
+		return "Starting to slip"
+	return "Back to normal"
 
 
 ## The strands that stand out, in words: "A tight group. Pushing to win now."
@@ -142,9 +199,9 @@ static func season_steps(position: int, clubs: int, premier: bool, avg_age: floa
 	elif position > clubs - BOTTOM_PLACES:
 		out.append({"strand": "together", "d": -3, "why": "Finished near the bottom of the ladder"})
 	if avg_age >= OLD_SIDE_AGE:
-		out.append({"strand": "ambition", "d": 4, "why": "An experienced side: the best 22 average %.1f" % avg_age})
+		out.append({"strand": "ambition", "d": 4, "why": "An experienced side"})
 	elif avg_age <= YOUNG_SIDE_AGE:
-		out.append({"strand": "ambition", "d": -4, "why": "A young side: the best 22 average %.1f" % avg_age})
+		out.append({"strand": "ambition", "d": -4, "why": "A young side"})
 	if discipline_gap >= DISCIPLINE_GAP:
 		out.append({"strand": "standards", "d": 4, "why": "The list's discipline is well above the league's"})
 	elif discipline_gap <= -DISCIPLINE_GAP:

@@ -1,8 +1,9 @@
 extends SceneTree
+const Tap := preload("res://tests/tap.gd")
 ## The Club culture sheet (stories P2-3), over My list, for the
 ## director's look. Needs a real renderer:
 ##   godot --path . --script tools/visual/capture_culture.gd -- --out /tmp/cult [--size 1280x720]
-## Writes <out>_culture.png (the three strands in words) and <out>_why.png (a strand's
+## Writes <out>_list.png (My list, the Club culture row), <out>_culture.png (the three strands in words) and <out>_why.png (a strand's
 ## reasons open). Plays a season first, so the strands have something to say.
 
 var W := 390
@@ -69,16 +70,27 @@ func _run() -> void:
 			state.resolve_week_event(0)
 		state.advance()
 		guard += 1
-	# Something for Standards to say, so no strand reads empty in the capture.
-	state._culture_move(state.my_club, "standards", 6, "The list's discipline is well above the league's")
-	state._culture_move(state.my_club, "standards", 6, "The list's discipline is well above the league's")
-	state._culture_move(state.my_club, "standards", 6, "The list's discipline is well above the league's")
+	# Three seasons of a well-disciplined list, so Standards reads a named band.
+	for y in [state.season_year - 2, state.season_year - 1, state.season_year]:
+		Culture.change(state.relations, state.my_club, "standards", 4,
+				"The list's discipline is well above the league's", y, "Off-season")
 	root.get_node("Router").go("list")
 	for i in range(8):
 		await process_frame
-	current_scene.call("_open_culture")
+	await _shot(out + "_list.png")
+	# A real tap on the row, then on each Why.
+	for i in range(20):
+		await process_frame
+	var open_btn: Button = current_scene.find_child("CultureOpen", true, false)
+	# A real tap where the capture window maps touches true (the roles suite proves
+	# the tap on its own); else the press, so the shot is still taken.
+	var why: String = await Tap.tap(open_btn)
+	if why != "" or current_scene.find_child("CultureSheet", true, false) == null:
+		print("tap not mapped here (", why, "): pressing instead")
+		open_btn.emit_signal("pressed")
 	await _shot(out + "_culture.png")
 	for b in current_scene.find_children("StrandWhy", "Button", true, false):
-		b.emit_signal("pressed")
+		if await Tap.tap(b) != "":
+			b.emit_signal("pressed")
 	await _shot(out + "_why.png")
 	quit(0)

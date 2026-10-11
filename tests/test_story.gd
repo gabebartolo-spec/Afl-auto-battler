@@ -42,6 +42,8 @@ func run() -> void:
 	_test_leadership()
 	_test_captaincy()
 	_test_culture()
+	_test_culture_news()
+	_test_culture_reasons_read_cleanly()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	GameState.stories_on = true
@@ -1037,3 +1039,69 @@ func _test_culture() -> void:
 	_run_on(2)
 	_check(not GameState.relations.has("k:done") or int(GameState.relations["k:done"].get("season", 0)) == 0,
 			"…and carries on without closing a season")
+
+
+## League news about a real club is never a negative claim: the negative bands
+## stay on your own page.
+func _test_culture_news() -> void:
+	var neg_ok := true
+	var pos_ok := true
+	for s in Culture.STRANDS:
+		for t in [-100, -60, -40, -25]:
+			# Patient and rebuilding are not a claim against a club; the rest are.
+			if str(s[0]) != "ambition" and Culture.news_ok(str(s[0]), t):
+				neg_ok = false
+			if str(s[0]) == "ambition" and not Culture.news_ok("ambition", t):
+				pos_ok = false
+		for t in [15, 30, 60]:
+			if not Culture.news_ok(str(s[0]), t):
+				pos_ok = false
+	_check(neg_ok and pos_ok, "Only positive bands make the news (negative ok %s, positive ok %s)" % [neg_ok, pos_ok])
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var rival_a := ""
+	var rival_b := ""
+	for code in GameState.season.lists:
+		if str(code) == GameState.my_club:
+			continue
+		if rival_a == "":
+			rival_a = str(code)
+		elif rival_b == "":
+			rival_b = str(code)
+	for i in range(8):
+		GameState._culture_move(rival_a, "together", -6, "A run of losses")
+	var bad_lines := 0
+	for n in GameState.news:
+		if str(n.get("kind", "")) == "culture" and str(n["text"]).begins_with(GameDB.club_name(rival_a)):
+			bad_lines += 1
+	_check(Culture.words("together", Culture.value(GameState.relations, rival_a, "together")) == "A divided group" and bad_lines == 0,
+			"A rival that turns into a divided group is not in the news")
+	for i in range(4):
+		GameState._culture_move(rival_b, "together", 6, "Played finals")
+	var good_lines := 0
+	for n in GameState.news:
+		if str(n.get("kind", "")) == "culture" and str(n["text"]).begins_with(GameDB.club_name(rival_b)):
+			good_lines += 1
+	_check(good_lines == 1, "A rival that becomes a tight group is, once (%d lines)" % good_lines)
+	for i in range(8):
+		GameState._culture_move(GameState.my_club, "together", -6, "A run of losses")
+	_check(Culture.words("together", Culture.value(GameState.relations, GameState.my_club, "together")) == "A divided group",
+			"The negative bands still show on your own club's page")
+
+
+func _test_culture_reasons_read_cleanly() -> void:
+	var rel := {}
+	Culture.change(rel, "GEE", "together", -3, "A run of four losses", 2027, "Round 4")
+	Culture.change(rel, "GEE", "together", -3, "A run of four losses", 2027, "Round 12")
+	Culture.change(rel, "GEE", "together", 3, "Played finals", 2027, "Off-season")
+	var g := Culture.grouped(rel, "GEE", "together")
+	_check(g.size() == 2 and int(g[1]["n"]) == 2
+			and Culture.group_text("Togetherness", g[1]) == "Round 4 and Round 12, 2027. A run of four losses, twice. Togetherness fell.",
+			"The same reason twice in a season is one line: %s" % Culture.group_text("Togetherness", g[1]))
+	_check(Culture.quiet_words(0, false) == "Nothing stands out yet" and Culture.quiet_words(0, true) == "Back to normal"
+			and Culture.quiet_words(6, true) == "Starting to build" and Culture.quiet_words(-6, true) == "Starting to slip",
+			"A strand with no named band does not contradict its reasons")
+	var ages := Culture.season_steps(10, 18, false, 28.0, 0.0)
+	_check(not str(ages[0]["why"]).contains("28"), "An age reason carries no number")

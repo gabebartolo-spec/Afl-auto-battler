@@ -8559,7 +8559,7 @@ func _culture_move(code: String, strand: String, d: int, why: String) -> void:
 	if code == my_club:
 		return
 	var after := Culture.value(relations, code, strand)
-	if Culture.band_key(strand, before) == Culture.band_key(strand, after) or Culture.words(strand, after) == "":
+	if Culture.band_key(strand, before) == Culture.band_key(strand, after) or not Culture.news_ok(strand, after):
 		return
 	var told: Dictionary = _culture_marks()["news"]
 	if int(told.get(code, 0)) == season_year:
