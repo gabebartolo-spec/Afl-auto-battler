@@ -48,7 +48,8 @@ func _run() -> void:
 		await _minder_cards(sz)
 		await _loose_interceptor(sz)
 		await _main_ruck_picker(sz)
-	await _pc_break_worst_case()
+	for club in ["COL", "GWS", "STK"]:
+		await _pc_break_worst_case(club)
 	await _tag_not_saved()
 	await _bounce_close_up()
 	await _playtest_bounce_scene()
@@ -748,23 +749,36 @@ func _tag_targets(sz: Vector2i) -> void:
 ## The fullest PC break we know (director, 2026-10-11): quarter time, their
 ## loose defender to answer, at 1280x720 - every call in view, nothing
 ## scrolls, and Match stats sits with the actions.
-func _pc_break_worst_case() -> void:
+func _pc_break_worst_case(club := "COL") -> void:
 	var db = root.get_node("GameDB")
 	var Mu = load("res://scripts/sim/Matchups.gd")
 	_state.reset()
-	_state.start_season("COL", db.club_list("COL"))
+	_state.start_season(club, db.club_list(club))
 	root.size = Vector2i(1280, 720)
-	_check(_state.prepare_interactive_match(), "A live match is prepared for the fullest PC break")
+	_check(_state.prepare_interactive_match(), "A live match is prepared for the fullest PC break (%s)" % club)
 	var sim = _state.pending_sim
 	var me := int(sim.moment_side)
 	var spare: Dictionary = Mu.best_interceptor((sim.squads[1 - me] as Object).ground, 0.0)
 	sim.set_interceptor(1 - me, str(spare.get("id", "")), false)
+	# Your own loose man too: from quarter time the break carries his tally
+	# ("N intercepts so far"), the fullest the third column gets.
+	# The defender with the longest name, and a double-figure tally: the line
+	# that wraps in a narrow column.
+	var mine: Dictionary = {}
+	for q in (sim.squads[me] as Object).ground:
+		if str(q["role"]) == "DEF" and (mine.is_empty() or db.player_display_name(q).length() > db.player_display_name(mine).length()):
+			mine = q
+	sim.set_interceptor(me, str(mine.get("id", "")), false)
 	sim.run_quarter()
+	(sim.player_stats.get(str(mine["id"]), {}) as Dictionary)["intercepts"] = 12.0
+	if not sim.player_stats.has(str(mine["id"])):
+		sim.player_stats[str(mine["id"])] = {"intercepts": 12.0}
 	sim.set_interceptor(1 - me, str(spare.get("id", "")), true)
 	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
 	root.add_child(m)
 	await _settle()
 	var box: Node = m.find_child("CoachBox", true, false)
+	_check(box != null and box.find_child("LooseTally", true, false) != null, "(setup) your loose man's tally is on the break")
 	var bc: Control = box.find_child("BreakColumns", true, false) if box != null else null
 	var bsc: ScrollContainer = null
 	var up: Node = bc
@@ -774,7 +788,23 @@ func _pc_break_worst_case() -> void:
 	var room := bsc.size.y if bsc != null else 0.0
 	var need := (bsc.get_child(0) as Control).get_combined_minimum_size().y if bsc != null else INF
 	_check(box != null and box.find_child("SpareMinderPicker", true, false) != null and need <= room + 1.0,
-			"Quarter time with their loose defender fits 1280x720 without scrolling (%.0f of %.0f)" % [need, room])
+			"Quarter time with both loose men and your tally fits 1280x720 without scrolling (%s: %.0f of %.0f)" % [club, need, room])
+	# Packing moves whole calls: no column opens on a bare line without its
+	# heading (a sentence, a note such as the synergies line, cut loose from its block),
+	# and the synergies line sits with the legs line it is about.
+	var bare := []
+	if bc != null:
+		for col in bc.get_children():
+			if col.get_child_count() > 0 and col.get_child(0) is Label and (col.get_child(0) as Label).text.ends_with("."):
+				bare.append("%s: %s" % [col.name, (col.get_child(0) as Label).text.left(30)])
+	_check(bare.is_empty(), "No break column opens on a line cut loose from its call (%s: %s)" % [club, str(bare)])
+	var syn: Node = null
+	for l in box.find_children("*", "Label", true, false) if box != null else []:
+		if (l as Label).text.begins_with("Your synergies"):
+			syn = l
+	var legs: Node = box.find_child("LegsView", true, false) if box != null else null
+	_check(syn == null or (legs != null and syn.get_parent() == legs.get_parent()),
+			"The synergies line sits beside the legs line, not alone in a call column (%s)" % club)
 	var stats: Button = box.find_child("BreakStats", true, false) if box != null else null
 	var w: String = await Tap.tap(stats)
 	_check(w == "" and m.find_child("BreakStatsSheet", true, false) != null, "Match stats opens from the actions row with a real tap (%s)" % w)
