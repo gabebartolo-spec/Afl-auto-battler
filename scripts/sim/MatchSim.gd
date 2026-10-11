@@ -4804,21 +4804,25 @@ func _score_run(side: int) -> void:
 ## it takes, _tag_drag).
 ## A sharper tactical group (Squad.tactics_read) reacts to a smaller margin
 ## and tags from half time rather than the last quarter.
+## His senior coach's tendency (Squad.coach_style, COACH_STYLES) moves when
+## he reacts, never what his players can do.
 func ai_tactics(side: int) -> Dictionary:
 	var opp := 1 - side
 	var read := float((squads[side] as Squad).tactics_read)
 	var margin := score(side) - score(opp)
 	var react := 18.0 - 8.0 * read
+	var st := _style(side)
 	var plan := str(standing[side])
-	if margin >= react:
+	if margin >= react * float(st["protect"]) + float(st["add"]):
 		plan = "controlled"
-	elif margin <= -react:
+	elif margin <= -(react * float(st["chase"]) + float(st["add"])):
 		plan = "attacking"
-	elif margin < 0 and current_quarter >= 3 and _lost_quarter(side, current_quarter - 1):
+	elif margin < 0 and current_quarter >= int(st["lost_q"]) and _lost_quarter(side, current_quarter - 1):
 		# Behind after half time and still losing ground: the usual game is
 		# not working, so it chases. Only what a coach sees - the scoreboard.
 		plan = "attacking"
-	var t := {"gameplan": plan, "pep": "fire_up" if margin <= -12 and current_quarter >= 3 else "steady"}
+	var fire := margin <= float(st["fire_at"]) and current_quarter >= int(st["fire_q"])
+	var t := {"gameplan": plan, "pep": "fire_up" if fire else "steady"}
 	t["interceptor_id"] = _ai_interceptor(side, (squads[side] as Squad).ground)
 
 	# The AI never reads the opponent's hidden structural call. It only makes
@@ -4856,10 +4860,40 @@ func ai_tactics(side: int) -> Dictionary:
 func _ai_interceptor(side: int, ground: Array) -> String:
 	var react := 18.0 - 8.0 * float((squads[side] as Squad).tactics_read)
 	var margin := score(side) - score(1 - side)
+	var st := _style(side)
 	var spare := Matchups.best_interceptor(ground)
-	if spare.is_empty() or (margin <= -react and current_quarter >= 3):
+	if spare.is_empty() or (margin <= -react * float(st["loose"]) and current_quarter >= int(st["loose_q"])):
 		return ""
 	return str(spare["id"])
+
+
+## A rival senior coach's match-day tendency (director, 2026-10-11): the
+## same rule as everyone's, with its margins moved, never dice. protect / chase:
+## the share of his react margin at which he shuts up shop / chases; add: points
+## on both; lost_q: the quarter from which a lost quarter makes him chase; loose
+## / loose_q: the share of react behind, and the quarter, at which he pulls his
+## loose man to chase; fire_at / fire_q: when he fires them up.
+##   balanced  today's rule.
+##   stubborn  backs his structure: waits 8 points longer either way, never
+##             chases a lost quarter, keeps his loose man.
+##   reactive  throws the magnets around: reacts at 60% of the margin.
+##   gambler   goes for broke: chases from half the margin and from Q2,
+##             pulls his loose man early, fires them up at 6 down.
+##   cautious  sits on a lead: shuts up shop at half the margin.
+const COACH_STYLES := {
+	"balanced": {"protect": 1.0, "chase": 1.0, "add": 0.0, "lost_q": 3, "loose": 1.0, "loose_q": 3, "fire_at": -12.0, "fire_q": 3},
+	"stubborn": {"protect": 1.0, "chase": 1.0, "add": 8.0, "lost_q": 9, "loose": 99.0, "loose_q": 9, "fire_at": -12.0, "fire_q": 3},
+	"reactive": {"protect": 0.6, "chase": 0.6, "add": 0.0, "lost_q": 2, "loose": 0.6, "loose_q": 3, "fire_at": -12.0, "fire_q": 3},
+	"gambler": {"protect": 1.0, "chase": 0.5, "add": 0.0, "lost_q": 2, "loose": 0.5, "loose_q": 2, "fire_at": -6.0, "fire_q": 2},
+	"cautious": {"protect": 0.5, "chase": 1.0, "add": 0.0, "lost_q": 3, "loose": 1.0, "loose_q": 3, "fire_at": -12.0, "fire_q": 3},
+}
+
+
+## `side`'s coach's tendency: his style only for an AI club; your club is you.
+func _style(side: int) -> Dictionary:
+	var sq: Squad = squads[side]
+	var key := sq.coach_style if sq.ai_plans else "balanced"
+	return COACH_STYLES.get(key, COACH_STYLES["balanced"])
 
 
 ## Whether `side` was outscored in quarter `q` (1-4).

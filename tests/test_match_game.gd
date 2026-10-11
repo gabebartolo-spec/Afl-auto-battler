@@ -68,6 +68,7 @@ func run() -> void:
 	_test_momentum()
 	_test_moment_calls_matter()
 	_test_ai_chases_and_controlled_needs_ball_users()
+	_test_coach_styles()
 	_test_tag_tradeoff()
 	_test_through_stars()
 	_test_set_shot_bands()
@@ -2739,6 +2740,60 @@ func _test_moment_calls_matter() -> void:
 				s3.resolve_moment(int(m.get("default", 0)))
 			s3.end_quarter()
 	_check(best.size() >= 2, "No set-shot call is always right: the best one changes with the shot (%s)" % str(best))
+
+
+## Rival coaches' tendencies (director, 2026-10-11): readable, characteristic
+## calls on the same rule, never dice. Each style's call shows under its own
+## condition where a balanced coach would hold; your own club is never
+## given one; a coach keeps his style on his record across a save.
+func _test_coach_styles() -> void:
+	var call := func(style: String, margin: int, q: int, ai := true) -> Dictionary:
+		var m := _sim(8440, "GEE", "COL")
+		var sq: Squad = m.squads[1]
+		sq.ai_plans = ai
+		sq.coach_style = style
+		sq.tactics_read = 0.0
+		m.standing[1] = "balanced"
+		m.current_quarter = q
+		# The scoreboard: side 1 is `margin` points up (in behinds).
+		m.team_stats[0] = {"goals": 0.0, "behinds": 40.0}
+		m.team_stats[1] = {"goals": 0.0, "behinds": 40.0 + float(margin)}
+		var t := m.ai_tactics(1)
+		t["loose"] = m._ai_interceptor(1, sq.ground)
+		return t
+	# react is 18 points for this coach (read 0).
+	var plan := func(style: String, margin: int, q: int) -> String:
+		return str(call.call(style, margin, q)["gameplan"])
+	_check(plan.call("cautious", 10, 2) == "controlled" and plan.call("balanced", 10, 2) == "balanced",
+			"A coach who sits on a lead shuts up shop 10 points up; a balanced one does not")
+	_check(plan.call("gambler", -10, 2) == "attacking" and plan.call("balanced", -10, 2) == "balanced",
+			"A coach who goes for broke chases 10 down in the second quarter; a balanced one does not")
+	_check(plan.call("reactive", 12, 2) == "controlled" and plan.call("reactive", -12, 2) == "attacking"
+			and plan.call("balanced", 12, 2) == "balanced",
+			"A coach who throws the magnets around moves at 12 points either way")
+	_check(plan.call("stubborn", -20, 3) == "balanced" and plan.call("balanced", -20, 3) == "attacking",
+			"A coach who backs his structure keeps his plan 20 down; a balanced one chases")
+	var keeps := str(call.call("stubborn", -30, 4)["loose"]) != ""
+	var pulls := str(call.call("balanced", -30, 4)["loose"]) == ""
+	var had := str(call.call("balanced", 0, 1)["loose"]) != ""
+	_check(not had or (keeps and pulls),
+			"Backing his structure keeps the loose man 30 down late; a balanced coach pulls him")
+	# Your club: whatever is on the squad, you are the coach.
+	_check(str(call.call("gambler", -10, 2, false)["gameplan"]) == "balanced",
+			"Your own club never plays to a style")
+	# His style is his: kept on his record, the same after a save.
+	var c := {"cid": "C_test_coach", "skills": {"tactics": 60, "manage": 60, "teach": 60}}
+	var s1 := Coaches.style(c)
+	var back: Dictionary = JSON.parse_string(JSON.stringify(c))
+	_check(Coaches.STYLES.has(s1) and str(back.get("style", "")) == s1 and Coaches.style(back) == s1,
+			"A coach's style is kept on his record and survives a save (%s)" % s1)
+	var sharp := {"cid": "C_test_coach", "skills": {"tactics": 85, "manage": 60, "teach": 60}}
+	_check(Coaches.style(sharp) == "balanced", "A sharp tactician reads the game as it is")
+	var seen := {}
+	var world := Coaches.seed("GEE")
+	for cid in world:
+		seen[Coaches.style(world[cid])] = true
+	_check(seen.size() >= 4, "The league's coaches have a spread of tendencies (%s)" % str(seen.keys()))
 
 
 ## Playtest: a defensive AI sat in its press all game while losing, and
