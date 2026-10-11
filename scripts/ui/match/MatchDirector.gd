@@ -1730,7 +1730,7 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 		var o := int(t["match"])
 		if _is_loose(t, ball_p):
 			# The spare defender sits in the hole between the ball and goal.
-			world = ball_p.lerp(own_goal, 0.5)
+			world = ball_p.lerp(own_goal, 0.25 if press_up else 0.5)   # a press keeps even him inside the band
 			world.y *= 0.6
 		elif flooding and (role == "MID" or role == "RUCK") and not bool(t.get("tagging", false)):
 			# Flood behind the ball (the match's call, from the timeline): the
@@ -1745,7 +1745,7 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 				var mark := og + (own_goal - og).normalized() * 2.5
 				var w := 0.65 if role == "DEF" else (0.45 if role == "MID" else 0.3)
 				if press_up:
-					w *= 0.3   # the press holds its band; it does not follow men back
+					w *= 0.1   # the press holds its band; it does not follow men back
 				if bool(t.get("tagging", false)):
 					w = 0.85   # a tagger plays the man
 				world = world.lerp(mark, w)
@@ -1763,7 +1763,7 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 ## or the middle, and only for a side whose recorded plan is the press.
 const PRESS_LAST_LINE := 46.0     # the opponents' last line, from the centre
 const PRESS_DEEP_EXTRA := 12.0    # the full-forward line stands this much deeper
-const PRESS_SPAN := 68.0          # front to back, at most
+const PRESS_SPAN := 52.0          # front to back, at most
 const PRESS_BACK_BEHIND := 20.0   # metres behind it
 const PRESS_MID_BAND := 24.0      # midfield stays within this of the ball
 const PRESS_NARROW := 0.62
