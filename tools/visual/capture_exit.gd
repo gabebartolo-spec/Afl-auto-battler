@@ -40,6 +40,9 @@ func _run() -> void:
 	state.reset()
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))
+	if a.has("--mobile"):
+		load("res://scripts/core/ScreenLayout.gd").force_phone = true   # the mobile path: is_desktop() false
+		print("EXIT mobile path: is_desktop() = ", root.get_node("ScreenLayout").is_desktop())
 	root.get_node("Router").to_main_menu(false)
 	await _shot(out + "_fresh.png")
 	var btn: Control = current_scene.find_child("ExitGame", true, false)

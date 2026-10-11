@@ -89,8 +89,14 @@ static func desktop_density(pixels: Vector2, os_scale: float, dpi: int) -> float
 	return maxf(1.0, maxf(os_density, fit))
 
 
+## A test or capture stands in for a phone: the platform answers "not desktop".
+static var force_phone := false
+
+
 ## Desktop only: a phone's density already comes from its screen.
 static func is_desktop() -> bool:
+	if force_phone:
+		return false
 	return not (OS.has_feature("android") or OS.has_feature("ios") or OS.has_feature("web"))
 
 

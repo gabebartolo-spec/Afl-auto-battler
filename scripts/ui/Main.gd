@@ -193,19 +193,14 @@ func _show_home() -> void:
 	quiet.alignment = BoxContainer.ALIGNMENT_CENTER
 	quiet.add_child(_quiet_btn("How to play", "MenuHelp", _show_help))
 	quiet.add_child(_quiet_btn("Settings", "MenuSettings", _show_settings))
-	_content.add_child(quiet)
-	# Desktop only (director, 2026-10-12): Android's Back already leaves the app
-	# from this menu (Router.handle_back), iOS and the web have no quit of their own.
+	# Last in the row, desktop only (director, 2026-10-12): Android Back already leaves
+	# the app from this menu, iOS and the web have no quit of their own. The gate is the
+	# platform (ScreenLayout.is_desktop), never the window width.
 	if ScreenLayout.is_desktop():
-		_content.add_child(UiKit.spacer(10))
-		var exit := UiKit.btn("Exit game", UiKit.NAME)
-		exit.name = "ExitGame"
-		exit.custom_minimum_size = Vector2(220, 48)
-		exit.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		for st in ["normal", "hover", "pressed", "hover_pressed"]:
-			exit.add_theme_stylebox_override(st, UiKit.style(Color.TRANSPARENT, 8, UiKit.RADIUS, UiKit.MUTED))
-		exit.pressed.connect(func(): Router.quit_game())
-		_content.add_child(exit)
+		var exit := _quiet_btn("Exit game", "ExitGame", func(): Router.quit_game())
+		exit.custom_minimum_size = Vector2(120, 48)
+		quiet.add_child(exit)
+	_content.add_child(quiet)
 
 
 ## A secondary action that reads as text: no box, muted until pressed.

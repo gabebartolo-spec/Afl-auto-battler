@@ -247,6 +247,26 @@ func _run() -> void:
 	_router.handle_back(false)
 	_check(quits[0] == 1, "Escape on the menu still does not quit")
 	_router.quit_hook = Callable()
+	_check(exit_btn != null and exit_btn.custom_minimum_size.y >= 48.0
+			and exit_btn.get_parent().get_child(exit_btn.get_parent().get_child_count() - 1) == exit_btn,
+			"Exit game is last in the How to play / Settings row, at least 48 px tall")
+	# The gate is the platform, not the window width: a phone has no Exit game,
+	# a narrow desktop window still has it.
+	var sl = load("res://scripts/core/ScreenLayout.gd")
+	var wide := root.size
+	root.size = Vector2i(390, 844)
+	_router.to_main_menu(false)
+	await _settle()
+	var narrow_has: bool = current_scene.find_child("ExitGame", true, false) != null
+	sl.force_phone = true
+	_router.to_main_menu(false)
+	await _settle()
+	var phone_has: bool = current_scene.find_child("ExitGame", true, false) != null
+	sl.force_phone = false
+	root.size = wide
+	_router.to_main_menu(false)
+	await _settle()
+	_check(narrow_has and not phone_has, "Exit game: shown in a narrow desktop window, hidden on a phone (is_desktop false)")
 	# Fit to the screen (director, 2026-10-12): a desktop opens fullscreen unless
 	# the player chose Window, in which case the window opens maximised.
 	var screen_layout = load("res://scripts/core/ScreenLayout.gd")
