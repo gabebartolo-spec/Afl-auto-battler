@@ -398,6 +398,7 @@ func set_matchups(def_side: int, m: Dictionary) -> void:
 	for fid in m:
 		((_own[def_side] as Dictionary)["duels"] as Dictionary)[str(fid)] = true
 		_note_duel_was(def_side, str(fid))
+		_note_swapped(def_side, str(m[fid]))
 		set_matchup(def_side, str(fid), str(m[fid]), false)
 	if not m.is_empty() and _assisted(def_side) and not bool((_own[def_side] as Dictionary)["interceptor"]):
 		set_interceptor(def_side, _assistant_interceptor(def_side), false)
@@ -419,7 +420,17 @@ func coach_matchup(def_side: int, fwd_id: String, def_id: String) -> bool:
 		return false
 	((_own[def_side] as Dictionary)["duels"] as Dictionary)[fwd_id] = true
 	_note_duel_was(def_side, fwd_id)
+	_note_swapped(def_side, def_id)
 	return set_matchup(def_side, fwd_id, def_id)
+
+
+## The forward `def_id` leaves when the coach moves him: his match-up changes
+## too (the swap), so it is the coach's change as well.
+func _note_swapped(def_side: int, def_id: String) -> void:
+	var d: Dictionary = duels[def_side]
+	for f in d:
+		if str(d[f]) == def_id:
+			_note_duel_was(def_side, str(f))
 
 
 ## Who was on `fwd_id` before the coach's first change of that match-up.
