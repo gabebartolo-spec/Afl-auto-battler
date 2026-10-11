@@ -2,6 +2,9 @@ extends Control
 ## Season hub: your next match, the ladder snapshot, and the round controls.
 
 var _settled := false   # the hub has shown once this visit; no more entrances
+## Where your club sat the last time the hub showed it (this run of the game
+## only; presentation, never saved): {"key": season instance, "pos": n}.
+static var _ladder_seen := {}
 var _finals_overlay: Control = null
 var _settings: Control
 var _root: VBoxContainer
@@ -31,11 +34,18 @@ func _ready() -> void:
 		Router.replace("main")
 		return
 
-	add_child(ClubBackdrop.new().setup(GameState.my_club))
+	add_child(ClubBackdrop.new().setup(GameState.my_club).live())
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	UiKit.apply_insets(margin, 12)
 	add_child(margin)
+	# The club's stripes sweep in first (ClubBackdrop.live, 0.6 s); the screen's
+	# own content fades up 0.2 s later, so the slide is what you see.
+	if UiKit.motion_on():
+		margin.modulate.a = 0.0
+		var fade := create_tween()
+		fade.tween_interval(0.2)
+		fade.tween_property(margin, "modulate:a", 1.0, 0.3)
 
 	_root = UiKit.vbox(10)
 	margin.add_child(_root)
@@ -288,9 +298,17 @@ func _standing_card() -> Control:
 	var pos := UiKit.figure(GameState.ordinal(GameState.my_position()), UiKit.HERO, UiKit.club_vivid(GameState.my_club))
 	pos.name = "LadderPosition"
 	if not _settled:
-		# Arriving at the hub, your spot climbs (or slides) into place.
-		UiKit.count_up(pos, GameState.my_position(), func(n): return GameState.ordinal(n), 0.8,
-				GameState.season.ladder.size())
+		# Arriving at the hub, your spot climbs (or slides) into place from
+		# where you were last time you looked (the first look of a season
+		# counts from the foot of the ladder). It lands with weight at full
+		# time, where the move is on screen (MatchScene), not here, below
+		# the fold on a phone.
+		var now := GameState.my_position()
+		var key := GameState.season.get_instance_id()
+		var was := int(_ladder_seen.get("pos", 0)) if int(_ladder_seen.get("key", 0)) == key else 0
+		_ladder_seen = {"key": key, "pos": now}
+		UiKit.count_up(pos, now, func(n): return GameState.ordinal(n), 0.8,
+				was if was > 0 else GameState.season.ladder.size())
 	pos_row.add_child(pos)
 	var title := UiKit.ellipsis("of %d  ·  %s  ·  %d pts" % [GameState.season.ladder.size(),
 			GameState.my_record(), int(lr.get("pts", 0))], UiKit.H2, UiKit.TEXT, true)
@@ -570,7 +588,12 @@ func _week_section(season: Season) -> Control:
 	if not season.is_season_over():
 		for i in range(GameState.week_events.size()):
 			nv.add_child(UiKit.spacer(4))
-			nv.add_child(_event_card(i))
+			var ev := _event_card(i)
+			nv.add_child(ev)
+			# A question still waiting on the coach: it brightens twice, once.
+			if not bool((GameState.week_events[i] as Dictionary).get("resolved", false)) and not _settled:
+				UiKit.attention(ev)
+
 	nv.add_child(UiKit.spacer(4))
 	nv.add_child(_week_actions(season))
 	return nv

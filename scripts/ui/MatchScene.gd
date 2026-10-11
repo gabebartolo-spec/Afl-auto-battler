@@ -568,6 +568,7 @@ func _show_coach_box() -> void:
 	var bv: BoxContainer = UiKit.hbox(16) if wide else UiKit.vbox(2)
 	var band := ClubDuel.band(str(_res["home"]), str(_res["away"]), bv, 14)
 	band.name = "BreakBand"
+	(band.get_child(0) as ClubDuel).live()   # match day's atmosphere settles in (Feel)
 	v.add_child(band)
 	# Wide (PC, director 2026-10-11: no column scrolls at 1280x720): the
 	# quarter just played and the key match-ups, then the calls in three
@@ -958,6 +959,11 @@ func _show_coach_box() -> void:
 	else:
 		box["footer"].add_child(start)
 		box["footer"].add_child(skip)
+	# A call the quarter broke brightens twice (Feel; never a nag).
+	for picker in MatchNotes.broken_calls(_res, sim.injuries, _my_side, q, _last_tactics):
+		var found := overlay.find_child(str(picker) + "*", true, false)
+		if found != null:
+			UiKit.attention(found.get_parent() as CanvasItem)
 
 
 ## A PC break's calls read in one order down and across the call columns;
@@ -2179,8 +2185,11 @@ func _show_fulltime() -> void:
 	leave.name = "FullTimeContinue"
 	leave.custom_minimum_size = Vector2(0, 48)
 	leave.pressed.connect(func(): Router.back())
+	UiKit.feel(leave, "end")     # the end of the match: the siren
 	box["footer"].add_child(leave)
 	_render_ft()
+	UiKit.land(overlay.find_child("Verdict", true, false) as Control, 0.3)   # the result lands (Feel)
+	UiKit.land(overlay.find_child("LadderMove", true, false) as Control, 1.0, false)   # then the ladder move
 
 
 func _ft_tab_list() -> Array:

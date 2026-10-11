@@ -57,6 +57,9 @@ func _run() -> void:
 	await _first_goal_line()
 	await _momentum_meter()
 	await _vignettes_setting()
+	await _game_feel_settings()
+	await _game_feel_effects()
+	_broken_calls()
 	await _vignettes_off_match()
 	_appearance()
 	# Battery: nothing is redrawn unless it changes, and never above 60 fps.
@@ -1792,6 +1795,184 @@ func _vignettes_setting() -> void:
 			await _settle()
 		host.queue_free()
 		await _settle()
+
+
+# ---------------------------------------------------------------------------
+# Game feel (director, 2026-10-11): button sounds, vibration, reduced motion
+# ---------------------------------------------------------------------------
+func _sheet_at(options, sz: Vector2i) -> Array:
+	root.size = sz
+	var host := Control.new()
+	host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_child(host)
+	host.size = Vector2(sz)
+	var sheet: Control = options.open(host, true)
+	await _settle()
+	return [host, sheet]
+
+
+## Three rows in Settings, each its own Off, real taps at a phone's size and a
+## PC's, saved with the settings. Vibration shows only on a phone.
+func _game_feel_settings() -> void:
+	var options = load("res://scripts/ui/OptionsSheet.gd")
+	var feel = load("res://scripts/ui/Feel.gd")
+	var uk = load("res://scripts/ui/UiKit.gd")
+	_check(_state.button_sounds() == "normal" and _state.haptics_on() and not _state.reduced_motion(),
+			"Button sounds and Vibration start on, Reduced motion off")
+	feel.force_phone = false
+	var pc: Array = await _sheet_at(options, Vector2i(1280, 720))
+	_check(pc[1].find_child("SettingsButtonSounds_off", true, false) != null
+			and pc[1].find_child("SettingsReducedMotion_on", true, false) != null,
+			"Settings has Button sounds and Reduced motion on a PC")
+	_check(pc[1].find_child("SettingsVibration_off", true, false) == null,
+			"No Vibration row on a PC, which has nothing to buzz")
+	pc[0].queue_free()
+	await _settle()
+	feel.force_phone = true
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		var tag := "%dx%d" % [sz.x, sz.y]
+		var hs: Array = await _sheet_at(options, sz)
+		var sheet: Control = hs[1]
+		for pair in [["SettingsButtonSounds_off", "Button sounds Off"], ["SettingsVibration_off", "Vibration Off"],
+				["SettingsReducedMotion_on", "Reduced motion On"]]:
+			var b: Button = sheet.find_child(str(pair[0]), true, false)
+			var why: String = await Tap.tap(b) if b != null else "missing"
+			_check(why == "", "%s takes a real tap (%s: %s)" % [pair[1], tag, why])
+			await _settle()
+		_check(_state.button_sounds() == "off" and not _state.haptics_on() and _state.reduced_motion()
+				and not feel.haptics and feel.reduced and not uk.motion_on(),
+				"The three taps turn sounds and vibration off and motion down (%s)" % tag)
+		var bus := AudioServer.get_bus_index("Interface")
+		_check(bus >= 0 and AudioServer.is_bus_mute(bus), "Button sounds Off mutes its own bus (%s)" % tag)
+		var cfg := ConfigFile.new()
+		_check(cfg.load(_state.settings_path) == OK and str(cfg.get_value("ui", "button_sounds", "")) == "off"
+				and cfg.get_value("ui", "haptics", true) == false and cfg.get_value("ui", "reduced_motion", false) == true,
+				"All three are saved with the settings (%s)" % tag)
+		for pair in [["SettingsButtonSounds_normal", "Button sounds Normal"], ["SettingsVibration_on", "Vibration On"],
+				["SettingsReducedMotion_off", "Reduced motion Off"]]:
+			var b: Button = sheet.find_child(str(pair[0]), true, false)
+			var why: String = await Tap.tap(b) if b != null else "missing"
+			_check(why == "", "%s takes a real tap (%s: %s)" % [pair[1], tag, why])
+			await _settle()
+		_check(_state.button_sounds() == "normal" and _state.haptics_on() and not _state.reduced_motion()
+				and not AudioServer.is_bus_mute(bus), "And back on (%s)" % tag)
+		hs[0].queue_free()
+		await _settle()
+	feel.force_phone = false
+
+
+## Every effect runs with its setting on and is skipped with it off: the
+## sound, the buzz and the motion of a press, a choice, a big moment, an
+## attention pulse and a living background. Read from Feel's own record of
+## what it started (Feel.heard / felt / moved), and from the nodes.
+func _game_feel_effects() -> void:
+	var feel = load("res://scripts/ui/Feel.gd")
+	var uk = load("res://scripts/ui/UiKit.gd")
+	feel.force_phone = true
+	feel.test_motion = true
+	root.size = Vector2i(390, 844)
+	var host := Control.new()
+	host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_child(host)
+	host.size = Vector2(390, 844)
+	var bd = load("res://scripts/ui/ClubBackdrop.gd").new().setup("COL")
+	host.add_child(bd)
+	var v: VBoxContainer = uk.vbox(8)
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	host.add_child(v)
+	var main: Button = uk.btn("Play match", uk.HEADING, true)
+	main.name = "FeelMain"
+	v.add_child(main)
+	var soft: Button = uk.btn("Training", uk.BODY)
+	v.add_child(soft)
+	var grid: GridContainer = uk.choice_grid("FeelChoice", [["a", "Attack"], ["b", "Defend"]], "a", 2)
+	v.add_child(grid)
+	var big: Label = uk.lbl("Won by 23", 30, uk.TEXT, true)
+	v.add_child(big)
+	await _settle()
+	var run := func() -> Dictionary:
+		feel.clear()
+		var r := {}
+		r["main"] = await Tap.tap(main)
+		r["tick"] = await Tap.tap(grid.find_child("FeelChoice_b", true, false))
+		uk.land(big)
+		uk.attention(soft, 0.0)
+		uk.drift(bd, func(_t: float) -> void: bd.queue_redraw(), 0.3, 6.0)
+		for i in range(4):
+			await process_frame
+		r["heard"] = feel.heard.duplicate()
+		r["felt"] = feel.felt.duplicate()
+		r["moved"] = feel.moved.duplicate()
+		return r
+	var on: Dictionary = await run.call()
+	_check(on["main"] == "" and on["tick"] == "", "The feel buttons take real taps (%s, %s)" % [on["main"], on["tick"]])
+	_check(on["heard"] == ["main", "tick", "land"],
+			"On: a boot for the main action, a stud tick for a choice, the sting for a big moment (%s)" % str(on["heard"]))
+	_check(on["felt"] == [22, 10, 40], "On: a phone buzzes for each, firmest for the big moment (%s)" % str(on["felt"]))
+	_check(on["moved"].has("press") and on["moved"].has("land") and on["moved"].has("attention") and on["moved"].has("drift"),
+			"On: the press-in, the landing, the pulse and the living background all move (%s)" % str(on["moved"]))
+	# The pulse and the background stop: nothing left drawing once they're done.
+	await create_timer(2.2).timeout
+	var draws := [0]
+	var count := func() -> void: draws[0] += 1
+	bd.draw.connect(count)
+	await create_timer(0.6).timeout
+	bd.draw.disconnect(count)
+	_check(draws[0] == 0 and bd.find_child("Drift", true, false) == null and soft.modulate == Color.WHITE
+			and is_equal_approx(big.scale.x, 1.0),
+			"Then everything holds still: no redraws, no timer, colour and size back to rest (%d)" % draws[0])
+	_state.set_button_sounds("off")
+	var quiet: Dictionary = await run.call()
+	_check(quiet["heard"].is_empty() and quiet["felt"] == [22, 10, 40],
+			"Button sounds Off: no sound starts; the buzz still comes (%s)" % str(quiet["heard"]))
+	_state.set_button_sounds("normal")
+	_state.set_haptics_on(false)
+	var still: Dictionary = await run.call()
+	_check(still["felt"].is_empty() and still["heard"] == ["main", "tick", "land"],
+			"Vibration Off: no buzz; the sounds still play (%s)" % str(still["felt"]))
+	_state.set_haptics_on(true)
+	await create_timer(2.2).timeout
+	_state.set_reduced_motion(true)
+	var calm: Dictionary = await run.call()
+	_check(calm["moved"].is_empty() and is_equal_approx(main.scale.x, 1.0) and is_equal_approx(big.scale.x, 1.0)
+			and soft.modulate == Color.WHITE,
+			"Reduced motion: nothing presses in, lands, pulses or drifts (%s)" % str(calm["moved"]))
+	_check(calm["heard"] == ["main", "tick", "land"] and calm["felt"] == [22, 10, 40],
+			"Reduced motion keeps the sound and the buzz (their own settings)")
+	_check(_state.screen_shake_on() and not uk.motion_on(),
+			"Reduced motion stills the screen even with Screen shake on")
+	_state.set_reduced_motion(false)
+	feel.force_phone = false
+	var pc: Dictionary = await run.call()
+	_check(pc["felt"].is_empty(), "On a PC nothing buzzes")
+	feel.test_motion = false
+	feel.clear()
+	host.queue_free()
+	await _settle()
+	# The sounds: made in-repo (tools/audio/build_feel.py), each one short and small.
+	var bad := []
+	for kind in feel.SOUNDS:
+		var path := "res://assets/audio/feel/" + str(feel.SOUNDS[kind][0])
+		var s := load(path) as AudioStream
+		var f := FileAccess.open(path, FileAccess.READ)
+		var bytes := f.get_length() if f != null else 0
+		if not (s != null and s.get_length() > 0.02 and s.get_length() < 1.5 and bytes > 0 and bytes < 60000):
+			bad.append("%s (%.2f s, %d bytes)" % [path.get_file(), s.get_length() if s != null else 0.0, bytes])
+	_check(bad.is_empty() and feel.SOUNDS.size() == 5,
+			"Every feel sound loads, is short and under 60 KB (%s)" % ", ".join(bad))
+
+
+## The break's pulse is only for a call the quarter broke.
+func _broken_calls() -> void:
+	var notes = load("res://scripts/ui/match/MatchNotes.gd")
+	var last := {"focus_id": "p1", "interceptor_id": "p2", "spare_minder_id": "", "tag_id": "o9"}
+	var res := {"tag_drops": [{"side": 0, "q": 2, "id": "o9"}]}
+	var hurt := [{"side": 0, "q": 2, "id": "p1"}, {"side": 1, "q": 2, "id": "p2"}, {"side": 0, "q": 1, "id": "p2"}]
+	_check(notes.broken_calls(res, hurt, 0, 3, last) == ["TagPicker", "FocusPicker"],
+			"Half time: the tag the match ended and the play-through man gone off hurt need the coach")
+	_check(notes.broken_calls({}, [], 0, 3, last).is_empty(),
+			"Nothing broken, nothing pulses: an untouched call never nags")
+	_check(notes.broken_calls(res, hurt, 0, 1, {}).is_empty(), "Before the first bounce nothing pulses")
 
 
 ## The same seeded match, the same calls, with vignettes on and off: every
