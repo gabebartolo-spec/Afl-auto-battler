@@ -92,7 +92,8 @@ use it; testers get the new build on their next load. Saves from the older build
 ## Known issues
 
 - Once in testing, after resizing the window and reloading, the menu drew zoomed in. A reload fixed it
-  and it did not come back in repeated tries. If a tester sees the screen zoomed in, ask them to
+  and it did not come back in about 30 further tries (resize then reload, and rotating without a
+  reload, at pixel ratios 1 and 2). If a tester sees the screen zoomed in, ask them to
   reload the page, and tell you the build label and device.
 
 ## Notes
