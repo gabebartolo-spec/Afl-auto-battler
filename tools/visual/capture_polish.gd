@@ -132,4 +132,15 @@ func _run() -> void:
 		if t.begins_with("#") or l.name == "ProfileType":
 			print("POLISH label %s: [%s]" % [l.name, t])
 	await _shot(out + "_profile.png")
+	# The foot of the profile (the add-nickname button, clear of Close).
+	for sc in current_scene.find_children("*", "ScrollContainer", true, false):
+		(sc as ScrollContainer).scroll_vertical = 100000
+	await _shot(out + "_profile_foot.png")
+	var nb: Button = current_scene.find_child("NicknameEdit", true, false)
+	if nb != null:
+		var cl: Button = null
+		for b in current_scene.find_children("*", "Button", true, false):
+			if (b as Button).text == "Close":
+				cl = b
+		print("POLISH nickname button [%s] %s px high, rect %s; Close rect %s" % [nb.text, nb.size.y, str(nb.get_global_rect()), str(cl.get_global_rect()) if cl else "-"])
 	quit(0)
