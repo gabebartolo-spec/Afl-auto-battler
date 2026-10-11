@@ -35,7 +35,12 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 	var type_l := UiKit.lbl(Roles.label(p), UiKit.H2, UiKit.TEXT, true)
 	type_l.name = "ProfileType"
 	v.add_child(type_l)
-	var who := PackedStringArray(["#%d" % int(p["num"]), UiKit.ROLE_LABEL.get(str(p["role"]), str(p["role"]))])
+	# The line under the type names the line he plays in, unless the type
+	# above already says it ("Forward", "Key forward").
+	var who := PackedStringArray(["#%d" % int(p["num"])])
+	var line_name := str(UiKit.ROLE_LABEL.get(str(p["role"]), str(p["role"])))
+	if type_l.text == "" or not type_l.text.to_lower().contains(line_name.to_lower()):
+		who.append(line_name)
 	if float(p.get("age", 0.0)) > 0.0:
 		who.append("%d years old" % int(p["age"]))
 	if float(p.get("height_cm", 0.0)) > 0.0:

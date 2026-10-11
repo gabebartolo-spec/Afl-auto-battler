@@ -5175,7 +5175,7 @@ var _phase_cache := {}
 
 ## A club's list as the game sees it (TeamRating): its match-day side today on the
 ## OVR scale, the same list in three seasons, and its phase, with the line a
-## screen shows ("Contender · 78, 81 in three years").
+## screen shows ("Contender · rated 78, heading to 81").
 func team_outlook(club: String) -> Dictionary:
 	if season == null or not season.lists.has(club):
 		return {}

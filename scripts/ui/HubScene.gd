@@ -432,7 +432,7 @@ func _news_card() -> Control:
 	row.add_child(v)
 	v.add_child(UiKit.lbl("League news", UiKit.BODY, UiKit.TEXT, true))
 	for item in GameState.news.slice(0, 2):
-		v.add_child(UiKit.ellipsis(str(item["text"]), 12, UiKit.TEXT))
+		v.add_child(UiKit.ellipsis(str(item["text"]), UiKit.SECONDARY, UiKit.TEXT))
 	var more := UiKit.btn("More", 14)
 	more.name = "NewsMore"
 	more.custom_minimum_size = Vector2(72, 44)

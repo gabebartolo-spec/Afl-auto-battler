@@ -1192,7 +1192,7 @@ func _team_rating(sz: Vector2i) -> void:
 	await _settle()
 	var outlook: Label = s.find_child("TeamOutlook", true, false)
 	_check(outlook != null and outlook.text == str(_state.team_outlook(_state.my_club)["line"])
-			and outlook.text.contains("in three years"), "Its side says its list in full (%s: %s)" % [tag, outlook.text if outlook else "-"])
+			and (outlook.text.contains(", heading to ") or outlook.text.contains(", holding")), "Its side says its list in full (%s: %s)" % [tag, outlook.text if outlook else "-"])
 	s.queue_free()
 	await _settle()
 
