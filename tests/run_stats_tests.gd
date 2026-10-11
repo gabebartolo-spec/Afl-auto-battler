@@ -65,6 +65,8 @@ func _run() -> void:
 		await _fixture(sz)
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
 		await _ladder(sz)
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		await _team_rating(sz)
 	await _trophies_early()
 	await _fixture_finals()
 	await _trophies()
@@ -856,9 +858,9 @@ func _ladder(sz: Vector2i) -> void:
 	var heads := []
 	for b in s.find_child("LadderHeader", true, false).get_children():
 		heads.append(str(b.name))
-	var phone: Array = ["Sort_pos", "Sort_club", "Sort_p", "Sort_w", "Sort_l", "Sort_d", "Sort_pct", "Sort_pts"]
+	var phone: Array = ["Sort_pos", "Sort_club", "Sort_p", "Sort_w", "Sort_l", "Sort_d", "Sort_pct", "Sort_pts", "Sort_rating"]
 	if sz.x < 900:
-		_check(heads == phone, "Phone columns are # Club P W L D %% Pts (%s: %s)" % [tag, str(heads)])
+		_check(heads == phone, "Phone columns are # Club P W L D %% Pts Rating (%s: %s)" % [tag, str(heads)])
 	else:
 		_check(heads.slice(0, 8).size() == 8 and heads.has("Sort_pf") and heads.has("Sort_home") and heads.has("Sort_away"),
 				"A wide screen adds points for and against, home and away (%s: %s)" % [tag, str(heads)])
@@ -1090,6 +1092,109 @@ func _table_recipe(s: Node, tag: String, with_pos: bool) -> void:
 				break
 		_check(pos != null and pos.get_theme_color("font_color") == muted and pos.horizontal_alignment == HORIZONTAL_ALIGNMENT_RIGHT,
 				"The position is its own muted, right-aligned column (%s)" % tag)
+
+
+## Team rating and category (director, 2026-10-11): a club's best 22 today on
+## the OVR scale, the same list in three seasons, and the phase the AI trades
+## on in football words. On the ladder (a List column; a tap on a club says it
+## in full), nothing cut off with the longest club names.
+func _team_rating(sz: Vector2i) -> void:
+	var tag := "%dx%d" % [sz.x, sz.y]
+	var TR = load("res://scripts/sim/TeamRating.gd")
+	var RT = load("res://scripts/sim/Ratings.gd")
+	var PT = load("res://scripts/sim/Potential.gd")
+	var TV = load("res://scripts/sim/TradeValue.gd")
+	if sz.x < 900:
+		# The numbers, once: every club against the selector and the AI's rule.
+		var rating_ok := true
+		var phase_ok := true
+		for code in _state.season.lists:
+			var list: Array = _state.season.lists[code]
+			var side: Dictionary = RT.select_side(list)
+			var picked: Array = (side["ground"] as Array) + (side["bench"] as Array)
+			var sum := 0.0
+			for p in picked:
+				sum += float(p["overall"])
+			if int(TR.rating(list)) != int(round(sum / float(picked.size()))):
+				rating_ok = false
+			var standing: Array = _state._standing(code)
+			var ages := 0.0
+			var sel: Dictionary = RT.select_22(list)
+			var both: Array = (sel["ground"] as Array) + (sel["bench"] as Array)
+			for q in both:
+				ages += float(q.get("age", 25.0))
+			var want: String = TV.phase(float(standing[0]), float(standing[1]), ages / float(maxi(1, both.size())))
+			var o: Dictionary = _state.team_outlook(code)
+			var words := {"contending": "Contender", "building": "Wildcard", "rebuilding": "Rebuilding"}
+			if str(o.get("phase", "")) != want or str(o.get("category", "")) != str(words[want]) 					or not str(o.get("line", "")).begins_with(str(words[want]) + " · %d, " % int(o["rating"])):
+				phase_ok = false
+		_check(rating_ok, "A club's rating is the mean OVR of the 22 the selector picks")
+		_check(phase_ok, "Its category is the phase the AI trades on, in words, for every club")
+		# The forecast only ever uses players on the list.
+		var some: Array = (_state.season.lists[_state.my_club] as Array).slice(0, 10)
+		var vals := []
+		for p in some:
+			var at: Array = PT.outlook(p, 4)[3]
+			if float(at[1]) >= 0.5:
+				vals.append(float(at[0]))
+		var mean := 0.0
+		for x in vals:
+			mean += float(x)
+		mean = mean / float(maxi(1, vals.size()))
+		_check(not vals.is_empty() and int(TR.forecast(some)) == int(round(mean)) and int(TR.forecast([])) == 0,
+				"The forecast reads only the players on the list (10 of them: %d)" % int(TR.forecast(some)))
+	var Hub = load("res://scripts/ui/StatsHubScene.gd")
+	var ladder = load("res://scripts/ui/stats/StatsLadder.gd")
+	ladder.reset()
+	root.size = sz
+	Hub.current = "ladder"
+	var s: Control = load("res://scenes/StatsHubScene.tscn").instantiate()
+	root.add_child(s)
+	await _settle()
+	var head: Button = s.find_child("Sort_rating", true, false)
+	_check(head != null and head.text == "Rating", "The ladder has a Rating column (%s)" % tag)
+	if head != null:
+		_check((await Tap.tap(head)) == "", "Rating takes a tap (%s)" % tag)
+		await _settle()
+		var vals := []
+		for c in _row_codes(s):
+			vals.append(int(_state.team_outlook(c)["rating"]))
+		_check(_non_increasing(vals), "...and ranks the clubs by their lists, best first (%s)" % tag)
+		await Tap.tap(s.find_child("Sort_pos", true, false))
+		await _settle()
+	_check(s.find_child("Sort_window", true, false) == null and _text(s.find_child("LadderTable", true, false)).find("Contender") < 0,
+			"The ladder keeps one compact column; the category is a tap away (%s)" % tag)
+	# Nothing cut off, with the longest club names on show.
+	var longest := ""
+	for c in _row_codes(s):
+		if str(root.get_node("GameDB").club_name(c)).length() > str(root.get_node("GameDB").club_name(longest)).length() or longest == "":
+			longest = c
+	var off := []
+	for c in _row_codes(s):
+		var row: Node = s.find_child("Club_" + c, true, false)
+		for l in row.find_children("*", "Label", true, false):
+			if l.is_visible_in_tree() and (l.get_global_rect().end.x > sz.x + 1 or l.get_global_rect().position.x < -1):
+				off.append("%s/%s" % [c, l.name])
+		var cells: Array = row.get_child(0).get_children()
+		var last: Control = cells[cells.size() - 1]
+		if last is Label and not _label_fits(last):
+			off.append(c + "/last")
+	_check(off.is_empty(), "No ladder cell runs off the screen, the Rating column included (%s: %s)" % [tag, str(off)])
+	var long_row: Node = s.find_child("Club_" + longest, true, false)
+	var shown := ""
+	for l in long_row.find_children("*", "Label", true, false):
+		if str(l.text).length() > shown.length():
+			shown = str(l.text)
+	_check(shown.length() >= 3, "The longest club name still reads (%s: %s)" % [tag, shown])
+	# A tap on a club says its list in full.
+	var mine_row: Button = s.find_child("Club_" + _state.my_club, true, false)
+	_check((await Tap.tap(mine_row)) == "", "A club takes a tap (%s)" % tag)
+	await _settle()
+	var outlook: Label = s.find_child("TeamOutlook", true, false)
+	_check(outlook != null and outlook.text == str(_state.team_outlook(_state.my_club)["line"])
+			and outlook.text.contains("in three years"), "Its side says its list in full (%s: %s)" % [tag, outlook.text if outlook else "-"])
+	s.queue_free()
+	await _settle()
 
 
 ## The clubs in the table, top to bottom.

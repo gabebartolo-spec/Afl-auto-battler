@@ -5002,6 +5002,20 @@ func trade_context(club: String) -> Dictionary:
 var _phase_cache := {}
 
 
+## A club's list as the game sees it (TeamRating): its match-day side today on the
+## OVR scale, the same list in three seasons, and its phase, with the line a
+## screen shows ("Contender · 78, 81 in three years").
+func team_outlook(club: String) -> Dictionary:
+	if season == null or not season.lists.has(club):
+		return {}
+	var list: Array = season.lists[club]
+	var phase := club_phase(club)
+	var now := TeamRating.rating(list)
+	var later := TeamRating.forecast(list)
+	return {"rating": now, "forecast": later, "phase": phase, "category": TeamRating.category(phase),
+			"line": TeamRating.line(phase, now, later)}
+
+
 func club_phase(club: String) -> String:
 	if season == null or not season.lists.has(club):
 		return "building"
