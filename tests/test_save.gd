@@ -18,6 +18,7 @@ func run() -> void:
 	GameState.replay_seed = SUITE_SEED
 	_test_mid_season_round_trip()
 	_test_reload_plays_like_straight()
+	_test_review_after_reload()
 	_test_training_survives()
 	_test_adjusted_players_survive()
 	_test_no_save_mid_match()
@@ -118,6 +119,43 @@ func _test_reload_plays_like_straight() -> void:
 			if absf(float(sa[k]) - float(sb.get(k, 0.0))) > tol:
 				bad = "%s %s" % [id, k]
 	_check(bad == "" and a.size() == b.size(), "Season stats match after a reload (%s)" % bad)
+
+
+## "Review match" after a reload shows what the player saw at full time
+## (qa, 2026-10-11): the key match-ups, your synergies, the injuries and the
+## coach's report, line for line, for several rounds.
+func _test_review_after_reload() -> void:
+	_new_season("MEL")
+	var bad := []
+	var checked := 0
+	for i in range(4):
+		GameState.advance()
+		var before := _review_text(GameState.last_match)
+		GameState.save_career()
+		GameState.load_career()
+		var after := _review_text(GameState.last_match)
+		checked += 1
+		for k in before:
+			if str(before[k]) != str(after.get(k, "")):
+				bad.append("round %d %s" % [i + 1, k])
+	_check(bad.is_empty() and checked == 4, "Review match reads the same after a reload (%s)" % ", ".join(bad))
+
+
+## Every block of the full-time review MatchScene builds from the result.
+func _review_text(res: Dictionary) -> Dictionary:
+	if res.is_empty():
+		return {}
+	var me := 0 if str(res.get("home", "")) == GameState.my_club else 1
+	return {
+		"factors": MatchNotes.match_factors(res, me),
+		"ours": MatchNotes.standouts(res, me, 3),
+		"theirs": MatchNotes.standouts(res, 1 - me, 1),
+		"report": CoachReport.glance(CoachReport.match_report(res, me), true),
+		"matchups": MatchNotes.interceptor_story(res, me) + MatchNotes.duel_story(res, me),
+		"synergies": MatchNotes.synergy_lines(res, me),
+		"stats": MatchNotes.key_stats(res, me),
+		"payoffs": GameState.payoff_lines(res),
+	}
 
 
 func _ten_rounds(save_after: int) -> Dictionary:
