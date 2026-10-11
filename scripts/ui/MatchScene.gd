@@ -727,12 +727,10 @@ func _show_coach_box() -> void:
 		calls["tagger_id"] = ""
 	var others := _roster_side(_my_side).filter(func(r):
 		return my_mids.has(str(r["id"])) and (tagger == null or str(r["id"]) != str(tagger["id"])))
-	# Most able first: the tightest hold on his legs now, then the least
-	# given up (MatchSim.tag_order, the rule's own measure).
-	var rank := {}
-	for p in MatchSim.tag_order(my_ground, sim.energy):
-		rank[str(p["id"])] = rank.size()
-	others.sort_custom(func(a, b): return int(rank.get(str(a["id"]), 99)) < int(rank.get(str(b["id"]), 99)))
+	# Most able first, by the number on the card: Pressure.
+	var press := func(r: Dictionary) -> float:
+		return float((my_mids.get(str(r["id"]), r) as Dictionary).get("attr", {}).get("pressure", 0.0))
+	others.sort_custom(func(a, b): return press.call(a) > press.call(b))
 	var tag_detail := func(r: Dictionary, wide: bool) -> String:
 		var p: Dictionary = my_mids.get(str(r["id"]), r)
 		var book: Dictionary = GameState.season_stats.get(str(r["id"]), {})
@@ -753,14 +751,15 @@ func _show_coach_box() -> void:
 		if _pc_break and shown_now != shown_before and not _break_pack_cols.is_empty():
 			_balance_break_columns.call_deferred(_break_pack_cols)
 		var who = my_mids.get(str(calls["tagger_id"]), tagger)
+		var target := GameDB.player_display_name_by_id(str(calls["tag_id"]), "")
 		if str(calls["tag_id"]) == "":
 			tag_note.text = "No tag: your midfielders play their own game."
 		elif who == null:
 			tag_note.text = "No midfielder on the ground to tag with."
 		elif Roles.is_tagger(who):
-			tag_note.text = "%s, your tagger, goes to him." % GameDB.player_display_name(who)
+			tag_note.text = "%s, your tagger, tags %s." % [GameDB.player_display_name(who), target]
 		else:
-			tag_note.text = "%s goes to him and gives up his own game. He is not a specialist tagger." % GameDB.player_display_name(who)
+			tag_note.text = "%s tags %s. He gives up his own game." % [GameDB.player_display_name(who), target]
 	var tag := _player_choice("TagPicker", "No tag", opp, _in_the_game(opp, quick if quick > 0 else 4), calls, "tag_id",
 			"Tag which midfielder?", sync_tag)
 	col_a.add_child(_call_block("Tag", tag))
@@ -769,7 +768,7 @@ func _show_coach_box() -> void:
 		# they can be compared card for card.
 		# On a PC two alternatives beside his card (two rows, so the fullest
 		# break still fits 1280x720); the rest are behind Other player....
-		var who_tags := _player_choice("TaggerPicker", _card_text(tagger, tag_detail), others,
+		var who_tags := _player_choice("TaggerPicker", _card_text(tagger, tag_detail) + "\nYour assistant's pick", others,
 				others.slice(0, 2 if _pc_break else 3),
 				calls, "tagger_id", "Who goes to him?", sync_tag, tag_detail)
 		var wb := _call_block("Who tags", who_tags)
@@ -1561,8 +1560,7 @@ func _player_choice(node_name: String, none_label: String, roster: Array, first:
 		# On a PC, cards with a detail line sit together in their own row and
 		# "Other player..." beside the none choice: two short buttons share a
 		# row instead of each standing beside a tall card.
-		if _pc_break and detail.is_valid() and not none_label.contains("
-"):
+		if _pc_break and detail.is_valid() and not none_label.contains("\n"):
 			grid.move_child(other, 1)
 		if _pc_break:
 			for gb in grid.get_children():

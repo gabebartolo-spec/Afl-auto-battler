@@ -745,17 +745,23 @@ static func tagger_card_detail(p: Dictionary, legs: float, wide: bool, per_game 
 	for r in Ratings.positions(p):
 		places.append(str(UiKit.ROLE_LABEL.get(str(r), str(r))))
 	var a: Dictionary = p.get("attr", {})
-	var first := "%s  ·  Pressure %d" % ["/".join(places), roundi(float(a.get("pressure", 0)))]
+	# No-break spaces hold each "·" to the words either side, so a line
+	# never ends on one.
+	var dot := "\u00a0·\u00a0"
+	var first := "%s%sPressure\u00a0%d" % ["/".join(places), dot, roundi(float(a.get("pressure", 0)))]
 	if Roles.is_tagger(p):
-		first += "  ·  Tagger"
+		first += dot + "Tagger"
 	var gives := "disposal %d" % roundi(float(a.get("disposal", 0)))
 	if not Roles.on_wing(p):
 		gives = "contested %d, %s" % [roundi(float(a.get("contested", 0))), gives]
+	# What he gives up: his disposals a game; before he has played, his
+	# ball-winning ratings, said as that.
+	var cost := "Hasn't played yet: %s" % gives
 	if per_game >= 0.0:
-		gives = "%d disposals a game" % roundi(per_game)
+		cost = "Gives up his own game: %d disposals a game" % roundi(per_game)
 	var lw := legs_word(legs)
-	var second := "%s%s  ·  Gives up his own game: %s" % [lw.left(1).to_upper(), lw.substr(1), gives]
-	return (first + "  ·  " + second) if wide else (first + "\n" + second)
+	var second := "%s%s%s%s" % [lw.left(1).to_upper(), lw.substr(1), dot, cost]
+	return (first + dot + second) if wide else (first + "\n" + second)
 
 
 ## The best few players of a side by influence: [{"id", "name", "line"}].

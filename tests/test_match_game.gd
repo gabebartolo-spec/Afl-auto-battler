@@ -2355,9 +2355,9 @@ func _test_tag_hold() -> void:
 	_check(str(MatchSim.tagger_for(sq.ground)["id"]) == str(MatchSim.tag_order(sq.ground)[0]["id"]),
 			"Your assistant sends the first man on that list")
 	var card := MatchNotes.tagger_card_detail(order[0], 60.0, false)
-	_check(card.contains("Pressure") and card.contains("Gives up") and card.contains("Tiring")
+	_check(card.contains("Pressure") and card.contains("Hasn't played yet: ") and card.contains("Tiring")
 			and card.contains("Tagger") == Roles.is_tagger(order[0]),
-			"A card shows his Pressure, his legs in words, Tagger only with the trait, and what he gives up (%s)" % card.replace("\n", " / "))
+			"A card shows his Pressure, his legs in words, Tagger only with the trait, and before a season his ratings, said so (%s)" % card.replace("\n", " / "))
 	var played := MatchNotes.tagger_card_detail(order[0], 60.0, false, 24.4)
 	_check(played.contains("Gives up his own game: 24 disposals a game"),
 			"Once he has a season, the card says what tagging costs in his own game (%s)" % played.replace("\n", " / "))

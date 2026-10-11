@@ -569,7 +569,7 @@ func _coach_descriptions(sz: Vector2i) -> void:
 	if named != null:
 		var tw: String = await Tap.tap(named)
 		await _settle()
-		_check(tw == "" and tn.text.contains("goes to him"), "Picking a player brings the tagger line (%s: %s)" % [tag, tn.text])
+		_check(tw == "" and tn.text.contains(" tags "), "Picking a player brings the tagger line (%s: %s)" % [tag, tn.text])
 		var tw2: String = await Tap.tap(box.find_child("TagPickerGrid_", true, false))
 		await _settle()
 		_check(tw2 == "" and tn.text.begins_with("No tag"), "Back to no tag, the line says so (%s)" % tag)
@@ -585,9 +585,19 @@ func _coach_descriptions(sz: Vector2i) -> void:
 					break
 		_check(who_box != null and mine_btn != null, "You are offered who goes to the tag (%s)" % tag)
 		var dflt: Button = who_box.find_child("TaggerPickerGrid_", true, false) if who_box != null else null
-		_check(dflt != null and dflt.text.contains("Gives up his own game")
-				and mine_btn != null and mine_btn.text.contains("Gives up his own game"),
-				"Your assistant's tagger shows what he gives up, like the others (%s: %s)" % [tag, dflt.text if dflt else "-"])
+		var gives := func(t: String) -> bool: return t.contains("Gives up his own game") or t.contains("Hasn't played yet")
+		_check(dflt != null and gives.call(dflt.text) and dflt.text.contains("Your assistant's pick")
+				and mine_btn != null and gives.call(mine_btn.text),
+				"Your assistant's tagger shows what he gives up, like the others, marked as the pick (%s: %s)" % [tag, dflt.text if dflt else "-"])
+		if sz.x < 800:
+			var short := []
+			for pk in ["TagPicker", "TaggerPicker"]:
+				var pk_node: Node = box.find_child(pk, true, false)
+				if pk_node != null:
+					for b in pk_node.find_children("*", "Button", true, false):
+						if (b as Control).is_visible_in_tree() and (b as Control).size.y < 44.0:
+							short.append("%s %.0f" % [b.name, (b as Control).size.y])
+			_check(short.is_empty(), "Every Tag and Who tags button is a thumb's height on a phone (%s: %s)" % [tag, ", ".join(short)])
 		if mine_btn != null:
 			# The card's first line is his name; the facts sit under it.
 			var mine_name: String = mine_btn.text.split("\n")[0].strip_edges()
