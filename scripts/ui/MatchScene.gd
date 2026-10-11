@@ -757,7 +757,9 @@ func _show_coach_box() -> void:
 			"Tag which midfielder?", sync_tag)
 	col_a.add_child(_call_block("Tag", tag))
 	if tagger != null and not others.is_empty():
-		var who_tags := _player_choice("TaggerPicker", GameDB.player_display_name(tagger), others, others.slice(0, 3),
+		# Your assistant's man carries the same facts as the others, so
+		# they can be compared card for card.
+		var who_tags := _player_choice("TaggerPicker", _card_text(tagger, tag_detail), others, others.slice(0, 3),
 				calls, "tagger_id", "Who goes to him?", sync_tag, tag_detail)
 		var wb := _call_block("Who tags", who_tags)
 		who_block.append(wb)
@@ -1510,7 +1512,8 @@ func _player_choice(node_name: String, none_label: String, roster: Array, first:
 		# On a PC, cards with a detail line sit together in their own row and
 		# "Other player..." beside the none choice: two short buttons share a
 		# row instead of each standing beside a tall card.
-		if _pc_break and detail.is_valid():
+		if _pc_break and detail.is_valid() and not none_label.contains("
+"):
 			grid.move_child(other, 1)
 		if _pc_break:
 			for gb in grid.get_children():

@@ -580,6 +580,10 @@ func _coach_descriptions(sz: Vector2i) -> void:
 					mine_btn = b
 					break
 		_check(who_box != null and mine_btn != null, "You are offered who goes to the tag (%s)" % tag)
+		var dflt: Button = who_box.find_child("TaggerPickerGrid_", true, false) if who_box != null else null
+		_check(dflt != null and dflt.text.contains("Gives up his own game")
+				and mine_btn != null and mine_btn.text.contains("Gives up his own game"),
+				"Your assistant's tagger shows what he gives up, like the others (%s: %s)" % [tag, dflt.text if dflt else "-"])
 		if mine_btn != null:
 			# The card's first line is his name; the facts sit under it.
 			var mine_name: String = mine_btn.text.split("\n")[0].strip_edges()
