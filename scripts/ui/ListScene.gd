@@ -75,8 +75,7 @@ func _build() -> void:
 			"CaptaincyOpen")
 	cap_link.pressed.connect(func(): _open_captaincy())
 	_root.add_child(cap_link)
-	var culture_words := Culture.summary(GameState.relations, GameState.my_club)
-	var culture_link := UiKit.section_link("Club culture", (culture_words if culture_words != "" else "Nothing stands out yet") + " ›",
+	var culture_link := UiKit.section_link("Club culture", Culture.headline(GameState.relations, GameState.my_club) + " ›",
 			"CultureOpen")
 	culture_link.pressed.connect(func(): _open_culture())
 	_root.add_child(culture_link)

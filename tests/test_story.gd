@@ -46,6 +46,7 @@ func run() -> void:
 	_test_culture_reasons_read_cleanly()
 	_test_culture_settles()
 	_test_culture_signs_match_words()
+	_test_culture_headline()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	GameState.stories_on = true
@@ -1164,3 +1165,14 @@ func _test_culture_signs_match_words() -> void:
 		if "Premiers" in whys and "Finished near the bottom of the ladder" in whys:
 			both += 1
 	_check(both == 0, "No season is both premiers and a bottom finish")
+
+
+func _test_culture_headline() -> void:
+	var rel := {}
+	_check(Culture.headline(rel, "GEE") == "Nothing stands out yet", "The row says when nothing stands out")
+	for i in range(3):
+		Culture.change(rel, "GEE", "together", 6, "Played finals", 2027, "Off-season")
+	_check(Culture.headline(rel, "GEE") == "A tight group", "One strand reads in its own words")
+	for i in range(3):
+		Culture.change(rel, "GEE", "standards", 6, "x", 2027, "Off-season")
+	_check(Culture.headline(rel, "GEE") == "Two stand out", "Several read as a count, so the row never truncates its title")

@@ -128,9 +128,14 @@ func _run() -> void:
 		print("tap not mapped here (", why, "): pressing instead")
 		open_btn.emit_signal("pressed")
 	await _shot(out + "_culture.png")
-	for b in current_scene.find_children("StrandWhy", "Button", true, false):
-		if W >= 760 or await _tap(b) != "":
-			b.emit_signal("pressed")
+	var whys := current_scene.find_children("StrandWhy", "Button", true, false)
+	for b in whys:
+		if not is_instance_valid(b):
+			continue
+		for i in range(8):
+			await process_frame
+		if is_instance_valid(b):
+			b.emit_signal("pressed")  # the roles suite proves the Why tap; only the row is tapped here
 	await _shot(out + "_why.png")
 	quit(0)
 

@@ -201,6 +201,21 @@ static func quiet_words(latest: int, has_reasons: bool) -> String:
 	return "Holding steady"
 
 
+## How many strands stand out, for the row that leads to the sheet: the words
+## when one does, a count when several do, "Nothing stands out yet" when none.
+static func headline(rel: Dictionary, club: String) -> String:
+	var named := []
+	for s in STRANDS:
+		var w := words(str(s[0]), value(rel, club, str(s[0])))
+		if w != "":
+			named.append(w)
+	if named.is_empty():
+		return "Nothing stands out yet"
+	if named.size() == 1:
+		return str(named[0])
+	return "%s stand out" % ["", "", "Two", "Three"][named.size()]
+
+
 ## The strands that stand out, in words: "A tight group. Pushing to win now."
 static func summary(rel: Dictionary, club: String) -> String:
 	var out := PackedStringArray()
