@@ -12,6 +12,8 @@ extends SceneTree
 ##                         unanswered week question brightening (if one is up)
 ##                press    the same hub, then three real taps: Settings (a soft
 ##                         boot), a match-speed choice (a stud tick), Done
+##                attention  the hub with an unanswered week card brightening
+##                living   the hub with no card: only the club colour settling
 ##                result   full time of the round just played: the result lands
 ##                draft    a League Draft pick: the pick lands with the sting
 ##                break    quarter time with a broken call (staged: the match
@@ -187,6 +189,8 @@ func _one(effect: String, out: String, secs: float, state, db, club: String) -> 
 			# Nothing over the hub while filming it: this week's press and sit-down wait.
 			state.media_conference = {}
 			state.backing_talk = {}
+			if effect == "living":
+				state.week_events = []   # only the colour settling, no card
 			if effect == "result":
 				state.review_requested = true
 				var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
@@ -200,9 +204,50 @@ func _one(effect: String, out: String, secs: float, state, db, club: String) -> 
 						var b: Button = root.find_child(name, true, false)
 						print("FEEL tap %s: %s" % [name, "missing" if b == null else await Tap.tap(b)])
 						await _wait(0.55)
+						if name == "SettingsSpeed_2":
+							_shot(out + "_peak.png")   # the sheet open, a choice just ticked
 	await process_frame
 	await process_frame
 	if effect != "settings" and effect != "draft":
 		_shot(out + "_start.png")
-	await _wait(secs)
+	var peak_at := {"result": 0.0, "attention": 0.85, "living": secs * 0.5, "press": 0.0, "hub": 0.85}
+	if effect == "result":
+		# Prove the landing ran: follow the Verdict's scale from when full time
+		# is on screen (the sheet is built before the effect timer starts).
+		var v: Control = null
+		var waited := 0
+		while v == null and waited < 120:
+			v = root.find_child("Verdict", true, false) as Control
+			await process_frame
+			waited += 1
+		var best := 1.0
+		var first := -1.0
+		var t := 0.0
+		var peak_done := false
+		var prev := 1.0
+		for i in range(60):
+			await process_frame
+			if not is_instance_valid(v):
+				break
+			var sc := v.scale.x
+			if first < 0.0:
+				first = sc
+			if sc > best:
+				best = sc
+			if peak_done == false and best > 1.1 and sc < prev:
+				_shot(out + "_peak.png")
+				peak_done = true
+			prev = sc
+		print("FEEL verdict scale first %.2f peak %.2f final %.2f (frames waited %d)" % [first, best, v.scale.x if is_instance_valid(v) else -1.0, waited])
+		if not peak_done:
+			_shot(out + "_peak.png")
+		await _wait(maxf(0.0, secs - 2.0))
+	else:
+		var pk: float = minf(float(peak_at.get(effect, 0.8)), secs)
+		if effect != "press" and effect != "draft" and effect != "settings":
+			await _wait(pk)
+			_shot(out + "_peak.png")
+			await _wait(secs - pk)
+		else:
+			await _wait(secs)
 	_shot(out + "_end.png")
