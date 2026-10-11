@@ -788,6 +788,22 @@ func _pc_break_worst_case(club := "COL") -> void:
 	var need := (bsc.get_child(0) as Control).get_combined_minimum_size().y if bsc != null else INF
 	_check(box != null and box.find_child("SpareMinderPicker", true, false) != null and need <= room + 1.0,
 			"Quarter time with both loose men and your tally fits 1280x720 without scrolling (%s: %.0f of %.0f)" % [club, need, room])
+	# Packing moves whole calls: no column opens on a bare line without its
+	# heading (a sentence, a note such as the synergies line, cut loose from its block),
+	# and the synergies line sits with the legs line it is about.
+	var bare := []
+	if bc != null:
+		for col in bc.get_children():
+			if col.get_child_count() > 0 and col.get_child(0) is Label and (col.get_child(0) as Label).text.ends_with("."):
+				bare.append("%s: %s" % [col.name, (col.get_child(0) as Label).text.left(30)])
+	_check(bare.is_empty(), "No break column opens on a line cut loose from its call (%s: %s)" % [club, str(bare)])
+	var syn: Node = null
+	for l in box.find_children("*", "Label", true, false) if box != null else []:
+		if (l as Label).text.begins_with("Your synergies"):
+			syn = l
+	var legs: Node = box.find_child("LegsView", true, false) if box != null else null
+	_check(syn == null or (legs != null and syn.get_parent() == legs.get_parent()),
+			"The synergies line sits beside the legs line, not alone in a call column (%s)" % club)
 	var stats: Button = box.find_child("BreakStats", true, false) if box != null else null
 	var w: String = await Tap.tap(stats)
 	_check(w == "" and m.find_child("BreakStatsSheet", true, false) != null, "Match stats opens from the actions row with a real tap (%s)" % w)

@@ -770,11 +770,13 @@ func _show_coach_box() -> void:
 	# calls" button).
 	var more: VBoxContainer = col_c
 	var syn_line := _synergy_line()
+	var syn_label: Label = null
 	if syn_line != "":
 		var sl := UiKit.lbl(syn_line, UiKit.SMALL, UiKit.MUTED)
 		sl.set_meta("break_unit", true)
 		sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		more.add_child(sl)
+		syn_label = sl
 
 	var mine := _roster_side(_my_side)
 
@@ -871,6 +873,13 @@ func _show_coach_box() -> void:
 			n.get_parent().remove_child(n)
 			tail.add_child(n)
 	(rep if rep != v else tail).add_child(_legs_view())
+	# The synergies line is about the two sides' strengths, like the legs line:
+	# on a PC sheet it sits right under it, never alone at the top of a column
+	# without a heading (BOSS QC, 2026-10-11).
+	if wide and syn_label != null and syn_label.get_parent() != null:
+		syn_label.get_parent().remove_child(syn_label)
+		syn_label.remove_meta("break_unit")
+		(rep if rep != v else tail).add_child(syn_label)
 
 	var start := UiKit.btn("Start quarter" if q > 1 else "Ball it up", UiKit.HEADING, true)
 	start.name = "StartQuarter"
