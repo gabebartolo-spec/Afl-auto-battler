@@ -656,7 +656,7 @@ func _run() -> void:
 	_router.handle_back(true)
 	await _settle()
 	_check(_router.current() == "hub", "Back returns to the hub")
-	_state.week_event = load("res://scripts/sim/ClubLife.gd")._fans()
+	_state.week_event = _state.story_card("members_open_training")
 	_router.go("hub")
 	await _settle()
 	var ev_btn: Button = current_scene.find_child("Event_0", true, false)
@@ -666,6 +666,22 @@ func _run() -> void:
 		await _settle()
 	_check(not _state.week_event_pending() and _screen_text().contains("members loved it"),
 			"Answering it shows what happened")
+	# A big week's two cards: both show, and a finger on the second card's
+	# answer settles that card only.
+	_state.week_events = [_state.story_card("members_open_training"), _state.story_card("training_extra_session")]
+	var two_cards_size := root.size
+	root.size = Vector2i(390, 844)
+	_router.go("hub")
+	await _settle()
+	var second_card: Control = current_scene.find_child("WeekEvent_1", true, false)
+	var second_btn: Button = second_card.find_child("Event_1", true, false) if second_card != null else null
+	var second_tap: String = await Tap.tap(second_btn) if second_btn != null else "missing"
+	await _settle()
+	_check(second_tap == "" and bool(_state.week_events[1].get("resolved", false))
+			and not bool(_state.week_events[0].get("resolved", false)),
+			"Two cards in a big week, each answered on its own by a tap (%s)" % second_tap)
+	_state.week_events = []
+	root.size = two_cards_size
 
 	# --- Sim round asks first: it plays your match without you --------------
 	_state.set_confirm_sim_round(true)
