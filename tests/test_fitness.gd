@@ -193,7 +193,7 @@ func _test_career() -> void:
 	GameState.fitness_ai_by_phase = false
 	GameState.start_season("GEE", GameDB.club_list("GEE"))
 	GameState.advance()
-	_check(GameState.get_script().get_property_default_value("fitness_ai_by_phase") == false,
+	_check(FileAccess.get_file_as_string("res://scripts/state/GameState.gd").contains("var fitness_ai_by_phase := false"),
 			"AI clubs stay Steady by default until the plan screen lands")
 	var stamped := false
 	for code in GameState.season.lists:
