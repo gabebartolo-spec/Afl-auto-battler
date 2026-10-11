@@ -37,6 +37,7 @@ func _run() -> void:
 	await _selection_tests()
 	await _team_changes_tests()
 	await _backing_ui_tests()
+	await _captaincy_ui_tests()
 	print("Roles + selection tests: %d checks, %d failures" % [_checks, _failures.size()])
 	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
@@ -614,6 +615,59 @@ func _profile_of(ui: Node, id: String) -> void:
 	if prof != null:
 		prof.emit_signal("pressed")
 		await _settle()
+
+
+## Captaincy over My list, by real taps: the way in, the rules and costs on the
+## page, a pick from the list, Confirm, and the record afterwards.
+func _captaincy_ui_tests() -> void:
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.career_seed = SUITE_SEED
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = Vector2i(420, 860)
+	var ls: Control = load("res://scenes/ListScene.tscn").instantiate()
+	root.add_child(ls)
+	await _settle()
+	var open_btn: Button = ls.find_child("CaptaincyOpen", true, false)
+	_check(open_btn != null and open_btn.size.y >= 44, "My list has a thumb-sized way into Captaincy")
+	if open_btn == null:
+		ls.queue_free()
+		return
+	var why: String = await Tap.tap(open_btn)
+	await _settle()
+	_check(why == "", "A tap opens Captaincy (%s)" % why)
+	var sheet: Node = ls.find_child("CaptaincySheet", true, false)
+	_check(sheet != null and _screen_text(sheet).contains("stings once") and _screen_text(sheet).contains("only get one change a season"),
+			"The page says what a pick can cost before any pick")
+	_check(sheet != null and sheet.find_child("CaptaincyConfirm", true, false) != null
+			and (sheet.find_child("CaptaincyConfirm", true, false) as Button).disabled,
+			"Confirm waits until something changes")
+	var slot: Button = sheet.find_child("CaptaincySlot_0", true, false) if sheet != null else null
+	why = await Tap.tap(slot)
+	await _settle()
+	var picker: Node = ls.find_child("CaptaincyPicker", true, false)
+	_check(why == "" and picker != null, "A tap on a spot opens the list to pick from (%s)" % why)
+	var rows: Array = picker.find_children("Pick_*", "Button", true, false) if picker != null else []
+	var shows_lead := picker != null and _screen_text(picker).contains("Leadership")
+	_check(rows.size() == _state.my_list.size() and shows_lead, "Everyone on the list is there with his Leadership (%d rows)" % rows.size())
+	var target: Button = null
+	var current := Captaincy.ids(_state.captaincy_record("COL"), "captain")
+	for r in rows:
+		if current.is_empty() or str(r.name) != "Pick_" + str(current[0]):
+			target = r
+			break
+	var picked := str(target.name).trim_prefix("Pick_") if target != null else ""
+	why = await Tap.tap(target)
+	await _settle()
+	_check(why == "" and ls.find_child("CaptaincyPicker", true, false) == null, "A tap on a player names him to the spot (%s)" % why)
+	var confirm: Button = ls.find_child("CaptaincyConfirm", true, false)
+	_check(confirm != null and not confirm.disabled, "Confirm is ready once a pick changes something")
+	why = await Tap.tap(confirm)
+	await _settle()
+	_check(why == "" and Captaincy.ids(_state.captaincy_record("COL"), "captain").has(picked),
+			"Confirm names him captain (%s)" % why)
+	ls.queue_free()
+	await _settle()
 
 
 func _open() -> Control:
