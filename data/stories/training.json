@@ -46,7 +46,8 @@
 				],
 				"result": "A recovery week: fresher bodies and minds."
 			}
-		]
+		],
+		"stakes": "A heavy week builds the list but leaves heavy legs on game day."
 	},
 	{
 		"id": "training_kid_pushing",
@@ -106,7 +107,8 @@
 			}
 		],
 		"arc": "backed_kid",
-		"beat": "start"
+		"beat": "start",
+		"stakes": "Back him and he expects the next {run_games} games; leave him out fit and the promise breaks."
 	},
 	{
 		"id": "training_extra_kicking",
@@ -259,7 +261,8 @@
 		],
 		"when": {
 			"round_min": 8
-		}
+		},
+		"stakes": "A day off costs the week's extra development."
 	},
 	{
 		"id": "training_time_trial",
@@ -474,6 +477,7 @@
 			"within": 20
 		},
 		"cooldown": 0,
-		"subject_cooldown": 0
+		"subject_cooldown": 0,
+		"stakes": "Back him in again and he expects a game this week."
 	}
 ]

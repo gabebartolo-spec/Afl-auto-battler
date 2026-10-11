@@ -45,7 +45,8 @@
 				],
 				"result": "You keep the players on the track."
 			}
-		]
+		],
+		"stakes": "A visit takes a session out of the week."
 	},
 	{
 		"id": "community_country_clinic",

@@ -90,7 +90,8 @@
 				],
 				"result": "You tell {name} selection is your call, and it stands."
 			}
-		]
+		],
+		"stakes": "{kpi_or_need} Promise him a game and he expects to play this week."
 	},
 	{
 		"id": "selection_talk_back",
@@ -182,7 +183,8 @@
 				],
 				"result": "You tell {name} selection is your call, and it stands."
 			}
-		]
+		],
+		"stakes": "{kpi_or_need} Promise him a game and he expects to play this week."
 	},
 	{
 		"id": "selection_talk_waiting",
@@ -274,7 +276,8 @@
 				],
 				"result": "You tell {name} selection is your call, and it stands."
 			}
-		]
+		],
+		"stakes": "{kpi_or_need} Promise him a game and he expects to play this week."
 	},
 	{
 		"id": "selection_unhappy",
@@ -342,7 +345,8 @@
 				],
 				"result": "{name} is told to earn his spot. The group respects it."
 			}
-		]
+		],
+		"stakes": "Sit down with him and he'll expect a game this week."
 	},
 	{
 		"id": "selection_finals_experience",
@@ -402,6 +406,7 @@
 		"phase": [
 			"finals"
 		],
-		"cooldown": 3
+		"cooldown": 3,
+		"stakes": "Bring him in and he expects to play the final."
 	}
 ]

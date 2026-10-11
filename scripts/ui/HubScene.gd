@@ -358,6 +358,19 @@ func _event_card(index: int) -> Control:
 		var t := UiKit.lbl(str(e.get("text", "")), 12, UiKit.TEXT)
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(t)
+		# What's at risk, in one line; the buttons carry the choice and the
+		# outcome shows after the pick.
+		var stakes := PackedStringArray()
+		if str(e.get("stakes", "")) != "":
+			stakes.append(str(e["stakes"]))
+		var silence := str((e.get("unanswered", {}) as Dictionary).get("hint", ""))
+		if silence != "":
+			stakes.append(silence)
+		if not stakes.is_empty():
+			var sk := UiKit.lbl(" ".join(stakes), UiKit.SMALL, UiKit.MUTED)
+			sk.name = "EventStakes_%d" % index
+			sk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(sk)
 		var opts: Array = e.get("options", [])
 		var row: BoxContainer = UiKit.vbox(4) if _narrow() else UiKit.hbox(6)
 		v.add_child(row)
@@ -367,20 +380,10 @@ func _event_card(index: int) -> Control:
 			b.name = "Event_%d" % i
 			b.custom_minimum_size = Vector2(0, 44)
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			b.tooltip_text = str(o.get("detail", ""))
 			b.pressed.connect(func():
 				GameState.resolve_card(index, i)
 				_build())
 			row.add_child(b)
-		var hints: PackedStringArray = []
-		for o in opts:
-			hints.append("%s: %s" % [str(o.get("label", "")), str(o.get("detail", ""))])
-		var silence := str((e.get("unanswered", {}) as Dictionary).get("hint", ""))
-		if silence != "":
-			hints.append(silence)
-		var h := UiKit.lbl("\n".join(hints), UiKit.FINE, UiKit.MUTED)
-		h.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(h)
 	else:
 		v.add_child(UiKit.lbl(str(e.get("outcome", "")), 13, UiKit.GOOD))
 	return card

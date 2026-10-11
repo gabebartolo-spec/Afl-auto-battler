@@ -38,7 +38,8 @@
 				],
 				"result": "The board grudgingly agrees to wait."
 			}
-		]
+		],
+		"stakes": "Promise a win: win and the board is won over; lose and it costs you."
 	},
 	{
 		"id": "board_president_lunch",

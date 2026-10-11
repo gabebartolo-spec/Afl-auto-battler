@@ -264,6 +264,8 @@ static func build(deck: Array, t: Dictionary, subj: Dictionary, club: Dictionary
 			"title": fill(str(titles[rng.randi_range(0, titles.size() - 1)]), facts),
 			"text": fill(str(texts[rng.randi_range(0, texts.size() - 1)]), facts),
 			"options": options}
+	if str(t.get("stakes", "")) != "":
+		card["stakes"] = fill(str(t["stakes"]), facts)
 	if player:
 		card["player_id"] = str(subj["id"])
 	if str(t.get("arc", "")) != "":

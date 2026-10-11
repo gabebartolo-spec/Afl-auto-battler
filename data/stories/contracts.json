@@ -54,7 +54,8 @@
 			}
 		],
 		"arc": "contract_wait",
-		"beat": "start"
+		"beat": "start",
+		"stakes": "Extend now: {more_seasons} at {early_price} a season, locked in. Wait, and his price moves with his form."
 	},
 	{
 		"id": "contracts_rivals_circling",

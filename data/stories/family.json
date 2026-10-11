@@ -264,7 +264,8 @@
 				"result": "{first} trains as normal, on not much sleep."
 			}
 		],
-		"private": true
+		"private": true,
+		"stakes": "A lighter week costs him some development."
 	},
 	{
 		"id": "family_partner_graduation",
