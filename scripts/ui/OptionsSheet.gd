@@ -148,7 +148,7 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 		v.add_child(confirm)
 
 	v.add_child(UiKit.spacer(UiKit.GAP))
-	var ver := UiKit.lbl("Version %s" % str(ProjectSettings.get_setting("application/config/version", "")),
+	var ver := UiKit.lbl("Version %s" % BuildInfo.label(),
 			UiKit.SMALL, UiKit.MUTED)
 	ver.name = "OptionsVersion"
 	v.add_child(ver)

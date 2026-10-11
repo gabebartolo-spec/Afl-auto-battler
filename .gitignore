@@ -31,3 +31,6 @@ data/cache/
 # a 67 MB model at the repo root, and the director's review captures.
 /*.glb
 docs/research/_review_*/
+
+# Written by the Web build workflow (short commit shown as the build label)
+build_info.txt
