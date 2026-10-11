@@ -3,8 +3,9 @@ extends SceneTree
 ## director's look. Needs a real renderer:
 ##   godot --path . --script tools/visual/capture_captaincy.gd -- --out /tmp/capt [--size 1280x720]
 ## Writes <out>_sheet.png (the page), <out>_picker.png (the list to pick from),
-## <out>_cost.png (a pick that passes over a senior player, its cost said above Confirm)
-## and <out>_mid.png (a mid-season change: the one change and what it costs).
+## <out>_cost.png (a pick that overlooks a senior player), <out>_nocost.png (a vice-captain added: "No cost."),
+## <out>_refused.png (a second mid-season change, refused with the reason) and
+## <out>_mid.png (a first mid-season change and what it costs).
 
 var W := 390
 var H := 844
@@ -19,6 +20,8 @@ func _shot(path: String) -> void:
 		await process_frame
 	var img := root.get_viewport().get_texture().get_image()
 	img.convert(Image.FORMAT_RGBA8)
+	if W >= 760 and img.get_width() != W:
+		img.resize(W, H, Image.INTERPOLATE_LANCZOS)
 	img.save_png(path)
 	print("wrote ", path)
 
@@ -42,53 +45,81 @@ func _run() -> void:
 	state.show_real_names = true
 	state.reset()
 	state.set_setting("seen_weekly_loop_intro", true)
-	DisplayServer.window_set_size(Vector2i(W, H))
-	root.size = Vector2i(W, H)
+	if W >= 760:
+		# A PC window, laid out on the 1280x720 desktop canvas as the game does.
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(W, H))
+		for i in range(10):
+			await process_frame
+		# The canvas is laid out in device-independent pixels: grow the window by
+		# the display scale until the canvas is the 1280x720 a PC player gets.
+		var factor := float(W) / maxf(1.0, root.get_visible_rect().size.x)
+		if factor > 1.05:
+			DisplayServer.window_set_size(Vector2i(int(W * factor), int(H * factor)))
+			for i in range(10):
+				await process_frame
+		print("visible ", root.get_visible_rect().size)
+	else:
+		DisplayServer.window_set_size(Vector2i(W, H))
+		root.size = Vector2i(W, H)
 	for i in range(3):
 		await process_frame
 	state.start_season("GEE", db.club_list("GEE"))
-	var list := current_scene
 	root.get_node("Router").go("list")
 	for i in range(8):
 		await process_frame
+	var young: Array = []
+	var senior: Array = []
+	for q in state.my_list:
+		if float(q.get("age", 30.0)) < 24.0:
+			young.append(q)
+		elif float(q.get("age", 0.0)) >= 28.0 and Leadership.games(q) >= 150:
+			senior.append(q)
+	young.sort_custom(func(x, y): return Leadership.of(x) < Leadership.of(y))
+	senior.sort_custom(func(x, y): return Leadership.of(x) > Leadership.of(y))
 	current_scene.call("_open_captaincy")
 	await _shot(out + "_sheet.png")
-	var slot: Button = current_scene.find_child("CaptaincySlot_0", true, false)
-	slot.emit_signal("pressed")
+	await _press("CaptaincySlot_0")
 	await _shot(out + "_picker.png")
-	# Pick the lowest-Leadership player who is not already named over a senior one.
-	var target: Button = null
-	var low := 999
-	var rec: Dictionary = state.captaincy_record(state.my_club)
-	for q in state.my_list:
-		if Captaincy.is_named(rec, str(q["id"])):
-			continue
-		var l: int = Leadership.of(q)
-		if l < low and float(q.get("age", 30.0)) < 24.0:
-			low = l
-			target = current_scene.find_child("Pick_" + str(q["id"]), true, false)
-	if target != null:
-		target.emit_signal("pressed")
+	await _press("Pick_" + str(young[0]["id"]))
 	await _shot(out + "_cost.png")
-	var confirm: Button = current_scene.find_child("CaptaincyConfirm", true, false)
-	if confirm != null:
-		confirm.emit_signal("pressed")
-	await process_frame
-	# Play a round, so the season has begun, then take the armband off again.
+	await _press("CaptaincyConfirm")
+	await _press("CaptaincyClose")
+	# A vice-captain added to the next free spot: no cost.
+	current_scene.call("_open_captaincy")
+	await _frames(3)
+	var n: int = Captaincy.slots(state.captaincy_record(state.my_club)).size()
+	await _press("CaptaincySlot_%d" % n)
+	await _press("Pick_" + str(young[1]["id"]))
+	await _shot(out + "_nocost.png")
+	await _press("CaptaincyConfirm")
+	await _press("CaptaincyClose")
+	# The season begins; taking the armband off now costs, once.
 	state.advance()
 	current_scene.call("_open_captaincy")
-	for i in range(3):
-		await process_frame
-	slot = current_scene.find_child("CaptaincySlot_0", true, false)
-	slot.emit_signal("pressed")
-	for i in range(3):
-		await process_frame
-	var back: Button = null
-	for q in state.my_list:
-		if Leadership.of(q) > low and float(q.get("age", 0.0)) >= 28.0:
-			back = current_scene.find_child("Pick_" + str(q["id"]), true, false)
-			break
-	if back != null:
-		back.emit_signal("pressed")
+	await _frames(3)
+	await _press("CaptaincySlot_0")
+	await _press("Pick_" + str(senior[0]["id"]))
 	await _shot(out + "_mid.png")
+	await _press("CaptaincyConfirm")
+	await _press("CaptaincyClose")
+	# A second change the same season: refused.
+	current_scene.call("_open_captaincy")
+	await _frames(3)
+	await _press("CaptaincySlot_0")
+	await _press("Pick_" + str(senior[1]["id"]))
+	await _shot(out + "_refused.png")
 	quit(0)
+
+
+func _frames(n: int) -> void:
+	for i in range(n):
+		await process_frame
+
+
+func _press(node_name: String) -> void:
+	await _frames(3)
+	var b: Node = current_scene.find_child(node_name, true, false)
+	if b is Button:
+		(b as Button).emit_signal("pressed")
+	await _frames(3)

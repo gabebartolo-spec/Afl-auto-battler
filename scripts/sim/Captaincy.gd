@@ -251,15 +251,15 @@ static func preview(rec: Dictionary, new_slots: Array, roster: Array, year: int,
 			out["morale"][pid] = PASSED_MORALE
 			out["trust"][pid] = PASSED_TRUST
 			(out["passed"] as Array).append(pid)
-			(out["lines"] as Array).append("Passing over %s stings once: he is a senior player and rates higher on Leadership, so his mood and trust dip a little, one time." % name_of.call(pid))
+			(out["lines"] as Array).append("Overlooking %s costs him a little mood and trust, once: he is a senior player and rates higher on Leadership than your new captain." % name_of.call(pid))
 	return out
 
 
 ## The rules, in football words, for the page to show before any pick.
 static func rules_text() -> Array:
 	return [
-		"A captain and up to two vice-captains. Two or three captains can share the job.",
-		"Passing over a senior player stings once: a player of %d or more with %d senior games who rates higher on Leadership loses a little mood and trust, one time." % [SENIOR_AGE, SENIOR_GAMES],
+		"A club has a captain and up to two vice-captains. Two or three captains can share the job.",
+		"Overlooking a senior player with more leadership than your new captain costs him a little mood and trust, once.",
 		"Taking the armband off a captain mid-season costs him, and you only get one change a season. Before round 1 changes are free.",
 		"A captain who retires or leaves the club leaves the spot open.",
 	]

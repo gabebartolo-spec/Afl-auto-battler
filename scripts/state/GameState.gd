@@ -8352,22 +8352,35 @@ func _after_match_talks(played: Dictionary, round_no: int) -> void:
 # ---------------------------------------------------------------------------
 # Captaincy (Captaincy.gd): a captain and up to two vice-captains per club
 # ---------------------------------------------------------------------------
-## A club's list: this season's live one, else the league's.
+## A club's list as it is now: yours (the list you edit), else this season's
+## live one, else the league's (the off-season moves players between them).
 func club_roster(code: String) -> Array:
+	if code == my_club and not my_list.is_empty():
+		return my_list
+	if season != null and offseason_year != season_year and season.lists.has(code):
+		return season.lists[code]
+	if league_lists.has(code):
+		return league_lists[code]
 	if season != null and season.lists.has(code):
 		return season.lists[code]
-	return league_lists.get(code, [])
+	return []
 
 
-## A club's record, read only ({} when nothing is named).
+## A club's record as it stands now, read only ({} when nothing is named):
+## a leader who has since left the club (traded, retired, delisted) is not in
+## it, whenever you ask, off-season included.
 func captaincy_record(code: String) -> Dictionary:
-	return captaincy.get(code, {})
+	var rec: Dictionary = captaincy.get(code, {})
+	if rec.is_empty():
+		return rec
+	var now: Dictionary = rec.duplicate(true)
+	Captaincy.prune(now, club_roster(code))
+	return now
 
 
 ## "Captain" / "Vice-captain" for a player of any club, or "".
 func captaincy_word(p: Dictionary) -> String:
-	var rec: Dictionary = captaincy.get(str(p.get("club", "")), {})
-	return Captaincy.role_word(rec, str(p.get("id", "")))
+	return Captaincy.role_word(captaincy_record(str(p.get("club", ""))), str(p.get("id", "")))
 
 
 ## Has the season begun, so that taking an armband off costs? Before round 1,
@@ -8474,7 +8487,10 @@ func _captaincy_week() -> void:
 ## What naming these leaders would cost, before anything is done.
 func captaincy_preview(new_slots: Array) -> Dictionary:
 	var roster := club_roster(my_club)
-	return Captaincy.preview(captaincy.get(my_club, Captaincy.fresh(season_year)), new_slots, roster,
+	var rec := captaincy_record(my_club)
+	if rec.is_empty():
+		rec = Captaincy.fresh(season_year)
+	return Captaincy.preview(rec, new_slots, roster,
 			season_year, captaincy_mid_season(), func(id): return _captain_name(id, roster))
 
 
@@ -8485,7 +8501,9 @@ func set_captaincy(new_slots: Array) -> Dictionary:
 	var pv := captaincy_preview(new_slots)
 	if not bool(pv["ok"]):
 		return pv
-	var rec: Dictionary = captaincy.get(my_club, Captaincy.fresh(season_year))
+	var rec: Dictionary = captaincy_record(my_club)
+	if rec.is_empty():
+		rec = Captaincy.fresh(season_year)
 	var roster := club_roster(my_club)
 	var when := last_label if captaincy_mid_season() else "Pre-season"
 	for id in pv["morale"]:

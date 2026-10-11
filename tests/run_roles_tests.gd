@@ -637,11 +637,22 @@ func _captaincy_ui_tests() -> void:
 	await _settle()
 	_check(why == "", "A tap opens Captaincy (%s)" % why)
 	var sheet: Node = ls.find_child("CaptaincySheet", true, false)
-	_check(sheet != null and _screen_text(sheet).contains("stings once") and _screen_text(sheet).contains("only get one change a season"),
-			"The page says what a pick can cost before any pick")
-	_check(sheet != null and sheet.find_child("CaptaincyConfirm", true, false) != null
+	_check(sheet != null and not _screen_text(sheet).contains("only get one change a season")
+			and sheet.find_child("CaptaincyHow", true, false) != null,
+			"The rules sit behind one tap, not on the page")
+	var how: Button = sheet.find_child("CaptaincyHow", true, false) if sheet != null else null
+	why = await Tap.tap(how)
+	await _settle()
+	var rules: Node = ls.find_child("CaptaincyRules", true, false)
+	_check(why == "" and rules != null and _screen_text(rules).contains("Overlooking a senior player")
+			and _screen_text(rules).contains("only get one change a season"),
+			"How captaincy works says what a pick can cost (%s)" % why)
+	if rules != null:
+		why = await Tap.tap(rules.find_child("RulesClose", true, false))
+		await _settle()
+	_check(sheet != null and sheet.find_child("CaptaincyConfirmWhy", true, false) != null
 			and (sheet.find_child("CaptaincyConfirm", true, false) as Button).disabled,
-			"Confirm waits until something changes")
+			"Confirm waits until something changes, and says so")
 	var slot: Button = sheet.find_child("CaptaincySlot_0", true, false) if sheet != null else null
 	why = await Tap.tap(slot)
 	await _settle()
@@ -666,6 +677,29 @@ func _captaincy_ui_tests() -> void:
 	await _settle()
 	_check(why == "" and Captaincy.ids(_state.captaincy_record("COL"), "captain").has(picked),
 			"Confirm names him captain (%s)" % why)
+	# A second mid-season change is refused, and the page says why.
+	_state.advance()
+	_state.captaincy[ "COL" ]["changes"][str(_state.season_year)] = Captaincy.MID_SEASON_CHANGES
+	ls.queue_free()
+	await _settle()
+	ls = load("res://scenes/ListScene.tscn").instantiate()
+	root.add_child(ls)
+	await _settle()
+	await Tap.tap(ls.find_child("CaptaincyOpen", true, false))
+	await _settle()
+	await Tap.tap(ls.find_child("CaptaincySlot_0", true, false))
+	await _settle()
+	var other: Button = null
+	for r2 in ls.find_children("Pick_*", "Button", true, false):
+		if str(r2.name) != "Pick_" + picked:
+			other = r2
+			break
+	await Tap.tap(other)
+	await _settle()
+	var refused: Node = ls.find_child("CaptaincyWhyNot", true, false)
+	_check(refused != null and str(refused.text).contains("already taken the armband")
+			and (ls.find_child("CaptaincyConfirm", true, false) as Button).disabled,
+			"A second mid-season change is refused on the page, with the reason")
 	ls.queue_free()
 	await _settle()
 

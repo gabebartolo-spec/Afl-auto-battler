@@ -768,7 +768,7 @@ func _test_captaincy() -> void:
 			"Passing over a senior player with higher Leadership costs him a little, even before round 1")
 	_check(not pre["morale"].has("a"), "Before round 1 taking the armband off costs nothing")
 	var texts := " ".join(PackedStringArray(pre["lines"]))
-	_check(texts.contains("stings once") and texts.contains("Pd"), "The cost is said in words before the pick (%s)" % texts)
+	_check(texts.contains("Overlooking") and texts.contains("once") and texts.contains("Pd"), "The cost is said in words before the pick (%s)" % texts)
 	var mid := Captaincy.preview(cur, [{"id": "d", "role": "captain"}], roster, 2027, true, nm)
 	_check(bool(mid["used_change"]) and int(mid["morale"]["a"]) == Captaincy.STRIPPED_MORALE
 			and " ".join(PackedStringArray(mid["lines"])).contains("one change this season"),
@@ -830,6 +830,12 @@ func _test_captaincy() -> void:
 			if str(GameState.my_list[i]["id"]) == cid:
 				GameState.my_list.remove_at(i)
 				break
+		_check(Captaincy.ids(GameState.captaincy_record("GEE"), "captain").is_empty()
+				and not Captaincy.ids(GameState.captaincy_record("GEE")).has(cid),
+				"A leader who has left is out of the record the moment you look, not at the next round")
+		var after := GameState.set_captaincy([])
+		_check(bool(after["ok"]) and not JSON.stringify(GameState.captaincy["GEE"]).contains(cid),
+				"Confirming an edit never saves a leader who has gone")
 		_run_on(1)
 		_check(Captaincy.ids(GameState.captaincy_record("GEE"), "captain").is_empty(),
 				"A captain who has left your list leaves the captaincy open")
