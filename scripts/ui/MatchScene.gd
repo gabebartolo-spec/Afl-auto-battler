@@ -763,6 +763,8 @@ func _show_coach_box() -> void:
 		var who_tags := _player_choice("TaggerPicker", _card_text(tagger, tag_detail), others, others.slice(0, 3),
 				calls, "tagger_id", "Who goes to him?", sync_tag, tag_detail)
 		var wb := _call_block("Who tags", who_tags)
+		# The follow-up to Tag: packed with its question, never ahead of it.
+		wb.set_meta("break_follow", true)
 		who_block.append(wb)
 		col_a.add_child(wb)
 	sync_tag.call("")
