@@ -339,6 +339,17 @@ func _test_finals_and_big_weeks() -> void:
 		ctx["week"] = wk
 		max_cards = maxi(max_cards, StoryEngine.pick_week(StoryDeck.all(), ctx, story).size())
 	_check(max_cards <= 1, "An ordinary week brings one card at most")
+	# A season's weeks, finals included, fit inside the week count cooldowns run
+	# on, so a card's cooldown never wraps into the next season early.
+	var s = GameState.season
+	s.start_finals()
+	var finals_weeks := 0
+	while not s.finals_week_matches().is_empty() and finals_weeks < 20:
+		finals_weeks += 1
+		s.finals["week"] = int(s.finals["week"]) + 1
+	_check(finals_weeks > 0 and Season.REGULAR_ROUNDS + finals_weeks < StoryEngine.SEASON_WEEKS,
+			"%d rounds and %d finals weeks fit inside a story season of %d weeks"
+			% [Season.REGULAR_ROUNDS, finals_weeks, StoryEngine.SEASON_WEEKS])
 
 
 ## No card that invents a private life or misconduct can be about a player
@@ -370,7 +381,16 @@ func _test_private_cards() -> void:
 						f[key.trim_suffix("_max")] = float(t["subject"]["where"][k])
 					elif key.ends_with("_min"):
 						f[key.trim_suffix("_min")] = float(t["subject"]["where"][k])
-			var who := StoryEngine.eligible_subject(t, ctx, StoryEngine.new_state(), 10, RandomNumberGenerator.new())
+			# An arc follow-up needs his flag and an open arc: give every player both.
+			var st := StoryEngine.new_state()
+			var needs: Dictionary = t.get("needs", {})
+			if not needs.is_empty():
+				for f in players:
+					var pid := str(f["id"])
+					st["flags"][pid] = {str(needs["flag"]): 10 - int(needs.get("after", 1))}
+					if str(t.get("arc", "")) != "":
+						st["arcs"][str(t["arc"]) + "|" + pid] = {"state": "open"}
+			var who := StoryEngine.eligible_subject(t, ctx, st, 10, RandomNumberGenerator.new())
 			if named and not who.is_empty():
 				leaks.append(str(t["id"]))
 			if not named and not who.is_empty():

@@ -2,19 +2,327 @@
 	{
 		"id": "contracts_wants_to_extend",
 		"category": "contracts",
-		"cooldown": 4,
+		"cooldown": 10,
 		"per_season": 1,
 		"subject_cooldown": 30,
-		"subject": {"kind": "player", "where": {"fit": true, "extension_ok": true}, "pick": "highest:overall"},
-		"title": ["{name} wants to talk contract"],
-		"text": ["He's out of contract at season's end and wants security now. Today his rating is worth {ask} a season."],
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"extension_ok": true
+			},
+			"pick": "highest:overall"
+		},
+		"title": [
+			"{name} wants to talk contract"
+		],
+		"text": [
+			"He's out of contract at season's end and wants security now. On today's form he's worth {ask} a season."
+		],
 		"default": 1,
 		"choices": [
-			{"key": "extend", "label": "Extend him now", "note": "A premium for certainty.",
-				"effects": [{"op": "extend_early"}]},
-			{"key": "wait", "label": "Wait for the off-season", "note": "No commitment yet. He'll ask what his rating is worth then: less if he drops, more if he improves.",
-				"effects": [{"op": "morale", "d": -5}, {"op": "trust", "d": -3, "why": "You made him wait on a new deal"}],
-				"result": "{name} is disappointed, but it can wait for the off-season."}
+			{
+				"key": "extend",
+				"label": "Extend him now",
+				"note": "A premium for certainty.",
+				"effects": [
+					{
+						"op": "extend_early"
+					}
+				]
+			},
+			{
+				"key": "wait",
+				"label": "Wait for the off-season",
+				"note": "No commitment yet. He'll ask for what he's worth then: less if his form drops, more if he improves.",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -5
+					},
+					{
+						"op": "trust",
+						"d": -3,
+						"why": "You made him wait on a new deal"
+					},
+					{
+						"op": "flag",
+						"name": "made_to_wait"
+					}
+				],
+				"result": "{name} is disappointed, but it can wait for the off-season."
+			}
+		],
+		"arc": "contract_wait",
+		"beat": "start",
+		"stakes": "Extend now: {more_seasons} at {early_price} a season, locked in. Wait, and his price moves with his form."
+	},
+	{
+		"id": "contracts_rivals_circling",
+		"category": "contracts",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"contract_years_max": 1,
+				"overall_min": 70
+			},
+			"pick": "highest:overall"
+		},
+		"title": [
+			"Rival clubs are circling {name}"
+		],
+		"text": [
+			"His manager says two clubs have called. He wants to know he's wanted here."
+		],
+		"choices": [
+			{
+				"key": "wanted",
+				"label": "Tell him he's in your plans",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 6
+					},
+					{
+						"op": "trust",
+						"d": 6,
+						"why": "You told him he was in your plans"
+					}
+				],
+				"result": "{name} hears what he wanted to hear."
+			},
+			{
+				"key": "market",
+				"label": "Let the market play out",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -5
+					},
+					{
+						"op": "trust",
+						"d": -4,
+						"why": "You let the market decide his future"
+					}
+				],
+				"result": "{name} goes back to his manager."
+			}
 		]
+	},
+	{
+		"id": "contracts_manager_noise",
+		"category": "contracts",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"contract_years_max": 1,
+				"overall_min": 72
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name}'s manager is talking him up"
+		],
+		"text": [
+			"He's on radio saying his client is \"weighing up his options\"."
+		],
+		"choices": [
+			{
+				"key": "ring",
+				"label": "Ring the manager",
+				"effects": [
+					{
+						"op": "board",
+						"d": 2
+					},
+					{
+						"op": "trust",
+						"d": -3,
+						"why": "You went over his head to his manager"
+					}
+				],
+				"result": "You have a word with the manager. It goes quiet."
+			},
+			{
+				"key": "ignore",
+				"label": "Ignore it",
+				"effects": [
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "You leave it. The board doesn't like reading it."
+			}
+		]
+	},
+	{
+		"id": "contracts_one_more_year",
+		"category": "contracts",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"age_min": 31,
+				"contract_years_max": 1
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} wants to know about next year"
+		],
+		"text": [
+			"He wants an answer before the season's out: is there one more year for him?"
+		],
+		"choices": [
+			{
+				"key": "honest",
+				"label": "Tell him where he stands",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -3
+					},
+					{
+						"op": "trust",
+						"d": 6,
+						"why": "You were straight with him about his future"
+					}
+				],
+				"result": "You give {name} a straight answer."
+			},
+			{
+				"key": "later",
+				"label": "Tell him it'll be sorted after the season",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3
+					},
+					{
+						"op": "trust",
+						"d": -2,
+						"why": "You put off talking about his future"
+					}
+				],
+				"result": "{name} has to wait."
+			}
+		]
+	},
+	{
+		"id": "contracts_kid_wants_clarity",
+		"category": "contracts",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"age_max": 21,
+				"games_max": 3
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} wants to know where he stands"
+		],
+		"text": [
+			"He's on a rookie deal and hasn't had a senior game. His family are asking questions."
+		],
+		"choices": [
+			{
+				"key": "plans",
+				"label": "Tell him he's part of the plans",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 5
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You told him he was part of the plans"
+					}
+				],
+				"result": "{name} goes home happier."
+			},
+			{
+				"key": "earn",
+				"label": "Tell him he has to earn it",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -4
+					},
+					{
+						"op": "trust",
+						"d": -2,
+						"why": "You told him he had to earn his place"
+					}
+				],
+				"result": "{name} heads back to the track."
+			}
+		]
+	},
+	{
+		"id": "contracts_waited_manager_calls",
+		"category": "contracts",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"contract_years_max": 1
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name}'s manager has called"
+		],
+		"text": [
+			"Other clubs are asking about him, and he hasn't forgotten you made him wait."
+		],
+		"choices": [
+			{
+				"key": "coming",
+				"label": "Tell him a deal is coming at season's end",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 4
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You told him a deal was coming"
+					}
+				],
+				"result": "{name} is reassured, for now."
+			},
+			{
+				"key": "market",
+				"label": "Let him test the market",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -6
+					},
+					{
+						"op": "trust",
+						"d": -6,
+						"why": "You let him test the market"
+					}
+				],
+				"result": "{name}'s manager starts taking calls."
+			}
+		],
+		"arc": "contract_wait",
+		"beat": "end",
+		"needs": {
+			"flag": "made_to_wait",
+			"after": 6,
+			"within": 20
+		},
+		"cooldown": 0,
+		"subject_cooldown": 0
 	}
 ]

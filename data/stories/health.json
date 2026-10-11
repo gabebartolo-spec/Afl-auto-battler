@@ -2,20 +2,250 @@
 	{
 		"id": "health_pulled_up_sore",
 		"category": "health",
-		"phase": ["regular", "finals"],
-		"cooldown": 3,
-		"subject": {"kind": "player", "where": {"fit": true, "fit_rank_max": 5}, "pick": "random"},
-		"when": {"fit_count_min": 5},
-		"title": ["{name} pulled up sore"],
-		"text": ["The physio says he can play, but he's not right."],
+		"phase": [
+			"regular",
+			"finals"
+		],
+		"cooldown": 12,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"fit_rank_max": 5
+			},
+			"pick": "random"
+		},
+		"when": {
+			"fit_count_min": 5
+		},
+		"title": [
+			"{name} pulled up sore"
+		],
+		"text": [
+			"The physio says he can play, but he's not right."
+		],
 		"default": 1,
 		"choices": [
-			{"key": "rest", "label": "Rest him this week", "note": "He'll be right for next week.",
-				"effects": [{"op": "rest"}],
-				"result": "{name} is rested this week."},
-			{"key": "play", "label": "Play him",
-				"effects": [{"op": "sore"}],
-				"result": "{name} plays. Fingers crossed."}
+			{
+				"key": "rest",
+				"label": "Rest him this week",
+				"note": "He'll be right for next week.",
+				"effects": [
+					{
+						"op": "rest"
+					}
+				],
+				"result": "{name} is rested this week."
+			},
+			{
+				"key": "play",
+				"label": "Play him",
+				"effects": [
+					{
+						"op": "sore"
+					}
+				],
+				"result": "{name} plays. Fingers crossed."
+			}
+		],
+		"stakes": "Play him sore and there's {sore_odds} chance he breaks down for weeks."
+	},
+	{
+		"id": "health_veteran_load",
+		"category": "health",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"selected": true,
+				"age_min": 30,
+				"games_min": 150
+			},
+			"pick": "highest:games"
+		},
+		"title": [
+			"The fitness staff want to manage {name}'s load"
+		],
+		"text": [
+			"{games} games in his legs and a six-day break. They want him out of this one."
+		],
+		"choices": [
+			{
+				"key": "rest",
+				"label": "Give him the week",
+				"effects": [
+					{
+						"op": "rest"
+					},
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You looked after his body"
+					}
+				],
+				"result": "{name} gets the week off."
+			},
+			{
+				"key": "play",
+				"label": "He plays",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3
+					},
+					{
+						"op": "heavy_legs"
+					}
+				],
+				"result": "{name} plays. He's grateful; his legs might not be."
+			}
+		]
+	},
+	{
+		"id": "health_knock_at_training",
+		"category": "health",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"selected": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} copped a knock at training"
+		],
+		"text": [
+			"A cork in the thigh. He says it's nothing; the physio isn't so sure."
+		],
+		"choices": [
+			{
+				"key": "rest",
+				"label": "Sit him out",
+				"effects": [
+					{
+						"op": "rest"
+					}
+				],
+				"result": "{name} sits this one out."
+			},
+			{
+				"key": "play",
+				"label": "He says he's right",
+				"effects": [
+					{
+						"op": "sore"
+					},
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You took his word on his body"
+					}
+				],
+				"result": "{name} plays."
+			}
+		],
+		"phase": [
+			"regular",
+			"finals"
+		],
+		"default": 1,
+		"stakes": "Play him sore and there's {sore_odds} chance he breaks down for weeks."
+	},
+	{
+		"id": "health_finals_light_week",
+		"category": "health",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"The physios want a light week"
+		],
+		"text": [
+			"Finals footy. The bodies are sore and the physios want the main session cut back."
+		],
+		"choices": [
+			{
+				"key": "light",
+				"label": "Cut it back",
+				"effects": [
+					{
+						"op": "fresh",
+						"who": "all"
+					}
+				],
+				"note": "No extra development.",
+				"result": "A light week. Fresh bodies for the final."
+			},
+			{
+				"key": "normal",
+				"label": "Train as normal",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 6,
+						"who": "all"
+					},
+					{
+						"op": "heavy_legs",
+						"who": "all"
+					}
+				],
+				"result": "Business as usual on the track."
+			}
+		],
+		"phase": [
+			"finals"
+		],
+		"cooldown": 45,
+		"stakes": "Train as normal and they carry heavy legs into the final."
+	},
+	{
+		"id": "health_veteran_rehab_mentor",
+		"category": "health",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"age_min": 28,
+				"games_min": 100
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} wants to help a young player through rehab"
+		],
+		"text": [
+			"One of the kids is facing months out, and {first} has been through the same injury."
+		],
+		"choices": [
+			{
+				"key": "help",
+				"label": "Let him",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3
+					},
+					{
+						"op": "morale",
+						"d": 2,
+						"who": "others"
+					}
+				],
+				"result": "{name} spends the week with the kid in rehab."
+			},
+			{
+				"key": "own",
+				"label": "Keep him on his own program",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -2
+					}
+				],
+				"result": "{name} sticks to his own program."
+			}
 		]
 	}
 ]

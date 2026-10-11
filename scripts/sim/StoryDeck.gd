@@ -167,6 +167,8 @@ static func _check_card(t: Dictionary) -> Array:
 			continue
 		for s in v:
 			errs.append_array(_check_text(id, str(s), player))
+	# What's at risk, in one short line under the text (optional).
+	errs.append_array(_check_text(id, str(t.get("stakes", "")), player))
 	var choices: Array = t.get("choices", [])
 	if choices.size() < 2:
 		errs.append("%s: a card needs at least two choices" % id)

@@ -680,6 +680,20 @@ func _run() -> void:
 	_check(second_tap == "" and bool(_state.week_events[1].get("resolved", false))
 			and not bool(_state.week_events[0].get("resolved", false)),
 			"Two cards in a big week, each answered on its own by a tap (%s)" % second_tap)
+	# The stakes in one line under the text; the buttons carry the choice, and
+	# no line repeats a button's label to spell out what it does.
+	_state.week_events = [_state.story_card("training_kid_pushing", _state.my_list[0])]
+	_router.go("hub")
+	await _settle()
+	var kid_card: Control = current_scene.find_child("WeekEvent", true, false)
+	var stakes_l: Label = kid_card.find_child("EventStakes_0", true, false) if kid_card != null else null
+	var repeats := 0
+	for l in (kid_card.find_children("*", "Label", true, false) if kid_card != null else []):
+		for o in _state.week_events[0]["options"]:
+			if (l as Label).text.contains(str(o["label"]) + ":"):
+				repeats += 1
+	_check(stakes_l != null and stakes_l.text.contains("promise breaks") and repeats == 0,
+			"The card puts the stakes in one line and leaves the choice to its buttons (%d repeats)" % repeats)
 	_state.week_events = []
 	# His trust on the profile, at phone size: the words, and a finger on Why
 	# shows his reasons, newest first. A player you've had nothing to do with

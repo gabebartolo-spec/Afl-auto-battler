@@ -3,19 +3,452 @@
 		"id": "media_in_the_papers",
 		"private": true,
 		"category": "media",
-		"cooldown": 4,
+		"cooldown": 40,
 		"subject_cooldown": 30,
-		"subject": {"kind": "player", "where": {"fit": true, "selected": true, "discipline_max": 40}, "pick": "lowest:discipline"},
-		"title": ["{name} is in the papers"],
-		"text": ["An off-field incident has made the back page. The board is watching how you handle it."],
-		"unanswered": {"board": -4, "text": "You say nothing. The board wanted an answer."},
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"selected": true,
+				"discipline_max": 40
+			},
+			"pick": "lowest:discipline"
+		},
+		"title": [
+			"{name} is in the papers"
+		],
+		"text": [
+			"An off-field incident has made the back page. The board is watching how you handle it."
+		],
+		"unanswered": {
+			"board": -4,
+			"text": "You say nothing. The board wanted an answer."
+		},
 		"choices": [
-			{"key": "suspend", "label": "Stand him down for a week",
-				"effects": [{"op": "rest"}, {"op": "morale", "d": -10}, {"op": "trust", "d": -6, "why": "You stood him down over the papers story"}, {"op": "board", "d": 4}],
-				"result": "{name} is stood down for a week. The board approves."},
-			{"key": "back", "label": "Back your player",
-				"effects": [{"op": "morale", "d": 8}, {"op": "trust", "d": 10, "why": "You backed him when he was in the papers"}, {"op": "board", "d": -4}],
-				"result": "You back {name}. The board is not impressed."}
+			{
+				"key": "suspend",
+				"label": "Stand him down for a week",
+				"effects": [
+					{
+						"op": "rest"
+					},
+					{
+						"op": "morale",
+						"d": -10
+					},
+					{
+						"op": "trust",
+						"d": -6,
+						"why": "You stood him down over the papers story"
+					},
+					{
+						"op": "board",
+						"d": 4
+					}
+				],
+				"result": "{name} is stood down for a week. The board approves."
+			},
+			{
+				"key": "back",
+				"label": "Back your player",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 8
+					},
+					{
+						"op": "trust",
+						"d": 10,
+						"why": "You backed him when he was in the papers"
+					},
+					{
+						"op": "board",
+						"d": -4
+					},
+					{
+						"op": "flag",
+						"name": "backed_in_papers"
+					}
+				],
+				"result": "You back {name}. The board is not impressed."
+			}
+		],
+		"arc": "papers",
+		"beat": "start"
+	},
+	{
+		"id": "media_radio_spray",
+		"category": "media",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"Kev Pollard has sprayed you on radio"
+		],
+		"text": [
+			"Outer Wing Radio: \"{club} have lost their way and the coach has lost the rooms.\" Do you bite?"
+		],
+		"choices": [
+			{
+				"key": "bite",
+				"label": "Hit back in the presser",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": -3
+					}
+				],
+				"result": "You hit back. The players love it; the board winces."
+			},
+			{
+				"key": "ignore",
+				"label": "Let your footy do the talking",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "all"
+					}
+				],
+				"result": "You say nothing. The rooms hear it all week anyway."
+			}
+		],
+		"when": {
+			"losing_run_min": 2
+		}
+	},
+	{
+		"id": "media_newspaper_column",
+		"category": "media",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"games_min": 100
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} has been offered a newspaper column"
+		],
+		"text": [
+			"A weekly piece in the Sunday paper. Good money, and a lot of opinions."
+		],
+		"choices": [
+			{
+				"key": "yes",
+				"label": "Let him write it",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 5
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You let him write his column"
+					},
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "{name}'s first column runs on Sunday."
+			},
+			{
+				"key": "no",
+				"label": "Knock it back",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -4
+					},
+					{
+						"op": "trust",
+						"d": -3,
+						"why": "You knocked back his newspaper column"
+					}
+				],
+				"result": "{name} turns the paper down."
+			}
 		]
+	},
+	{
+		"id": "media_young_feature",
+		"category": "media",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"age_max": 22,
+				"games_min": 5
+			},
+			"pick": "random"
+		},
+		"title": [
+			"Footy Tonight want a feature on {name}"
+		],
+		"text": [
+			"Trish Lomax wants a week with him. Good for the club, and a lot of spotlight on a kid."
+		],
+		"choices": [
+			{
+				"key": "yes",
+				"label": "Do the feature",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 5
+					},
+					{
+						"op": "board",
+						"d": 2
+					},
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "others"
+					}
+				],
+				"result": "The feature goes to air. The boys give him a hard time."
+			},
+			{
+				"key": "no",
+				"label": "Keep him out of it",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -3
+					}
+				],
+				"result": "No feature. {first} would have liked it."
+			}
+		]
+	},
+	{
+		"id": "media_team_leak",
+		"category": "media",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"The Siren has your side before it's announced"
+		],
+		"text": [
+			"Someone at the club is talking to Gary Haddon."
+		],
+		"choices": [
+			{
+				"key": "hunt",
+				"label": "Find the leak",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -3,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": 3
+					}
+				],
+				"result": "You go looking. Everyone feels watched."
+			},
+			{
+				"key": "let",
+				"label": "Let it go",
+				"effects": [
+					{
+						"op": "board",
+						"d": -3
+					}
+				],
+				"result": "You let it go. The board isn't happy."
+			}
+		]
+	},
+	{
+		"id": "media_cameras_in_rooms",
+		"category": "media",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"Footy Tonight want cameras in the rooms"
+		],
+		"text": [
+			"Trish Lomax wants a behind-the-scenes piece while you're winning."
+		],
+		"choices": [
+			{
+				"key": "yes",
+				"label": "Let the cameras in",
+				"effects": [
+					{
+						"op": "board",
+						"d": 4
+					},
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "all"
+					}
+				],
+				"result": "The cameras are in. Some of the players hate it."
+			},
+			{
+				"key": "no",
+				"label": "The rooms stay ours",
+				"effects": [
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "No cameras. The network isn't happy."
+			}
+		],
+		"when": {
+			"winning_run_min": 3
+		}
+	},
+	{
+		"id": "media_papers_fronts_group",
+		"category": "media",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} wants to speak to the group"
+		],
+		"text": [
+			"You backed him through the papers story. He wants to front his teammates about it."
+		],
+		"choices": [
+			{
+				"key": "front",
+				"label": "Let him front the group",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "others"
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You let him front the group"
+					},
+					{
+						"op": "board",
+						"d": 2
+					}
+				],
+				"result": "{name} speaks to the group. It goes well."
+			},
+			{
+				"key": "private",
+				"label": "Keep it between you two",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 2
+					}
+				],
+				"result": "It stays between you and {name}."
+			}
+		],
+		"arc": "papers",
+		"beat": "end",
+		"needs": {
+			"flag": "backed_in_papers",
+			"after": 3,
+			"within": 15
+		},
+		"cooldown": 0,
+		"subject_cooldown": 0,
+		"private": true
+	},
+	{
+		"id": "media_papers_again",
+		"category": "media",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"discipline_max": 45
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} is back in the papers"
+		],
+		"text": [
+			"Second time this year. Gary Haddon wants to know if you still back him."
+		],
+		"choices": [
+			{
+				"key": "stand",
+				"label": "Stand by him again",
+				"effects": [
+					{
+						"op": "trust",
+						"d": 6,
+						"why": "You stood by him a second time"
+					},
+					{
+						"op": "board",
+						"d": -6
+					}
+				],
+				"result": "You back {name} again. The board is furious."
+			},
+			{
+				"key": "down",
+				"label": "Stand him down this time",
+				"effects": [
+					{
+						"op": "rest"
+					},
+					{
+						"op": "trust",
+						"d": -10,
+						"why": "You stood him down the second time"
+					},
+					{
+						"op": "board",
+						"d": 5
+					},
+					{
+						"op": "morale",
+						"d": -8
+					}
+				],
+				"result": "{name} is stood down."
+			}
+		],
+		"arc": "papers",
+		"beat": "end",
+		"needs": {
+			"flag": "backed_in_papers",
+			"after": 3,
+			"within": 15
+		},
+		"cooldown": 0,
+		"subject_cooldown": 0,
+		"private": true,
+		"unanswered": {
+			"board": -4,
+			"text": "You say nothing. The board wanted an answer."
+		}
 	}
 ]

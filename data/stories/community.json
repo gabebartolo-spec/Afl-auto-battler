@@ -1,0 +1,246 @@
+[
+	{
+		"id": "community_hospital_visit",
+		"category": "community",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"The children's hospital has asked for a visit"
+		],
+		"text": [
+			"A group of players, an afternoon, a lot of jumpers to sign."
+		],
+		"choices": [
+			{
+				"key": "go",
+				"label": "Send a group",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": 2
+					}
+				],
+				"note": "It takes a session out of the week.",
+				"result": "The players spend the afternoon on the wards."
+			},
+			{
+				"key": "train",
+				"label": "Training comes first",
+				"effects": [
+					{
+						"op": "board",
+						"d": -3
+					},
+					{
+						"op": "xp",
+						"d": 4,
+						"who": "all"
+					}
+				],
+				"result": "You keep the players on the track."
+			}
+		],
+		"stakes": "A visit takes a session out of the week."
+	},
+	{
+		"id": "community_country_clinic",
+		"category": "community",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"games_min": 50
+			},
+			"pick": "random"
+		},
+		"title": [
+			"A country club wants {name} for a junior clinic"
+		],
+		"text": [
+			"It's a three-hour drive on his day off."
+		],
+		"choices": [
+			{
+				"key": "go",
+				"label": "Send him",
+				"effects": [
+					{
+						"op": "board",
+						"d": 3
+					},
+					{
+						"op": "morale",
+						"d": -2
+					},
+					{
+						"op": "heavy_legs"
+					}
+				],
+				"result": "{name} runs the clinic. The kids won't forget it."
+			},
+			{
+				"key": "no",
+				"label": "Not this week",
+				"effects": [
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "The clinic will have to wait."
+			}
+		]
+	},
+	{
+		"id": "community_foundation_dinner",
+		"category": "community",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"The Foundation wants players at a fundraiser"
+		],
+		"text": [
+			"A Thursday night dinner, the night before the team leaves."
+		],
+		"choices": [
+			{
+				"key": "all",
+				"label": "Make it compulsory",
+				"effects": [
+					{
+						"op": "board",
+						"d": 4
+					},
+					{
+						"op": "morale",
+						"d": -3,
+						"who": "all"
+					}
+				],
+				"result": "The whole list is in suits on Thursday night."
+			},
+			{
+				"key": "choose",
+				"label": "Leave it to the players",
+				"effects": [
+					{
+						"op": "board",
+						"d": -2
+					},
+					{
+						"op": "morale",
+						"d": 1,
+						"who": "all"
+					}
+				],
+				"result": "A handful turn up."
+			}
+		]
+	},
+	{
+		"id": "community_junior_club_fire",
+		"category": "community",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name}'s junior club has burnt down"
+		],
+		"text": [
+			"The rooms at the club he grew up at went up overnight. He wants to help."
+		],
+		"choices": [
+			{
+				"key": "go",
+				"label": "Let him go back on Sunday",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 5
+					},
+					{
+						"op": "trust",
+						"d": 5,
+						"why": "You let him help his old club after the fire"
+					},
+					{
+						"op": "heavy_legs"
+					}
+				],
+				"result": "{name} spends Sunday with his old club."
+			},
+			{
+				"key": "jumper",
+				"label": "Send a signed jumper instead",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -2
+					}
+				],
+				"result": "The club sends a signed jumper."
+			}
+		],
+		"private": true
+	},
+	{
+		"id": "community_school_visit",
+		"category": "community",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"age_max": 24
+			},
+			"pick": "random"
+		},
+		"title": [
+			"A school has asked for {name}"
+		],
+		"text": [
+			"His old school wants him at assembly on Friday."
+		],
+		"choices": [
+			{
+				"key": "go",
+				"label": "Send him",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3
+					},
+					{
+						"op": "board",
+						"d": 2
+					},
+					{
+						"op": "heavy_legs"
+					}
+				],
+				"result": "{name} speaks at assembly."
+			},
+			{
+				"key": "no",
+				"label": "Not in a game week",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -2
+					}
+				],
+				"result": "{name} sends a video instead."
+			}
+		]
+	}
+]
