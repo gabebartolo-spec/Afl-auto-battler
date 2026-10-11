@@ -17,13 +17,67 @@ const TOP_LUM := 0.034        # brightest a stripe may be (relative luminance): 
 const SLIDE_SECS := 0.6       # the stripes sweep in from off-screen, eased out
 const GOLD_EDGE := 6.0        # a yellow club's stripes are full-brightness gold this far down from the top, above any text
 
-## Set by a capture tool to record the slide's value at every drawn frame.
+## Set by a capture tool to record the stripes' slide value at every update.
 static var trace := false
 static var trail: Array = []
 
+const SW := 150.0             # a stripe's width across the page
+const DRIFT_PX_PER_SEC := 8.0 # the slow drift after the slide: this fast at first, easing to a stop
+const DRIFT_SECS := 12.0      # (so 48 px in all; a stripe is 150 px wide)
+
+const SHADER := """
+shader_type canvas_item;
+// Antialiased guernsey stripes, so they move by fractions of a pixel. Two
+// stripe colours, each fading at the foot; a yellow club's get a full-
+// brightness edge along the very top (above any text).
+uniform vec2 area = vec2(390.0, 844.0);
+uniform float offset = 0.0;
+uniform float sw = 150.0;
+uniform float run = 464.0;
+uniform float edge = 6.0;
+uniform vec4 top_a : source_color;
+uniform vec4 top_b : source_color;
+uniform vec4 foot_a : source_color;
+uniform vec4 foot_b : source_color;
+uniform vec4 raw_a : source_color;
+uniform vec4 raw_b : source_color;
+uniform vec2 gold = vec2(0.0, 0.0);
+
+vec4 stripe(bool a, float y) {
+	float g = clamp(y / area.y, 0.0, 1.0);
+	vec4 c = a ? mix(top_a, foot_a, g) : mix(top_b, foot_b, g);
+	float on = a ? gold.x : gold.y;
+	vec4 r = a ? raw_a : raw_b;
+	float e = 1.0 - smoothstep(edge - 0.5, edge + 0.5, y);
+	return mix(c, r, on * e);
+}
+
+void fragment() {
+	vec2 p = UV * area;
+	float u = (p.x + run * p.y / area.y - offset) / sw;
+	float k = floor(u);
+	float f = fract(u);
+	float cosine = area.y / sqrt(area.y * area.y + run * run);
+	float t = min(f, 1.0 - f) * sw * cosine;   // pixels from the nearest stripe edge
+	bool even = mod(k, 2.0) < 1.0;
+	vec4 here = stripe(even, p.y);
+	vec4 other = stripe(!even, p.y);
+	COLOR = vec4(mix(other, here, clamp(0.5 + t, 0.0, 1.0)).rgb, 1.0);
+}
+"""
+
 var _club := ""
-var _settle := 1.0   # 0 arriving -> 1 at rest: the slide (live())
-var _raw: Array = []   # the club colours as they are, under the stripes (the gold edge)
+var _settle := 1.0:        # 0 arriving -> 1 at rest: the slide (live())
+	set(v):
+		_settle = v
+		_sync()
+var _drift := 0.0:         # px the slow drift has carried the stripes
+	set(v):
+		_drift = v
+		_sync()
+var _raw: Array = []       # the club colours as they are, under the stripes (the gold edge)
+var _stripes: ColorRect = null
+var _rolling := false
 
 
 func setup(club: String) -> ClubBackdrop:
@@ -31,15 +85,64 @@ func setup(club: String) -> ClubBackdrop:
 	name = "ClubBackdrop"
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	resized.connect(queue_redraw)
+	resized.connect(_resized)
+	if club != "":
+		_stripes = ColorRect.new()
+		_stripes.name = "Stripes"
+		_stripes.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_stripes.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var sh := Shader.new()
+		sh.code = SHADER
+		var mat := ShaderMaterial.new()
+		mat.shader = sh
+		_stripes.material = mat
+		add_child(_stripes)
+		var cols := _colours()
+		var lab := func(c: Color) -> Color:
+			return _from_oklab(_to_oklab(UiKit.BG).lerp(_to_oklab(c), FOOT_MIX))
+		var b: Color = cols[1] if cols.size() > 1 else cols[0]
+		var rb: Color = _raw[1] if _raw.size() > 1 else _raw[0]
+		mat.set_shader_parameter("top_a", cols[0])
+		mat.set_shader_parameter("top_b", b)
+		mat.set_shader_parameter("foot_a", lab.call(cols[0]))
+		mat.set_shader_parameter("foot_b", lab.call(b))
+		mat.set_shader_parameter("raw_a", _raw[0])
+		mat.set_shader_parameter("raw_b", rb)
+		mat.set_shader_parameter("gold", Vector2(1.0 if _is_gold(_raw[0]) else 0.0, 1.0 if _is_gold(rb) else 0.0))
+		_resized()
 	return self
 
 
-## Living (director, 2026-10-11): on arrival the stripes sweep in from fully
-## off screen over SLIDE_SECS, a pure ease-out (the biggest step on the first
-## frame), every frame, then hold still and draw nothing more. (A slow creep
-## after it was tried and dropped: at 2-6 px/s the edges step a whole pixel at a
-## time, which is a flicker, not life.)
+func _resized() -> void:
+	queue_redraw()
+	_sync()
+
+
+## Hand the stripes' place to the shader: a float, so any fraction of a pixel.
+func _sync() -> void:
+	if _stripes == null:
+		return
+	var w := maxf(size.x, 1.0)
+	var h := maxf(size.y, 1.0)
+	var run := h * 0.55   # how far a stripe leans across
+	# Off to the right at the start (a page-width and the lean away), in place
+	# once the slide is done, then drifting on left.
+	var offset := (1.0 - _settle) * (w + run + SW * 3.0) - _drift
+	var mat := _stripes.material as ShaderMaterial
+	mat.set_shader_parameter("area", Vector2(w, h))
+	mat.set_shader_parameter("run", run)
+	mat.set_shader_parameter("offset", offset)
+	# The turf bands roll into place with the slide (redrawn only while it runs).
+	if _settle < 1.0 or _rolling:
+		_rolling = _settle < 1.0
+		queue_redraw()
+
+
+## Living (director, 2026-10-11; "keep a slow drift"): the stripes sweep in from
+## fully off screen over SLIDE_SECS, a pure ease-out, then keep drifting left
+## at DRIFT_PX_PER_SEC, easing to a stop over DRIFT_SECS, and hold still. It is
+## one tween that sets a shader offset: no _draw, antialiased edges (sub-pixel
+## smooth), and once it ends nothing runs. Off under Reduced motion.
 func live() -> ClubBackdrop:
 	if not UiKit.motion_on():
 		_settle = 1.0
@@ -47,19 +150,26 @@ func live() -> ClubBackdrop:
 	_settle = 0.0
 	tree_entered.connect(func() -> void:
 		Feel.moved.append("slide")
+		Feel.moved.append("drift")
 		var tw := create_tween()
-		tw.tween_method(func(t: float) -> void:
-			_settle = t
-			queue_redraw(), 0.0, 1.0, SLIDE_SECS).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT),
+		tw.tween_method(_at, 0.0, SLIDE_SECS + DRIFT_SECS, SLIDE_SECS + DRIFT_SECS),
 		CONNECT_ONE_SHOT)
 	if is_inside_tree():
 		tree_entered.emit()
 	return self
 
 
-func _draw() -> void:
+## The stripes at `t` seconds after arriving.
+func _at(t: float) -> void:
+	var k := clampf(t / SLIDE_SECS, 0.0, 1.0)
+	var d := clampf((t - SLIDE_SECS) / DRIFT_SECS, 0.0, 1.0)
+	_drift = DRIFT_PX_PER_SEC * DRIFT_SECS * 0.5 * (1.0 - (1.0 - d) * (1.0 - d))
+	_settle = 1.0 - pow(1.0 - k, 3.0)
 	if trace:
 		trail.append(snappedf(_settle, 0.001))
+
+
+func _draw() -> void:
 	var w := size.x
 	var h := size.y
 	draw_rect(Rect2(Vector2.ZERO, size), UiKit.BG)
@@ -71,9 +181,6 @@ func _draw() -> void:
 		if i % 2 == 0:
 			draw_rect(Rect2(0, float(i) * band + roll, w, band), Color(1, 1, 1, 0.018))
 		i += 1
-	if _club == "":
-		return
-	_draw_sweep(w, h, _colours())
 
 
 ## The club's own colours, primary first (the home colour in the club data),
@@ -164,32 +271,6 @@ static func stripe_top(c: Color) -> Color:
 		if l < floor_l:
 			break
 	return UiKit.BG.lightened(0.04)
-
-
-## Wide diagonal stripes of the club's colours across the whole page, sliding
-## in from the right; the stripe fades toward the page at the foot, in OKLab so
-## it stays the same colour. Never so bright that body type loses contrast.
-func _draw_sweep(w: float, h: float, cols: Array) -> void:
-	var sw := 150.0
-	var run := h * 0.55   # how far a stripe leans across
-	var n := int((w + run) / sw) + 8
-	# Off to the right at the start (a whole page-width and the lean away).
-	var slide := (1.0 - _settle) * (w + run + sw * 3.0)
-	var bg := _to_oklab(UiKit.BG)
-	for k in range(-2, n):
-		var c: Color = cols[posmod(k, mini(cols.size(), 2))]
-		var x := float(k) * sw + slide
-		var foot := _from_oklab(bg.lerp(_to_oklab(c), FOOT_MIX))
-		draw_polygon(PackedVector2Array([Vector2(x, 0), Vector2(x + sw, 0),
-				Vector2(x + sw - run, h), Vector2(x - run, h)]),
-				PackedColorArray([c, c, foot, foot]))
-		if _is_gold(_raw[posmod(k, cols.size())]):
-			# Yellow IS the club: full brightness along the top edge, where no
-			# text sits (the page's own inset keeps type below it).
-			var e := GOLD_EDGE
-			var xe := x - run * e / h
-			draw_polygon(PackedVector2Array([Vector2(x, 0), Vector2(x + sw, 0),
-					Vector2(xe + sw, e), Vector2(xe, e)]), PackedColorArray([_raw[posmod(k, cols.size())]]))
 
 
 static func _is_gold(c: Color) -> bool:

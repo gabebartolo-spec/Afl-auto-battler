@@ -82,13 +82,16 @@ func _run() -> void:
 				rects.append(l.get_global_rect())
 		hub.queue_free()
 		await process_frame
-		for settle in [1.0, 0.0]:
+		for state_ in [[1.0, 0.0], [1.0, 24.0], [1.0, 48.0], [0.0, 0.0]]:
+			var settle: float = state_[0]
+			var drift: float = state_[1]
 			var vp := SubViewport.new()
 			vp.size = Vector2i(W, H)
 			vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 			root.add_child(vp)
 			var bd = BD.new().setup(club)
 			bd._settle = settle
+			bd._drift = drift
 			vp.add_child(bd)
 			await process_frame
 			await process_frame
@@ -115,10 +118,10 @@ func _run() -> void:
 							ml = _lum(c)
 							worst_m = c
 			print("MEASURE %s %s  brightest page pixel %s TEXT %.1f MUTED %.1f | under %d muted lines: brightest %s MUTED %.1f" % [
-					club, "rest " if settle == 1.0 else "start", worst_page.to_html(false),
+					club, "start" if settle == 0.0 else "drift%2d" % int(drift), worst_page.to_html(false),
 					_cr(text, worst_page), _cr(muted, worst_page), rects.size(),
 					worst_m.to_html(false), _cr(muted, worst_m)])
-			if settle == 1.0:
+			if settle == 1.0 and drift == 0.0:
 				img.save_png("%s_%s.png" % [str(args.get("out", "/tmp/m")), club])
 			vp.queue_free()
 			await process_frame

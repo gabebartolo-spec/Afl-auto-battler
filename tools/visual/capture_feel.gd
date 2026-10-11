@@ -218,8 +218,13 @@ func _one(effect: String, out: String, secs: float, state, db, club: String) -> 
 		# The slide's value at every frame it drew (from the very first).
 		var trl: Array = load("res://scripts/ui/ClubBackdrop.gd").trail
 		print("FEEL slide per drawn frame: %s" % str(trl.slice(0, 24)))
+		var bdn = root.find_child("ClubBackdrop", true, false)
+		var draws := [0]
+		bdn.draw.connect(func() -> void: draws[0] += 1)
+		var d0: float = bdn._drift
 		await _wait(1.0)
-		print("FEEL redraws in the second after: %d" % (load("res://scripts/ui/ClubBackdrop.gd").trail.size() - trl.size()))
+		print("FEEL drift: %.2f px in 1 s (at ~1.6 s), stripe updates %d, _draw redraws %d" % [
+				bdn._drift - d0, load("res://scripts/ui/ClubBackdrop.gd").trail.size() - trl.size(), draws[0]])
 	var peak_at := {"result": 0.0, "attention": 0.85, "living": secs * 0.5, "press": 0.0, "hub": 0.85}
 	if effect == "result":
 		# Prove the landing ran: follow the Verdict's scale from when full time
