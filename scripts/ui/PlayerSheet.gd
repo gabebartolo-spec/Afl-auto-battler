@@ -73,6 +73,7 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 		pl.name = "ProfileBacking"
 		pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(pl)
+	_trust(v, p)
 
 	# How good, and how much room.
 	v.add_child(UiKit.spacer(4))
@@ -224,6 +225,45 @@ static func attr_colour(v: float) -> Color:
 	if v >= 40.0:
 		return Color(0.80, 0.76, 0.55)
 	return UiKit.BAD
+
+
+## How far your player trusts you (Trust.gd), in words, with his reasons one tap
+## away. Only your own players, and only once something has passed between you.
+static func _trust(v: VBoxContainer, p: Dictionary) -> void:
+	var id := str(p.get("id", ""))
+	if GameState.list_player(id).is_empty():
+		return
+	var key := Trust.player_key(id)
+	var says := Trust.profile_words(GameState.relations, key)
+	if says == "":
+		return
+	var row := UiKit.hbox(8)
+	row.name = "ProfileTrust"
+	var tl := UiKit.lbl(says + ".", UiKit.BODY, UiKit.TEXT)
+	tl.name = "TrustWords"
+	tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	row.add_child(tl)
+	var why := UiKit.btn("Why", UiKit.SMALL)
+	why.name = "TrustWhy"
+	why.custom_minimum_size = Vector2(72, 48)
+	row.add_child(why)
+	v.add_child(row)
+	var list := UiKit.vbox(4)
+	list.name = "TrustReasons"
+	list.visible = false
+	var rule := UiKit.lbl("The more he trusts you, the more a talk lifts his mood.", UiKit.SMALL, UiKit.MUTED)
+	rule.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	list.add_child(rule)
+	for r in Trust.reasons(GameState.relations, key):
+		var rl := UiKit.lbl(Trust.reason_text(r), UiKit.SMALL, UiKit.TEXT)
+		rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		list.add_child(rl)
+	v.add_child(list)
+	why.pressed.connect(func():
+		list.visible = not list.visible
+		why.text = "Hide" if list.visible else "Why")
 
 
 ## FL-005: his nickname beside the full name, and one thing he does outside
