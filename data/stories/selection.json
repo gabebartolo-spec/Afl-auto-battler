@@ -282,7 +282,7 @@
 	{
 		"id": "selection_unhappy",
 		"category": "selection",
-		"cooldown": 8,
+		"cooldown": 30,
 		"subject_cooldown": 5,
 		"subject": {
 			"kind": "player",

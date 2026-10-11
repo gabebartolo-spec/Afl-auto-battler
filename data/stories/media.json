@@ -3,7 +3,7 @@
 		"id": "media_in_the_papers",
 		"private": true,
 		"category": "media",
-		"cooldown": 20,
+		"cooldown": 40,
 		"subject_cooldown": 30,
 		"subject": {
 			"kind": "player",
