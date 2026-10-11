@@ -1,0 +1,21 @@
+[
+	{
+		"id": "media_in_the_papers",
+		"private": true,
+		"category": "media",
+		"cooldown": 4,
+		"subject_cooldown": 30,
+		"subject": {"kind": "player", "where": {"fit": true, "selected": true, "discipline_max": 40}, "pick": "lowest:discipline"},
+		"title": ["{name} is in the papers"],
+		"text": ["An off-field incident has made the back page. The board is watching how you handle it."],
+		"unanswered": {"board": -4, "text": "You say nothing. The board wanted an answer."},
+		"choices": [
+			{"key": "suspend", "label": "Stand him down for a week",
+				"effects": [{"op": "rest"}, {"op": "morale", "d": -10}, {"op": "trust", "d": -6, "why": "You stood him down over the papers story"}, {"op": "board", "d": 4}],
+				"result": "{name} is stood down for a week. The board approves."},
+			{"key": "back", "label": "Back your player",
+				"effects": [{"op": "morale", "d": 8}, {"op": "trust", "d": 10, "why": "You backed him when he was in the papers"}, {"op": "board", "d": -4}],
+				"result": "You back {name}. The board is not impressed."}
+		]
+	}
+]
