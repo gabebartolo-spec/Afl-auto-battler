@@ -1026,7 +1026,9 @@ func _balance_break_columns(cols: Array) -> void:
 	for u in units:
 		var t := 0.0
 		for n in u:
-			t += (n as Control).get_combined_minimum_size().y + sep
+			# A hidden call (Who tags with no tag) takes no room in the column.
+			if (n as Control).visible:
+				t += (n as Control).get_combined_minimum_size().y + sep
 		h.append(t)
 	# Where each column ends, so the tallest column is as short as it can be
 	# (every split of the units, in order, into that many columns).
