@@ -5,7 +5,7 @@ extends SceneTree
 ##       -f args="--size 390x844"
 ## Writes <out>_focus.png (a forward picked for Play through), <out>_pep.png (Pep talk and Rotations, the neutral choices picked, so
 ## their descriptions show), <out>_tag.png (Tag with no tag picked) and
-## <out>_plan.png (the match screen with a long plan line: every call in full).
+## <out>_best.png (Best so far) and <out>_plan.png (the match screen with a long plan line: every call in full).
 ##   --size WxH   window size (default 390x844)    --light   light appearance
 ##   --club CODE  your club (default MEL)    --their-loose  they run a loose
 ##                defender at quarter time (the fullest break)
@@ -131,6 +131,9 @@ func _run() -> void:
 	await _shoot(scene.find_child("PepPicker", true, false), out + "_pep.png")
 	await _frames(8)
 	await _shoot(scene.find_child("TagPicker", true, false), out + "_tag.png")
+	await _frames(8)
+	# Best so far: the top of each side by rating, right on the break.
+	await _shoot(scene.find_child("BestSoFar", true, false), out + "_best.png")
 	await _frames(8)
 	# The loose interceptor call: question, cards, his intercepts so far.
 	await _shoot(scene.find_child("LooseBlock", true, false), out + "_loose.png")

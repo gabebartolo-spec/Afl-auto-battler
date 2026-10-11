@@ -958,7 +958,7 @@ func _show_coach_box() -> void:
 		# fullest break (both loose men, a tag card, your tally) fits 1280x720.
 		for b in cols.find_children("*", "Button", true, false):
 			if (b as Button).custom_minimum_size.y == 44.0:
-				(b as Button).custom_minimum_size.y = 40.0
+				(b as Button).custom_minimum_size.y = 38.0
 		_balance_break_columns.call_deferred([rep, col_a, col_b, col_c] if rep != v else [col_a, col_b, col_c])
 	else:
 		box["footer"].add_child(start)
@@ -1496,7 +1496,7 @@ func _player_choice(node_name: String, none_label: String, roster: Array, first:
 			grid.move_child(other, 1)
 		if _pc_break:
 			for gb in grid.get_children():
-				(gb as Control).custom_minimum_size.y = 40.0
+				(gb as Control).custom_minimum_size.y = 38.0
 	rebuild.call(rebuild)
 	return box
 
