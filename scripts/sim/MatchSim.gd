@@ -1760,10 +1760,11 @@ func _credit_aerial_loose(def_side: int, fp: float, receiver: Dictionary) -> voi
 ## An inside-50 entry, before it is played: what the defending coach's loose
 ## man and his own match-up on this forward, and the attacking coach's
 ## defensive forward, are each worth in expected points against not having
-## made that call. Same rules as the contest in resolve_forward50 (crumbs off
-## the deck left out); the draws themselves are untouched.
+## made that call. Same rules as the contest in resolve_forward50; the draws
+## themselves are untouched. minder_dp: how much more often the defensive
+## forward would be the target without the call (_minder_pick_shift).
 func _credit_entry(side: int, shooter: Dictionary, feeder, defender, line_def, matched: Dictionary,
-		roamer: Dictionary, minder_r := 1.0) -> void:
+		roamer: Dictionary, minder_dp := 0.0) -> void:
 	var opp := 1 - side
 	var roams := not roamer.is_empty() and str(roamer.get("id", "")) != str(defender.get("id", ""))
 	var p_r := _roam_chance(opp) if roams else 0.0
@@ -1778,16 +1779,33 @@ func _credit_entry(side: int, shooter: Dictionary, feeder, defender, line_def, m
 		else:
 			bare = _entry_ev(side, shooter, feeder, defender, matched, roamer, 0.0, 0.0)
 		_credit(opp, "loose", bare - actual)
-	if not _spare_minder(side).is_empty():
+	var minder := _spare_minder(side)
+	if not minder.is_empty():
 		# The defensive forward: the entry as played against the same entry
-		# without the call - their loose man free to roam, and the shooter
-		# picked as he would have been (minder_r, _minder_shot_ratio: the
-		# defensive forward's own shots and key-target entries come back).
+		# without the call. Their loose man is free to roam...
 		var unminded := actual
 		if roams:
 			unminded = _entry_ev(side, shooter, feeder, defender, matched, roamer,
 					_roam_chance(opp, false), _roam_go_chance(opp, false))
-		_credit(side, "minder", actual - minder_r * unminded)
+		var worth := actual - unminded
+		# ...and the defensive forward is the target on minder_dp more of the
+		# entries, at the others' expense: his entry against theirs (theirs is
+		# this entry's, or their average so far when the entry is his).
+		var mid := str(minder.get("id", ""))
+		var others: Array = _minder_others[side]
+		var their_ev := unminded
+		if str(shooter.get("id", "")) == mid:
+			their_ev = float(others[0]) / float(others[1]) if int(others[1]) > 0 else NAN
+		else:
+			others[0] = float(others[0]) + unminded
+			others[1] = int(others[1]) + 1
+		if minder_dp > 0.0 and not is_nan(their_ev):
+			var m_def := _on_ground(opp, str((duels[opp] as Dictionary).get(mid, "")))
+			var m_roams := not roamer.is_empty() and str(roamer.get("id", "")) != str((m_def if not m_def.is_empty() else line_def).get("id", ""))
+			var his := _entry_ev(side, minder, feeder, m_def if not m_def.is_empty() else line_def, m_def, roamer,
+					_roam_chance(opp, false) if m_roams else 0.0, _roam_go_chance(opp, false) if m_roams else 0.0)
+			worth -= minder_dp * (his - their_ev)
+		_credit(side, "minder", worth)
 	var was: Dictionary = _duel_was[opp]
 	var fid := str(shooter.get("id", ""))
 	if not matched.is_empty() and was.has(fid) and str(was[fid]) != str(matched.get("id", "")):
@@ -1797,21 +1815,22 @@ func _credit_entry(side: int, shooter: Dictionary, feeder, defender, line_def, m
 		_credit(opp, "matchups", cf - actual)
 
 
-## The shooter's chance of being picked without the defensive forward call
-## over his chance with it (resolve_forward50's pick: the weighted roles, or a
-## key target on KEY_TARGET of entries). Without the call the defensive
-## forward is a full target (no MINDER_INVOLVE) and, with a match-up, one of
-## the key targets again. Weighting the entry by this ratio gives its expected
-## points under the other pick without drawing it. 1.0 with no call. Pure.
-func _minder_shot_ratio(side: int, shooter: Dictionary, keys: Array, T: Dictionary) -> float:
+## How much more often the defensive forward would be the target of an entry
+## without the call (resolve_forward50's pick: the weighted roles, or a key
+## target on KEY_TARGET of entries): a full target with no MINDER_INVOLVE
+## and, with a match-up, one of the key targets again. 0.0 with no call. Pure.
+## Running sum and count of the other forwards' entries without the call, by
+## side (the defensive forward's cost is his entry against theirs).
+var _minder_others := [[0.0, 0], [0.0, 0]]
+
+
+func _minder_pick_shift(side: int, keys: Array, T: Dictionary) -> float:
 	var minder := _spare_minder(side)
 	if minder.is_empty():
-		return 1.0
+		return 0.0
 	var mid := str(minder.get("id", ""))
-	var sid := str(shooter.get("id", ""))
 	var ctx := _pick_ctx(side)
 	var w_sum := 0.0
-	var w_me := 0.0
 	var w_min := 0.0
 	for p in (squads[side] as Squad).ground:
 		var w: float = float(SHOT_ROLES.get(str(p["role"]), 0.0)) * pow(maxf(1.0, _a(p, "goalkicking")), float(T["shooter_power"]))
@@ -1819,20 +1838,17 @@ func _minder_shot_ratio(side: int, shooter: Dictionary, keys: Array, T: Dictiona
 			w *= float(TARGET_SIZES.get(fwd_size(p), 1.0))
 		w *= _tactic_player_mult(side, p, "shooter", ctx)
 		w_sum += w
-		if str(p["id"]) == sid:
-			w_me = w
 		if str(p["id"]) == mid:
 			w_min = w
 	if w_sum <= 0.0:
-		return 1.0
-	var w_sum_off := w_sum + w_min * (1.0 / MINDER_INVOLVE - 1.0)
-	var w_me_off := w_me / MINDER_INVOLVE if sid == mid else w_me
+		return 0.0
+	var w_off := w_min / MINDER_INVOLVE
 	var keys_off := keys.duplicate()
 	if (duels[1 - side] as Dictionary).has(mid):
 		keys_off.append(minder)
-	var p_on := _shot_pick_p(w_me / w_sum, keys, sid)
-	var p_off := _shot_pick_p(w_me_off / w_sum_off, keys_off, sid)
-	return p_off / p_on if p_on > 0.0 else 1.0
+	var p_on := _shot_pick_p(w_min / w_sum, keys, mid)
+	var p_off := _shot_pick_p(w_off / (w_sum - w_min + w_off), keys_off, mid)
+	return maxf(0.0, p_off - p_on)
 
 
 func _shot_pick_p(p_weighted: float, keys: Array, sid: String) -> float:
@@ -2879,7 +2895,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		shooter = keys[0] if keys.size() == 1 or rng.randf() < 0.6 else keys[1]
 	# What the defensive forward call costs in who gets the entry: the share
 	# he would have had (and his place among the key targets) without it.
-	var minder_r := _minder_shot_ratio(side, shooter, keys, T)
+	var minder_dp := _minder_pick_shift(side, keys, T)
 
 	var dgroup := _by_roles(dfn.ground, ["DEF"])
 	if dgroup.is_empty():
@@ -2923,7 +2939,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 
 	# A marking infringement is paid from the contest itself, not from a
 	# post-chain generic dice roll.
-	_credit_entry(side, shooter, feeder, defender, line_def, matched, roamer, minder_r)
+	_credit_entry(side, shooter, feeder, defender, line_def, matched, roamer, minder_dp)
 	var infringement := _marking_free(side, shooter, defender)
 	if not infringement.is_empty():
 		var free_side := int(infringement["side"])
