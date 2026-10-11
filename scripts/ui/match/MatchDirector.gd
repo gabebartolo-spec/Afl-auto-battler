@@ -1699,18 +1699,25 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 		x -= 3.0
 	var press_up := not has and _pressing(side, bx)
 	if press_up:
-		# Defensive press: the side's structure sits high while the ball is
-		# in their opponents' back half or the middle: forwards up to the
-		# opponents' 50 arc, the midfield squeezed up, the backs up toward the
-		# centre, all of them narrower (V1, press pilot). Honest: it shows
-		# only what the recorded plan really does.
+		# Defensive press: while the ball is in their opponents' back half or the
+		# middle, the whole side compresses into one band around the ball
+		# (V1, press pilot): the forwards on the opponents' last line just
+		# ahead of it, the midfield within 25 m of it, the backs pushed up to
+		# the wing line, front to back inside 70 m, and all of them narrower.
+		# Honest: it is where the sim's zone-weighted pressure happens.
 		match role:
 			"FWD":
-				x = maxf(x, minf(bx + 32.0, PRESS_ARC_X))
+				# On the opponents' last line, but never more than the band's
+				# length from the backs: a press with the ball at its own end
+				# draws its forwards back toward the ball.
+				var deep := slot == "FF" or slot == "FPL" or slot == "FPR"
+				var line := PRESS_LAST_LINE + (PRESS_DEEP_EXTRA if deep else 0.0)
+				x = minf(minf(line, bx - PRESS_BACK_BEHIND - 8.0 + PRESS_SPAN), MatchMotion.GOAL_X - 12.0)
 			"DEF":
-				x = maxf(x, minf(x + PRESS_BACKS_UP, bx + 25.0))
+				var half_back := slot == "CHB" or slot == "HBL" or slot == "HBR"
+				x = bx - (PRESS_BACK_BEHIND if half_back else PRESS_BACK_BEHIND + 8.0)
 			_:
-				x = maxf(x, minf(x + PRESS_MIDS_UP, bx + 32.0))
+				x = bx + clampf(x - bx, -PRESS_MID_BAND, PRESS_MID_BAND * 0.4)
 	var drift := Vector2(sin(time * 0.31 + float(t["phase"])), cos(time * 0.23 + float(t["phase"]) * 1.7)) * 2.0
 	var world := Vector2(x * dir, y) + (t["jitter"] as Vector2) + drift
 	var own_goal := Vector2(-MatchMotion.GOAL_X * dir, 0.0)
@@ -1737,6 +1744,8 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 			if og.distance_to(world) < 35.0:
 				var mark := og + (own_goal - og).normalized() * 2.5
 				var w := 0.65 if role == "DEF" else (0.45 if role == "MID" else 0.3)
+				if press_up:
+					w *= 0.3   # the press holds its band; it does not follow men back
 				if bool(t.get("tagging", false)):
 					w = 0.85   # a tagger plays the man
 				world = world.lerp(mark, w)
@@ -1752,10 +1761,14 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 ## up the ground from `side`'s own goal end (positive: in its opponents'
 ## back half). The shape is high while the ball is in the opponents' back half
 ## or the middle, and only for a side whose recorded plan is the press.
-const PRESS_ARC_X := 37.0
-const PRESS_BACKS_UP := 34.0
-const PRESS_MIDS_UP := 30.0
-const PRESS_NARROW := 0.78
+const PRESS_LAST_LINE := 46.0     # the opponents' last line, from the centre
+const PRESS_DEEP_EXTRA := 12.0    # the full-forward line stands this much deeper
+const PRESS_SPAN := 68.0          # front to back, at most
+const PRESS_BACK_BEHIND := 20.0   # metres behind it
+const PRESS_MID_BAND := 24.0      # midfield stays within this of the ball
+const PRESS_NARROW := 0.62
+const PRESS_FRAME_ZOOM := 1.1     # the camera widens a little while a press is on
+const PRESS_FRAME_SHIFT := 9.0    # ...and looks toward its high line
 const PRESS_FROM := -10.0
 
 
@@ -1953,10 +1966,32 @@ func focus() -> Vector2:
 	var p: Vector2 = ball["pos"]
 	if str(ball["mode"]) == "flight":
 		p = p.lerp(ball["to"], 0.45)
+	# A press on: frame a little toward its high line, so the men up the ground
+	# are not cut off (press pilot).
+	var pd := press_view()
+	if pd != 0.0:
+		p.x += pd * PRESS_FRAME_SHIFT
 	return p
 
 
+## While a side presses without the ball and the ball is in its attacking
+## half: the direction (+1 / -1 along x) that side is pressing toward, else 0.
+func press_view() -> float:
+	if debug_no_press_shape or tokens.is_empty() or _tac.size() < 2:
+		return 0.0
+	for side in [0, 1]:
+		if side != _poss and _pressing(side, (ball["pos"] as Vector2).x * _dir(side)):
+			return float(_dir(side))
+	return 0.0
+
+
 func zoom_hint() -> float:
+	if press_view() != 0.0 and mode != "break":
+		return minf(_zoom_for_mode(), PRESS_FRAME_ZOOM)
+	return _zoom_for_mode()
+
+
+func _zoom_for_mode() -> float:
 	match mode:
 		"centre":
 			return 1.5

@@ -1340,21 +1340,41 @@ func _test_press_shape(res: Dictionary) -> void:
 		var high := 0.0
 		var wide := 0.0
 		var n := 0
+		var front := -1.0e9
+		var back := 1.0e9
+		var mid_gap := 0.0
+		var mids := 0
+		var back_h := 0.0
+		var backs := 0
 		for t in d.tokens:
 			if int(t["side"]) == 1:
 				var p: Vector2 = d._structure_spot(t, Vector2(bx0, 0.0), 0)
 				high += -p.x
 				wide += absf(p.y)
+				front = maxf(front, -p.x)
+				back = minf(back, -p.x)
+				if str(t["role"]) == "DEF":
+					back_h += -p.x
+					backs += 1
+				if str(t["role"]) != "FWD" and str(t["role"]) != "DEF":
+					mid_gap += absf(p.x - bx0)
+					mids += 1
 				n += 1
-		return {"high": high / n, "wide": wide / n}
+		return {"high": high / n, "wide": wide / n, "span": front - back, "mid_gap": mid_gap / maxi(1, mids), "back": back_h / maxi(1, backs)}
 	var worst := 1.0e9
 	for bx in [5.0, -10.0, -30.0, -50.0]:
 		# Side 1 faces -x, so its own goal end is +x: "up the ground" is -x.
 		var base: Dictionary = stand.call("balanced", bx)
 		var press: Dictionary = stand.call("defensive", bx)
-		worst = minf(worst, float(press["high"]) - float(base["high"]))
+		worst = minf(worst, float(press["back"]) - float(base["back"]))
 		_check(float(press["wide"]) < float(base["wide"]), "The press stands narrower (ball at %d: %.1f v %.1f)" % [int(bx), float(press["wide"]), float(base["wide"])])
-	_check(worst >= 12.0, "The press side stands at least 12 m higher on average with the ball in their opponents' back half or the middle (least gain %.1f m)" % worst)
+	# One band around the ball: front to back inside 70 m, the midfield within
+	# 25 m of the ball (balls in the opponents' back half and the middle).
+	for bx in [5.0, -10.0, -30.0]:
+		var pb: Dictionary = stand.call("defensive", bx)
+		_check(float(pb["span"]) <= 70.0 and float(pb["mid_gap"]) <= 25.0,
+				"The press is one band round the ball (ball at %d: %.0f m front to back, midfield %.0f m off it)" % [int(bx), float(pb["span"]), float(pb["mid_gap"])])
+	_check(worst >= 12.0, "The press side's back line stands at least 12 m higher with the ball in their opponents' back half or the middle (least gain %.1f m)" % worst)
 	# The ball deep at the press side's own end (world x of 60): no change.
 	var far_base: Dictionary = stand.call("balanced", 60.0)
 	var far_press: Dictionary = stand.call("defensive", 60.0)
