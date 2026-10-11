@@ -42,6 +42,7 @@ func run() -> void:
 	_test_leadership()
 	_test_captaincy()
 	_test_captain_cards()
+	_test_group_words_are_sentence_case()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	GameState.stories_on = true
@@ -992,12 +993,9 @@ func _test_captain_cards() -> void:
 	var card := GameState.story_card("captain_selection_word", cap)
 	var leave_detail := str((card["options"] as Array)[1]["detail"])
 	_check(leave_detail.contains("Leadership %d" % Leadership.of(cap)) and leave_detail.contains("60 or more")
-			and leave_detail.contains("45 or more") and (leave_detail.contains("it would hold") or leave_detail.contains("it wouldn't hold")),
+			and leave_detail.contains("45 or more") and (leave_detail.contains("would settle it") or leave_detail.contains("wouldn't settle it")),
 			"The choice prints his Leadership, the rule, and what it means now (%s)" % leave_detail)
-	var stakes := str(card.get("stakes", ""))
-	_check(stakes.contains("Leadership %d" % Leadership.of(cap)) and stakes.contains("60 or more") and stakes.contains("45 or more")
-			and (stakes.contains("it would hold") or stakes.contains("it wouldn't hold")),
-			"The card itself, on the hub, prints his Leadership, the rule and what it means now (%s)" % stakes)
+	_check(bool(card.get("choice_notes", false)), "A captain card shows what each choice does under its button")
 	var holds := StoryDeck.HOLDS_AT
 	for case in [[70, 0, true], [40, 80, false], [50, 40, true], [50, 0, false], [60, 0, true], [44, 90, false]]:
 		var lead := int(case[0])
@@ -1035,3 +1033,9 @@ func _test_captain_cards() -> void:
 		var after_rec := GameState.captaincy_record("GEE")
 		_check(Captaincy.role_of(after_rec, vice_id) == "captain" and Captaincy.role_of(after_rec, str(cap["id"])) == "vice",
 				"The vice-captain takes the armband and the old captain stays on as a vice (%s)" % line)
+
+
+func _test_group_words_are_sentence_case() -> void:
+	var words := StoryEngine._morale_words(-3, "all") + " " + StoryEngine._morale_words(-8, "others") + " " + StoryEngine._morale_words(-3, "side")
+	_check(words.contains("The whole list is a little flat about it.") and words.contains("The rest of the group takes it hard.")
+			and words.contains("The side is a little flat about it."), "A group's mood line is in sentence case (%s)" % words)

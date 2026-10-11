@@ -38,6 +38,7 @@ func _run() -> void:
 	await _team_changes_tests()
 	await _backing_ui_tests()
 	await _captaincy_ui_tests()
+	await _captain_card_ui_tests()
 	print("Roles + selection tests: %d checks, %d failures" % [_checks, _failures.size()])
 	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
@@ -701,6 +702,51 @@ func _captaincy_ui_tests() -> void:
 			and (ls.find_child("CaptaincyConfirm", true, false) as Button).disabled,
 			"A second mid-season change is refused on the page, with the reason")
 	ls.queue_free()
+	await _settle()
+
+
+## A captain's card on the hub: what each choice does sits under its button, the
+## buttons are thumb-sized, and a real tap answers it.
+func _captain_card_ui_tests() -> void:
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.career_seed = SUITE_SEED
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = Vector2i(420, 860)
+	var cap: Dictionary = {}
+	var rec: Dictionary = _state.captaincy_record("COL")
+	for p in _state.my_list:
+		if Captaincy.role_of(rec, str(p["id"])) == "captain":
+			cap = p
+	_check(not cap.is_empty(), "Collingwood has a captain for the card")
+	if cap.is_empty():
+		return
+	_state.set_setting("seen_weekly_loop_intro", true)
+	var card: Dictionary = _state.story_card("captain_group_flat", cap)
+	_state.week_events = [card]
+	var hub: Control = load("res://scenes/HubScene.tscn").instantiate()
+	root.add_child(hub)
+	for i in range(60):
+		await process_frame
+	var tall := true
+	var notes := 0
+	for i in range((card["options"] as Array).size()):
+		var b: Button = hub.find_child("Event_%d" % i, true, false)
+		if b == null or b.size.y < 47.5:
+			tall = false
+		if hub.find_child("EventNote_%d" % i, true, false) != null:
+			notes += 1
+	_check(tall, "Every choice on a captain's card is a thumb-sized tap (48 px)")
+	_check(notes == (card["options"] as Array).size(), "Every choice says what it does, under its button (%d lines)" % notes)
+	var rule: Label = hub.find_child("EventNote_2", true, false)
+	_check(rule != null and rule.text.contains("Leadership") and rule.text.contains("settle it"),
+			"The choice left to the captain prints his Leadership, the rule and what it means now")
+	var ev0: Button = hub.find_child("Event_0", true, false)
+	var why: String = await Tap.tap(hub.find_child("Event_0", true, false))
+	for i in range(10):
+		await process_frame
+	_check(why == "" and bool((_state.week_events[0] as Dictionary).get("resolved", false)), "A real tap answers the card (%s)" % why)
+	hub.queue_free()
 	await _settle()
 
 

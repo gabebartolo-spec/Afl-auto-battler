@@ -266,6 +266,8 @@ static func build(deck: Array, t: Dictionary, subj: Dictionary, club: Dictionary
 			"options": options}
 	if str(t.get("stakes", "")) != "":
 		card["stakes"] = fill(str(t["stakes"]), facts)
+	if bool(t.get("choice_notes", false)):
+		card["choice_notes"] = true
 	if player:
 		card["player_id"] = str(subj["id"])
 	if str(t.get("arc", "")) != "":
@@ -396,7 +398,7 @@ static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
 		"explain":
 			return "{kpi_or_need} Nothing is promised."
 		"delegate":
-			return "As it stands, it would hold." if bool(facts.get("delegate_holds", false)) else "As it stands, it wouldn't hold."
+			return "As it stands, {name} would settle it." if bool(facts.get("delegate_holds", false)) else "As it stands, {name} wouldn't settle it."
 		"back_kid":
 			return "{kid_name} is promised the next {run_games} games; leave him out fit and the promise breaks."
 		"captaincy_swap":
@@ -420,7 +422,8 @@ static func _morale_words(d: int, who: String) -> String:
 	var group: String = {"side": "the side", "all": "the whole list", "others": "the rest of the group"}.get(who, "the group")
 	if d > 0:
 		return ("A lift for %s." if d >= 5 else "A small lift for %s.") % group
-	return ("%s takes it hard." if d <= -5 else "%s is a little flat about it.") % group.capitalize()
+	var lead := group.substr(0, 1).to_upper() + group.substr(1)  # sentence case, not Title Case
+	return ("%s takes it hard." if d <= -5 else "%s is a little flat about it.") % lead
 
 
 static func _board_words(d: int) -> String:

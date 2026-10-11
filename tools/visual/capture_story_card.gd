@@ -91,14 +91,16 @@ func _run() -> void:
 		gs.week_events = [e]
 		var scene: Control = load("res://scenes/HubScene.tscn").instantiate()
 		root.add_child(scene)
-		await _frames(8)
+		await _frames(60)  # the hub fades its cards in: wait it out, or contrast cannot be judged
 		await _show_card(scene)
+		await _frames(30)
 		root.get_viewport().get_texture().get_image().save_png("%s_%s_card.png" % [out, tid])
 		var b = scene.find_child("Event_0", true, false)
 		if b != null:
 			b.emit_signal("pressed")
-		await _frames(8)
+		await _frames(60)
 		await _show_card(scene)
+		await _frames(30)
 		root.get_viewport().get_texture().get_image().save_png("%s_%s_answered.png" % [out, tid])
 		scene.queue_free()
 		await _frames(2)

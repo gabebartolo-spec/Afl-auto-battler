@@ -279,7 +279,7 @@
 		"choices": [
 			{
 				"key": "talk",
-				"label": "Talk him through it",
+				"label": "Explain it to {name}",
 				"effects": [
 					{
 						"op": "trust",
@@ -340,7 +340,7 @@
 			}
 		],
 		"cooldown": 30,
-		"stakes": "Leave it to {name}: Leadership {leadership}. He settles it if his Leadership is 60 or more, or 45 or more and he trusts you. {delegate_line}"
+		"choice_notes": true
 	},
 	{
 		"id": "captain_group_flat",
@@ -416,7 +416,7 @@
 		"when": {
 			"losing_run_min": 3
 		},
-		"stakes": "Leave it to {name}: Leadership {leadership}. He settles it if his Leadership is 60 or more, or 45 or more and he trusts you. {delegate_line}"
+		"choice_notes": true
 	},
 	{
 		"id": "captain_harder_session",
@@ -451,7 +451,8 @@
 						"who": "all"
 					}
 				],
-				"result": "A hard week. {name} led from the front."
+				"result": "A hard week. {name} led from the front.",
+				"note": "The group tires and standards lift."
 			},
 			{
 				"key": "keep",
@@ -499,7 +500,7 @@
 			}
 		],
 		"cooldown": 40,
-		"stakes": "A hard week tires the group and standards lift. Leave it to {name}: Leadership {leadership}. He settles it if his Leadership is 60 or more, or 45 or more and he trusts you. {delegate_line}"
+		"choice_notes": true
 	},
 	{
 		"id": "captain_young_player",
@@ -545,7 +546,8 @@
 		"cooldown": 40,
 		"when": {
 			"has_kid": true
-		}
+		},
+		"choice_notes": true
 	},
 	{
 		"id": "captain_leaders_meeting",
@@ -607,7 +609,8 @@
 				"result": "{name} takes it on the chin."
 			}
 		],
-		"cooldown": 40
+		"cooldown": 40,
+		"choice_notes": true
 	},
 	{
 		"id": "captain_big_week",
@@ -668,7 +671,8 @@
 		},
 		"phase": [
 			"finals"
-		]
+		],
+		"choice_notes": true
 	},
 	{
 		"id": "captain_holding_group",
@@ -716,7 +720,8 @@
 		"cooldown": 40,
 		"when": {
 			"winning_run_min": 3
-		}
+		},
+		"choice_notes": true
 	},
 	{
 		"id": "captain_rest_ask",
@@ -766,7 +771,8 @@
 				"result": "{name} plays on."
 			}
 		],
-		"cooldown": 30
+		"cooldown": 30,
+		"choice_notes": true
 	},
 	{
 		"id": "captain_slump_start",
@@ -849,7 +855,8 @@
 		"cooldown": 80,
 		"private": true,
 		"arc": "captain_slump",
-		"beat": "start"
+		"beat": "start",
+		"choice_notes": true
 	},
 	{
 		"id": "captain_slump_mid",
@@ -922,7 +929,8 @@
 			"flag": "cs_start",
 			"after": 3,
 			"within": 8
-		}
+		},
+		"choice_notes": true
 	},
 	{
 		"id": "captain_slump_good",
@@ -976,7 +984,8 @@
 			"flag": "cs_start",
 			"after": 5,
 			"within": 12
-		}
+		},
+		"choice_notes": true
 	},
 	{
 		"id": "captain_slump_flat",
@@ -1023,7 +1032,8 @@
 			"flag": "cs_start",
 			"after": 5,
 			"within": 12
-		}
+		},
+		"choice_notes": true
 	},
 	{
 		"id": "captain_contract_start",
@@ -1079,7 +1089,8 @@
 		],
 		"cooldown": 120,
 		"arc": "captain_contract",
-		"beat": "start"
+		"beat": "start",
+		"choice_notes": true
 	},
 	{
 		"id": "captain_contract_wait",
@@ -1136,7 +1147,8 @@
 			"flag": "cc_start",
 			"after": 6,
 			"within": 20
-		}
+		},
+		"choice_notes": true
 	},
 	{
 		"id": "captain_contract_signed",
@@ -1189,7 +1201,8 @@
 			"flag": "cc_start",
 			"after": 4,
 			"within": 30
-		}
+		},
+		"choice_notes": true
 	},
 	{
 		"id": "captain_contract_open",
@@ -1235,7 +1248,8 @@
 			"flag": "cc_start",
 			"after": 4,
 			"within": 30
-		}
+		},
+		"choice_notes": true
 	},
 	{
 		"id": "captain_succession_start",
@@ -1307,7 +1321,8 @@
 		},
 		"private": true,
 		"arc": "captain_succession",
-		"beat": "start"
+		"beat": "start",
+		"choice_notes": true
 	},
 	{
 		"id": "captain_succession_next",
@@ -1339,10 +1354,10 @@
 			},
 			{
 				"key": "later",
-				"label": "At the end of the season",
+				"label": "Keep {vice_name} as vice until season's end",
 				"effects": [],
 				"result": "It waits for the end of the year.",
-				"note": "{vice_name} waits."
+				"note": "{vice_name} stays vice-captain for now. You can change it on the Captaincy page."
 			}
 		],
 		"cooldown": 160,
@@ -1356,6 +1371,7 @@
 			"flag": "su_start",
 			"after": 8,
 			"within": 20
-		}
+		},
+		"choice_notes": true
 	}
 ]

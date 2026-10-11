@@ -390,18 +390,31 @@ func _event_card(index: int) -> Control:
 			sk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(sk)
 		var opts: Array = e.get("options", [])
-		var row: BoxContainer = UiKit.vbox(4) if _narrow() else UiKit.hbox(6)
+		# A card that says what each choice does (the captain's cards) puts that line under
+		# its button, so the stakes are in front of the player before the pick.
+		var notes := bool(e.get("choice_notes", false))
+		var row: BoxContainer = UiKit.vbox(10 if notes else 4) if _narrow() else UiKit.hbox(8 if notes else 6)
 		v.add_child(row)
 		for i in range(opts.size()):
 			var o: Dictionary = opts[i]
 			var b := UiKit.btn(str(o.get("label", "")), 14, false)
 			b.name = "Event_%d" % i
-			b.custom_minimum_size = Vector2(0, 44)
+			b.custom_minimum_size = Vector2(0, 48)
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			b.pressed.connect(func():
 				GameState.resolve_card(index, i)
 				_build())
-			row.add_child(b)
+			if notes and str(o.get("detail", "")) != "":
+				var cell := UiKit.vbox(3)
+				cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				cell.add_child(b)
+				var line := UiKit.lbl(str(o["detail"]), UiKit.SMALL, UiKit.MUTED)
+				line.name = "EventNote_%d" % i
+				line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				cell.add_child(line)
+				row.add_child(cell)
+			else:
+				row.add_child(b)
 	else:
 		v.add_child(UiKit.lbl(str(e.get("outcome", "")), 13, UiKit.GOOD))
 	return card
