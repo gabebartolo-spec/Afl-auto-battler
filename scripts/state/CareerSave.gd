@@ -178,10 +178,11 @@ static func slim_results(v, with_box := false):
 ## and just the scoring and break events (the feed and the "run of goals"
 ## line read those; the ~1,100 others only drive a replay). The full-time
 ## review also reads the injuries (who was lost, and not "Needs a lift" for
-## a man hurt early), the synergies and the key match-ups' contests and
-## changes (qa, 2026-10-11: they vanished after a reload).
+## a man hurt early), the synergies, the key match-ups' contests and
+## changes, and for the coach's report each side's plans by quarter and the
+## weather (qa, 2026-10-11: they vanished after a reload).
 const REVIEW_KEYS := ["players", "roster", "team", "quarter_teams",
-		"injuries", "synergies", "duels", "duel_changes"]
+		"injuries", "synergies", "duels", "duel_changes", "tactics_history", "weather"]
 const REVIEW_EVENT_KINDS := ["goal", "behind", "quarter", "final"]
 
 
