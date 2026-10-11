@@ -220,7 +220,7 @@
 		"phase": [
 			"finals"
 		],
-		"cooldown": 3
+		"cooldown": 45
 	},
 	{
 		"id": "members_interstate_trip",

@@ -406,7 +406,7 @@
 		"phase": [
 			"finals"
 		],
-		"cooldown": 3,
+		"cooldown": 45,
 		"stakes": "Bring him in and he expects to play the final."
 	}
 ]
