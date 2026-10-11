@@ -520,6 +520,7 @@ func _draw() -> void:
 	VignetteWeather.draw_air(self, r, now, weather)
 	if weather == VignetteWeather.WINDY:
 		VignetteWeather.draw_wind_flat(self, r, now)
+	_draw_press_zone(c, a, b)
 	var tr := maxf(TOKEN_MIN, minf(r.size.x, r.size.y) * 0.5 * 0.030 * sqrt(_zoom))
 	_draw_tokens(0, tr)
 	_draw_tokens(1, tr)
@@ -546,6 +547,29 @@ func _draw() -> void:
 		draw_arc(_w2s(fl["pos"]), rad2, 0, TAU, 48, col, 4.0, antialias)
 	_draw_role_labels(tr)
 	_draw_caption(tr)
+
+
+## The press zone: a barely-there wash of the press side's colour over the part
+## of the ground it is hunting, under the players and the ball. Three bands
+## from the sim's own zone table (MatchDirector.press_zone_strength).
+const PRESS_ZONE_ALPHA := 0.16
+func _draw_press_zone(c: Vector2, a: float, b: float) -> void:
+	for side in [0, 1]:
+		var fade := float(director.press_fade[side])
+		if fade <= 0.01:
+			continue
+		var base: Color = (_kits[side] as Dictionary).get("base", Color.WHITE)
+		var dir := MatchDirector._dir(side)
+		var edges := [-MatchMotion.GOAL_X - 8.0, -MatchSim.PRESS_ZONE_EDGE, MatchSim.PRESS_ZONE_EDGE, MatchMotion.GOAL_X + 8.0]
+		for i in range(3):
+			var mid := (float(edges[i]) + float(edges[i + 1])) * 0.5
+			var k := MatchDirector.press_zone_strength(mid)
+			if k <= 0.0:
+				continue
+			var x0 := _w2s(Vector2(float(edges[i]) * dir, 0.0)).x
+			var x1 := _w2s(Vector2(float(edges[i + 1]) * dir, 0.0)).x
+			var col := Color(base.r, base.g, base.b, PRESS_ZONE_ALPHA * k * fade)
+			draw_colored_polygon(_stripe(c, a, b, minf(x0, x1), maxf(x0, x1)), col)
 
 
 ## A thin light ring on each of your players with a call on him or a run

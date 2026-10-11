@@ -1379,6 +1379,33 @@ func _test_press_shape(res: Dictionary) -> void:
 	var far_base: Dictionary = stand.call("balanced", 60.0)
 	var far_press: Dictionary = stand.call("defensive", 60.0)
 	_check(absf(float(far_press["high"]) - float(far_base["high"])) < 0.01, "The shape is the same when the ball is at their own end")
+	# The faint press zone (director, 2026-10-11): strongest over the opponents'
+	# back third, a quarter of it in the middle, none in their forward third (the
+	# sim's own zone table); it fades in and out, never pops.
+	_check(is_equal_approx(MatchDirector.press_zone_strength(40.0), 1.0)
+			and is_equal_approx(MatchDirector.press_zone_strength(0.0), 0.25)
+			and MatchDirector.press_zone_strength(-40.0) == 0.0,
+			"The press zone follows the sim's zones: full in their back third, a quarter in the middle, none in their forward third")
+	d._tac[1] = {"side": 1, "plan": "defensive", "bursts": []}
+	d._poss = 0
+	d.ball["pos"] = Vector2(-30.0, 0.0)
+	d.press_fade = [0.0, 0.0]
+	d._fade_press_zone(0.1)
+	var f1 := float(d.press_fade[1])
+	_check(f1 > 0.0 and f1 < 0.2 and float(d.press_fade[0]) == 0.0, "The zone starts to fade in with the press, on the press side only (%.2f)" % f1)
+	for i in range(20):
+		d._fade_press_zone(0.1)
+	_check(is_equal_approx(float(d.press_fade[1]), 1.0), "...and is fully in after about a second")
+	d._poss = 1
+	d._fade_press_zone(0.1)
+	var f2 := float(d.press_fade[1])
+	_check(f2 < 1.0 and f2 > 0.8, "...and fades out, not pops, when the ball turns over (%.2f)" % f2)
+	MatchDirector.debug_no_press_shape = true
+	d.press_fade = [0.0, 0.0]
+	d._poss = 0
+	d._fade_press_zone(0.5)
+	_check(float(d.press_fade[1]) == 0.0, "No zone when the shape is off")
+	MatchDirector.debug_no_press_shape = false
 	d._tac[1] = {}
 	# The line, once: only the pressing side's opponents' disposals open it.
 	var tl := [{"at": 0, "side": 1, "plan": "defensive"}, {"at": 0, "side": 0, "plan": "balanced"}]

@@ -305,6 +305,7 @@ func _tick(h: float) -> void:
 		MatchMotion.step(t, h)
 	MatchMotion.separate(tokens)
 	_update_ball(h)
+	_fade_press_zone(h)
 	if not flash.is_empty():
 		flash["left"] = float(flash["left"]) - h
 		if float(flash["left"]) <= 0.0:
@@ -1770,6 +1771,33 @@ const PRESS_NARROW := 0.62
 const PRESS_FRAME_ZOOM := 1.1     # the camera widens a little while a press is on
 const PRESS_FRAME_SHIFT := 9.0    # ...and looks toward its high line
 const PRESS_FROM := -10.0
+
+
+## The press zone, drawn: a barely-there tint on the turf over where the press
+## side hunts, fading in and out with the press (no pop). `press_fade[side]` is
+## 0..1; the zone's strength by distance comes from the sim's own table.
+var press_fade := [0.0, 0.0]
+const PRESS_FADE_SECS := 0.9
+
+
+func _fade_press_zone(h: float) -> void:
+	if _tac.size() < 2 or tokens.is_empty():
+		return
+	for side in [0, 1]:
+		var on: bool = side != _poss and _pressing(side, (ball["pos"] as Vector2).x * _dir(side))
+		press_fade[side] = move_toward(float(press_fade[side]), 1.0 if on else 0.0, h / PRESS_FADE_SECS)
+
+
+## How strongly the press side is hunting at `x_side` metres up the ground
+## from its own goal end (positive: toward the opponents' goal), 0..1: the
+## sim's PRESS_PLAN_ZONE for the carrier's zone, read as the part above
+## "normal", relative to its heaviest zone. The opponents' back third is the
+## full tint, the middle a quarter of it, their forward third none.
+static func press_zone_strength(x_side: float) -> float:
+	var table: Array = MatchSim.PRESS_PLAN_ZONE
+	var zone := 0 if x_side > MatchSim.PRESS_ZONE_EDGE else (2 if x_side < -MatchSim.PRESS_ZONE_EDGE else 1)
+	var heavy := float(table[0]) - 1.0
+	return clampf((float(table[zone]) - 1.0) / heavy, 0.0, 1.0)
 
 
 ## Debug only (capture_match --noshape): draw the plan without its shape, the
