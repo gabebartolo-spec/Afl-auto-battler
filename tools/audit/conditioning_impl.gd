@@ -20,6 +20,15 @@ extends RefCounted
 ##                    wins by third of the season, finals reached and won,
 ##                    finals margin, injuries, young players' rating growth,
 ##                    and where the actual peak fell.
+##   finals TIER [seeds]  The finals edge on its own, with September's legs.
+##                    Each seed plays an all-Steady home-and-away season,
+##                    then the top eight meet each other (every ordered pair,
+##                    FIN_REPS match seeds each) twice: home side unstamped,
+##                    then home side carrying a Peak for September stamp at
+##                    a TIER department (its seeded timing, finals weeks
+##                    24-27). FIN_K="restore,drain,injury" tries other lever
+##                    sizes (default: Conditioning.gd's). Prints the paired
+##                    margin and injuries, mean ± SE, and the curve's mean.
 ##   phase [seeds]    AI plans by phase (as the game runs them) against an
 ##                    all-Steady season on the same seed: by phase, the plan,
 ##                    the peak week and the change in wins and finals.
@@ -47,6 +56,8 @@ func run() -> void:
 		_checksum()
 	elif mode == "league":
 		_league(str(args[2]), int(args[3]), int(args[4]) if args.size() > 4 else 6)
+	elif mode == "finals":
+		_finals(int(args[2]), int(args[3]) if args.size() > 3 else 9)
 	elif mode == "phase":
 		_phase(int(args[2]) if args.size() > 2 else 6)
 	else:
@@ -306,3 +317,102 @@ func _phase(seeds: int) -> void:
 		var r: Dictionary = by[ph]
 		print("PHASE %s | plans %s | peak week %s | H&A wins %s | finals wins %s | soft-tissue %s" % [
 				ph, r["plans"], _mean_se(r["peak"]), _mean_se(r["wins"]), _mean_se(r["fw"]), _mean_se(r["soft"])])
+
+
+## Conditioning.stamps with the lever sizes FIN_K overrides (for the finals
+## mode only; a plan at its peak, so injury risk goes down).
+func _fin_stamps(c: float) -> Dictionary:
+	var k := [Conditioning.RESTORE_K, Conditioning.DRAIN_K, Conditioning.INJURY_K]
+	var env := OS.get_environment("FIN_K")
+	if env != "":
+		var parts := env.split(",")
+		for i in range(mini(3, parts.size())):
+			k[i] = float(parts[i])
+	if is_zero_approx(c):
+		return {}
+	return {"cond_drain": 1.0 - float(k[1]) * c,
+		"cond_cap": Conditioning.CAP_K * maxf(0.0, -c) - float(k[0]) * maxf(0.0, c),
+		"cond_injury": 1.0 - float(k[2]) * c}
+
+
+func _fin_match(h: String, a: String, hl: Array, al: Array, seed: int, stamp: Dictionary) -> Dictionary:
+	var hq := []
+	for p in hl:
+		var q: Dictionary = (p as Dictionary).duplicate(true)
+		for k in Conditioning.STAMP_KEYS:
+			q.erase(k)
+		for k in stamp:
+			q[k] = stamp[k]
+		hq.append(q)
+	var aq := []
+	for p in al:
+		var q: Dictionary = (p as Dictionary).duplicate(true)
+		for k in Conditioning.STAMP_KEYS:
+			q.erase(k)
+		aq.append(q)
+	var home := Squad.new(h, hq, true, h)
+	var away := Squad.new(a, aq, false, a)
+	home.ai_plans = true
+	away.ai_plans = true
+	var res: Dictionary = MatchSim.new(home, away, seed).run()
+	var sc: Array = res["score"]
+	var inj := 0
+	for i in res.get("injuries", []):
+		if int(i["side"]) == 0:
+			inj += 1
+	return {"margin": int(sc[0]) - int(sc[1]), "inj": inj}
+
+
+func _finals(tier: int, seeds: int) -> void:
+	var gs = Engine.get_main_loop().root.get_node("GameState")
+	var reps := int(OS.get_environment("FIN_REPS")) if OS.get_environment("FIN_REPS") != "" else 3
+	var seed0 := int(OS.get_environment("FIN_SEED0")) if OS.get_environment("FIN_SEED0") != "" else 5500
+	var diffs := []
+	var inj_d := []
+	var cs := []
+	var loads := []
+	for s in range(seeds):
+		var seed := seed0 + s
+		gs.reset()
+		gs.autosave_enabled = false
+		gs.career_seed = seed
+		gs.replay_seed = seed
+		gs.fitness_ai_by_phase = false
+		gs.fitness_hp_override = {}
+		gs.start_season("MEL", GameDB.club_list("MEL"))
+		var guard := 0
+		while not gs.season.is_regular_done() and guard < 40:
+			gs.advance()
+			guard += 1
+		var top := []
+		for row in gs.season.ladder_sorted().slice(0, 8):
+			top.append(str(row["code"]))
+		# The 22 most loaded on each top-eight list: an upper bound on the
+		# legs a finals side carries (a peak gives back only what load took).
+		for code in top:
+			var wl := []
+			for p in gs.season.lists[code]:
+				wl.append(Workload.value(p))
+			wl.sort()
+			wl.reverse()
+			loads.append_array(wl.slice(0, 22))
+		var k := 0
+		for h in top:
+			var rec := Conditioning.new_season("peak", gs.season_year, h, tier, seed)
+			for a in top:
+				if h == a:
+					continue
+				for r in range(reps):
+					var w := Conditioning.FINALS_FIRST + (k % 4)
+					k += 1
+					var c := Conditioning.actual(rec, w, tier)
+					cs.append(c)
+					var ms := 90000 + seed * 1000 + k
+					var b := _fin_match(h, a, gs.season.lists[h], gs.season.lists[a], ms, {})
+					var t := _fin_match(h, a, gs.season.lists[h], gs.season.lists[a], ms, _fin_stamps(c))
+					diffs.append(float(int(t["margin"]) - int(b["margin"])))
+					inj_d.append(float(int(t["inj"]) - int(b["inj"])))
+		print("SEED %d done" % seed)
+	print("FINALS peak tier %d K=%s | margin %s pts a game | home injuries %s a game | curve %s | top-8 workload (22 most loaded) %s | n=%d" % [
+			tier, OS.get_environment("FIN_K") if OS.get_environment("FIN_K") != "" else "game",
+			_mean_se(diffs), _mean_se(inj_d), _mean_se(cs), _mean_se(loads), diffs.size()])
