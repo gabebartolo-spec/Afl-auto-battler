@@ -11,6 +11,12 @@ extends Control
 ## with a stripe edge. One is chosen; the others go.
 static var variant := "sweep"
 static var _soft: GradientTexture2D
+const YOKE_A := 0.34
+const YOKE_B := 0.34
+const SWEEP_TOP := 0.30
+const SWEEP_FOOT := 0.07
+const GLOW_A := 0.62
+const GLOW_B := 0.5
 
 var _club := ""
 var _settle := 1.0   # 0 arriving -> 1 at rest (live())
@@ -63,10 +69,10 @@ func _draw() -> void:
 ## colours, lifted when too dark, a near-white kept (a guernsey's white stripe).
 func _colours() -> Array:
 	var out: Array = []
-	var vivid := UiKit.club_vivid(_club, UiKit.BG)
+	var vivid := _warm(UiKit.club_vivid(_club, UiKit.BG))
 	out.append(vivid)
 	for c in GameDB.club_colours(_club):
-		var col: Color = ClubDuel._show(c)
+		var col: Color = _warm(ClubDuel._show(c))
 		var dup := false
 		for o in out:
 			if ClubDuel._diff(col, o) < 0.3:
@@ -74,6 +80,14 @@ func _colours() -> Array:
 		if not dup:
 			out.append(col)
 	return out
+
+
+## A yellow dimmed over a dark page turns olive. Leaning it toward amber keeps
+## it reading as gold (Suns, Tigers) at the strength a backdrop can have.
+static func _warm(c: Color) -> Color:
+	if c.s > 0.6 and c.h > 0.10 and c.h < 0.19:
+		return Color.from_hsv(0.105, 0.95, 1.0)
+	return c
 
 
 func _alpha(c: Color, a: float) -> Color:
@@ -89,10 +103,10 @@ func _draw_sweep(w: float, h: float, cols: Array) -> void:
 	var slide := (1.0 - _settle) * sw * 5.0
 	var n := int((w + run) / sw) + 8
 	for k in range(-2, n):
-		var c: Color = cols[posmod(k, mini(cols.size(), 3))]
+		var c: Color = cols[posmod(k, mini(cols.size(), 2))]
 		var x := float(k) * sw - slide
-		var top := _alpha(c, 0.30)
-		var foot := _alpha(c, 0.07)
+		var top := _alpha(c, SWEEP_TOP)
+		var foot := _alpha(c, SWEEP_FOOT)
 		draw_polygon(PackedVector2Array([Vector2(x, 0), Vector2(x + sw, 0),
 				Vector2(x + sw - run, h), Vector2(x - run, h)]),
 				PackedColorArray([top, top, foot, foot]))
@@ -104,8 +118,8 @@ func _draw_glow(w: float, h: float, cols: Array) -> void:
 	var b: Color = cols[1] if cols.size() > 1 else cols[0]
 	var gs := maxf(w, h) * 1.25
 	var move := (1.0 - _settle)
-	_light(Vector2(w * 0.1 - move * w * 0.5, h * 0.12 - move * h * 0.1), gs, _alpha(a, 0.62))
-	_light(Vector2(w * 0.95 + move * w * 0.5, h * 0.82 + move * h * 0.1), gs * 0.9, _alpha(b, 0.5))
+	_light(Vector2(w * 0.1 - move * w * 0.5, h * 0.12 - move * h * 0.1), gs, _alpha(a, GLOW_A))
+	_light(Vector2(w * 0.95 + move * w * 0.5, h * 0.82 + move * h * 0.1), gs * 0.9, _alpha(b, GLOW_B))
 
 
 func _light(at: Vector2, d: float, c: Color) -> void:
@@ -123,20 +137,24 @@ func _light(at: Vector2, d: float, c: Color) -> void:
 	draw_texture_rect(_soft, Rect2(at - Vector2(d, d) / 2.0, Vector2(d, d)), false, c)
 
 
-## A bold block of the club's colour from the top, ending on a hard stripe of
-## its second colour that glides down to rest, with a thin third below.
+## The club's colour from the top, fading out down the page, with a soft band
+## of its second colour that glides down into rest. Gradients only: nothing
+## hard ever crosses a line of type.
 func _draw_yoke(w: float, h: float, cols: Array) -> void:
 	var a: Color = cols[0]
 	var b: Color = cols[1] if cols.size() > 1 else cols[0]
-	var c: Color = cols[2] if cols.size() > 2 else b
-	var drop := h * 0.30 * (1.0 + 0.5 * (1.0 - _settle))
-	var top := _alpha(a, 0.50 + 0.15 * (1.0 - _settle))
-	var mid := _alpha(a, 0.16)
-	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, drop), Vector2(0, drop)]),
-			PackedColorArray([top, top, mid, mid]))
-	var lean := 36.0
-	var sh := 14.0
-	draw_polygon(PackedVector2Array([Vector2(0, drop), Vector2(w, drop - lean), Vector2(w, drop - lean + sh), Vector2(0, drop + sh)]),
-			PackedColorArray([_alpha(b, 0.55), _alpha(b, 0.55), _alpha(b, 0.55), _alpha(b, 0.55)]))
-	draw_polygon(PackedVector2Array([Vector2(0, drop + sh + 8), Vector2(w, drop - lean + sh + 8), Vector2(w, drop - lean + sh + 12), Vector2(0, drop + sh + 12)]),
-			PackedColorArray([_alpha(c, 0.4), _alpha(c, 0.4), _alpha(c, 0.4), _alpha(c, 0.4)]))
+	var block := h * 0.46
+	var top := _alpha(a, YOKE_A + 0.10 * (1.0 - _settle))
+	var none := Color(a, 0.0)
+	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, block), Vector2(0, block)]),
+			PackedColorArray([top, top, none, none]))
+	# The second colour: a slanted soft band, up in the hero at rest (it starts higher).
+	var mid := h * 0.16 * (0.55 + 0.45 * _settle)
+	var lean := 40.0
+	var th := h * 0.12
+	var peak := _alpha(b, YOKE_B)
+	var zero := Color(b, 0.0)
+	draw_polygon(PackedVector2Array([Vector2(0, mid - th), Vector2(w, mid - th - lean), Vector2(w, mid - lean), Vector2(0, mid)]),
+			PackedColorArray([zero, zero, peak, peak]))
+	draw_polygon(PackedVector2Array([Vector2(0, mid), Vector2(w, mid - lean), Vector2(w, mid - lean + th), Vector2(0, mid + th)]),
+			PackedColorArray([peak, peak, zero, zero]))
