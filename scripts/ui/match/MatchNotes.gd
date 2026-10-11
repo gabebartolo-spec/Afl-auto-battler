@@ -178,6 +178,29 @@ static func run_line(club: String, n: int) -> String:
 	return "%s have kicked %s in a row." % [GameDB.club_name(club), count_word(n)]
 
 
+## The Defensive press taking hold (V2, press pilot), said once a side a match.
+static func press_line(club: String) -> String:
+	return "%s push up to press." % GameDB.club_name(club)
+
+
+## Does this event open the line: the side pressed by the plan in force is
+## now defending, the other side having the ball in open play.
+static func press_trigger(timeline: Array, event_index: int, ev: Dictionary, said: Array) -> int:
+	var side := int(ev.get("side", 0))
+	if not ["handball", "kick", "mark"].has(str(ev.get("kind", ""))):
+		return -1
+	var presser := 1 - side
+	if bool(said[presser]):
+		return -1
+	var plan := ""
+	for e in timeline:
+		if int((e as Dictionary).get("at", 0)) > event_index:
+			break
+		if int((e as Dictionary).get("side", -1)) == presser:
+			plan = str((e as Dictionary).get("plan", ""))
+	return presser if plan == "defensive" else -1
+
+
 # ---------------------------------------------------------------------------
 # Quarter-break facts
 # ---------------------------------------------------------------------------

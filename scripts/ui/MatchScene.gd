@@ -80,6 +80,7 @@ var _ft_tabs: HBoxContainer
 var _ft_tab := "summary"        # summary (home), stats or report
 var _run_side := -1            # who kicked the last goal, and how many in a row
 var _run_len := 0
+var _press_said := [false, false]  # the Defensive press line, once a side
 var _duel_mem := {}             # the feed's memory of the key match-ups (MatchNotes.duel_feed_line)
 var _matchup_overlay: Control
 
@@ -1684,6 +1685,7 @@ func _on_event(ev: Dictionary) -> void:
 	_feed_add(ev)
 	_duel_feed(ev)
 	_story_feed(ev)
+	_press_feed(event_index, ev)
 	if str(ev.get("kind", "")) == "goal":
 		_flash_score(int(ev.get("side", 0)))
 		_track_run(int(ev.get("side", 0)))
@@ -2473,6 +2475,18 @@ func _story_feed(ev: Dictionary) -> void:
 	if text != "":
 		_feed_text("%s  %s" % [_clock_text(int(ev.get("q", 1)), int(ev.get("min", 0))), text],
 				UiKit.TEXT, false, "StoryLine")
+
+
+## The Defensive press taking hold, once a side a match: the first time the
+## side whose plan it is defends after setting it (V2, press pilot).
+func _press_feed(event_index: int, ev: Dictionary) -> void:
+	var presser := MatchNotes.press_trigger(_res.get("timeline", []), event_index, ev, _press_said)
+	if presser < 0:
+		return
+	_press_said[presser] = true
+	var code := str(_res["home"] if presser == 0 else _res["away"])
+	_feed_text("%s  %s" % [_clock_text(int(ev.get("q", 1)), int(ev.get("min", 0))), MatchNotes.press_line(code)],
+			UiKit.TEXT, false, "PressLine")
 
 
 ## The battle in the feed, rarely (MatchNotes.duel_feed_line).

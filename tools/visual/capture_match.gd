@@ -20,6 +20,7 @@ extends SceneTree
 ##   --loose SIDE    that side plays its best interceptor loose
 ##   --tag SIDE      that side tags the other side's best midfielder
 ##   --flood SIDE    that side floods behind the ball all match (0 home, 1 away)
+##   --press SIDE    that side plays the Defensive press all match (--balanced SIDE: Balanced)
 ##   --stack SIDE    that side stacks every centre ball-up
 ##   --kside S       with --kind, only events by side S
 ##   --shake F       the turnover shake's size as a share of the oval's height
@@ -75,6 +76,13 @@ func _run() -> void:
 		if not mids.is_empty():
 			sim.set_tactics(ts, {"gameplan": "balanced", "tag_id": str(mids[0]["id"])})
 
+	if args.has("press") or args.has("balanced"):
+		# --press SIDE / --balanced SIDE: that side plays the Defensive press
+		# (or Balanced) all match, its plan held (no AI re-pick), for the
+		# press pilot's before/after on the same seed.
+		var ps := int(args.get("press", args.get("balanced", "0")))
+		(sim.squads[ps] as RefCounted).set("ai_plans", false)
+		sim.set_tactics(ps, {"gameplan": "defensive" if args.has("press") else "balanced"})
 	if args.has("flood"):
 		# --flood SIDE: that side floods behind the ball all match (the
 		# coach's "Flood behind the ball" call, held on), for the ARD-M8-003

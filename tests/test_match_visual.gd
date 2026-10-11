@@ -43,6 +43,7 @@ func run() -> void:
 	_test_set_shot_calls()
 	_test_role_labels(res)
 	_test_flood_shape(res)
+	_test_press_shape(res)
 	_test_centre_setups(res)
 	_test_farewell()
 	_test_match_ground()
@@ -1323,6 +1324,52 @@ func _test_flood_shape(res: Dictionary) -> void:
 			"Flooding puts more players behind the ball on the opposition's entries (%d against %d over three entries)" % [flood, plain])
 	_check(other == plain, "Only a recorded flood changes the shape (%d with another call, %d without)" % [other, plain])
 	d._tac[1] = {}
+
+
+## Defensive press pilot, V1-V3 (director, 2026-10-11): from its recorded plan, a
+## side that presses stands higher while the ball is in its opponents' back half
+## or the middle, narrower, and only then; the plan changes nothing else.
+func _test_press_shape(res: Dictionary) -> void:
+	var d := MatchDirector.new()
+	d.setup(res, res["events"])
+	# Side 0 attacks toward +x; side 1 defends the +x goal and presses (or not).
+	# Its height is how far up the ground it stands, from its own goal end, over
+	# three balls in its opponents' back half, plus its width (spread across).
+	var stand := func(plan: String, bx0: float) -> Dictionary:
+		d._tac[1] = {"side": 1, "plan": plan, "bursts": []}
+		var high := 0.0
+		var wide := 0.0
+		var n := 0
+		for t in d.tokens:
+			if int(t["side"]) == 1:
+				var p: Vector2 = d._structure_spot(t, Vector2(bx0, 0.0), 0)
+				high += -p.x
+				wide += absf(p.y)
+				n += 1
+		return {"high": high / n, "wide": wide / n}
+	var worst := 1.0e9
+	for bx in [5.0, -10.0, -30.0, -50.0]:
+		# Side 1 faces -x, so its own goal end is +x: "up the ground" is -x.
+		var base: Dictionary = stand.call("balanced", bx)
+		var press: Dictionary = stand.call("defensive", bx)
+		worst = minf(worst, float(press["high"]) - float(base["high"]))
+		_check(float(press["wide"]) < float(base["wide"]), "The press stands narrower (ball at %d: %.1f v %.1f)" % [int(bx), float(press["wide"]), float(base["wide"])])
+	_check(worst >= 12.0, "The press side stands at least 12 m higher on average with the ball in their opponents' back half or the middle (least gain %.1f m)" % worst)
+	# The ball deep at the press side's own end (world x of 60): no change.
+	var far_base: Dictionary = stand.call("balanced", 60.0)
+	var far_press: Dictionary = stand.call("defensive", 60.0)
+	_check(absf(float(far_press["high"]) - float(far_base["high"])) < 0.01, "The shape is the same when the ball is at their own end")
+	d._tac[1] = {}
+	# The line, once: only the pressing side's opponents' disposals open it.
+	var tl := [{"at": 0, "side": 1, "plan": "defensive"}, {"at": 0, "side": 0, "plan": "balanced"}]
+	var said := [false, false]
+	_check(MatchNotes.press_trigger(tl, 3, {"kind": "kick", "side": 1}, said) == -1, "No line when the press side has the ball")
+	_check(MatchNotes.press_trigger(tl, 3, {"kind": "goal", "side": 0}, said) == -1, "No line on a goal")
+	_check(MatchNotes.press_trigger(tl, 3, {"kind": "kick", "side": 0}, said) == 1, "The line comes the first time the press side defends")
+	said[1] = true
+	_check(MatchNotes.press_trigger(tl, 9, {"kind": "kick", "side": 0}, said) == -1, "...and only once")
+	_check(MatchNotes.press_trigger([{"at": 5, "side": 1, "plan": "defensive"}], 3, {"kind": "kick", "side": 0}, [false, false]) == -1, "No line before the plan is set")
+	_check(MatchNotes.press_line("RIC").ends_with("push up to press."), "The line reads as a commentator would say it")
 
 
 ## ARD-M8-003 step 3, the second demonstration: attacking (stack) against

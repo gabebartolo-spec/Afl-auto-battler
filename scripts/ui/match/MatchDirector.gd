@@ -1692,9 +1692,25 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 			x += (0.7 if slot.begins_with("W") else 0.78) * bx
 	var width := 1.08 if has else 0.86
 	var pull := 0.12 if slot.begins_with("W") else (0.3 if role == "MID" or role == "RUCK" else 0.2)
+	if not has and _pressing(side, bx):
+		width *= PRESS_NARROW
 	var y := lerpf(base.y * width, ball_p.y, pull)
 	if not has:
 		x -= 3.0
+	var press_up := not has and _pressing(side, bx)
+	if press_up:
+		# Defensive press: the side's structure sits high while the ball is
+		# in their opponents' back half or the middle: forwards up to the
+		# opponents' 50 arc, the midfield squeezed up, the backs up toward the
+		# centre, all of them narrower (V1, press pilot). Honest: it shows
+		# only what the recorded plan really does.
+		match role:
+			"FWD":
+				x = maxf(x, minf(bx + 32.0, PRESS_ARC_X))
+			"DEF":
+				x = maxf(x, minf(x + PRESS_BACKS_UP, bx + 25.0))
+			_:
+				x = maxf(x, minf(x + PRESS_MIDS_UP, bx + 32.0))
 	var drift := Vector2(sin(time * 0.31 + float(t["phase"])), cos(time * 0.23 + float(t["phase"]) * 1.7)) * 2.0
 	var world := Vector2(x * dir, y) + (t["jitter"] as Vector2) + drift
 	var own_goal := Vector2(-MatchMotion.GOAL_X * dir, 0.0)
@@ -1730,6 +1746,21 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 			var half := slot == "CHF" or slot == "HFL" or slot == "HFR"
 			world.x = lerpf(world.x, ball_p.x, FLOOD_PUSH if half else FLOOD_PUSH * 0.25)
 	return MatchMotion.clamp_to_oval(world, 3.0)
+
+
+## The Defensive press, drawn (V1, press pilot). `bx` is the ball's distance
+## up the ground from `side`'s own goal end (positive: in its opponents'
+## back half). The shape is high while the ball is in the opponents' back half
+## or the middle, and only for a side whose recorded plan is the press.
+const PRESS_ARC_X := 37.0
+const PRESS_BACKS_UP := 34.0
+const PRESS_MIDS_UP := 30.0
+const PRESS_NARROW := 0.78
+const PRESS_FROM := -10.0
+
+
+func _pressing(side: int, bx: float) -> bool:
+	return str((_tac[side] as Dictionary).get("plan", "")) == "defensive" and bx > PRESS_FROM
 
 
 ## How far back from the ball a flooding midfield sits (share of the way to
