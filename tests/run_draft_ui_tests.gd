@@ -4,6 +4,7 @@ extends SceneTree
 ## smoke tests are documented separately in tests/README.md.
 ## Seeded by design: the Draft is built with an explicit seed (12345).
 
+const Tap := preload("res://tests/tap.gd")
 const VIEWPORTS := [
 	Vector2i(390, 844), Vector2i(844, 390), Vector2i(320, 568),
 	Vector2i(360, 800), Vector2i(430, 932), Vector2i(420, 860), Vector2i(360, 740), Vector2i(768, 1024),
@@ -111,9 +112,114 @@ func _run() -> void:
 	_check(_state.draft.count() == roster_before, "Reopening preserves the user's roster")
 	ui.queue_free()
 	await _settle()
+	await _test_start_season_footer()
 	await _test_intake_combine()
 	print("Draft UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
+
+## The draft's footer tells the truth about the finished list, and Start season
+## does what the footer says: a list short at a position starts and says who
+## fills in; a list the rules refuse stays on the draft and says why; a list
+## with every position covered says it is ready. All by a real tap.
+func _test_start_season_footer() -> void:
+	var old_size := root.size
+	root.size = Vector2i(390, 844)
+	# Short at defence: cheapest players first, never a defender.
+	var ui: Control = await _finished_draft(false)
+	var d = _state.draft
+	var footer: Label = ui.find_child("UpcomingPicks", true, false)
+	var fin: Button = ui.find_child("StartSeason", true, false)
+	var short_def := int((d.position_status()["DEF"] as Dictionary)["short"])
+	_check(d.is_finished() and d.is_valid() and short_def > 0,
+			"Setup: a full list within the cap with no defenders (short %d)" % short_def)
+	_check(footer.text.begins_with("Short %d defenders" % short_def),
+			"A list short at defence says so: " + footer.text.replace("
+", " / "))
+	_check(not footer.text.contains("ready"), "...and does not say the list is ready")
+	_check(not fin.disabled, "The rules let a full list start short, so Start season is live")
+	var why: String = await Tap.tap(fin)
+	_check(why == "" and _state.season != null and _state.my_club == "COL",
+			"A finger's tap on Start season starts the season (%s)" % why)
+	ui.queue_free()
+	_state.reset()
+	await _settle()
+
+	# A list the rules refuse: over the cap. Start season is off, the footer says why.
+	ui = await _finished_draft(false)
+	d = _state.draft
+	d.budget = d.spent() - 1000
+	ui.call("_refresh")
+	await _settle()
+	footer = ui.find_child("UpcomingPicks", true, false)
+	fin = ui.find_child("StartSeason", true, false)
+	_check(not d.is_valid() and fin.disabled, "Setup: over the cap, Start season is off")
+	_check(footer.text.contains("over the salary cap") and not footer.text.contains("ready"),
+			"An invalid list says why: " + footer.text.replace("
+", " / "))
+	await Tap.tap(fin)
+	await _settle()
+	_check(_state.season == null and ui.is_inside_tree() and ui.get("_phase") == "board",
+			"A tap on Start season with an invalid list leaves you on the draft")
+	d.budget += 1000
+	(d.club_lists["COL"] as Array).pop_back()
+	_check(d.invalid_reason() == "You have %d of %d players." % [d.target_size - 1, d.target_size],
+			"A short list says how many players it has: " + d.invalid_reason())
+	ui.queue_free()
+	_state.reset()
+	await _settle()
+
+	# Every position covered: ready, and it starts.
+	ui = await _finished_draft(true)
+	d = _state.draft
+	footer = ui.find_child("UpcomingPicks", true, false)
+	fin = ui.find_child("StartSeason", true, false)
+	_check(d.short_positions() == "" and d.is_valid(), "Setup: a list with every position covered")
+	_check(footer.text.begins_with("Your list is ready."), "A covered list says it is ready: " + footer.text.replace("
+", " / "))
+	why = await Tap.tap(fin)
+	_check(why == "" and _state.season != null, "A finger's tap on Start season starts the season (%s)" % why)
+	ui.queue_free()
+	_state.reset()
+	await _settle()
+	var draft_class = load("res://scripts/sim/Draft.gd")
+	_check(draft_class.role_noun("DEF", 1) == "defender" and draft_class.role_noun("FWD", 2) == "forwards",
+			"Positions are named in the singular for one and the plural for more")
+	root.size = old_size
+
+
+## A League Draft for COL played to the end, cheapest players first. With
+## `cover`, a position that is still short is filled before any other.
+func _finished_draft(cover: bool) -> Control:
+	_state.reset()
+	_state.replay_seed = 4242
+	_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(),
+			_db.active_clubs(2026).duplicate(), 12345)
+	var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
+	root.add_child(ui)
+	ui.call("_on_club_chosen", "COL")
+	await _settle()
+	var d = _state.draft
+	var guard := 0
+	while not d.is_finished() and guard < 80:
+		guard += 1
+		var want := ""
+		if cover:
+			var status: Dictionary = d.position_status()
+			for role in ["RUCK", "DEF", "MID", "FWD"]:
+				if int((status[role] as Dictionary)["short"]) > 0:
+					want = role
+					break
+		var board: Array = d.board(want, "", "", "overall", true)
+		board = board.filter(func(p): return d.can_pick_player(p))
+		if not cover:
+			board = board.filter(func(p): return str(p["role"]) != "DEF" and str(p.get("role2", "")) != "DEF")
+		if board.is_empty():
+			break
+		board.sort_custom(func(a, b): return int(a["value"]) < int(b["value"]))
+		ui.call("_on_pick", board[0])
+	ui.call("_refresh")
+	await _settle()
+	return ui
 
 
 ## National Draft prospects show a compact Combine and scouting ranges on a

@@ -410,6 +410,39 @@ static func need_word(st: Dictionary, role: String) -> String:
 	return "covered"
 
 
+## A position's players in football words, for a count of n.
+static func role_noun(role: String, n: int) -> String:
+	var one := {"RUCK": "ruck", "MID": "midfielder", "DEF": "defender", "FWD": "forward"}
+	var word: String = one.get(role, role.to_lower())
+	return word if n == 1 else word + "s"
+
+
+## Where the finished list still cannot field the match-day side, in words:
+## "6 defenders" or "6 defenders, 2 forwards" ("" when no position is short).
+func short_positions() -> String:
+	var status := position_status()
+	var parts: Array[String] = []
+	for role in ["RUCK", "MID", "DEF", "FWD"]:
+		var short := int((status[role] as Dictionary)["short"])
+		if short > 0:
+			parts.append("%d %s" % [short, role_noun(role, short)])
+	return ", ".join(parts)
+
+
+## Why a finished list cannot start the season, in one sentence ("" when it
+## can): the same three tests as is_valid(), said in the order a manager
+## would count them.
+func invalid_reason() -> String:
+	if intake_mode or is_valid():
+		return ""
+	if count() != target_size:
+		return "You have %d of %d players." % [count(), target_size]
+	if spent() > budget:
+		return "You are %s over the salary cap." % Contracts.money(spent() - budget)
+	return "You have %d ruck%s. Every list needs two." % [count_covering("RUCK"),
+			"" if count_covering("RUCK") == 1 else "s"]
+
+
 ## [[role, role2], ...] for everyone on `code`'s list (kept players too).
 func role_pairs_for(code: String) -> Array:
 	var out: Array = []

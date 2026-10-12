@@ -1649,8 +1649,17 @@ func _refresh_status() -> void:
 	if _draft.user_stuck():
 		_next_picks.text = "No player fits your cap and list.\nRelease a pick on My list."
 	if done:
-		_next_picks.text = "Your list is ready.\nTime for round one." if _draft.is_valid() \
-				else "List incomplete: at least 2 rucks\nand a full list within the cap required."
+		# The footer says what is true of this list. The rules let a full list
+		# within the cap start even when a position is short, so the button is
+		# live then and the footer says who will have to fill in.
+		var invalid := _draft.invalid_reason()
+		var short := _draft.short_positions()
+		if invalid != "":
+			_next_picks.text = invalid + "\nStart season waits until that is fixed."
+		elif short != "":
+			_next_picks.text = "Short %s.\nOthers will have to fill in." % short
+		else:
+			_next_picks.text = "Your list is ready.\nTime for round one."
 		_status.add_theme_color_override("font_color", UiKit.GOOD if _draft.is_valid() else UiKit.BAD)
 
 	var latest := {}
