@@ -12,7 +12,7 @@ extends RefCounted
 ## histograms, JOINT (weeks each trigger is met), EPISODE (per candidate trigger, a
 ## new episode needs 80 weeks since the last, the card's cooldown) and SUMMARY.
 
-const MORALE_CUTS := [45, 50, 55, 58, 60, 65, 70, 75]
+const MORALE_CUTS := [45, 58, 70, 75, 105]  # 105 = any morale (the losing run alone)
 const RUN_CUTS := [0, 1, 2, 3, 4]
 
 
@@ -56,12 +56,18 @@ func run() -> void:
 	var met_both := {}
 	var last_episode := {}
 	var episodes := {}
+	var last_episode60 := {}
+	var episodes60 := {}
+	var first_no_captain := -1
+	var captain_weeks_by_season := {}
 	for t in MORALE_CUTS:
 		for k in RUN_CUTS:
 			var key := "%d|%d" % [t, k]
 			met_both[key] = 0
 			episodes[key] = 0
 			last_episode[key] = -9999
+			episodes60[key] = 0
+			last_episode60[key] = -9999
 		met_morale[t] = 0
 	for k in RUN_CUTS:
 		met_run[k] = 0
@@ -81,6 +87,10 @@ func run() -> void:
 					in_side[str(id)] = true
 			if cap.is_empty():
 				no_captain += 1
+				if first_no_captain < 0:
+					first_no_captain = weeks
+			else:
+				captain_weeks_by_season[GameState.season_year] = int(captain_weeks_by_season.get(GameState.season_year, 0)) + 1
 			elif int(cap.get("injury_weeks", 0)) <= 0 and in_side.has(str(cap["id"])):
 				eligible += 1
 				var m := ClubLife.morale(cap)
@@ -103,6 +113,9 @@ func run() -> void:
 							if weeks - int(last_episode[key]) >= 80:
 								episodes[key] += 1
 								last_episode[key] = weeks
+							if weeks - int(last_episode60[key]) >= 60:
+								episodes60[key] += 1
+								last_episode60[key] = weeks
 			for i in range(GameState.week_events.size()):
 				var c: Dictionary = GameState.week_events[i]
 				var opts: Array = c.get("options", [])
@@ -133,7 +146,13 @@ func run() -> void:
 	for t in MORALE_CUTS:
 		for k in RUN_CUTS:
 			var key := "%d|%d" % [t, k]
-			print("EPISODE seed %d morale<=%d run>=%d weeks_met %d episodes %d" % [seed, t, k, met_both[key], episodes[key]])
+			print("EPISODE seed %d morale<=%d run>=%d weeks_met %d episodes %d episodes60 %d" % [seed, t, k, met_both[key], episodes[key], episodes60[key]])
+	var cw := captain_weeks_by_season.keys()
+	cw.sort()
+	var cw_text := PackedStringArray()
+	for y in cw:
+		cw_text.append("%d:%d" % [y, captain_weeks_by_season[y]])
+	print("CAPTAIN seed %d first week with no captain %d | weeks with a captain by season %s" % [seed, first_no_captain, " ".join(cw_text)])
 	print("SUMMARY seed %d %s %s | seasons %d | weeks %d | weeks with the captain fit and in the side %d | no captain named %d | mean captain morale %.1f" % [
 			seed, club, "lists" if args.has("lists") else "redraft", seasons, weeks, eligible, no_captain,
 			float(captain_morale_sum) / maxf(1.0, eligible)])
