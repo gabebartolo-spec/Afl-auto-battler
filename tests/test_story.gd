@@ -44,6 +44,7 @@ func run() -> void:
 	_test_captain_cards()
 	_test_group_words_are_sentence_case()
 	_test_captain_cards_in_play()
+	_test_captain_from_the_start()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	GameState.stories_on = true
@@ -1162,3 +1163,59 @@ func _advance_quietly(rounds: int, cap: Dictionary, ids: Dictionary) -> void:
 				kept.append(row)
 		GameState.story["cats"] = kept
 	GameState.stories_on = true
+
+
+## Director 2026-10-12: in a redraft or custom career your club starts with a captain
+## named by the same rule as the rivals; a real-lists career keeps the real captain.
+func _test_captain_from_the_start() -> void:
+	# A redraft: a list with no 2026 record behind it (Collingwood's players at Geelong).
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.start_season("GEE", GameDB.club_list("COL"))
+	var rec := GameState.captaincy_record("GEE")
+	var caps := Captaincy.ids(rec, "captain")
+	var by_rule := Captaincy.by_rule(GameState.my_list)
+	_check(caps.size() == 1 and not by_rule.is_empty() and caps[0] == str(by_rule[0]["id"]),
+			"A redraft career starts with a captain named by the rule (top Leadership)")
+	_check(Captaincy.ids(rec).size() == Captaincy.MAX_LEADERS, "...and two vice-captains")
+	# His cards can come up from week one.
+	GameState.losing_streak = 3
+	var ctx := ClubStories.context(GameState)
+	var flat := StoryDeck.by_id(StoryDeck.all(), "captain_group_flat")
+	var who := StoryEngine.eligible_subject(flat, ctx, StoryEngine.new_state(), GameState.story_week(), RandomNumberGenerator.new())
+	_check(not who.is_empty() and str(who.get("id", "")) == str(caps[0]), "The captain's cards can fire in a redraft career")
+	# The coach can change him; nobody puts him back.
+	GameState.set_captaincy([])
+	_run_on(2)
+	_check(Captaincy.ids(GameState.captaincy_record("GEE")).is_empty(), "A captain you took off stays off: nothing is added for you")
+
+	# Real lists keep the real captain.
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var real_cap: Dictionary = {}
+	for p in GameState.my_list:
+		if Captaincy.role_of(GameState.captaincy_record("GEE"), str(p["id"])) == "captain":
+			real_cap = p
+	_check(not real_cap.is_empty() and Leadership.role_2026(real_cap) == "captain", "A real-lists career keeps the real captain")
+
+	# A save from before this: no captaincy at all.
+	GameState.save_career()
+	var old := CareerSave.read(GameState.save_path)
+	old.erase("captaincy")
+	CareerSave.write(old, GameState._save_meta(), GameState.save_path)
+	_check(GameState.load_career() and GameState.captaincy.is_empty(), "An old save with no captaincy loads cleanly, empty")
+	_run_on(1)
+	_check(not Captaincy.ids(GameState.captaincy_record("GEE"), "captain").is_empty(),
+			"...and your club is named once, by the rule, at the first round after loading")
+	GameState.set_captaincy([])
+	_run_on(2)
+	_check(Captaincy.ids(GameState.captaincy_record("GEE")).is_empty(), "...and a spot you then leave open stays open")
+
+	# A P2-2-era save: a record that is empty and was never seeded.
+	GameState.captaincy["GEE"] = {"slots": [], "since": 2027, "changes": {}, "passed": {}, "log": []}
+	_run_on(1)
+	_check(not Captaincy.ids(GameState.captaincy_record("GEE"), "captain").is_empty(),
+			"An empty, never-seeded record from an earlier build is named once, by the rule")

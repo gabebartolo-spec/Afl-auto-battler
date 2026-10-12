@@ -8419,8 +8419,13 @@ func _captain_name(id: String, roster: Array) -> String:
 	return "A player"
 
 
-## Every club has a record: the 2026 record for real lists, the rule for a
-## rival without one. Your own club stays empty until you name someone.
+## Every club has a record: the 2026 record for real lists, the rule for a club
+## without one. Your own club is named the same way when its record is first made
+## (director 2026-10-12: in a redraft or custom career it starts with a captain
+## named by the rule, and you can change him on the Captaincy page). After that
+## nobody is added for you: a captain who leaves, or one you took off, leaves the
+## spot open. A save from before this ("seeded" missing) is named once, by the
+## rule, at the first round after it loads, unless it already has leaders.
 func _captaincy_refresh() -> void:
 	if season == null:
 		return
@@ -8438,6 +8443,10 @@ func _captaincy_refresh() -> void:
 				rec["since"] = season_year
 				add_news("captaincy", "%s have named %s captain." % [
 						GameDB.club_name(str(code)), _captain_name(made, roster)])
+		elif not bool(rec.get("seeded", false)) and Captaincy.slots(rec).is_empty():
+			# Your club, the first time: named by the rule. No news.
+			Captaincy.fill(rec, roster)
+		rec["seeded"] = true
 		captaincy[code] = rec
 
 
