@@ -6971,8 +6971,10 @@ const MAX_NEWS := 120
 const NEWS_MIN_OVR := 72
 
 
-func add_news(kind: String, text: String) -> void:
-	var when := "Off-season" if offseason_year == season_year or season == null else last_label
+func add_news(kind: String, text: String, when_label: String = "") -> void:
+	var when := when_label
+	if when == "":
+		when = "Off-season" if offseason_year == season_year or season == null else last_label
 	news.push_front({"year": season_year, "when": when, "kind": kind, "text": text})
 	if news.size() > MAX_NEWS:
 		news.resize(MAX_NEWS)
@@ -8439,6 +8441,7 @@ func _captaincy_refresh() -> void:
 			rec = Captaincy.fresh(season_year)
 			rec["slots"] = Captaincy.from_record(str(code), roster)
 		var had_captain := not Captaincy.ids(rec, "captain").is_empty()
+		var lost_captain: String = str(Captaincy.ids(rec, "captain")[0]) if had_captain else ""
 		Captaincy.prune(rec, roster)
 		if str(code) != my_club:
 			var made := Captaincy.fill(rec, roster)
@@ -8452,12 +8455,29 @@ func _captaincy_refresh() -> void:
 		elif had_captain and Captaincy.ids(rec, "captain").is_empty():
 			# Your captain has retired or left: the next in line steps up. A spot you emptied
 			# yourself has no captain to lose, so it never comes here.
-			var stepped := Captaincy.fill(rec, roster)
+			var stepped := ""
+			if Captaincy.slots(rec).is_empty():
+				# He was the only leader the coach had named: one captain by the rule, and
+				# no vice-captains the coach never had.
+				var pick := Captaincy.by_rule(roster)
+				if not pick.is_empty():
+					stepped = str(pick[0]["id"])
+					rec["slots"] = [{"id": stepped, "role": "captain"}]
+			else:
+				stepped = Captaincy.fill(rec, roster)
 			if stepped != "":
 				rec["since"] = season_year
-				var note := "Your captain has left the club, so %s takes over as captain. You can change it on the Captaincy page." % _captain_name(stepped, roster)
-				Captaincy.add_log(rec, season_year, "Off-season" if offseason_year == season_year else last_label, note)
-				add_news("captaincy", note)
+				var mid := captaincy_mid_season()
+				var retired := false
+				for r in intake_summary.get("retired", []):
+					if str((r as Dictionary).get("id", "")) == lost_captain:
+						retired = true
+				var note := "Your captain has %s, so %s takes over as captain. You can change it on the Captaincy page." % [
+						"retired" if retired else "left the club", _captain_name(stepped, roster)]
+				# Before Round 1 it is the off-season, as the feed calls it; the page says Pre-season.
+				Captaincy.add_log(rec, season_year,
+						last_label if mid else ("Off-season" if offseason_year == season_year else "Pre-season"), note)
+				add_news("captaincy", note, last_label if mid else "Off-season")
 		rec["seeded"] = true
 		captaincy[code] = rec
 
