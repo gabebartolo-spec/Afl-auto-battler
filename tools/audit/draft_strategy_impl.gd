@@ -48,6 +48,8 @@ func _measures(list: Array, code: String, tag: String, year: int) -> void:
 	ovr.reverse()
 	var best := _mean(ovr.slice(0, mini(23, ovr.size())))
 	var depth := _mean(ovr.slice(23, mini(38, ovr.size())))
+	# Like for like when lists differ in length: players 24-32 (every list has 32).
+	var depth32 := _mean(ovr.slice(23, mini(32, ovr.size())))
 	var u23: Array = []
 	var mid := 0
 	var old := 0
@@ -65,8 +67,8 @@ func _measures(list: Array, code: String, tag: String, year: int) -> void:
 		pots.append(_pot(p))
 		ovs.append(float(p["overall"]))
 	var sq := Squad.new(code, list, true, code)
-	print("LIST|%s|%d|%s|%d|%s|%d|%.2f|%.2f|%d|%d|%d|%.2f|%.2f|%.2f" % [mode, seed_n, tag, year, code,
-			list.size(), best, depth, u23.size(), mid, old, _mean(pots), _mean(ovs), sq.strength()])
+	print("LIST|%s|%d|%s|%d|%s|%d|%.2f|%.2f|%d|%d|%d|%.2f|%.2f|%.2f|%.2f" % [mode, seed_n, tag, year, code,
+			list.size(), best, depth, u23.size(), mid, old, _mean(pots), _mean(ovs), sq.strength(), depth32])
 
 
 func _snapshot(tag: String, year: int, lists: Dictionary) -> void:

@@ -14,7 +14,7 @@ import sys
 from collections import defaultdict
 
 LINE = re.compile(r"(?:^|\s)(LIST|POOL|DP|DC|AGE|DA)\|(.*)$")
-M = ["best", "depth", "u23", "mid", "old", "potu", "ovru", "sq"]
+M = ["best", "depth", "u23", "mid", "old", "potu", "ovru", "sq", "d32"]
 
 
 def mean(xs):
@@ -79,6 +79,7 @@ def main():
     for r in rec["LIST"]:
         mode, seed, tag, year, code = r[0], int(r[1]), r[2], int(r[3]), r[4]
         vals = dict(zip(["size"] + M, [float(x) for x in r[5:]]))
+        vals.setdefault("d32", float("nan"))
         rows[(mode, tag, year)][(seed, code)] = vals
 
     def league(mode, tag, year, drop_user):
@@ -140,8 +141,8 @@ def main():
     snaps = [("start", 2027, "S1 start")] + [("end", 2026 + n, "end S%d" % n) for n in range(1, 11)]
     for mode, title in (("redraft", "B. Redraft careers"), ("real", "C. Real-list careers")):
         print("### %s: AI clubs, league mean over seeds (+/- standard error), gap to the real 2026 lists (A)" % title)
-        print("| Moment | Seeds | Best 23 | Gap to A | Depth 24-38 | Gap to A | U23 POT | Gap to A | Squad strength | Gap to A | U23 count | 30+ count | SD of best 23 across clubs | Best-worst club |")
-        print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+        print("| Moment | Seeds | List size | Best 23 | Gap to A | Depth 24-38 | Gap to A | Depth 24-32 | Gap to A | U23 POT | Gap to A | Squad strength | Gap to A | U23 count | 30+ count | SD of best 23 across clubs | Best-worst club |")
+        print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
         for tag, year, lab in snaps:
             if (mode, tag, year) not in rows:
                 continue
@@ -149,20 +150,20 @@ def main():
             if not lg:
                 continue
             c = {}
-            for k in ("best", "depth", "potu", "sq", "u23", "old"):
+            for k in ("size", "best", "depth", "d32", "potu", "sq", "u23", "old"):
                 m, e = ms(lg, k)
                 c[k] = "%.2f ± %.2f" % (m, e)
-                c["g_" + k] = "%+.2f" % (m - base[k]) if k in base else ""
+                c["g_" + k] = "%+.2f" % (m - base[k]) if k in base and m == m and base[k] == base[k] else ""
             sdm, sde = ms(lg, "sd_best")
             rg, _ = ms(lg, "range_best")
-            print("| %s | %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %.2f ± %.2f | %.1f |" % (
-                lab, len(lg), c["best"], c["g_best"], c["depth"], c["g_depth"], c["potu"], c["g_potu"], c["sq"], c["g_sq"],
+            print("| %s | %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %.2f ± %.2f | %.1f |" % (
+                lab, len(lg), c["size"], c["best"], c["g_best"], c["depth"], c["g_depth"], c["d32"], c["g_d32"], c["potu"], c["g_potu"], c["sq"], c["g_sq"],
                 c["u23"], c["old"], sdm, sde, rg))
         print()
 
     print("### B minus C, paired by seed (redraft minus real-list career, same seed, same user club), +/- standard error")
-    print("| Moment | Best 23 | Depth 24-38 | U23 POT | Squad strength | U23 count | 30+ count |")
-    print("|---|---|---|---|---|---|---|")
+    print("| Moment | List size | Best 23 | Depth 24-38 | Depth 24-32 | U23 POT | Squad strength | U23 count | 30+ count |")
+    print("|---|---|---|---|---|---|---|---|---|")
     for tag, year, lab in snaps:
         if ("redraft", tag, year) not in rows or ("real", tag, year) not in rows:
             continue
@@ -172,7 +173,7 @@ def main():
         if not seeds:
             continue
         cells = []
-        for k in ("best", "depth", "potu", "sq", "u23", "old"):
+        for k in ("size", "best", "depth", "d32", "potu", "sq", "u23", "old"):
             d = [a[s][k] - b[s][k] for s in seeds]
             cells.append("%+.2f ± %.2f" % (mean(d), se(d)))
         print("| %s | %s |" % (lab, " | ".join(cells)))
