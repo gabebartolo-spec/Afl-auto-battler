@@ -309,6 +309,10 @@ static func _apply(gs, e: Dictionary, p: Dictionary, facts: Dictionary, applied:
 			var vice: Dictionary = gs.list_player(str(facts.get("vice_id", "")))
 			if vice.is_empty() or p.is_empty():
 				return "The captaincy stays as it is."
+			# The card may be older than the captaincy: if you have changed it since, do nothing.
+			var now: Dictionary = gs.captaincy_record(gs.my_club)
+			if Captaincy.role_of(now, str(p["id"])) != "captain" or Captaincy.role_of(now, str(vice["id"])) != "vice":
+				return "The captaincy has changed since this came up, so nothing changes."
 			var slots := [{"id": str(vice["id"]), "role": "captain"}, {"id": str(p["id"]), "role": "vice"}]
 			for s in Captaincy.slots(gs.captaincy_record(gs.my_club)):
 				var sid := str((s as Dictionary)["id"])
@@ -317,7 +321,7 @@ static func _apply(gs, e: Dictionary, p: Dictionary, facts: Dictionary, applied:
 			var pv: Dictionary = gs.set_captaincy(slots)
 			if not bool(pv.get("ok", false)):
 				return str(pv.get("why_not", "The captaincy can't change this week."))
-			return "%s takes the armband. %s stays on as a vice-captain." % [str(facts.get("vice_name", "")), name]
+			return "%s takes the armband. %s hands it over and stays in the leadership group." % [str(facts.get("vice_name", "")), name]
 	return ""
 
 

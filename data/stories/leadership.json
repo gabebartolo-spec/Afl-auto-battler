@@ -930,7 +930,8 @@
 			"after": 3,
 			"within": 8
 		},
-		"choice_notes": true
+		"choice_notes": true,
+		"subject_cooldown": 0
 	},
 	{
 		"id": "captain_slump_good",
@@ -985,7 +986,8 @@
 			"after": 5,
 			"within": 12
 		},
-		"choice_notes": true
+		"choice_notes": true,
+		"subject_cooldown": 0
 	},
 	{
 		"id": "captain_slump_flat",
@@ -1033,7 +1035,8 @@
 			"after": 5,
 			"within": 12
 		},
-		"choice_notes": true
+		"choice_notes": true,
+		"subject_cooldown": 0
 	},
 	{
 		"id": "captain_contract_start",
@@ -1148,7 +1151,8 @@
 			"after": 6,
 			"within": 20
 		},
-		"choice_notes": true
+		"choice_notes": true,
+		"subject_cooldown": 0
 	},
 	{
 		"id": "captain_contract_signed",
@@ -1202,7 +1206,8 @@
 			"after": 4,
 			"within": 30
 		},
-		"choice_notes": true
+		"choice_notes": true,
+		"subject_cooldown": 0
 	},
 	{
 		"id": "captain_contract_open",
@@ -1249,7 +1254,8 @@
 			"after": 4,
 			"within": 30
 		},
-		"choice_notes": true
+		"choice_notes": true,
+		"subject_cooldown": 0
 	},
 	{
 		"id": "captain_succession_start",
@@ -1354,10 +1360,10 @@
 			},
 			{
 				"key": "later",
-				"label": "Keep {vice_name} as vice until season's end",
+				"label": "Not yet",
 				"effects": [],
-				"result": "It waits for the end of the year.",
-				"note": "{vice_name} stays vice-captain for now. You can change it on the Captaincy page."
+				"result": "Nothing changes now.",
+				"note": "The card ends. You can make the change on the Captaincy page."
 			}
 		],
 		"cooldown": 160,
@@ -1372,6 +1378,7 @@
 			"after": 8,
 			"within": 20
 		},
-		"choice_notes": true
+		"choice_notes": true,
+		"subject_cooldown": 0
 	}
 ]

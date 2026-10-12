@@ -402,7 +402,7 @@ static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
 		"back_kid":
 			return "{kid_name} is promised the next {run_games} games; leave him out fit and the promise breaks."
 		"captaincy_swap":
-			return "{vice_name} takes the armband and {name} stays on as a vice-captain. The Captaincy costs apply."
+			return "{vice_name} takes the armband; {name} stays in the leadership group. The Captaincy costs apply."
 	return ""
 
 

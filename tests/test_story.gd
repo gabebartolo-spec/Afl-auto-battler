@@ -43,6 +43,7 @@ func run() -> void:
 	_test_captaincy()
 	_test_captain_cards()
 	_test_group_words_are_sentence_case()
+	_test_captain_cards_in_play()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	GameState.stories_on = true
@@ -1032,10 +1033,132 @@ func _test_captain_cards() -> void:
 		var line := ClubStories.apply_choice(GameState, swap, 0)
 		var after_rec := GameState.captaincy_record("GEE")
 		_check(Captaincy.role_of(after_rec, vice_id) == "captain" and Captaincy.role_of(after_rec, str(cap["id"])) == "vice",
-				"The vice-captain takes the armband and the old captain stays on as a vice (%s)" % line)
+				"The vice-captain takes the armband and the old captain stays in the leadership group (%s)" % line)
 
 
 func _test_group_words_are_sentence_case() -> void:
 	var words := StoryEngine._morale_words(-3, "all") + " " + StoryEngine._morale_words(-8, "others") + " " + StoryEngine._morale_words(-3, "side")
 	_check(words.contains("The whole list is a little flat about it.") and words.contains("The rest of the group takes it hard.")
 			and words.contains("The side is a little flat about it."), "A group's mood line is in sentence case (%s)" % words)
+
+
+## The paths a normal career rarely walks: a captain who can't settle a dispute, a stale
+## succession card, and the slump arc in full.
+func _test_captain_cards_in_play() -> void:
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var rec := GameState.captaincy_record("GEE")
+	var cap: Dictionary = {}
+	for p in GameState.my_list:
+		if Captaincy.role_of(rec, str(p["id"])) == "captain":
+			cap = p
+	if cap.is_empty():
+		_check(false, "Geelong has a captain for the in-play checks")
+		return
+	# A young, unproven captain who doesn't trust you can't settle a dispute.
+	cap["real_name"] = ""
+	cap["age"] = 19.0
+	cap["career"] = {"games": 0, "goals": 0, "stints": [], "through": 2026, "unknown": []}
+	cap["gm"] = 0
+	var weak := Leadership.of(cap)
+	_check(weak < StoryDeck.HOLDS_WITH_TRUST, "The test captain's Leadership is low (%d)" % weak)
+	var failed_copy := {"captain_selection_word": "It didn't land with the group.",
+			"captain_group_flat": "The group stayed flat.", "captain_harder_session": "The session fell apart."}
+	var delta := {"captain_selection_word": -2, "captain_group_flat": -2, "captain_harder_session": -2}
+	var leave_index := {"captain_selection_word": 1, "captain_group_flat": 2, "captain_harder_session": 2}
+	for id in failed_copy:
+		var card := GameState.story_card(id, cap)
+		_check(not bool(card["facts"].get("delegate_holds", true)), "%s: with this captain it wouldn't hold" % id)
+		var detail := str(card["options"][int(leave_index[id])]["detail"])
+		_check(detail.contains("wouldn't settle it"), "%s: the choice says it wouldn't settle it (%s)" % [id, detail])
+		var before := ClubLife.morale(GameState.my_list[0])
+		var out := ClubStories.apply_choice(GameState, card, int(leave_index[id]))
+		_check(out.contains(str(failed_copy[id])) and ClubLife.morale(GameState.my_list[0]) - before == int(delta[id]),
+				"%s: left to a captain who can't, it fails with its own words and cost (%s)" % [id, out])
+
+	# A stale succession card does nothing, and never makes a co-captain.
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	rec = GameState.captaincy_record("GEE")
+	cap = {}
+	for p in GameState.my_list:
+		if Captaincy.role_of(rec, str(p["id"])) == "captain":
+			cap = p
+	var swap := GameState.story_card("captain_succession_next", cap)
+	var other := {}
+	for p in GameState.my_list:
+		if not Captaincy.is_named(rec, str(p["id"])):
+			other = p
+			break
+	GameState.set_captaincy([{"id": str(other["id"]), "role": "captain"}])
+	var before_ids := Captaincy.ids(GameState.captaincy_record("GEE"))
+	var line := ClubStories.apply_choice(GameState, swap, 0)
+	_check(Captaincy.ids(GameState.captaincy_record("GEE")) == before_ids and line.contains("has changed"),
+			"A succession card older than the captaincy changes nothing (%s)" % line)
+
+	# The slump arc, in full, in both endings.
+	for scenario in ["good", "flat", "rested_then_word"]:
+		GameState.reset()
+		GameState.career_seed = SUITE_SEED
+		GameState.replay_seed = SUITE_SEED
+		GameState.start_season("GEE", GameDB.club_list("GEE"))
+		rec = GameState.captaincy_record("GEE")
+		cap = {}
+		for p in GameState.my_list:
+			if Captaincy.role_of(rec, str(p["id"])) == "captain":
+				cap = p
+		cap["real_name"] = ""
+		cap["morale"] = 40
+		var ids := {}
+		var deck := StoryDeck.all()
+		for k in ["captain_slump_start", "captain_slump_mid", "captain_slump_good", "captain_slump_flat"]:
+			ids[k] = StoryDeck.by_id(deck, k)
+		var ctx := ClubStories.context(GameState)
+		var rng := RandomNumberGenerator.new()
+		var w := GameState.story_week()
+		var starts := not StoryEngine.eligible_subject(ids["captain_slump_start"], ctx, GameState.story, w, rng).is_empty()
+		_check(starts, "%s: a low-spirited, selected captain triggers the slump" % scenario)
+		var start_choice := 0 if scenario == "good" else 2
+		GameState.week_events = [GameState.story_card("captain_slump_start", cap)]
+		GameState.resolve_card(0, start_choice)
+		_advance_quietly(4, cap, ids)
+		cap["morale"] = 60
+		ctx = ClubStories.context(GameState)
+		w = GameState.story_week()
+		var mid_ok := not StoryEngine.eligible_subject(ids["captain_slump_mid"], ctx, GameState.story, w, rng).is_empty()
+		_check(mid_ok, "%s: a few weeks on, the midpoint card comes up" % scenario)
+		var mid_choice := 0 if scenario == "good" else (2 if scenario == "flat" else 1)
+		GameState.week_events = [GameState.story_card("captain_slump_mid", cap)]
+		GameState.resolve_card(0, mid_choice)
+		_advance_quietly(5, cap, ids)
+		ctx = ClubStories.context(GameState)
+		w = GameState.story_week()
+		var good := not StoryEngine.eligible_subject(ids["captain_slump_good"], ctx, GameState.story, w, rng).is_empty()
+		var flat := not StoryEngine.eligible_subject(ids["captain_slump_flat"], ctx, GameState.story, w, rng).is_empty()
+		var want_good: bool = scenario != "flat"
+		_check(good == want_good and flat == not want_good,
+				"%s: the %s ending follows (good %s, flat %s)" % [scenario, "good" if want_good else "flat", str(good), str(flat)])
+
+
+## Play rounds without answering anything the engine draws for itself, and forget
+## that it drew the arc's cards, so the test decides what the arc sees.
+func _advance_quietly(rounds: int, cap: Dictionary, ids: Dictionary) -> void:
+	GameState.stories_on = false  # no cards drawn while time passes
+	for r in range(rounds):
+		GameState.advance()
+		# The engine's own draws in the leadership category would crowd the arc out
+		# (no category twice in five weeks); forget them too.
+		for c in StoryDeck.all():
+			if str(c.get("category", "")) == "leadership":
+				(GameState.story["last"] as Dictionary).erase(str(c["id"]))
+		(GameState.story["subj"] as Dictionary).erase(str(cap["id"]))
+		var kept := []
+		for row in GameState.story["cats"]:
+			if str(row[1]) != "leadership":
+				kept.append(row)
+		GameState.story["cats"] = kept
+	GameState.stories_on = true
