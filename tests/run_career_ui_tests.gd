@@ -1827,8 +1827,10 @@ func _pc_hub_and_list_layout() -> void:
 		_check(win.encloses(play_btn.get_global_rect()) and win.encloses(sim.get_global_rect())
 				and not in_scroll.call(play_btn) and not in_scroll.call(sim),
 				"Play match and Play round are both on screen without scrolling at 1280x720 (%s, %s)" % [str(play_btn.get_global_rect()), str(sim.get_global_rect())])
+	_check(play_btn != null and sim != null and play_btn.get_parent() == sim.get_parent(),
+			"On a PC bar the match choices sit together: Play round beside Pick the side and Play match")
 	_router.go("list")
 	await _settle()
 	await _settle()
 	var cap: Control = current_scene.find_child("CaptaincyOpen", true, false)
-	_check(cap != null and cap.size.x < 640.0, "My list's Captaincy row is not a bar across the PC window (%.0f wide)" % (cap.size.x if cap != null else -1.0))
+	_check(cap != null and cap.size.x < 640.0 and cap.size.y >= 44.0, "My list's Captaincy row is not a bar across the PC window and is thumb high (%.0f x %.0f)" % [cap.size.x if cap != null else -1.0, cap.size.y if cap != null else -1.0])

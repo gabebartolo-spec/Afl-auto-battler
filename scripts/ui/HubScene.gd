@@ -238,6 +238,34 @@ func _build() -> void:
 		# On a wide screen the rest of the club stays pinned, but only under
 		# the ladder column, not stretched across the page (director: no
 		# full-width bars on PC).
+		# A card never reads as cut mid-button by the bar: a little air above it
+		# and a soft fade over the clip edge.
+		var air := Control.new()
+		air.custom_minimum_size = Vector2(0, 10)
+		air.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_root.add_child(air)
+		var fade := TextureRect.new()
+		fade.name = "BarFade"
+		var grad := Gradient.new()
+		grad.set_color(0, Color(UiKit.BG.r, UiKit.BG.g, UiKit.BG.b, 0.0))
+		grad.set_color(1, Color(UiKit.BG.r, UiKit.BG.g, UiKit.BG.b, 0.92))
+		var gt := GradientTexture2D.new()
+		gt.gradient = grad
+		gt.fill_from = Vector2(0, 0)
+		gt.fill_to = Vector2(0, 1)
+		gt.width = 4
+		gt.height = 28
+		fade.texture = gt
+		fade.stretch_mode = TextureRect.STRETCH_SCALE
+		fade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fade.anchor_left = 0.0
+		fade.anchor_right = 1.0
+		fade.anchor_top = 0.0
+		fade.anchor_bottom = 0.0
+		fade.offset_top = -28
+		fade.offset_bottom = 0
+		air.add_child(fade)
 		var foot := UiKit.hbox(28)
 		foot.name = "HubFooterWide"
 		_root.add_child(foot)
@@ -247,8 +275,13 @@ func _build() -> void:
 		var week_row := _week_actions(season)
 		week_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		week_row.size_flags_vertical = Control.SIZE_SHRINK_END
+		# Play round sits with the match choices (Pick the side | Play match |
+		# Play round), so the bar reads as one group of match actions on the
+		# left and the club's screens on the right.
+		if not season.is_season_over() and not _upcoming_match().is_empty():
+			week_row.add_child(_sim_round_button())
 		foot.add_child(week_row)
-		var row := _footer(season)
+		var row := _footer(season, false)
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		foot.add_child(row)
 	# Motion plays once per visit, not on every rebuild after an answer.
@@ -715,8 +748,17 @@ func _week_actions(season: Season) -> Control:
 	return row
 
 
+## Play round (the quick sim of the week), with its long press for the
+## play-ahead menu.
+func _sim_round_button() -> Button:
+	var sim := _nav_button("Play round", _on_sim_round_pressed)
+	sim.name = "SimRound"
+	_wire_long_press(sim)
+	return sim
+
+
 ## Everything else, one quiet row pinned under the page.
-func _footer(season: Season) -> Control:
+func _footer(season: Season, with_sim := true) -> Control:
 	var buttons: Array = []
 	if season.is_season_over():
 		buttons.append(_nav_button("Season review", func(): Router.go("season_review")))
@@ -727,11 +769,8 @@ func _footer(season: Season) -> Control:
 		buttons.append(_nav_button("Training", func(): Router.go("training")))
 		buttons.append(_nav_button("My list", func(): Router.go("list")))
 		buttons.append(_coaching_button())
-		if not _upcoming_match().is_empty():
-			var sim := _nav_button("Play round", _on_sim_round_pressed)
-			sim.name = "SimRound"
-			_wire_long_press(sim)
-			buttons.append(sim)
+		if with_sim and not _upcoming_match().is_empty():
+			buttons.append(_sim_round_button())
 	# Four across a 360 px phone: tighter type and padding there, so no
 	# label is cut short.
 	var tight := _content_width() < 380.0 and buttons.size() >= 4
