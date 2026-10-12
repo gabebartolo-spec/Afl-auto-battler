@@ -180,6 +180,13 @@ def pool(careers):
     return t
 
 
+def tier(t):
+    """The engine's tiers (StoryEngine.tier): a follow-up, an arc start, or a one-off."""
+    if t.get("needs"):
+        return "beat"
+    return "start" if t.get("arc") else "one_off"
+
+
 def per10(t, key):
     return 10.0 * t["card"][key] / t["seasons"] if t["seasons"] else 0.0
 
@@ -194,10 +201,12 @@ def why_rare(card, real, fict, deck):
     bits = []
     if real["cond"][cid] == 0 and fict["cond"][cid] == 0:
         bits.append("its trigger was never true in %d weeks" % (real["weeks"] + fict["weeks"]))
+    elif real["cond"][cid] == 0:
+        bits.append("trigger never true with real names (%d weeks), true in %.0f%% of weeks with fictional names" % (real["weeks"], trig(fict, cid)))
     else:
         bits.append("trigger true in %.0f%% of weeks" % trig(real, cid))
     if card.get("private"):
-        bits.append("private card: a real-named player is never picked, drawn %.1f per 10 seasons with fictional names" % per10(fict, cid))
+        bits.append("private card, so a real-named player is never picked (%.1f per 10 seasons with fictional names)" % per10(fict, cid))
     needs = card.get("needs")
     if needs:
         parent = None
@@ -207,8 +216,8 @@ def why_rare(card, real, fict, deck):
                     if e["op"] == "flag" and e["name"] == needs["flag"]:
                         parent = (t["id"], c["key"])
         if parent:
-            took = real["choice"][parent] + fict["choice"][parent]
-            bits.append("follow-up of %s/%s, taken %d times in all" % (parent[0], parent[1], took))
+            bits.append("follow-up of %s/%s, taken %d times with real names and %d with fictional" % (
+                parent[0], parent[1], real["choice"][parent], fict["choice"][parent]))
     cd = card.get("cooldown")
     if cd:
         bits.append("cooldown %d weeks" % cd)
@@ -258,7 +267,10 @@ def write_report(deck, fl, careers, out_path, date, run_ids):
         for f in fl[t["id"]] + PROPOSALS[t["id"]]["flags"]:
             kinds[f.split()[0]] += 1
     ncopy = sum(len(v["copy"]) for v in PROPOSALS.values())
-    no_trade = [t["id"] for t in deck if any(f.startswith(("NO-TRADE-OFF", "DOMINATED")) for f in fl[t["id"]] + PROPOSALS[t["id"]]["flags"])]
+    no_trade = [t["id"] for t in deck if any(f.startswith("DOMINATED") for f in fl[t["id"]])]
+    losers = sum(1 for t in deck for f in fl[t["id"]] if f.startswith("DOMINATED"))
+    open_now = sum(real["cond"][t["id"]] for t in deck if tier(t) == "one_off") / float(max(1, real["weeks"]))
+    drawn = sum(real["card"].values()) / float(max(1, real["weeks"]))
     L = []
     w = L.append
     w("# Event card audit, %s" % date)
@@ -281,7 +293,7 @@ def write_report(deck, fl, careers, out_path, date, run_ids):
     w("| Story choices whose effects cancel out | %d |" % sum(1 for t in deck for f in fl[t["id"]] if f.startswith("CANCELS")))
     w("| Press answers with no effect (the middle answer of every question) | 6 (5 give nothing back; `big_win` sets up the Muckraker's later question) |")
     w("| Story choices that only nudge morale by 2 or less | %d |" % kinds["WEAK"])
-    w("| Choices that lose to another on every lever (no trade-off) | %d, on %d cards |" % (kinds["NO-TRADE-OFF"] + kinds["DOMINATED"], len(no_trade)))
+    w("| Choices that lose to another on every lever (no trade-off) | %d, on %d cards |" % (losers, len(no_trade)))
     w("| Promises not kept (copy says it tells, shows or does something; the result does not) | %d, plus the time trial |" % (kinds["PROMISE"] - 1))
     w("| Premises the trigger does not check | %d cards |" % kinds["PREMISE"])
     w("| Costs a coach would know that no line states before the pick | %d choices on %d cards |" % (sum(1 for t in deck for f in fl[t["id"]] if f.startswith("COST-UNSTATED")), sum(1 for t in deck if any(f.startswith("COST-UNSTATED") for f in fl[t["id"]]))))
@@ -291,6 +303,10 @@ def write_report(deck, fl, careers, out_path, date, run_ids):
     w("")
     w("## Findings that cut across cards")
     w("")
+    w("- How often a card comes up: about %.0f one-off cards are open in an average week (real-names careers) and %.2f cards are drawn a week, "
+      "so each open one-off is drawn about %.1f times in 100 open weeks. A card whose trigger is true in 10%% of weeks comes up about %.1f times in 10 seasons "
+      "(the sheet's \"trigger true\" column explains every card under 1)." % (
+          open_now, drawn, 100.0 * drawn / max(1.0, open_now), 10.0 * 25 * 0.10 * drawn / max(1.0, open_now)))
     for line in CROSS:
         w("- " + line)
     w("")

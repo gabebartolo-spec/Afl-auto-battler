@@ -140,10 +140,29 @@ PROPOSALS = {
         ["label:skip", "Not this week", "Skip it", "the label on four cards"]]},
     "training_new_stoppage_setup": {"flags": ["STAKES-MISSING drill: heavy legs for the side"], "copy": [
         ["title", "The midfield coach wants a new stoppage set-up", "The midfield coach has a new stoppage set-up", "wants x28"]]},
-    "training_backed_kid_flying": {"flags": ["GAP morale 61 to 69: neither follow-up fires (this one needs 70, the other 60 or less), so the arc lapses silently", "'He's grabbed it' is judged on morale, not on his games"], "copy": []},
-    "training_backed_kid_struggling": {"flags": ["GAP see training_backed_kid_flying"], "copy": []},
+    "training_backed_kid_flying": {"flags": ["GAP (static) morale 61 to 69: neither follow-up could fire (this one needs 70, the other 60 or less) and the arc would lapse silently. Not seen: all 10 kids backed in these careers got a follow-up", "'He's grabbed it' is judged on morale, not on his games"], "copy": []},
+    "training_backed_kid_struggling": {"flags": ["GAP (static) see training_backed_kid_flying; not seen in the runs"], "copy": []},
 }
 
 
-CROSS = []
-NOT_EXERCISED = []
+CROSS = [
+    "No story choice is empty: 0 of 133 have no effect and none cancels out. The nothing-choices are the middle answer of every press question (6 of 18 answers; `big_win` sets up the Muckraker's later question, the other five set up nothing) and the cards where one choice loses to the other on every lever, so nobody would pick it (the sheet marks them NO-TRADE-OFF).",
+    "What a choice does is not shown before the pick. Since #654 the hub card shows its title, text, one `stakes` line and bare button labels (`HubScene._event_card`); the generated button hint (`detail`) and every choice `note` are read by no screen. Only 16 of 65 cards carry a stakes line, and 10 choices carry a `note` that nobody sees (community_hospital_visit, contracts_wants_to_extend x2, family_newborn_no_sleep, health_pulled_up_sore, health_finals_light_week, training_extra_session, training_kid_pushing x2, training_seniors_day_off). Two of them hold the only statement of a cost (training_kid_pushing 'develop' misses the game; family_newborn_no_sleep says a cost that is false).",
+    "15 choices on 14 cards carry a cost the coach would know (heavy legs, a missed game, a sore body) with no stakes line and no word on the button. The sheet lists each as COST-UNSTATED / STAKES-MISSING. Money, promises and the odds of a breakdown are stated well where a stakes line exists.",
+    "The board's mood is said twice in 8 results: the card's result names it and the engine adds 'The board liked/didn't like it' after (`StoryEngine.aftermath`). Dropping the board sentence from the result keeps one.",
+    "Real names switch off the whole papers arc. `media_in_the_papers`, `media_papers_again` and `media_papers_fronts_group` are private, so they never pick a real-named player; with real names on the first needs a selected, fictional-named player with discipline 40 or less and the probe found none in any week, so the three cards are at 0.0 per 10 seasons (6.7, 4.0 and 0.7 with fictional names). The other private cards (family, the junior club fire) still come up.",
+    "Triggers that claim a fact the game does not know: an away trip (`members_interstate_trip`, `community_foundation_dinner`, `family_baby_due`), an interstate home town (`family_dad_in_hospital`), a hurt young player (`health_veteran_rehab_mentor`), a turnaround (`health_veteran_load`), a fixture day ('Saturday'). The sheet lists each as PREMISE. They need a fact (away, origin, a long injury) or neutral copy.",
+    "Promises the result does not keep: `board_sponsor_shoot` 'He needs the rest' (nothing rests him), `media_team_leak` 'Find the leak' (no one is found), `contracts_one_more_year` 'Tell him where he stands' (no answer given), and the known `training_time_trial`. Three more are only words with no follow-up in the game: `board_injury_list` 'Promise a review', `contracts_waited_manager_calls` 'a deal is coming', `family_partner_job_offer` 'the club will help'.",
+    "Silence is the harsh option on `family_baby_due` (default 'play', trust -10) and the cautious one elsewhere (`board_wants_answers`, `contracts_wants_to_extend`, the two sore-player cards). Ignoring a card is therefore a decision the player may not know they are making.",
+    "Two near-copies: `health_pulled_up_sore` and `health_knock_at_training` (a sore player, rest or play, silence plays him) differ only in a trust gain. One could become a different decision.",
+    "Wording: 28 of 65 titles say 'want' or 'wants'; 'Not this week' is the button on four cards; the three selection talk cards share one title and the same three buttons. Natural AFL language is otherwise good (presser, the twos, match sim, main training, soft-tissue); no engine terms reach the player.",
+]
+
+NOT_EXERCISED = [
+    "Only the random-answer path ran. A player who ignores cards (silence settles to each card's default) was not run, so arcs started by silence were not counted.",
+    "The captain cards (#671), culture (#665) and the time-trial fix are not on main; the 65 cards audited are main at 1657304c. Cards added later are not counted.",
+    "Seed 42 (GEE, lists, real names) was sacked after 2 seasons because answers are random; it adds 2 seasons to the real-names pool, not 10. Two fictional-name controls (15 seasons in all) are too few for more than a contrast.",
+    "'Trigger true' ignores cooldowns, per-season limits, the category rule and arcs, so it is an upper bound on being open. Finals cards count only the weeks the club is still alive.",
+    "Press questions are counted by key, not by answer, and the two `heavy_loss` wordings are one key. The autopilot skips the press, so what the answers did was not exercised.",
+    "Nothing was read on a phone. Copy proposals are lines on a sheet, not captured in the hub, and effect sizes (morale, board, trust) were not judged: balance is the director's call.",
+]
