@@ -103,7 +103,7 @@ func _pool_line(players: Array) -> void:
 
 
 ## One pick against the best player still on the board (`gone` = ids already taken).
-func _log_pick(d: Draft, c: Dictionary, code: String, pick_no: int, rnd: int, gone: Dictionary, tag: String, year: int) -> void:
+func _log_pick(d: Draft, c: Dictionary, code: String, pick_no: int, rnd: int, gone: Dictionary, tag: String, year: int, ngap2 := -1.0) -> void:
 	var bw := -INF
 	var bo := -INF
 	var bp := -INF
@@ -134,12 +134,34 @@ func _log_pick(d: Draft, c: Dictionary, code: String, pick_no: int, rnd: int, go
 				sbest = sw
 				spick = p
 		ngap = bw - _worth(spick) if not spick.is_empty() else 0.0
-	print("DP|%s|%d|%s|%d|%d|%d|%s|%.0f|%d|%d|%.2f|%.2f|%d|%d|%d|%s|%.2f" % [mode, seed_n, tag, year, pick_no,
+	print("DP|%s|%d|%s|%d|%d|%d|%s|%.0f|%d|%d|%.2f|%.2f|%d|%d|%d|%s|%.2f|%.2f" % [mode, seed_n, tag, year, pick_no,
 			rnd, code, float(c.get("age", 0)), int(c["overall"]), int(_pot(c)), cw, bw,
-			int(bo), int(bp), better, str(c.get("role", "")), ngap])
+			int(bo), int(bp), better, str(c.get("role", "")), ngap, ngap2])
 	if tag != "league":
 		cohort.append({"id": str(c["id"]), "year": year, "pick": pick_no, "age0": float(c.get("age", 0)),
 				"ovr0": int(c["overall"]), "pot0": int(_pot(c))})
+
+
+## The gap if the club picked on its scouted read times its positional need
+## only (no scarcity bonus, no cap): scouting noise plus need. Called before
+## the pick, while the club's role counts are still those the AI saw.
+func _need_gap(d: Draft, code: String, gone: Dictionary) -> float:
+	var bw := -INF
+	var best := -INF
+	var pick: Dictionary = {}
+	for p in d.pool:
+		if gone.has(str(p["id"])):
+			continue
+		bw = maxf(bw, _worth(p))
+		var sw := DraftScouting.scouted_worth(p, code, d.seed, Draft.AI_POT_WEIGHT_INTAKE, d.scouting_mult_for(code))
+		var sc := sw * d._need_weight(code, str(p["role"]))
+		var role2 := str(p.get("role2", ""))
+		if role2 != "" and role2 != str(p["role"]):
+			sc = maxf(sc, sw * d._need_weight(code, role2) * 0.85)
+		if sc > best:
+			best = sc
+			pick = p
+	return bw - _worth(pick) if not pick.is_empty() else 0.0
 
 
 ## Run a draft with the AI picking for every club, logging each pick against
@@ -162,8 +184,9 @@ func _run_draft(d: Draft, tag: String, year: int) -> void:
 		var n_before := d.pick_history.size()
 		var rnd := d.current_round()
 		var snapshot_gone := gone.duplicate()
+		var g2 := _need_gap(d, code, snapshot_gone) if tag != "league" else -1.0
 		if d._draft_pick(code, c):
-			_log_pick(d, c, code, n_before + 1, rnd, snapshot_gone, tag, year)
+			_log_pick(d, c, code, n_before + 1, rnd, snapshot_gone, tag, year, g2)
 			gone[str(c["id"])] = true
 		else:
 			d._skip_current_pick()

@@ -216,11 +216,11 @@ def main():
     for r in rec["DP"]:
         dp.append(dict(mode=r[0], seed=int(r[1]), tag=r[2], year=int(r[3]), pick=int(r[4]), rnd=int(r[5]), club=r[6],
                        age=float(r[7]), ovr=int(r[8]), pot=int(r[9]), cw=float(r[10]), bw=float(r[11]), bo=int(r[12]),
-                       bp=int(r[13]), better=int(r[14]), role=r[15], ngap=float(r[16]) if len(r) > 16 else -1.0))
+                       bp=int(r[13]), better=int(r[14]), role=r[15], ngap=float(r[16]) if len(r) > 16 else -1.0, ngap2=float(r[17]) if len(r) > 17 else -1.0))
     bands = [(1, 10), (11, 30), (31, 60), (61, 999)]
     print("### D1. AI picks against the best player on the board (worth = 35% OVR + 65% POT from true values, no scouting noise; League Draft: the draft's own worth)")
-    print("| Draft | Pick band | Picks | Gap to best (mean) | of which scouting noise alone | Gap 3+ | Gap 5+ | Gap 8+ | Higher-worth players left (mean) | Pick OVR | Best OVR left | Pick POT | Best POT left |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    print("| Draft | Pick band | Picks | Gap to best (mean) | of which scouting noise alone | noise + position need | Gap 3+ | Gap 5+ | Gap 8+ | Higher-worth players left (mean) | Pick OVR | Best OVR left | Pick POT | Best POT left |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for tag, label in (("national", "National, all careers"), ("open", "2026 class (real-list start)"), ("league", "League Draft (redraft)")):
         for lo, hi in bands:
             xs = [d for d in dp if d["tag"] == tag and lo <= d["pick"] <= hi]
@@ -229,8 +229,9 @@ def main():
             gap = [d["bw"] - d["cw"] for d in xs]
             n = len(xs)
             ng = [d["ngap"] for d in xs if d["ngap"] >= 0]
-            print("| %s | %d-%s | %d | %.2f | %s | %.0f%% | %.0f%% | %.0f%% | %.1f | %.1f | %.1f | %.1f | %.1f |" % (
-                label, lo, hi if hi < 999 else "end", n, mean(gap), "%.2f" % mean(ng) if ng else "-", 100 * sum(g >= 3 for g in gap) / n,
+            ng2 = [d["ngap2"] for d in xs if d["ngap2"] >= 0]
+            print("| %s | %d-%s | %d | %.2f | %s | %s | %.0f%% | %.0f%% | %.0f%% | %.1f | %.1f | %.1f | %.1f | %.1f |" % (
+                label, lo, hi if hi < 999 else "end", n, mean(gap), "%.2f" % mean(ng) if ng else "-", "%.2f" % mean(ng2) if ng2 else "-", 100 * sum(g >= 3 for g in gap) / n,
                 100 * sum(g >= 5 for g in gap) / n, 100 * sum(g >= 8 for g in gap) / n, mean(d["better"] for d in xs),
                 mean(d["ovr"] for d in xs), mean(d["bo"] for d in xs), mean(d["pot"] for d in xs), mean(d["bp"] for d in xs)))
     print()
