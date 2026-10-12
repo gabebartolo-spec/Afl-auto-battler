@@ -40,6 +40,7 @@ func _run() -> void:
 	_state.replay_seed = 2026
 	for sz in [Vector2i(420, 860), Vector2i(360, 740)]:
 		await _phone_match(sz)
+	await _ground_fit()
 	_state.replay_seed = SUITE_SEED
 	await _plan_at_first_bounce()
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
@@ -113,6 +114,39 @@ func _plan_at_first_bounce() -> void:
 		_check(played == expect, "The first quarter is played on %s (engine: %s)" % [expect, played])
 		m.queue_free()
 		await _settle()
+
+
+func _ground_fit() -> void:
+	# The wide layout and the whole-ground camera follow the screen's shape, not
+	# the platform: the web build (is_desktop() false) gets them on a PC-sized
+	# window, and a phone-sized one keeps the close-up (director, 2026-10-12).
+	var sl = load("res://scripts/core/ScreenLayout.gd")
+	var db = root.get_node("GameDB")
+	sl.force_web = true
+	_check(sl.roomy(1280.0, 720.0) and sl.roomy(1920.0, 1080.0) and not sl.roomy(390.0, 844.0),
+			"Wide layouts follow the window's shape, on the web as on a desktop")
+	for sz in [Vector2i(1280, 720), Vector2i(1920, 1080), Vector2i(390, 844)]:
+		_state.reset()
+		_state.replay_seed = 2026
+		_state.start_season("COL", db.club_list("COL"))
+		root.size = sz
+		_state.prepare_interactive_match()
+		var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+		root.add_child(m)
+		await _settle()
+		var pitch: PitchView = m.get("_pitch")
+		var wide := sz.x > sz.y
+		_check(pitch.camera_enabled == not wide,
+				"The close-up camera is for the narrow window only, web or not (%dx%d: %s)" % [sz.x, sz.y, str(pitch.camera_enabled)])
+		if wide:
+			var panel: Control = m.get("_side_panel")
+			var ground := pitch.pitch_rect()
+			var gr := Rect2(pitch.get_global_rect().position + ground.position, ground.size)
+			_check(pitch.get_global_rect().encloses(gr) and pitch.get_global_rect().end.x <= panel.get_global_rect().position.x + 1.0,
+					"The whole ground sits inside the pitch, left of the side panel (%dx%d)" % [sz.x, sz.y])
+		m.queue_free()
+		await _settle()
+	sl.force_web = false
 
 
 func _phone_match(sz: Vector2i) -> void:

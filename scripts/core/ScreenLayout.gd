@@ -100,6 +100,15 @@ static func is_phone() -> bool:
 	return OS.has_feature("android") or OS.has_feature("ios")
 
 
+## LAYOUT, not platform: a roomy landscape window gets the wide layouts (side
+## panels, columns, the whole ground) on desktop and web alike, because the
+## screen's shape and size decide. A phone's own OS keeps its layouts. Features
+## that exist only on a desktop (Exit game, the Display setting, Alt+Enter) stay
+## on is_desktop(); the wide-layout checks use this.
+static func roomy(w: float, h: float) -> bool:
+	return not is_phone() and w >= 760.0 and w > h * 1.2
+
+
 ## Desktop only: a phone's density already comes from its screen.
 static func is_desktop() -> bool:
 	if force_web:
