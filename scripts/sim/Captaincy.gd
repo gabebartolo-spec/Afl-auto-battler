@@ -263,5 +263,5 @@ static func rules_text() -> Array:
 		"A club has a captain and up to two vice-captains. Two or three captains can share the job.",
 		"Overlooking a senior player with more leadership than your new captain costs him a little mood and trust, once.",
 		"Taking the armband off a captain mid-season costs him, and you only get one change a season. Before round 1 changes are free.",
-		"A captain who retires or leaves the club leaves the spot open.",
+		"If your captain retires or leaves, the next vice-captain steps up, as at the other clubs. If you leave the captaincy empty yourself, it stays empty.",
 	]

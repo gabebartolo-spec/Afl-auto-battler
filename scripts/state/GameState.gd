@@ -8422,9 +8422,11 @@ func _captain_name(id: String, roster: Array) -> String:
 ## Every club has a record: the 2026 record for real lists, the rule for a club
 ## without one. Your own club is named the same way when its record is first made
 ## (director 2026-10-12: in a redraft or custom career it starts with a captain
-## named by the rule, and you can change him on the Captaincy page). After that
-## nobody is added for you: a captain who leaves, or one you took off, leaves the
-## spot open. A save from before this ("seeded" missing) is named once, by the
+## named by the rule, and you can change him on the Captaincy page). When your
+## captain retires or leaves, the best-rated vice-captain steps up by the same rule
+## as a rival's (the highest Leadership if none is left), with a note to the coach
+## (director 2026-10-12). A spot the coach emptied himself stays empty: nobody is
+## added for him. A save from before this ("seeded" missing) is named once, by the
 ## rule, at the first round after it loads, unless it already has leaders.
 func _captaincy_refresh() -> void:
 	if season == null:
@@ -8436,6 +8438,7 @@ func _captaincy_refresh() -> void:
 		if fresh_rec:
 			rec = Captaincy.fresh(season_year)
 			rec["slots"] = Captaincy.from_record(str(code), roster)
+		var had_captain := not Captaincy.ids(rec, "captain").is_empty()
 		Captaincy.prune(rec, roster)
 		if str(code) != my_club:
 			var made := Captaincy.fill(rec, roster)
@@ -8446,6 +8449,15 @@ func _captaincy_refresh() -> void:
 		elif not bool(rec.get("seeded", false)) and Captaincy.slots(rec).is_empty():
 			# Your club, the first time: named by the rule. No news.
 			Captaincy.fill(rec, roster)
+		elif had_captain and Captaincy.ids(rec, "captain").is_empty():
+			# Your captain has retired or left: the next in line steps up. A spot you emptied
+			# yourself has no captain to lose, so it never comes here.
+			var stepped := Captaincy.fill(rec, roster)
+			if stepped != "":
+				rec["since"] = season_year
+				var note := "Your captain has left the club, so %s takes over as captain. You can change it on the Captaincy page." % _captain_name(stepped, roster)
+				Captaincy.add_log(rec, season_year, "Off-season" if offseason_year == season_year else last_label, note)
+				add_news("captaincy", note)
 		rec["seeded"] = true
 		captaincy[code] = rec
 
