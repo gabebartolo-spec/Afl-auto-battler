@@ -124,7 +124,12 @@ func handle_back(from_os := false) -> void:
 		"hub":
 			to_main_menu(false)
 		"draft":
-			replace("main")
+			# The draft knows whether it is on Choose your club (one step back is
+			# the New career options) or on its board (the title).
+			if scene != null and scene.has_method("back_to_menu"):
+				scene.call("back_to_menu")
+			else:
+				replace("main")
 		_:
 			if can_go_back():
 				back()

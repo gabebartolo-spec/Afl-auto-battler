@@ -72,6 +72,7 @@ jobs:
 
       - name: Import and export the Web build
         run: |
+          git rev-parse --short HEAD > build_info.txt
           mkdir -p build/web
           "$HOME/godot/godot" --headless --import || true
           "$HOME/godot/godot" --headless --export-release Web "$PWD/build/web/index.html"
