@@ -67,7 +67,7 @@ func _narrow() -> bool:
 
 func _wide() -> bool:
 	var w := UiKit.view_width(self)
-	return ScreenLayout.is_desktop() and w >= 760.0 and w > UiKit.view_height(self) * 1.2
+	return ScreenLayout.roomy(w, UiKit.view_height(self))
 
 
 func _wrapped(text: String, fs := UiKit.BODY, col := UiKit.AUTO_COLOUR) -> Label:
