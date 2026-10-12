@@ -2494,6 +2494,14 @@ func _notification(what: int) -> void:
 			_reflow.call_deferred()
 	elif what == NOTIFICATION_EXIT_TREE and _pitch != null:
 		_pitch.pause()
+		# A farewell shown at full time lives on the root: leaving by Back must not
+		# leave it standing over the next screen.
+		var tree := get_tree()
+		if tree != null:
+			var fv := tree.root.find_child("FarewellVignette", true, false)
+			if fv != null:
+				var holder := fv.get_parent()
+				(holder if holder is CanvasLayer else fv).queue_free()
 
 
 func _reflow() -> void:
