@@ -52,11 +52,6 @@ static func _game_db() -> Node:
 	return _db
 
 
-## Forget the cached scale: a new career rebuilds it from the 2026 players.
-static func forget_cache() -> void:
-	_sorted = {}
-
-
 ## Fill the cache for every role and attribute, before matches run on
 ## worker threads (which must only read it).
 static func warm() -> void:

@@ -268,8 +268,6 @@ func _test_second_career_plays_like_first() -> void:
 	var first := _career_trace()
 	# What a game that loaded a save mid-career leaves behind: the caches built
 	# from the players as they stand now, not as the 2026 data has them.
-	PlayerProfile.forget_cache()
-	PlayerProfile.warm()
 	Prospects.forget_cache()
 	Prospects.generate_class(GameState.season_year, 7)
 	StoryDeck.all()
