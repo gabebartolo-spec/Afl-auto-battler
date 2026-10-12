@@ -135,7 +135,7 @@ func _ground_fit() -> void:
 		root.add_child(m)
 		await _settle()
 		var pitch: PitchView = m.get("_pitch")
-		var wide := sz.x > sz.y
+		var wide: bool = sz.x > sz.y
 		_check(pitch.camera_enabled == not wide,
 				"The close-up camera is for the narrow window only, web or not (%dx%d: %s)" % [sz.x, sz.y, str(pitch.camera_enabled)])
 		if wide:
