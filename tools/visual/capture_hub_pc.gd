@@ -40,6 +40,11 @@ func _run() -> void:
 	await _frames(8)
 	router.go("hub")
 	await _frames(20)
+	# The first-visit intro is answered, as a returning player has.
+	for b in root.find_children("*", "Button", true, false):
+		if (b as Button).text == "Got it" and (b as Button).is_visible_in_tree():
+			(b as Button).emit_signal("pressed")
+	await _frames(20)
 	_save(out + "_hub.png")
 	router.go("list")
 	await _frames(20)
