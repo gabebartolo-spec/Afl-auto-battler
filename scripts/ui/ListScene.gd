@@ -82,7 +82,10 @@ func _build() -> void:
 		# The names start a clear step after the label, and the row says it opens.
 		var title_l := cap_link.find_child("SectionTitle", true, false)
 		if title_l != null:
-			(title_l as Control).size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			# The label keeps the width of its own word (a trimmed label with no
+			# room asked for collapses to nothing beside the names).
+			(title_l as Label).text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+			(title_l as Control).size_flags_horizontal = Control.SIZE_FILL
 		var h := cap_link.find_child("SectionLeadsTo", true, false)
 		if h != null:
 			(h as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL

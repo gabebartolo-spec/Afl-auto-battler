@@ -1833,4 +1833,6 @@ func _pc_hub_and_list_layout() -> void:
 	await _settle()
 	await _settle()
 	var cap: Control = current_scene.find_child("CaptaincyOpen", true, false)
+	var cap_title: Control = cap.find_child("SectionTitle", true, false) if cap != null else null
+	_check(cap_title != null and cap_title.size.x >= 60.0, "The Captaincy label is visible beside the names (%.0f wide)" % (cap_title.size.x if cap_title != null else -1.0))
 	_check(cap != null and cap.size.x < 640.0 and cap.size.y >= 44.0, "My list's Captaincy row is not a bar across the PC window and is thumb high (%.0f x %.0f)" % [cap.size.x if cap != null else -1.0, cap.size.y if cap != null else -1.0])
