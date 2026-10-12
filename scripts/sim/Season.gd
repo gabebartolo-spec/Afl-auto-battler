@@ -395,6 +395,14 @@ static func start_all(sims: Array, cores := OS.get_processor_count() - 1) -> Dic
 	var out := []
 	for i in range(sims.size()):
 		out.append({})       # one holder per match: no shared writes
+	if not threads_available():
+		# A browser build without threads: nothing runs yet. pump() plays one
+		# match per call (GameState does that between frames while you coach
+		# yours); finish_all() plays whatever is left.
+		var todo := []
+		for i in range(sims.size()):
+			todo.append([sims[i], out[i]])
+		return {"threads": [], "out": out, "todo": todo}
 	var n := clampi(cores, 1, maxi(1, sims.size()))
 	var threads := []
 	for k in range(n):
@@ -414,8 +422,24 @@ static func _run_share(share: Array) -> void:
 		(pair[1] as Dictionary)["res"] = (pair[0] as MatchSim).run()
 
 
+## The web build runs without threads (so it needs no special server headers).
+static func threads_available() -> bool:
+	return not OS.has_feature("web")
+
+
+## Play the next waiting match of a no-thread job; true while more remain.
+static func pump(job: Dictionary) -> bool:
+	var todo: Array = job.get("todo", [])
+	if todo.is_empty():
+		return false
+	_run_share([todo.pop_front()])
+	return not todo.is_empty()
+
+
 ## Wait for matches started by start_all; their results, in order.
 static func finish_all(job: Dictionary) -> Array:
+	while pump(job):
+		pass
 	for th in job.get("threads", []):
 		(th as Thread).wait_to_finish()
 	job["threads"] = []

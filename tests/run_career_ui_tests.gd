@@ -1411,7 +1411,7 @@ func _run() -> void:
 		confirm.emit_signal("pressed")
 		await _settle()
 	_check(_router.current() == "draft", "Confirming starts a new career at the draft")
-	_check(not _state.has_saved_career(), "The replaced save is removed")
+	_check(_state.has_saved_career(), "The old save is kept until the new career has a club (Back must not lose it)")
 	_check(_state.season == null and _state.draft != null, "The new career starts empty")
 
 	# --- Escape on the main menu never quits ---------------------------------
@@ -1537,6 +1537,7 @@ func _run() -> void:
 	_test_type_roles()
 	await _test_names_fit()
 	_state.delete_saved_career()
+	await _new_career_keeps_the_save()
 	print("Career UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
@@ -1733,3 +1734,60 @@ func _find_named(n: Node, named: String, out: Array) -> void:
 		out.append(n)
 	for c in n.get_children():
 		_find_named(c, named, out)
+
+
+## qa web pass, 2026-10-12: starting a new career must not cost the player the
+## one they have. The old save stays until the new career has a club; Back on
+## Choose your club steps back to the New career options, and Continue still
+## offers the old career. Real taps at each step.
+func _new_career_keeps_the_save() -> void:
+	_state.reset()
+	_state.start_season("COL", _db.club_list("COL"))
+	_check(_state.save_career(), "(setup) the old career is saved")
+	_state.reset()
+	_router.stack = []
+	_router.go("main")
+	await _settle()
+	var old_club := str(_state.saved_career_meta().get("club", ""))
+	_check(old_club == "COL" and current_scene.find_child("ContinueCareer", true, false) != null,
+			"The title offers Continue for the saved career")
+	var t1: String = await Tap.tap(current_scene.find_child("NewCareer", true, false))
+	await _settle()
+	var t2: String = await Tap.tap(current_scene.find_child("StartCareer", true, false))
+	await _settle()
+	var t3: String = await Tap.tap(current_scene.find_child("ConfirmNewCareer", true, false))
+	await _settle()
+	await _settle()
+	_check(t1 == "" and t2 == "" and t3 == "" and _router.current() == "draft",
+			"New career > Choose your club > Start new career reaches Choose your club (%s %s %s, at %s)" % [t1, t2, t3, _router.current()])
+	_check(str(_state.saved_career_meta().get("club", "")) == "COL",
+			"The old career is still saved while the club is being chosen")
+	# One step back: the New career options, not the title.
+	var back_tap: String = await Tap.tap(current_scene.find_child("BackToMenu", true, false))
+	await _settle()
+	await _settle()
+	_check(back_tap == "" and _router.current() == "main" and str(current_scene.get("_mode")) == "setup",
+			"Back on Choose your club steps back to the New career options (%s; now %s, mode %s)" % [back_tap, _router.current(), str(current_scene.get("_mode"))])
+	_check(str(_state.saved_career_meta().get("club", "")) == "COL", "...and the old career is still saved")
+	# And back to the title, where Continue still offers it.
+	_router.handle_back(false)
+	await _settle()
+	var meta: Node = current_scene.find_child("CareerMeta", true, false)
+	_check(current_scene.find_child("ContinueCareer", true, false) != null and meta != null
+			and (meta as Label).text.contains(_db.club_name("COL")),
+			"The title still offers Continue for the old career")
+	# Escape on Choose your club does the same.
+	await Tap.tap(current_scene.find_child("NewCareer", true, false))
+	await _settle()
+	await Tap.tap(current_scene.find_child("StartCareer", true, false))
+	await _settle()
+	await Tap.tap(current_scene.find_child("ConfirmNewCareer", true, false))
+	await _settle()
+	await _settle()
+	_router.handle_back(false)
+	await _settle()
+	await _settle()
+	_check(_router.current() == "main" and str(current_scene.get("_mode")) == "setup"
+			and str(_state.saved_career_meta().get("club", "")) == "COL",
+			"Escape on Choose your club also steps back to the options with the old career kept")
+	_state.delete_saved_career()
