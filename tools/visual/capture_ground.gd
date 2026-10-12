@@ -50,14 +50,22 @@ func _run() -> void:
 		push_error("no match to prepare")
 		quit(1)
 		return
+	if a.has("--webish"):
+		# The web build: is_desktop() is false there, whatever the window size.
+		load("res://scripts/core/ScreenLayout.gd").force_phone = true
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))
 	var scene = load("res://scenes/MatchScene.tscn").instantiate()
 	root.add_child(scene)
-	await _frames(120)
+	await _frames(30)
+	var start: Button = scene.find_child("StartQuarter", true, false)
+	if start != null:
+		start.emit_signal("pressed")
+	await _frames(300)   # play runs on
 	var pitch: Control = scene.find_child("*", true, false) if false else scene.get("_pitch")
 	var panel: Control = scene.get("_side_panel")
 	var pr: Rect2 = pitch.call("pitch_rect")
+	print("GROUND camera %s, zoom %.2f, stacked %s" % [str(pitch.get("camera_enabled")), float(pitch.get("_zoom")), str(scene.get("_stacked"))])
 	print("GROUND window %s, pitch control %s, ground rect %s, side panel %s" % [
 			str(root.size), str(pitch.get_global_rect()), str(Rect2(pitch.get_global_rect().position + pr.position, pr.size)),
 			str(panel.get_global_rect())])
