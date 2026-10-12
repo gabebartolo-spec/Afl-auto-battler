@@ -1077,7 +1077,13 @@ func _unlinked_lists(lists: Dictionary) -> Dictionary:
 func reset() -> void:
 	# Mid-career seasons mutate the loaded player dicts in place (intake,
 	# ageing, XP training). A new career must start from the pristine 2026
-	# dataset, so reload the data files before rebuilding anything.
+	# dataset, so reload the data files before rebuilding anything. The caches
+	# built from the players (prospect shapes, story cards) are dropped with it,
+	# so a new career never reads one built under the last. PlayerProfile's rating
+	# scale stays: matches on worker threads only read it (Season warms it first),
+	# and clearing it let a worker rebuild it and crash (CI 38237786675).
+	Prospects.forget_cache()
+	StoryDeck.reload()
 	GameDB.reload()
 	# Nothing of the last career's market or caches carries into this one
 	# (a second career in one process played its off-season differently).

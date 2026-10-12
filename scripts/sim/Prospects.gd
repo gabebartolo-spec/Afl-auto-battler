@@ -208,6 +208,11 @@ static var _shapes := {}
 const SHAPE_NEAREST := 10
 
 
+## Forget the cached shapes: a new career rebuilds them from the 2026 players.
+static func forget_cache() -> void:
+	_shapes = {}
+
+
 ## The shape of one of the real players of `role` nearest `level` overall,
 ## picked by `rng`; the role template when there are no real players to
 ## borrow from (a test database).
