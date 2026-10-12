@@ -134,15 +134,15 @@ func _ground_fit() -> void:
 		var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
 		root.add_child(m)
 		await _settle()
-		var pitch: PitchView = m.get("_pitch")
+		var pitch = m.get("_pitch")
 		var wide: bool = sz.x > sz.y
 		_check(pitch.camera_enabled == not wide,
 				"The close-up camera is for the narrow window only, web or not (%dx%d: %s)" % [sz.x, sz.y, str(pitch.camera_enabled)])
 		if wide:
 			var panel: Control = m.get("_side_panel")
-			var ground := pitch.pitch_rect()
-			var gr := Rect2(pitch.get_global_rect().position + ground.position, ground.size)
-			_check(pitch.get_global_rect().encloses(gr) and pitch.get_global_rect().end.x <= panel.get_global_rect().position.x + 1.0,
+			var ground: Rect2 = pitch.call("pitch_rect")
+			var gr := Rect2((pitch as Control).get_global_rect().position + ground.position, ground.size)
+			_check((pitch as Control).get_global_rect().encloses(gr) and (pitch as Control).get_global_rect().end.x <= panel.get_global_rect().position.x + 1.0,
 					"The whole ground sits inside the pitch, left of the side panel (%dx%d)" % [sz.x, sz.y])
 		m.queue_free()
 		await _settle()
@@ -160,7 +160,7 @@ func _ground_fit() -> void:
 	var side: Control = load("res://scenes/MatchScene.tscn").instantiate()
 	root.add_child(side)
 	await _settle()
-	_check((side.get("_pitch") as PitchView).camera_enabled, "A phone sideways keeps the close-up camera")
+	_check(side.get("_pitch").camera_enabled, "A phone sideways keeps the close-up camera")
 	side.queue_free()
 	await _settle()
 	sl.force_web_phone = false
