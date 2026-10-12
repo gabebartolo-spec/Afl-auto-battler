@@ -1064,12 +1064,68 @@ func _balance_break_columns(cols: Array) -> void:
 					break
 			if improved:
 				break
+	# The greedy answer can sit a whole call above the best there is (Best so
+	# far on the fullest PC break: 551 against 532 with the same blocks), so
+	# look for the true shortest tallest column before placing anything.
+	var exact := _shortest_tallest(h, cols.size(), load_h.max())
+	if not exact.is_empty():
+		picks = exact
 	for c in range(cols.size()):
 		(picks[c] as Array).sort()
 		for k in picks[c]:
 			for n in units[k]:
 				(n as Node).get_parent().remove_child(n)
 				(cols[c] as Node).add_child(n)
+
+
+## Every way of dealing the units (heights h) into `parts` columns, searched
+## for the one whose tallest column is shortest; tallest calls first, and a
+## branch is dropped the moment it cannot beat the best so far. Returns the
+## unit numbers in each column, or an empty array when nothing beats `above`
+## (the answer the caller already has).
+static func _shortest_tallest(h: Array, parts: int, above: float) -> Array:
+	var order := range(h.size())
+	order.sort_custom(func(a, b): return float(h[a]) > float(h[b]))
+	var state := {"best": above - 0.5, "picks": [], "steps": 0}
+	var load_h: Array = []
+	var cur: Array = []
+	for c in range(parts):
+		load_h.append(0.0)
+		cur.append([])
+	_deal(order, 0, h, load_h, cur, state)
+	return state["picks"] as Array
+
+
+static func _deal(order: Array, i: int, h: Array, load_h: Array, cur: Array, state: Dictionary) -> void:
+	state["steps"] = int(state["steps"]) + 1
+	if int(state["steps"]) > 400000:
+		return
+	if i == order.size():
+		var top := 0.0
+		for l in load_h:
+			top = maxf(top, float(l))
+		if top < float(state["best"]):
+			state["best"] = top
+			var copy := []
+			for col in cur:
+				copy.append((col as Array).duplicate())
+			state["picks"] = copy
+		return
+	var k: int = order[i]
+	var seen := []
+	for c in range(load_h.size()):
+		# Two columns with the same load so far are the same choice.
+		if seen.has(float(load_h[c])):
+			continue
+		seen.append(float(load_h[c]))
+		var after := float(load_h[c]) + float(h[k])
+		if after >= float(state["best"]):
+			continue
+		load_h[c] = after
+		(cur[c] as Array).append(k)
+		_deal(order, i + 1, h, load_h, cur, state)
+		(cur[c] as Array).pop_back()
+		load_h[c] = after - float(h[k])
 
 
 ## The break's calls as units in reading order: a node marked "break_unit"

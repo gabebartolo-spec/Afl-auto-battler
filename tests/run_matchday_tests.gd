@@ -51,6 +51,7 @@ func _run() -> void:
 		await _main_ruck_picker(sz)
 		await _best_so_far(sz)
 	_break_units_keep_followups()
+	_break_packing_is_shortest()
 	for club in ["COL", "GWS", "STK"]:
 		await _pc_break_worst_case(club)
 	await _tag_not_saved()
@@ -816,6 +817,29 @@ func _follows_its_question(par: Node, at: int) -> bool:
 	return false
 
 
+## The height packer deals a break's calls into four columns so the tallest is
+## as short as it can be. The units are GWS's fullest PC break with Best so far
+## (heights in px, measured): the old greedy deal left a column of 551, the
+## best deal is 532.
+func _break_packing_is_shortest() -> void:
+	var ms = load("res://scripts/ui/MatchScene.gd")
+	var h := [333.0, 96.0, 122.0, 133.0, 124.0, 263.0, 140.0, 240.0, 122.0, 207.0, 176.0, 122.0]
+	var picks: Array = ms.call("_shortest_tallest", h, 4, 1000.0)
+	var seen := []
+	var tallest := 0.0
+	for col in picks:
+		var t := 0.0
+		for k in col:
+			seen.append(int(k))
+			t += float(h[int(k)])
+		tallest = maxf(tallest, t)
+	seen.sort()
+	_check(picks.size() == 4 and seen == range(h.size()), "Every call lands in exactly one column (%s)" % str(seen))
+	_check(tallest <= 540.0, "The tallest column is the shortest there is, not the greedy 551 (%.0f)" % tallest)
+	_check((ms.call("_shortest_tallest", h, 4, tallest) as Array).is_empty(),
+			"No better deal exists than the shortest one found (%.0f)" % tallest)
+
+
 ## The packer's grouping on a made-up break (a follow-up is the first thing in
 ## the next column): it stays with its question, whichever column holds it.
 func _break_units_keep_followups() -> void:
@@ -898,6 +922,14 @@ func _best_so_far(sz: Vector2i) -> void:
 		var rating_l: Label = row.find_child("StandoutRating", true, false)
 		if rating_l == null or rating_l.text != str(r[1]):
 			bad.append("%s rating %s v %d" % [str(r[0]), rating_l.text if rating_l else "-", int(r[1])])
+		# ...and his stat line is the match's own numbers in words (game_line of
+		# result["players"], read now), not a second count.
+		var line_want: String = notes.game_line((res["players"] as Dictionary).get(str(r[0]), {}))
+		var texts := []
+		for lb in row.find_children("*", "Label", true, false):
+			texts.append((lb as Label).text)
+		if not texts.has(line_want):
+			bad.append("%s line %s not shown" % [str(r[0]), line_want])
 	_check(found == want.size() and bad.is_empty(), "Best so far lists the best of each side with the match's own ratings (%s: %s)" % [tag, str(bad)])
 	# Each side under its own club name, even numbers each; on a phone the
 	# block sits below the controls, so the next quarter's choices are never
@@ -959,6 +991,8 @@ func _pc_break_worst_case(club := "COL") -> void:
 	var need := (bsc.get_child(0) as Control).get_combined_minimum_size().y if bsc != null else INF
 	_check(box != null and box.find_child("SpareMinderPicker", true, false) != null and need <= room + 1.0,
 			"Quarter time with both loose men and your tally fits 1280x720 without scrolling (%s: %.0f of %.0f)" % [club, need, room])
+	# With room to spare: a longer name or one more line must not tip it over.
+	_check(need <= 608.0 - 8.0, "...with at least 8 px to spare (%s: %.0f of 608)" % [club, need])
 	# Packing moves whole calls: no column opens on a bare line without its
 	# heading (a sentence, a note such as the synergies line, cut loose from its block),
 	# and the synergies line sits with the legs line it is about.
