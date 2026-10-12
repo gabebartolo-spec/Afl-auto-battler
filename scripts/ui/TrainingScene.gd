@@ -235,7 +235,7 @@ func _list_panel() -> Control:
 		_refresh_rows())
 	v.add_child(search)
 	if _bulk_selected.is_empty():
-		v.add_child(UiKit.lbl("Click and hold a player to select several." if ScreenLayout.is_desktop()
+		v.add_child(UiKit.lbl("Click and hold a player to select several." if not ScreenLayout.is_phone()
 				else "Long-press a player to select several.", 12, UiKit.MUTED))
 	else:
 		v.add_child(_bulk_panel())

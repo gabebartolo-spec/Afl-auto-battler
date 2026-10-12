@@ -53,6 +53,9 @@ func _run() -> void:
 	if a.has("--webish"):
 		# The web build: is_desktop() is false there, whatever the window size.
 		load("res://scripts/core/ScreenLayout.gd").force_web = true
+	if a.has("--phonebrowser"):
+		# A phone's browser: the web, and a phone (web_android / web_ios).
+		load("res://scripts/core/ScreenLayout.gd").force_web_phone = true
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))
 	var scene = load("res://scenes/MatchScene.tscn").instantiate()

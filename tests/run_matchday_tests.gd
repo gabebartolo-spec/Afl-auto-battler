@@ -147,6 +147,24 @@ func _ground_fit() -> void:
 		m.queue_free()
 		await _settle()
 	sl.force_web = false
+	# A phone's browser (web_android / web_ios) is a phone: the close-up camera and
+	# its own layouts, wide window or not (a phone turned sideways), and "Tap".
+	sl.force_web_phone = true
+	_check(not sl.roomy(844.0, 390.0) and sl.tap_word() == "Tap" and not sl.is_desktop(),
+			"A phone's browser, even turned sideways (844x390), keeps the phone layouts and says Tap")
+	_state.reset()
+	_state.replay_seed = 2026
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = Vector2i(844, 390)
+	_state.prepare_interactive_match()
+	var side: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(side)
+	await _settle()
+	_check((side.get("_pitch") as PitchView).camera_enabled, "A phone sideways keeps the close-up camera")
+	side.queue_free()
+	await _settle()
+	sl.force_web_phone = false
+	_check(sl.tap_word() == "Click", "Click on a desktop or a PC browser")
 
 
 func _phone_match(sz: Vector2i) -> void:

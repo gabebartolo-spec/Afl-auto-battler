@@ -290,7 +290,7 @@ func _paint_momentum() -> void:
 	if _interactive and not _mom_note.visible and absf(_momentum) >= MOMENTUM_EVEN \
 			and GameState.intro_due("momentum"):
 		GameState.set_setting("seen_momentum_intro", true)
-		_mom_note.text = "Momentum swings with each goal and fades with time; the side on top wins a little more of the ball. %s it for more." % ("Click" if ScreenLayout.is_desktop() else "Tap")
+		_mom_note.text = "Momentum swings with each goal and fades with time; the side on top wins a little more of the ball. %s it for more." % ScreenLayout.tap_word()
 		_mom_note.visible = true
 
 
