@@ -12,7 +12,8 @@ extends RefCounted
 ## apart: trigger never true, or true but never drawn.
 ##
 ## Prints per career: CARD <id> <times>, CHOICE <id> <key> <times>, COND <id>
-## <weeks the trigger was met> and WEEKS <weeks in play>, SEASONS, then SUMMARY.
+## <weeks the trigger was met>, PRESS <question key> <times> (the post-match press
+## questions, skipped), WEEKS <weeks in play>, SEASONS, then SUMMARY.
 ## Measurement only: it never changes a rule.
 
 func _run_draft(d: Draft) -> void:
@@ -52,6 +53,7 @@ func run() -> void:
 	var seen := {}
 	var took := {}
 	var cond := {}
+	var press := {}
 	var weeks := 0
 	var seasons_played := 0
 	for s in range(seasons):
@@ -88,6 +90,10 @@ func run() -> void:
 				took[ck] = int(took.get(ck, 0)) + 1
 				GameState.resolve_card(i, pick)
 			if GameState.media_conference_pending():
+				# The press question is counted, then skipped, so the career is the
+				# same as one that never looked at it.
+				var mk := str(GameState.media_conference.get("key", "?"))
+				press[mk] = int(press.get(mk, 0)) + 1
 				GameState.skip_media_conference()
 			GameState.advance()
 		seasons_played += 1
@@ -105,6 +111,8 @@ func run() -> void:
 		var id := str(t["id"])
 		print("CARD %s %d" % [id, int(seen.get(id, 0))])
 		print("COND %s %d" % [id, int(cond.get(id, 0))])
+	for k in press:
+		print("PRESS %s %d" % [k, int(press[k])])
 	for k in took:
 		print("CHOICE %s %d" % [k, int(took[k])])
 	print("WEEKS %d" % weeks)
