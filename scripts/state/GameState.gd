@@ -264,8 +264,8 @@ func _ready() -> void:
 	Feel.haptics = bool(cfg.get_value("ui", "haptics", true))
 	Feel.reduced = bool(cfg.get_value("ui", "reduced_motion", false))
 	ScreenLayout.set_screen_size(str(cfg.get_value("ui", "screen_size", "standard")))
-	if bool(cfg.get_value("ui", "fullscreen", false)):
-		ScreenLayout.set_fullscreen(true)
+	# A desktop opens fullscreen unless the player chose Window (director, 2026-10-12).
+	ScreenLayout.set_fullscreen(bool(cfg.get_value("ui", "fullscreen", true)))
 	_apply_battery_saver(bool(cfg.get_value("ui", "battery_saver", false)))
 
 
@@ -436,7 +436,7 @@ func set_screen_size(key: String) -> void:
 
 
 func fullscreen() -> bool:
-	return bool(get_setting("fullscreen", false))
+	return bool(get_setting("fullscreen", true))
 
 
 func set_fullscreen(on: bool) -> void:
