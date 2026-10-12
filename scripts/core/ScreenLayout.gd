@@ -89,8 +89,21 @@ static func desktop_density(pixels: Vector2, os_scale: float, dpi: int) -> float
 	return maxf(1.0, maxf(os_density, fit))
 
 
+## A test or capture stands in for the web build: not a desktop, not a phone.
+static var force_web := false
+
+
+## A phone or tablet's own OS: the close-up follows-the-ball camera belongs to
+## its small screen. The web is not one: a browser on a PC is as roomy as a
+## desktop, and a browser on a phone is narrow (the stacked layout).
+static func is_phone() -> bool:
+	return OS.has_feature("android") or OS.has_feature("ios")
+
+
 ## Desktop only: a phone's density already comes from its screen.
 static func is_desktop() -> bool:
+	if force_web:
+		return false
 	return not (OS.has_feature("android") or OS.has_feature("ios") or OS.has_feature("web"))
 
 

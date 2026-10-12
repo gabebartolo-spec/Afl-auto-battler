@@ -52,7 +52,7 @@ func _run() -> void:
 		return
 	if a.has("--webish"):
 		# The web build: is_desktop() is false there, whatever the window size.
-		load("res://scripts/core/ScreenLayout.gd").force_phone = true
+		load("res://scripts/core/ScreenLayout.gd").force_web = true
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))
 	var scene = load("res://scenes/MatchScene.tscn").instantiate()
