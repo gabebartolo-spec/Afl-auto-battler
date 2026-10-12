@@ -55,6 +55,10 @@ func _ease_in() -> void:
 func replace(key: String) -> void:
 	if not stack.is_empty():
 		stack.pop_back()
+	# Going "back" to a screen already under this one must not stack it twice
+	# (draft -> menu left the menu in the stack two deep).
+	while not stack.is_empty() and str(stack[stack.size() - 1]) == key:
+		stack.pop_back()
 	go(key)
 
 
@@ -109,6 +113,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		handle_back(false)
 
 
+## The mouse's back button (the thumb button on most mice) steps back like
+## Escape. It is read before the GUI, so it works over any panel or overlay,
+## not only over empty ground.
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_XBUTTON1:
+		get_viewport().set_input_as_handled()
+		handle_back(false)
+
+
 ## The current scene gets first say through an optional handle_back() -> bool
 ## (close a popup, refuse to leave a live match). Otherwise step back one
 ## screen. Only the OS back button on the main menu leaves the app; Escape on
@@ -124,7 +137,12 @@ func handle_back(from_os := false) -> void:
 		"hub":
 			to_main_menu(false)
 		"draft":
-			replace("main")
+			# The draft knows whether it is on Choose your club (one step back is
+			# the New career options) or on its board (the title).
+			if scene != null and scene.has_method("back_to_menu"):
+				scene.call("back_to_menu")
+			else:
+				replace("main")
 		_:
 			if can_go_back():
 				back()

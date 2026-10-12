@@ -89,13 +89,36 @@ static func desktop_density(pixels: Vector2, os_scale: float, dpi: int) -> float
 	return maxf(1.0, maxf(os_density, fit))
 
 
-## A test or capture stands in for a phone: the platform answers "not desktop".
-static var force_phone := false
+## A test or capture stands in for the web build: not a desktop, not a phone.
+static var force_web := false
+## ...and for a phone's browser (web_android / web_ios): the web, and touch.
+static var force_web_phone := false
+
+
+## A phone or tablet's own OS: the close-up follows-the-ball camera belongs to
+## its small screen. The web is not one: a browser on a PC is as roomy as a
+## desktop, and a browser on a phone is narrow (the stacked layout).
+static func is_phone() -> bool:
+	return force_web_phone or OS.has_feature("android") or OS.has_feature("ios") 			or OS.has_feature("web_android") or OS.has_feature("web_ios")
+
+
+## "Tap" on a phone (native or its browser), "Click" everywhere else.
+static func tap_word() -> String:
+	return "Tap" if is_phone() else "Click"
+
+
+## LAYOUT, not platform: a roomy landscape window gets the wide layouts (side
+## panels, columns, the whole ground) on desktop and web alike, because the
+## screen's shape and size decide. A phone's own OS keeps its layouts. Features
+## that exist only on a desktop (Exit game, the Display setting, Alt+Enter) stay
+## on is_desktop(); the wide-layout checks use this.
+static func roomy(w: float, h: float) -> bool:
+	return not is_phone() and w >= 760.0 and w > h * 1.2
 
 
 ## Desktop only: a phone's density already comes from its screen.
 static func is_desktop() -> bool:
-	if force_phone:
+	if force_web or force_web_phone:
 		return false
 	var on := []
 	for f in ["android", "ios", "web"]:
