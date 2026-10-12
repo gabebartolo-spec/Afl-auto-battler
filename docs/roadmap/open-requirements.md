@@ -44,6 +44,7 @@ Nothing here starts until the boss assigns it. Reconciled 2026-10-10 against mai
 | 23 | This week: both sides' key-position heights and marking side by side | §1.11 matchup comparison | none | open |
 | 24 | Development manual-XP grid; Training compact card grid with roles and traits | §1.11 development, training; STYLE-01 | none | open |
 | 25 | Team builder: entry points share one side; headers from arranged fit; pre-game setup before Start | §1.11 team builder | none | verify |
+| 37 | **Audit the AI clubs' draft strategy**: do clubs that build their list from scratch (the AI drafting, trading and signing over seasons) end up on average weaker than the real 2026 lists, which real AFL professionals built? Measure over seeded 10-season careers: each AI club's list strength (best 23 and depth, by age bracket) against its real 2026 starting list and against the league's spread; where it drifts; and whether drafted players reach the OVR and roles the real list has. If the AI drafts notably worse teams than their real counterparts, buff its draft skill (needs, value, potential reads) until the gap closes, paired seeds, ± errors; balance is the director's call | director 2026-10-12 | dev-sim | open; audit first (tools/audit, CI), then a buff proposal with the numbers; AI-only change, W7 by qa |
 
 ## Stats, help, onboarding
 
