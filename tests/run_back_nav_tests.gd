@@ -345,9 +345,11 @@ func _overlays() -> void:
 	await _overlay_case("hub: news", "hub", func(s): s.call("_show_news"))
 	await _overlay_case("hub: quick sim", "hub", func(s): s.call("_open_quick_sim"))
 	await _overlay_case("hub: results popup", "hub", func(s): s.call("_on_sim_round"))
+	await _overlay_case("hub: season plan", "hub", func(s): await _click_named(s, "SeasonPlanLine"))
 	await _overlay_case("list: player profile", "list", func(s): s.call("_open_profile", pid))
 	await _overlay_case("list: captaincy sheet", "list", func(s): s.call("_open_captaincy"))
 	await _overlay_case("training: stat guide", "training", func(s): await _click_named(s, "StatGuideButton"))
+	await _overlay_case("training: season plan", "training", func(s): await _click_named(s, "SeasonPlanLine"))
 	await _overlay_case("training: first-visit intro", "training", func(s): s.call("_show_intro"),
 			func(): _state.set_setting("seen_training_intro", false))
 	await _overlay_case("stats: first-visit intro", "stats", func(s): s.call("_show_intro"))

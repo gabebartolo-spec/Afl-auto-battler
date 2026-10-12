@@ -179,10 +179,12 @@ var conditioning := {}
 ## Who leads each club (Captaincy.gd): club code -> its record. A club with
 ## no entry has named no one; an older save has none for anyone.
 var captaincy := {}
-## Whether AI clubs choose a season plan by phase (never saved). Off until
-## the plan screen lands (BOSS, 2026-10-11): a coach who cannot choose a plan
-## yet must not face AI clubs running theirs. Audits and tests switch it on.
-var fitness_ai_by_phase := false
+## Whether AI clubs choose a season plan by phase (never saved). On now that
+## the plan screen lets you choose yours (BOSS, 2026-10-12): contenders peak
+## for September and rebuilders develop. This one switch is the director's
+## lever on the AI side (his Develop-dominance question): off, every AI club
+## plays Steady, as before.
+var fitness_ai_by_phase := true
 ## Audits only (never saved): club -> high-performance level, for AI clubs.
 var fitness_hp_override := {}
 ## Club Forge: the career's created club as its spec (ClubForge), or {}.
@@ -2300,6 +2302,14 @@ func fitness_ceiling_step(p: Dictionary) -> int:
 	elif int(rec.get("year", 0)) != season_year:
 		return 0
 	return Conditioning.ceiling_step(rec, fitness_week(), fitness_bye_week(club), p)
+
+
+## Where your club stands, in words, for the hub and Training: "Building,
+## peak due in August". Empty once the season is over.
+func fitness_status_line() -> String:
+	if season == null or season.is_season_over():
+		return ""
+	return Conditioning.status_words(fitness_record(my_club), fitness_week())
 
 
 func can_revise_fitness() -> bool:

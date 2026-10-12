@@ -586,6 +586,11 @@ func _week_section(season: Season) -> Control:
 			nl.name = "OwnNote_%d" % i
 			nv.add_child(nl)
 	if not season.is_season_over():
+		# Where the legs are at, one tap from the season line and the plan.
+		var plan_line := SeasonPlanSheet.line(self, func(): _build())
+		if plan_line != null:
+			nv.add_child(UiKit.spacer(4))
+			nv.add_child(plan_line)
 		for i in range(GameState.week_events.size()):
 			nv.add_child(UiKit.spacer(4))
 			var ev := _event_card(i)
@@ -1097,6 +1102,11 @@ func _close_finals() -> void:
 func handle_back() -> bool:
 	if _pre_match != null:
 		return true     # the side is on its way out
+	var plan_sheet := get_node_or_null("SeasonPlanSheet")
+	if plan_sheet != null and is_instance_valid(plan_sheet) and not plan_sheet.is_queued_for_deletion():
+		plan_sheet.queue_free()
+		_build()
+		return true
 	if _finals_overlay != null and is_instance_valid(_finals_overlay):
 		_close_finals()
 		return true
