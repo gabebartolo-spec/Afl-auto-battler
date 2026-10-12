@@ -233,39 +233,13 @@ func _build() -> void:
 		ladder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cols.add_child(ladder)
 	if _narrow():
+		_root.add_child(_bar_air())
 		_root.add_child(_footer(season))
 	else:
 		# On a wide screen the rest of the club stays pinned, but only under
 		# the ladder column, not stretched across the page (director: no
 		# full-width bars on PC).
-		# A card never reads as cut mid-button by the bar: a little air above it
-		# and a soft fade over the clip edge.
-		var air := Control.new()
-		air.custom_minimum_size = Vector2(0, 10)
-		air.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_root.add_child(air)
-		var fade := TextureRect.new()
-		fade.name = "BarFade"
-		var grad := Gradient.new()
-		grad.set_color(0, Color(UiKit.BG.r, UiKit.BG.g, UiKit.BG.b, 0.0))
-		grad.set_color(1, Color(UiKit.BG.r, UiKit.BG.g, UiKit.BG.b, 0.92))
-		var gt := GradientTexture2D.new()
-		gt.gradient = grad
-		gt.fill_from = Vector2(0, 0)
-		gt.fill_to = Vector2(0, 1)
-		gt.width = 4
-		gt.height = 28
-		fade.texture = gt
-		fade.stretch_mode = TextureRect.STRETCH_SCALE
-		fade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		fade.anchor_left = 0.0
-		fade.anchor_right = 1.0
-		fade.anchor_top = 0.0
-		fade.anchor_bottom = 0.0
-		fade.offset_top = -28
-		fade.offset_bottom = 0
-		air.add_child(fade)
+		_root.add_child(_bar_air())
 		var foot := UiKit.hbox(28)
 		foot.name = "HubFooterWide"
 		_root.add_child(foot)
@@ -755,6 +729,37 @@ func _sim_round_button() -> Button:
 	sim.name = "SimRound"
 	_wire_long_press(sim)
 	return sim
+
+
+## A little air above a pinned bar and a soft fade over the clip edge, so scrolled
+## content never reads as cut mid-button by the bar (phone and PC).
+func _bar_air() -> Control:
+	var air := Control.new()
+	air.custom_minimum_size = Vector2(0, 10)
+	air.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fade := TextureRect.new()
+	fade.name = "BarFade"
+	var grad := Gradient.new()
+	grad.set_color(0, Color(UiKit.BG.r, UiKit.BG.g, UiKit.BG.b, 0.0))
+	grad.set_color(1, Color(UiKit.BG.r, UiKit.BG.g, UiKit.BG.b, 0.92))
+	var gt := GradientTexture2D.new()
+	gt.gradient = grad
+	gt.fill_from = Vector2(0, 0)
+	gt.fill_to = Vector2(0, 1)
+	gt.width = 4
+	gt.height = 28
+	fade.texture = gt
+	fade.stretch_mode = TextureRect.STRETCH_SCALE
+	fade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fade.anchor_left = 0.0
+	fade.anchor_right = 1.0
+	fade.anchor_top = 0.0
+	fade.anchor_bottom = 0.0
+	fade.offset_top = -28
+	fade.offset_bottom = 0
+	air.add_child(fade)
+	return air
 
 
 ## Everything else, one quiet row pinned under the page.

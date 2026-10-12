@@ -7,6 +7,7 @@ extends SceneTree
 
 var _w := 1280
 var _h := 720
+var _scroll := 0
 
 
 func _initialize() -> void:
@@ -20,6 +21,8 @@ func _run() -> void:
 		match str(a[i]):
 			"--out":
 				out = str(a[i + 1])
+			"--scroll":
+				_scroll = int(str(a[i + 1]))
 			"--size":
 				var wh := str(a[i + 1]).split("x")
 				_w = int(wh[0])
@@ -45,6 +48,12 @@ func _run() -> void:
 		if (b as Button).text == "Got it" and (b as Button).is_visible_in_tree():
 			(b as Button).emit_signal("pressed")
 	await _frames(20)
+	if _scroll > 0:
+		# Scrolled, as a player reading down the week would be.
+		for sc in root.find_children("*", "ScrollContainer", true, false):
+			(sc as ScrollContainer).scroll_vertical = _scroll
+			break
+		await _frames(10)
 	_save(out + "_hub.png")
 	router.go("list")
 	await _frames(20)
