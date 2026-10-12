@@ -70,9 +70,27 @@ func _measures(list: Array, code: String, tag: String, year: int) -> void:
 
 
 func _snapshot(tag: String, year: int, lists: Dictionary) -> void:
+	var by_age := {}
 	for code in GameDB.active_clubs(GameState.season_year):
 		if lists.has(code):
 			_measures(lists[code], str(code), tag, year)
+			for p in lists[code]:
+				var a := clampi(int(float(p.get("age", 25.0))), 17, 26)
+				if not by_age.has(a):
+					by_age[a] = []
+				by_age[a].append(p)
+	# The league's players by age (17-26): the yardstick for how drafted
+	# players are doing at the same age.
+	for a in range(17, 27):
+		var ps: Array = by_age.get(a, [])
+		if ps.is_empty():
+			continue
+		var ov: Array = []
+		var po: Array = []
+		for p in ps:
+			ov.append(float(p["overall"]))
+			po.append(_pot(p))
+		print("AGE|%s|%d|%s|%d|%d|%d|%.2f|%.2f" % [mode, seed_n, tag, year, a, ps.size(), _mean(ov), _mean(po)])
 
 
 func _pool_line(players: Array) -> void:
@@ -100,9 +118,25 @@ func _log_pick(d: Draft, c: Dictionary, code: String, pick_no: int, rnd: int, go
 		bp = maxf(bp, _pot(p))
 		if w > cw + 0.001:
 			better += 1
-	print("DP|%s|%d|%s|%d|%d|%d|%s|%.0f|%d|%d|%.2f|%.2f|%d|%d|%d|%s" % [mode, seed_n, tag, year, pick_no,
+	# What the same club would give up if it picked purely on its own scouted
+	# read (OVR/POT blurred by the scouting model) with no need, no position:
+	# the share of the gap that scouting noise alone explains. -1 outside the
+	# National Draft.
+	var ngap := -1.0
+	if tag != "league":
+		var sbest := -INF
+		var spick: Dictionary = {}
+		for p in d.pool:
+			if gone.has(str(p["id"])):
+				continue
+			var sw := DraftScouting.scouted_worth(p, code, d.seed, Draft.AI_POT_WEIGHT_INTAKE, d.scouting_mult_for(code))
+			if sw > sbest:
+				sbest = sw
+				spick = p
+		ngap = bw - _worth(spick) if not spick.is_empty() else 0.0
+	print("DP|%s|%d|%s|%d|%d|%d|%s|%.0f|%d|%d|%.2f|%.2f|%d|%d|%d|%s|%.2f" % [mode, seed_n, tag, year, pick_no,
 			rnd, code, float(c.get("age", 0)), int(c["overall"]), int(_pot(c)), cw, bw,
-			int(bo), int(bp), better, str(c.get("role", ""))])
+			int(bo), int(bp), better, str(c.get("role", "")), ngap])
 	if tag != "league":
 		cohort.append({"id": str(c["id"]), "year": year, "pick": pick_no, "age0": float(c.get("age", 0)),
 				"ovr0": int(c["overall"]), "pot0": int(_pot(c))})
@@ -169,6 +203,9 @@ func run() -> void:
 	print("DA|%s|%d|user %s|seasons %d" % [mode, seed_n, club, seasons])
 	if mode == "real":
 		GameState.begin_real_lists()
+		# The real 2026 lists as they stand before the 2026 draft: the retired
+		# are gone, the delisted are free agents, the club-tied draftees are on.
+		_snapshot("pre", GameDB.DATA_SEASON, GameState.league_lists)
 		GameState.choose_real_club(club)
 		_run_draft(GameState.draft, "open", GameDB.DATA_SEASON)
 		GameState.finish_intake_draft()
