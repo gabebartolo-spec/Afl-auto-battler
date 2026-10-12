@@ -925,6 +925,9 @@ func _best_so_far(sz: Vector2i) -> void:
 		# ...and his stat line is the match's own numbers in words (game_line of
 		# result["players"], read now), not a second count.
 		var line_want: String = notes.game_line((res["players"] as Dictionary).get(str(r[0]), {}))
+		if sz.x >= 900:
+			# A PC column holds two numbers; a third would run off the line.
+			line_want = ", ".join(PackedStringArray(line_want.split(", ")).slice(0, 2))
 		var texts := []
 		for lb in row.find_children("*", "Label", true, false):
 			texts.append((lb as Label).text)

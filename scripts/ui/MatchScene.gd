@@ -1730,7 +1730,11 @@ func _best_so_far() -> Control:
 			var col := UiKit.vbox(0)
 			col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			col.add_child(UiKit.ellipsis(str(p["name"]), UiKit.BODY, UiKit.TEXT, true))
-			col.add_child(UiKit.ellipsis(str(p["line"]), 14, UiKit.MUTED))
+			# A PC column is narrow: two numbers fit on the line, a third ran
+			# off it ("6 rebound 5...", capture 2026-10-12).
+			var bits: PackedStringArray = str(p["line"]).split(", ")
+			var line := ", ".join(bits.slice(0, 2)) if _pc_break else str(p["line"])
+			col.add_child(UiKit.ellipsis(line, 14, UiKit.MUTED))
 			row.add_child(col)
 			var r := UiKit.line(MatchNotes.rating_text(float(p["rating"])), 20, UiKit.TEXT, true)
 			r.name = "StandoutRating"
