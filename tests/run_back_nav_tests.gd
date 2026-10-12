@@ -344,7 +344,16 @@ func _overlays() -> void:
 	await _overlay_case("hub: settings sheet", "hub", func(s): await _click_named(s, "HubSettings"))
 	await _overlay_case("hub: news", "hub", func(s): s.call("_show_news"))
 	await _overlay_case("hub: quick sim", "hub", func(s): s.call("_open_quick_sim"))
-	await _overlay_case("hub: results popup", "hub", func(s): s.call("_on_sim_round"))
+	# Continue (the click way) hands a pending press conference to the hub, and
+	# it stays open under the next way: whether one is pending depends on the
+	# seeded results, so each way starts with it cleared and this case stays
+	# about the results popup.
+	await _overlay_case("hub: results popup", "hub", func(s):
+		for i in range(3):
+			if not s.call("handle_back"):
+				break
+		await process_frame
+		s.call("_on_sim_round"))
 	await _overlay_case("hub: season plan", "hub", func(s): await _click_named(s, "SeasonPlanLine"))
 	await _overlay_case("list: player profile", "list", func(s): s.call("_open_profile", pid))
 	await _overlay_case("list: captaincy sheet", "list", func(s): s.call("_open_captaincy"))
