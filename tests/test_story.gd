@@ -41,6 +41,7 @@ func run() -> void:
 	_test_old_save()
 	_test_leadership()
 	_test_captaincy()
+	_test_time_trial_names()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	GameState.stories_on = true
@@ -904,3 +905,72 @@ func _test_captaincy() -> void:
 	_check(GameState.load_career() and GameState.captaincy.is_empty(), "An older save loads with no one named")
 	_run_on(1)
 	_check(not GameState.captaincy_record("COL").is_empty(), "Rivals appoint on the next round of an older save")
+
+
+# --- A result that names players (the time trial) --------------------------------
+
+func _by_durability(a: Dictionary, b: Dictionary) -> bool:
+	var da := int(a["attr"]["durability"])
+	var db := int(b["attr"]["durability"])
+	return da > db or (da == db and str(a["id"]) < str(b["id"]))
+
+
+func _test_time_trial_names() -> void:
+	# The token rules, on a list we control.
+	var rows := []
+	for n in ["Ava", "Ben", "Cal", "Dan"]:
+		rows.append({"name": n})
+	_check(StoryEngine.fill_ranked("{best3} / {worst2}", rows) == "Ava, Ben and Cal / Dan",
+			"Best and worst never name the same player: %s" % StoryEngine.fill_ranked("{best3} / {worst2}", rows))
+	_check(StoryEngine.fill_ranked("{best1}", rows) == "Ava" and StoryEngine.fill_ranked("{worst2}", rows) == "Dan and Cal",
+			"One name stands alone; the worst come slowest first")
+	_check(StoryEngine.fill_ranked("{best2}", []) == "nobody" and StoryEngine.fill_ranked("plain", rows) == "plain",
+			"No list says nobody; a plain line is untouched")
+	var club_ok := {"subject": {"kind": "club"}, "title": ["t"],
+			"choices": [{"key": "a", "label": "A", "result": "Best: {best3}.", "effects": []},
+				{"key": "b", "label": "B", "effects": []}]}
+	_check(_bad(club_ok).is_empty(), "A club card's result may name players (%s)" % str(_bad(club_ok)))
+	var in_text := club_ok.duplicate(true)
+	in_text["text"] = ["Best: {best3}"]
+	_check(not _bad(in_text).is_empty(), "Names belong in a result, not the card's text")
+	var in_player := club_ok.duplicate(true)
+	in_player["subject"] = {"kind": "player"}
+	_check(not _bad(in_player).is_empty(), "A player card cannot name a ranked list")
+	var typo := club_ok.duplicate(true)
+	typo["choices"][0]["result"] = "Best: {bestx}."
+	_check(not _bad(typo).is_empty(), "A misspelt name token is refused")
+
+	# In play: Run it names the real fittest and slowest, by the rating the match
+	# uses for running fitness, once each, from the senior list.
+	var names_before: bool = GameState.show_real_names
+	for real in [false, true]:
+		_start()
+		GameState.show_real_names = real
+		var list: Array = GameState.my_list
+		var injured: Dictionary = list[0]
+		injured["injury_weeks"] = 3
+		var avail := list.filter(func(q): return int(q.get("injury_weeks", 0)) <= 0)
+		avail.sort_custom(_by_durability)
+		var morale_before := ClubLife.morale(avail[10])
+		var card := GameState.story_card("training_time_trial")
+		var want := "Best over the two k: %s. Off the pace: %s." % [
+				StoryEngine.name_list([avail[0], avail[1], avail[2]].map(func(q): return GameDB.player_display_name(q))),
+				StoryEngine.name_list([avail[-1], avail[-2]].map(func(q): return GameDB.player_display_name(q)))]
+		_check(not str(card["options"][0]["result"]).is_empty() and str(card["options"][0]["result"]).contains("{best3}"),
+				"The card keeps the names until it is answered (%s)" % str(card["options"][0]["result"]))
+		GameState.week_event = card
+		var out := GameState.resolve_week_event(0)
+		_check(out == "The time trial's done. " + want, "Run it names who is fit (real names %s): %s" % [str(real), out])
+		_check(not out.contains("{") and not out.contains(GameDB.player_display_name(injured)),
+				"No braces left, and the injured player did not run (%s)" % out)
+		var named := []
+		for q in list:
+			if out.contains(GameDB.player_display_name(q)):
+				named.append(str(q["id"]))
+		_check(named.size() == 5, "Exactly five distinct players are named (%d)" % named.size())
+		var run := _choice("training_time_trial", "run")
+		_check(ClubLife.morale(avail[10]) == clampi(morale_before - 3, 5, 100)
+				and int(_effect(run, "xp")["d"]) == 5 and str(_effect(run, "xp")["who"]) == "all"
+				and int(_effect(run, "morale")["d"]) == -3 and str(_effect(run, "morale")["who"]) == "all",
+				"The effects are unchanged: morale -3 and 5 development for everyone")
+	GameState.show_real_names = names_before
