@@ -55,6 +55,10 @@ func _ease_in() -> void:
 func replace(key: String) -> void:
 	if not stack.is_empty():
 		stack.pop_back()
+	# Going "back" to a screen already under this one must not stack it twice
+	# (draft -> menu left the menu in the stack two deep).
+	while not stack.is_empty() and str(stack[stack.size() - 1]) == key:
+		stack.pop_back()
 	go(key)
 
 
@@ -79,6 +83,25 @@ func can_go_back() -> bool:
 # ---------------------------------------------------------------------------
 # Back button (Android back gesture, Escape on desktop)
 # ---------------------------------------------------------------------------
+var _web_back = null    # keeps the browser callback alive
+
+
+func _ready() -> void:
+	if OS.has_feature("web"):
+		_hook_browser_back()
+
+
+## In a browser the Back button / Android back gesture would leave the page
+## (and the career with it). Keep one history entry ahead: a Back press lands
+## on it, is turned into the game's own Back, and the entry is put back.
+func _hook_browser_back() -> void:
+	_web_back = JavaScriptBridge.create_callback(func(_args): handle_back(false))
+	JavaScriptBridge.get_interface("window").set("__aflBack", _web_back)
+	JavaScriptBridge.eval("history.pushState({afl:1},'');"
+			+ "window.addEventListener('popstate',function(){history.pushState({afl:1},'');"
+			+ "if(window.__aflBack){window.__aflBack();}});")
+
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		handle_back(true)
@@ -86,6 +109,15 @@ func _notification(what: int) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
+		get_viewport().set_input_as_handled()
+		handle_back(false)
+
+
+## The mouse's back button (the thumb button on most mice) steps back like
+## Escape. It is read before the GUI, so it works over any panel or overlay,
+## not only over empty ground.
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_XBUTTON1:
 		get_viewport().set_input_as_handled()
 		handle_back(false)
 
@@ -105,7 +137,12 @@ func handle_back(from_os := false) -> void:
 		"hub":
 			to_main_menu(false)
 		"draft":
-			replace("main")
+			# The draft knows whether it is on Choose your club (one step back is
+			# the New career options) or on its board (the title).
+			if scene != null and scene.has_method("back_to_menu"):
+				scene.call("back_to_menu")
+			else:
+				replace("main")
 		_:
 			if can_go_back():
 				back()

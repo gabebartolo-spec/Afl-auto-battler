@@ -1079,6 +1079,15 @@ func reset() -> void:
 	# ageing, XP training). A new career must start from the pristine 2026
 	# dataset, so reload the data files before rebuilding anything.
 	GameDB.reload()
+	# Nothing of the last career's market or caches carries into this one
+	# (a second career in one process played its off-season differently).
+	market_stats = {}
+	_targets_signed = {}
+	_bars = {}
+	_order_cache = {}
+	_standings_cache = {}
+	_fringe_cache = {}
+	CoachEffects.table = {}
 	custom_club = {}
 	best23 = {}
 	my_club = ""
@@ -3807,6 +3816,13 @@ func coaches_award_leaders(n := 5) -> Array:
 	return rows.slice(0, n)
 
 
+## Browser builds have no threads: the round's other matches play one per
+## frame while yours is on screen (see Season.pump).
+func _process(_delta: float) -> void:
+	if not _others.is_empty() and _others.has("todo"):
+		Season.pump(_others)
+
+
 ## After a round: every club that played is a week closer to getting its
 ## injured back, then this round's new injuries (from the matches) go on.
 func _process_injuries(results: Array) -> void:
@@ -4234,8 +4250,13 @@ func open_offseason() -> void:
 	trade_table = []
 	_collect_trade_requests()
 	_open_trade_market()
-	# The market opens: rivals put their offers on the table.
+	# The market opens: rivals put their offers on the table. Last year's
+	# signings are last year's: each club aims for its targets afresh (they
+	# were never cleared, so year 2's opening offers were cut by year 1's
+	# signings, and a reload, which does not keep them, changed the market).
 	market_stats = {}
+	_targets_signed = {}
+	_bars = {}
 	_open_market(free_agents)
 	mark_dirty()
 

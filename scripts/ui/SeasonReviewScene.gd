@@ -4,6 +4,7 @@ extends Control
 
 var _root: VBoxContainer
 var _awards_overlay: Control
+var _awards_program: Control = null   # the Awards program sheet, while it is open
 var _awards_reveal := 0
 
 
@@ -33,6 +34,12 @@ func _ready() -> void:
 
 
 func handle_back() -> bool:
+	# The awards program closes before the screen is left (Escape, the mouse's
+	# back button and Android Back all land here).
+	if is_instance_valid(_awards_program):
+		_awards_program.queue_free()
+		_awards_program = null
+		return true
 	if is_instance_valid(_awards_overlay):
 		var skip = _awards_overlay.find_child("AwardsSkip", true, false)
 		if skip != null:
@@ -476,6 +483,7 @@ func _open_awards_program() -> void:
 	var modal := UiKit.modal_box(self, 560.0)
 	var overlay: Control = modal["overlay"]
 	overlay.name = "AwardsProgramModal"
+	_awards_program = overlay
 	var body: VBoxContainer = modal["body"]
 	var footer: VBoxContainer = modal["footer"]
 	body.add_child(UiKit.heading("%d Awards program" % int(aw.get("year", GameState.season_year)), 22))
