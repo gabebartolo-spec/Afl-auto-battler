@@ -61,6 +61,14 @@ Nothing here starts until the boss assigns it. Reconciled 2026-10-10 against mai
 | 30 | Coleman goalkicking cap (defect found, balance-gated) | §1.11 Coleman | director | awaiting decision |
 | 31 | Native phone numbers: frame time, battery, loading | §1.11 performance | director's phone (probe build held) | waiting |
 
+## Story cards (director, 2026-10-12)
+
+| # | Requirement | Source | Owner | Status |
+|---|---|---|---|---|
+| 34 | **Audit every event card** (the 65 story cards and the older event cards): does any choice do nothing (no effect, no information, no follow-up)? Does any card never appear in a 10-season career? Can any be worded better (scrutable: a card keeps what it promises, football language, stakes true)? Found in play: "The fitness staff want a time trial" promised to tell the coach who is fit and named nobody (fix: claude/story-time-trial) | director 2026-10-12 | story | open; seeded audit over 10-season careers (card appearance counts per id, zero-effect choices listed), then a copy pass to the director as one sheet |
+| 35 | **A whole bespoke set of finals events**: cards that only fire in finals week (the elimination/qualifying week, the week after a loss that ends the season, the preliminary final build-up, the bye week, the club's first final in years, a veteran's last final), with real stakes and the finals mood in the copy | director 2026-10-12 | story | open; design sheet (ids, triggers, choices, effects, copy) to the director before any code |
+| 36 | **A small set of Grand Final events that make each Grand Final feel unique and memorable**: a handful of cards keyed to what is true of this Grand Final (the opponent, a captain's last game, a kid's first season, an injured star's fitness test, the parade, the week's press, the result's aftermath), so no two Grand Final weeks read the same | director 2026-10-12 | story | open; after 35, same sheet-first rule; the aftermath cards must handle both the win and the loss |
+
 ## Platforms and grounds
 
 | # | Requirement | Source | Owner | Status |
