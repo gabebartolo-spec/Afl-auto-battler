@@ -74,6 +74,11 @@ func _build() -> void:
 	var cap_link := UiKit.section_link("Captaincy", ", ".join(named) if not named.is_empty() else "No captain named ›",
 			"CaptaincyOpen")
 	cap_link.pressed.connect(func(): _open_captaincy())
+	if not _narrow():
+		# A PC row is a row of text, not a bar across the whole window (PC is
+		# not a big phone): it takes what its words need, left-aligned.
+		cap_link.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		cap_link.custom_minimum_size.x = 420
 	_root.add_child(cap_link)
 
 	if _narrow():

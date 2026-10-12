@@ -241,10 +241,13 @@ func _build() -> void:
 		var foot := UiKit.hbox(28)
 		foot.name = "HubFooterWide"
 		_root.add_child(foot)
-		var gap := Control.new()
-		gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		foot.add_child(gap)
+		# Under the week column, the week's own decisions (Pick the side, Play
+		# match): pinned, so the live coaching option is always in view beside
+		# the quick Play round (director, web's pass 2026-10-12).
+		var week_row := _week_actions(season)
+		week_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		week_row.size_flags_vertical = Control.SIZE_SHRINK_END
+		foot.add_child(week_row)
 		var row := _footer(season)
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		foot.add_child(row)
@@ -594,8 +597,12 @@ func _week_section(season: Season) -> Control:
 			if not bool((GameState.week_events[i] as Dictionary).get("resolved", false)) and not _settled:
 				UiKit.attention(ev)
 
-	nv.add_child(UiKit.spacer(4))
-	nv.add_child(_week_actions(season))
+	# On a wide screen the week's decisions are pinned under the page beside the
+	# rest of the club (_build), so Play match is never below the fold; on a
+	# phone they close the week's section.
+	if _narrow():
+		nv.add_child(UiKit.spacer(4))
+		nv.add_child(_week_actions(season))
 	return nv
 
 
