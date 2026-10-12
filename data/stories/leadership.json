@@ -783,7 +783,7 @@
 				"captain": true,
 				"fit": true,
 				"selected": true,
-				"morale_max": 45
+				"morale_max": 58
 			},
 			"pick": "random"
 		},
@@ -856,7 +856,10 @@
 		"private": true,
 		"arc": "captain_slump",
 		"beat": "start",
-		"choice_notes": true
+		"choice_notes": true,
+		"when": {
+			"losing_run_min": 2
+		}
 	},
 	{
 		"id": "captain_slump_mid",

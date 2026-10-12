@@ -367,6 +367,7 @@ func _test_private_cards() -> void:
 			and bool(StoryDeck.by_id(StoryDeck.all(), "media_in_the_papers").get("private", false)),
 			"The papers card is marked private")
 	var ctx := ClubStories.context(GameState)
+	(ctx["club"] as Dictionary)["losing_run"] = 5  # so a card that waits on a losing run can be reached
 	var leaks := []
 	var reachable := 0
 	for t in private:
@@ -1118,6 +1119,7 @@ func _test_captain_cards_in_play() -> void:
 		var deck := StoryDeck.all()
 		for k in ["captain_slump_start", "captain_slump_mid", "captain_slump_good", "captain_slump_flat"]:
 			ids[k] = StoryDeck.by_id(deck, k)
+		GameState.losing_streak = 2  # a captain's form dips with the team's
 		var ctx := ClubStories.context(GameState)
 		var rng := RandomNumberGenerator.new()
 		var w := GameState.story_week()
