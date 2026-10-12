@@ -81,6 +81,13 @@ func _click(c: Control) -> String:
 		return "no control"
 	if not c.is_visible_in_tree():
 		return "%s is hidden" % c.name
+	# A screen eases in over a few frames (slower on a software renderer): the
+	# player clicks once it is there.
+	for i in range(90):
+		var sc := current_scene as CanvasItem
+		if sc == null or sc.modulate.a >= 0.99:
+			break
+		await process_frame
 	var at: Vector2 = c.get_screen_transform() * (c.size * 0.5)
 	if not Rect2(Vector2.ZERO, Vector2(c.get_window().size)).has_point(at):
 		return "%s is off the screen" % c.name
@@ -169,6 +176,9 @@ func _fresh_career() -> void:
 	_state.reset()
 	_state.start_season("COL", _db.club_list("COL"))
 	_state.replay_seed = SUITE_SEED
+	# First-visit tips off: a tip over the screen would take the clicks (the
+	# cases that test an intro open it themselves).
+	_state.tutorials = false
 
 
 ## Put the router where a player would be: main menu, hub, then `key`.
