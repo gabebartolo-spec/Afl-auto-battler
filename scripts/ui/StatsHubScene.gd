@@ -42,7 +42,9 @@ func _ready() -> void:
 
 func _on_resize() -> void:
 	if is_inside_tree() and GameState.season != null:
+		var places := UiKit.scroll_places(_root)
 		_build()
+		UiKit.restore_places(_root, places)
 
 
 ## On a wide screen each section sits centred in a column about as wide as
