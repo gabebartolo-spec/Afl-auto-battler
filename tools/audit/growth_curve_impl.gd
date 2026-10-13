@@ -158,8 +158,8 @@ func run() -> void:
 			var sp := arm.split(":")
 			Potential.YOUTH_STEP_PACE = float(sp[0])
 			Potential.YOUTH_GAP_PACE = float(sp[1])
-				Prospects.DRAFT_NIGHT_SCALE = float(sp[2]) if sp.size() > 2 else 1.0
-				Prospects.DRAFT_READINESS = sp.size() > 3 and int(sp[3]) != 0
+			Prospects.DRAFT_NIGHT_SCALE = float(sp[2]) if sp.size() > 2 else 1.0
+			Prospects.DRAFT_READINESS = sp.size() > 3 and int(sp[3]) != 0
 		for sd in seeds:
 			seed_n = int(sd)
 			gen_ids = {}
