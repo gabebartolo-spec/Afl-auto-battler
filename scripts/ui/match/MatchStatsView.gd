@@ -91,7 +91,7 @@ func _build() -> void:
 	if _view == "team":
 		add_child(_team(res))
 	else:
-		add_child(PlayerStatsTable.new().setup(res, _me, UiKit.view_width(self) >= 900.0))
+		add_child(PlayerStatsTable.new().setup(res, _me, ScreenLayout.wide_view(UiKit.view_width(self), 0.0, 900.0, false)))
 
 
 ## The result as one quarter saw it: the team and player numbers between the

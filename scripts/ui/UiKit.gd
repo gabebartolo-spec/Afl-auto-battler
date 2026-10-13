@@ -1353,7 +1353,7 @@ static func ladder_specs(width: float, full: bool) -> Array:
 		specs.append({"key": "d", "title": "D", "w": 26})
 	elif width >= 280.0:
 		specs.append({"key": "rec", "title": "W-L", "w": 48})
-	if full and width >= 760.0:
+	if full and ScreenLayout.wide_view(width, 0.0, 760.0, false):
 		specs.append({"key": "pf", "title": "PF", "w": 40})
 		specs.append({"key": "pa", "title": "PA", "w": 40})
 	if width >= 460.0:
