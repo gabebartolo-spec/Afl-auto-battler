@@ -152,6 +152,21 @@ static func _back(done: Callable) -> Button:
 	return b
 
 
+static func _icon(id: String) -> TextureRect:
+	var path := "res://assets/ui/culture/%s.png" % id
+	if not ResourceLoader.exists(path):
+		return null
+	var t := TextureRect.new()
+	t.name = "StrandIcon"
+	t.texture = load(path)
+	t.custom_minimum_size = Vector2(36, 36)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return t
+
+
 ## What moves the strand: one plain line under its headline. (What it does in
 ## play joins it once the director approves the effects.)
 static func _what_it_does(d: Dictionary, parent: Control, size := 0) -> void:
@@ -186,6 +201,10 @@ static func _build(root: Control, club: String, data: Array, wide: bool, done: C
 	for d in data:
 		var row := UiKit.hbox(14)
 		row.name = "Strand_" + str(d["id"])
+		# One icon per strand when the art exists: assets/ui/culture/<strand id>.png (none yet).
+		var icon := _icon(str(d["id"]))
+		if icon != null:
+			row.add_child(icon)
 		var name := UiKit.lbl(str(d["label"]), UiKit.NAME if wide else UiKit.SECONDARY, ink, true)
 		name.custom_minimum_size.x = 130.0 if wide else 104.0
 		name.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
