@@ -300,9 +300,9 @@ static func club_ink(code: String, surface := AUTO_COLOUR) -> Color:
 ## two sides or a club's section): the club's guernsey and its name in bold,
 ## in the club's readable colour, with `right` (a column heading, say) at the
 ## end. The heading row only; pair it with club_section_body for the bar.
-static func club_heading(code: String, right: Control = null, fs := NAME) -> HBoxContainer:
+static func club_heading(code: String, right: Control = null, fs := NAME, marker := 22.0) -> HBoxContainer:
 	var h := hbox(6)
-	h.add_child(club_marker(code, 22.0))
+	h.add_child(club_marker(code, marker))
 	var n := ellipsis(GameDB.club_name(code), fs, club_ink(code), true)
 	n.name = "ClubName"
 	h.add_child(n)

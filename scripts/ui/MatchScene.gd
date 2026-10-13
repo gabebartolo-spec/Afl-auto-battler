@@ -1721,7 +1721,7 @@ func _best_so_far() -> Control:
 		var rh := UiKit.lbl("Rating", UiKit.SECONDARY, UiKit.TEXT)
 		rh.custom_minimum_size.x = 56
 		rh.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		var sh := UiKit.club_heading(code, rh)
+		var sh := UiKit.club_heading(code, rh, UiKit.BODY if _pc_break else UiKit.NAME, 20.0 if _pc_break else 22.0)
 		sh.get_node("ClubName").name = "BestClub_%d" % side
 		side_box.add_child(sh)
 		for p in MatchNotes.standouts(_res, side, 2 if _pc_break else 3):
@@ -1729,7 +1729,7 @@ func _best_so_far() -> Control:
 			row.name = "BestRow_%s" % str(p["id"])
 			var col := UiKit.vbox(0)
 			col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			col.add_child(UiKit.emphasis(str(p["name"])))
+			col.add_child(UiKit.emphasis(str(p["name"]), UiKit.BODY if _pc_break else UiKit.NAME))
 			# A PC column is narrow: two numbers fit on the line, a third ran
 			# off it ("6 rebound 5...", capture 2026-10-12).
 			var bits: PackedStringArray = str(p["line"]).split(", ")
