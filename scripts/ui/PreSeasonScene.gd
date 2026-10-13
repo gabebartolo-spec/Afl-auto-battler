@@ -137,7 +137,7 @@ func _hero(stop: String) -> String:
 func _hero_sub(stop: String) -> String:
 	match stop:
 		"plan":
-			return "Set the training for each block. It runs until the time trial, after week 3."
+			return "Set the training for each block. Training runs until the time trial, after week 3."
 		"trial":
 			return "Two kilometres at the end of week 3. Weeks 4 to 8 are still to come."
 	return "Training is under way."
