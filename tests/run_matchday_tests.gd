@@ -52,6 +52,7 @@ func _run() -> void:
 		await _best_so_far(sz)
 	_break_units_keep_followups()
 	_break_packing_is_shortest()
+	_club_ink_all()
 	for club in ["COL", "GWS", "STK"]:
 		await _pc_break_worst_case(club)
 	await _tag_not_saved()
@@ -951,15 +952,27 @@ func _best_so_far(sz: Vector2i) -> void:
 		if bar == null or nm == null:
 			ally_bad.append("side %d missing bar/name" % side)
 			continue
-		if (bar as ColorRect).color != uk.club_vivid(code, uk.BG):
-			ally_bad.append("%s bar is not its club colour" % code)
+		if (bar as ColorRect).color != uk.club_ink(code):
+			ally_bad.append("%s bar is not the colour of its name" % code)
+		if (bar as ColorRect).custom_minimum_size.x != 4.0:
+			ally_bad.append("%s bar is not 4 px" % code)
 		var ink: Color = nm.get_theme_color("font_color")
 		if uk.contrast(ink, uk.BG) < 4.5:
 			ally_bad.append("%s name contrast %.1f" % [code, uk.contrast(ink, uk.BG)])
 		for rl in (bar.get_parent() as Node).find_children("StandoutRating", "Label", true, false):
-			if (rl as Label).get_theme_color("font_color") != ink:
-				ally_bad.append("%s rating colour differs from its name" % code)
+			if (rl as Label).get_theme_color("font_color") != uk.TEXT:
+				ally_bad.append("%s rating is not plain bold text" % code)
 	_check(ally_bad.is_empty(), "Best so far carries each club's colour, readable (%s: %s)" % [tag, str(ally_bad)])
+	# Nothing in the block is clipped: every label's text fits its width.
+	var clipped := []
+	for lb in block.find_children("*", "Label", true, false):
+		var l := lb as Label
+		if l.text == "" or not l.is_visible_in_tree():
+			continue
+		var w := l.get_theme_font("font").get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, l.get_theme_font_size("font_size")).x
+		if w > l.size.x + 1.0 and l.autowrap_mode == TextServer.AUTOWRAP_OFF:
+			clipped.append("%s (%.0f > %.0f)" % [l.text, w, l.size.x])
+	_check(clipped.is_empty(), "Best so far clips no text (%s: %s)" % [tag, str(clipped)])
 	var plan_pick: Node = box.find_child("PlanPicker", true, false)
 	if sz.x < 900 and plan_pick != null:
 		_check((plan_pick as Control).global_position.y < (block as Control).global_position.y,
@@ -972,6 +985,34 @@ func _best_so_far(sz: Vector2i) -> void:
 			"...and opens the full player table (%s)" % tag)
 	m.queue_free()
 	await _settle()
+
+
+## Every club's ink on the break: reads as text (4.5:1), its bar reads (3:1),
+## and it is still the hue of the club's primary identity colour (a supporter
+## names Bulldogs blue, not red), only lifted and paler; Collingwood has no hue.
+func _club_ink_all() -> void:
+	var uk = load("res://scripts/ui/UiKit.gd")
+	var db = root.get_node("GameDB")
+	var bad := []
+	var n := 0
+	for code in db.clubs.keys():
+		var ink: Color = uk.club_ink(str(code))
+		n += 1
+		if uk.contrast(ink, uk.BG) < 4.5 or uk.contrast(ink, uk.PANEL) < 4.5:
+			bad.append("%s ink contrast %.1f" % [code, uk.contrast(ink, uk.BG)])
+		var slot := int(uk.INK_SLOT.get(str(code), 0))
+		if slot < 0:
+			if ink != uk.TEXT:
+				bad.append("%s should be plain text" % code)
+			continue
+		var prim: Color = db.club_colours(str(code))[slot]
+		var dh := absf(ink.h - prim.h)
+		dh = minf(dh, 1.0 - dh)
+		if dh > 0.04:
+			bad.append("%s hue %.0f deg from its primary" % [code, dh * 360.0])
+		if ink.s < 0.4:
+			bad.append("%s ink is grey (s %.2f)" % [code, ink.s])
+	_check(n >= 18 and bad.is_empty(), "All %d clubs' ink reads, keeps its primary hue and is never grey (%s)" % [n, str(bad)])
 
 
 func _pc_break_worst_case(club := "COL") -> void:

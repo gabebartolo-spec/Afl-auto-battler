@@ -28,6 +28,7 @@ func _run() -> void:
 	var their_loose := false
 	var plain := false
 	var ruck_mode := false
+	var vs := ""
 	var a := OS.get_cmdline_user_args()
 	for i in range(a.size()):
 		match str(a[i]):
@@ -47,6 +48,8 @@ func _run() -> void:
 				plain = true
 			"--ruck":
 				ruck_mode = true
+			"--vs":
+				vs = str(a[i + 1])
 	await process_frame
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
@@ -75,10 +78,20 @@ func _run() -> void:
 				break
 		print("ruck club ", club)
 	state.start_season(club, db.club_list(club))
+	# --vs CODE: the season seed is tried until the first match is against CODE.
+	var tries := 0
+	while vs != "" and tries < 60 and state.prepare_interactive_match() and not _plays(state.pending_sim, club, vs):
+		tries += 1
+		state.reset()
+		state.career_seed = 2026 + tries
+		state.replay_seed = 2026 + tries
+		state.set_setting("seen_training_intro", true)
+		state.start_season(club, db.club_list(club))
 	if not state.prepare_interactive_match():
 		push_error("no match to prepare")
 		quit(1)
 		return
+	print("match: ", state.pending_sim.squads[0].code, " v ", state.pending_sim.squads[1].code, " seed ", state.career_seed)
 	var spare := {}
 	if their_loose:
 		var sim0 = state.pending_sim
@@ -157,6 +170,12 @@ func _run() -> void:
 	await _frames(10)
 	_save(out + "_plan.png")
 	quit()
+
+
+func _plays(sim, a: String, b: String) -> bool:
+	var h := str(sim.squads[0].code)
+	var w := str(sim.squads[1].code)
+	return (h == a and w == b) or (h == b and w == a)
 
 
 func _frames(n: int) -> void:

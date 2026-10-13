@@ -1693,8 +1693,11 @@ func _show_break_stats(players_first := false) -> void:
 ## Best so far, on the break: the three best of each side by match rating so
 ## far (yours first), each with his rating and the numbers that stand out, as
 ## full time's best players read; "All player stats" opens the full table.
+const BEST_ROW_GAP_PC := 8
+
+
 func _best_so_far() -> Control:
-	var box := UiKit.vbox(2 if _pc_break else 6)
+	var box := UiKit.vbox(6)
 	box.name = "BestSoFar"
 	box.set_meta("break_unit", true)
 	var head := UiKit.hbox(8)
@@ -1703,7 +1706,7 @@ func _best_so_far() -> Control:
 	head.add_child(title)
 	var all := UiKit.btn("All player stats", UiKit.BODY)
 	all.name = "BestSoFarAll"
-	all.custom_minimum_size = Vector2(0, 38 if _pc_break else 44)
+	all.custom_minimum_size = Vector2(0, 32 if _pc_break else 44)
 	all.pressed.connect(func(): _show_break_stats(true))
 	# On a PC the way to the table sits in the heading row (shorter block: the
 	# fullest break still fits 1280x720); a phone has it under the list.
@@ -1716,9 +1719,10 @@ func _best_so_far() -> Control:
 	# guernsey, name, rating) where it reads; see UiKit.club_heading.
 	for side in [_my_side, 1 - _my_side]:
 		var code := str(_res["home"] if side == 0 else _res["away"])
-		var ink: Color = UiKit.club_ink(code)
-		var side_box := UiKit.vbox(2 if _pc_break else 6)
-		var rh := UiKit.lbl("Rating", UiKit.SECONDARY, UiKit.TEXT)
+		var side_box := UiKit.vbox(BEST_ROW_GAP_PC if _pc_break else 6)
+		# The column heading is a label he can skip: quiet, lighter than the
+		# figures under it.
+		var rh := UiKit.lbl("Rating", UiKit.SECONDARY, UiKit.MUTED)
 		rh.custom_minimum_size.x = 56
 		rh.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		var sh := UiKit.club_heading(code, rh, UiKit.BODY if _pc_break else UiKit.NAME, 20.0 if _pc_break else 22.0)
@@ -1734,9 +1738,12 @@ func _best_so_far() -> Control:
 			# off it ("6 rebound 5...", capture 2026-10-12).
 			var bits: PackedStringArray = str(p["line"]).split(", ")
 			var line := ", ".join(bits.slice(0, 2)) if _pc_break else str(p["line"])
-			col.add_child(UiKit.detail(line))
+			# Under the bold name, a step down in size and tone, still readable.
+			col.add_child(UiKit.ellipsis(line, UiKit.SECONDARY, UiKit.TEXT.lerp(UiKit.MUTED, 0.4)))
 			row.add_child(col)
-			var r := UiKit.line(MatchNotes.rating_text(float(p["rating"])), 20, ink, true)
+			# The figure says how well, in bold TEXT: the club colour says who, and
+			# a red or pink number would read as BAD beside the red Start button.
+			var r := UiKit.line(MatchNotes.rating_text(float(p["rating"])), 20, UiKit.TEXT, true)
 			r.name = "StandoutRating"
 			r.custom_minimum_size.x = 56
 			r.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -1748,6 +1755,9 @@ func _best_so_far() -> Control:
 		box.add_child(wrap)
 	if not _pc_break:
 		box.add_child(all)
+	else:
+		# Air before the next call below (6 px between units, 10 here).
+		box.add_child(UiKit.spacer(4))
 	return box
 
 

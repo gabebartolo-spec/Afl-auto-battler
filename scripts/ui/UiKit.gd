@@ -271,28 +271,52 @@ static func section(text: String) -> Label:
 	return lbl(text, H2, TEXT, true)
 
 
-## The club's own colour as text on `surface` (the screen's ground by default):
-## its most saturated colour, lightened toward white only as far as it takes to
-## read at 4.5:1 (Carlton's navy comes out a clear blue, Port's teal stays
-## teal); plain TEXT for a club with no saturated colour (Collingwood, Sydney
-## on dark). For a club's name or a figure that is the club's; never body text.
+## Clubs whose data order is not the colour a supporter names first. The data
+## lists the Bulldogs' red before their blue and Essendon's black before its
+## red; every other club's first colour is the one. -1 = no hue at all
+## (Collingwood: black and white), so its ink is plain TEXT.
+const INK_SLOT := {"WBD": 1, "ESS": 1, "COL": -1}
+
+
+## The club's primary identity colour as text on `surface` (the screen's ground
+## by default, the panel, a little lighter than the page): the colour a supporter names first (Bulldogs blue, Melbourne
+## navy, St Kilda red, Hawthorn brown). A colour too dark for the surface is
+## lifted along its own hue, brighter and a little paler, only as far as it
+## takes to read at 4.5:1, so navy comes out a clear blue, not slate grey. A
+## club with no hue (Collingwood) is plain TEXT. A name or a bar that is the
+## club's; never body text and never a rating (those stay TEXT, not GOOD/BAD).
 static func club_ink(code: String, surface := AUTO_COLOUR) -> Color:
 	if surface == AUTO_COLOUR:
-		surface = BG
-	var pick := Color(0, 0, 0, 0)
-	var best_s := 0.25
-	for c in GameDB.club_colours(code):
-		var col: Color = c
-		if col.s > best_s:
-			best_s = col.s
-			pick = col
-	if pick.a == 0.0:
+		surface = PANEL
+	var slot := int(INK_SLOT.get(code, 0))
+	if slot < 0:
 		return TEXT
-	var toward: Color = Color.WHITE if _relative_luminance(surface) < 0.4 else Color.BLACK
-	for i in 12:
-		if contrast(pick, surface) >= 4.5:
-			return pick
-		pick = pick.lerp(toward, 0.12)
+	var cols: Array = GameDB.club_colours(code)
+	var pick: Color = cols[slot]
+	if pick.s < 0.25:
+		# A custom club whose first colour is black or white: its most saturated.
+		pick = Color(0, 0, 0, 0)
+		var best_s := 0.25
+		for c in cols:
+			var col: Color = c
+			if col.s > best_s:
+				best_s = col.s
+				pick = col
+		if pick.a == 0.0:
+			return TEXT
+	var dark_ground := _relative_luminance(surface) < 0.4
+	var h := pick.h
+	var sat := pick.s
+	var val := pick.v
+	for i in 24:
+		var cand := Color.from_hsv(h, sat, val)
+		if contrast(cand, surface) >= 4.5:
+			return cand
+		if dark_ground:
+			val = minf(1.0, val + 0.05)
+			sat = maxf(0.45, sat - 0.03)
+		else:
+			val = maxf(0.0, val - 0.05)
 	return TEXT
 
 
@@ -311,15 +335,15 @@ static func club_heading(code: String, right: Control = null, fs := NAME, marker
 	return h
 
 
-## `content` set beside a thin bar in the club's most vivid readable colour
-## (3:1 on the ground): a club's section reads as that club's down its whole
-## length. The bar is the club when its colour fails as text.
+## `content` set beside a 4 px bar in the same ink as the club's name, so the
+## bar and the name agree: a club's section reads as that club's down its whole
+## length. The club's second colour never appears here.
 static func club_section_body(code: String, content: Control) -> HBoxContainer:
 	var wrap := hbox(6)
 	var bar := ColorRect.new()
 	bar.name = "ClubBar"
-	bar.color = club_vivid(code, BG)
-	bar.custom_minimum_size = Vector2(3, 0)
+	bar.color = club_ink(code)
+	bar.custom_minimum_size = Vector2(4, 0)
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	wrap.add_child(bar)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
