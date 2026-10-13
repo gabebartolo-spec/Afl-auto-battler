@@ -167,8 +167,8 @@ func _test_hints_in_words() -> void:
 ## costs are read straight off the effects here, apart from the engine's own
 ## wording, so the line cannot drift from what the choice does.
 const COST_WORDS := {
-	"rest": "misses", "heavy_legs": "Heavy legs", "sore": "breaks down", "board": "board",
-	"trust": "trust", "expects_game": "expect a game", "start_backing": "the next ",
+	"rest": "misses", "heavy_legs": "Heavy legs", "sore": "breaks down", "board": "Board confidence",
+	"trust": "trusts you", "expects_game": "expect a game", "start_backing": "the next ",
 	"promise_win": "Lose and", "extend_early": "Locked in",
 }
 
@@ -222,9 +222,25 @@ func _test_choice_costs_are_stated() -> void:
 	_check(bad.is_empty(), "Every costly choice states its cost and no line states a cost it lacks: %s" % " | ".join(PackedStringArray(bad.slice(0, 8))))
 	_check(costly >= 40 and shown == costly, "A line under every costly choice, and none under the rest (%d of %d, %d choices)" % [shown, costly, choices])
 	# The check itself must bite: a missing line, a false one and a leftover brace are caught.
+	# Every effect line names the thing that moves; no mood word stands in for it.
+	var vague := RegEx.create_from_string("(?i)\b(lift|lifts|flat|stings|sours|thrilled|a bit off|likes it|won't like)\b")
+	var nouns := {"morale": "orale", "xp": "development", "board": "Board confidence", "trust": "trusts you", "rest": "game",
+			"sore": "sore", "fresh": "legs", "heavy_legs": "legs", "expects_game": "game", "start_backing": "games",
+			"promise_win": "board confidence", "extend_early": "a season"}
+	var unnamed := []
+	for t in StoryDeck.all():
+		for c in t["choices"]:
+			for e in c.get("effects", []):
+				var op := str(e.get("op", ""))
+				if not nouns.has(op):
+					continue
+				var w := StoryEngine.describe({"effects": [e]}, {"sore_odds": "about 1 in 6", "run_games": 3, "early_price": "$1m", "more_seasons": "two more seasons"})
+				if w == "" or not w.contains(str(nouns[op])) or vague.search(w) != null:
+					unnamed.append("%s/%s %s: %s" % [t["id"], c["key"], op, w])
+	_check(unnamed.is_empty(), "Every effect line names the thing that moves, with no vague mood word: %s" % " | ".join(PackedStringArray(unnamed.slice(0, 6))))
 	var heavy := [{"op": "heavy_legs", "who": "all"}]
 	_check(not _cost_line_problems(heavy, "").is_empty(), "The check catches a costly choice with no line")
-	_check(not _cost_line_problems(heavy, "Heavy legs on game day. The board won't like it.").is_empty(), "The check catches a line that names a cost the effects lack")
+	_check(not _cost_line_problems(heavy, "Heavy legs on game day. Board confidence down.").is_empty(), "The check catches a line that names a cost the effects lack")
 	_check(not _cost_line_problems([{"op": "morale", "d": 5}], "He misses this week's game.").is_empty(), "The check catches a line on a choice that costs nothing")
 	_check(not _cost_line_problems([{"op": "sore"}], "He breaks down: {sore_odds} chance.").is_empty(), "The check catches an unfilled brace")
 	_check(_cost_line_problems([{"op": "morale", "d": 5}, {"op": "board", "d": 2}], "").is_empty(), "A lift costs nothing and shows no line")
@@ -542,8 +558,8 @@ func _test_trust_in_play() -> void:
 	GameState.week_event = GameState.story_card("media_in_the_papers", p)
 	var hint := str(GameState.week_event["options"][1]["detail"])
 	var out := GameState.resolve_week_event(1)
-	_check(hint.contains("His trust in you rises"), "The choice says what it does to his trust (%s)" % hint)
-	_check(Trust.value(GameState.relations, key) == 10 and out.contains("His trust in you rose"),
+	_check(hint.contains("He trusts you"), "The choice says what it does to his trust (%s)" % hint)
+	_check(Trust.value(GameState.relations, key) == 10 and out.contains("He trusts you more"),
 			"Backing him in the papers: his trust rises, and the result says so (%s)" % out)
 	_check(str(Trust.reasons(GameState.relations, key)[0]["why"]) == "You backed him when he was in the papers",
 			"The reason is kept in plain words")
@@ -572,7 +588,7 @@ func _test_trust_in_play() -> void:
 	Trust.change(GameState.relations, Trust.player_key(str(fan["id"])), 15, "t", 2027, "Round 1")
 	fan["morale"] = 30
 	var card := GameState.story_card("selection_unhappy", fan)
-	_check(str(card["options"][0]["detail"]).contains("It means more coming from you"),
+	_check(str(card["options"][0]["detail"]).contains("counts for more because he trusts you"),
 			"A talk with a player who trusts you says it lands harder")
 	GameState.week_event = card
 	GameState.resolve_week_event(0)

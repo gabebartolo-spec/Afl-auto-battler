@@ -428,13 +428,13 @@ static func _cost_words(op: String, e: Dictionary, facts: Dictionary) -> String:
 		"board":
 			return _board_words(effect_d(e, facts)) if effect_d(e, facts) < 0 else ""
 		"trust":
-			return "His trust in you takes a hit." if effect_d(e, facts) < 0 else ""
+			return _trust_words(effect_d(e, facts)) if effect_d(e, facts) < 0 else ""
 		"expects_game":
-			return "He'll expect a game this week; leave him out fit and it sours."
+			return "He'll expect a game this week; leave him out fit and the promise breaks."
 		"start_backing":
 			return "He'll expect the next {run_games} games; leave him out fit and the promise breaks."
 		"promise_win":
-			return "Lose and the board makes you pay."
+			return "Lose and board confidence goes down."
 		"extend_early":
 			return "Locked in at {early_price} a season, whatever he does next."
 	return ""
@@ -449,9 +449,9 @@ static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
 			if str(e.get("scale", "")) == "trust" and d > 0:
 				var b := str(facts.get("trust_band", "neutral"))
 				if b == "close" or b == "trusts":
-					s += " It means more coming from you."
+					s += " It counts for more because he trusts you."
 				elif b == "wary" or b == "lost":
-					s += " He's wary of you, so it lands softer."
+					s += " It counts for less because he's wary of you."
 			return s
 		"xp":
 			var size := "A big week of development" if d >= 20 else ("A solid week of development" if d >= 10 else "Some extra development")
@@ -459,55 +459,48 @@ static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
 		"board":
 			return _board_words(d)
 		"trust":
-			return "His trust in you rises." if d > 0 else "His trust in you takes a hit."
+			return _trust_words(d)
 		"rest":
 			return "He misses this week's game."
 		"sore":
-			return "He plays short of a gallop, and there's {sore_odds} chance he breaks down for weeks."
+			return "He plays sore, and there's {sore_odds} chance he breaks down for weeks."
 		"fresh":
-			return "Fresher bodies: fewer injuries this week."
+			return "Fresher legs: fewer injuries this week."
 		"heavy_legs":
 			return "Heavy legs on game day, and more soft-tissue risk."
 		"expects_game":
-			return "He expects a game this week; leave him out fit and it sours."
+			return "He expects a game this week; leave him out fit and the promise breaks."
 		"start_backing":
-			return "He's thrilled, and expects to be picked for the next {run_games} games; leave him out fit and the promise breaks."
+			return "He expects to be picked for the next {run_games} games; leave him out fit and the promise breaks."
 		"extend_early":
 			return "He signs on for {more_seasons} at {early_price} a season, locked in whatever he does next."
 		"promise_win":
-			return "Win and the board is won over; lose and it costs you."
+			return "Win and board confidence goes up; lose and it goes down."
 		"explain":
 			return "{kpi_or_need} Nothing is promised."
 	return ""
 
 
+## Every phrase names the thing that moves (morale, trust, board confidence),
+## its direction and a size word, in the names the game shows the player.
 static func _morale_words(d: int, who: String) -> String:
+	var size := "a lot" if absi(d) >= 10 else ("" if absi(d) >= 5 else "a little")
+	var dir := "up" if d > 0 else "down"
+	var move := ("%s %s" % [dir, size]).strip_edges()
 	if who == "subject":
-		if d >= 10:
-			return "It lifts him a lot."
-		if d >= 5:
-			return "It lifts him."
-		if d > 0:
-			return "A small lift for him."
-		if d <= -10:
-			return "He takes it hard."
-		if d <= -5:
-			return "He's disappointed."
-		return "It stings him a little."
-	var group: String = {"side": "the side", "all": "the whole list", "others": "the rest of the group"}.get(who, "the group")
-	if d > 0:
-		return ("A lift for %s." if d >= 5 else "A small lift for %s.") % group
-	return ("%s takes it hard." if d <= -5 else "%s is a little flat about it.") % group.capitalize()
+		return "His morale goes %s." % move
+	var group: String = {"side": "across the side", "all": "across the whole list", "others": "in the rest of the group"}.get(who, "in the group")
+	return "Morale %s %s." % [move, group]
 
 
 static func _board_words(d: int) -> String:
-	if d >= 6:
-		return "The board is delighted."
-	if d > 0:
-		return "The board likes it."
-	if d <= -6:
-		return "The board will be furious."
-	return "The board won't like it."
+	var size := "a lot" if absi(d) >= 6 else ("" if absi(d) >= 3 else "a little")
+	return ("Board confidence %s %s." % ["up" if d > 0 else "down", size]).replace(" .", ".")
+
+
+static func _trust_words(d: int) -> String:
+	var size := "a lot " if absi(d) >= 7 else ("a little " if absi(d) < 4 else "")
+	return "He trusts you %s%s." % [size, "more" if d > 0 else "less"]
 
 
 ## What changed, for the card's result line: only the levers a player feels.
@@ -515,8 +508,8 @@ static func aftermath(applied: Dictionary) -> String:
 	var out: PackedStringArray = []
 	var t := int(applied.get("trust", 0))
 	if t != 0:
-		out.append("His trust in you rose." if t > 0 else "His trust in you fell.")
+		out.append("He trusts you more." if t > 0 else "He trusts you less.")
 	var b := int(applied.get("board", 0))
 	if b != 0:
-		out.append("The board liked it." if b > 0 else "The board didn't like it.")
+		out.append("Board confidence went up." if b > 0 else "Board confidence went down.")
 	return " ".join(out)
