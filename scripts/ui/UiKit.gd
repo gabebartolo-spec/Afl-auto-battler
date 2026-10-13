@@ -274,27 +274,79 @@ static func section(text: String) -> Label:
 ## Clubs whose data order is not the colour a supporter names first. The data
 ## lists the Bulldogs' red before their blue and Essendon's black before its
 ## red; every other club's first colour is the one. -1 = no hue at all
-## (Collingwood: black and white), so its ink is plain TEXT.
+## (Collingwood: black and white), so its ink is plain TEXT. Used only to
+## compute an ink for a club with none picked (a created club), and on the
+## light ground.
 const INK_SLOT := {"WBD": 1, "ESS": 1, "COL": -1}
+
+## Each club's two hand-picked inks on the dark page (director, 2026-10-13:
+## "hand-picked, clash swap"). Both are the club's real guernsey colours,
+## lifted along their own hue just far enough to read as text (4.5:1 on the
+## page and on a panel); nothing is computed. The first is the colour a
+## supporter names (Brisbane's gold, Melbourne's red, Hawthorn's brown), the
+## second another real colour of the guernsey, shown by the away side when the
+## two first inks look alike (a clash guernsey): see club_ink_pair. Where the
+## guernsey has no second colour that reads, the second is plain white
+## (Collingwood is white either way: no hue at all).
+const CLUB_INKS := {
+	"ADE": ["#F0455C", "#FFB81C"],  # red, then gold
+	"BRL": ["#F7CE8A", "#4D90E0"],  # gold, then blue
+	"CAR": ["#6B7CF2", "#F1EEE6"],  # navy lifted to blue, then white
+	"CANB": ["#4FA0F0", "#F5B301"],  # navy lifted to blue, then gold
+	"COL": ["#F1EEE6", "#F1EEE6"],  # black and white: plain text
+	"ESS": ["#EE5A66", "#F1EEE6"],  # red, then white
+	"FRE": ["#B48AF0", "#F1EEE6"],  # purple, then white
+	"GCS": ["#FF6A3D", "#FFDD00"],  # red, then gold
+	"GEE": ["#98C4F0", "#F1EEE6"],  # navy lifted to sky, then white
+	"GWS": ["#F47920", "#C9C9C4"],  # orange, then silver
+	"HAW": ["#C08A55", "#FBBF15"],  # brown, then gold
+	"MEL": ["#F03C4A", "#6C93E6"],  # red, then navy lifted to blue
+	"NTH": ["#3F82F5", "#C4D1E5"],  # royal blue, then pale blue
+	"PAD": ["#14B4D6", "#C0C0C0"],  # teal, then silver
+	"RIC": ["#FFE12E", "#F1EEE6"],  # yellow, then white
+	"STK": ["#F5427A", "#F1EEE6"],  # red, then white
+	"SYD": ["#F04A3C", "#F1EEE6"],  # red, then white
+	"TAS": ["#4CB36B", "#E8D44D"],  # green, then yellow
+	"WBD": ["#5A8FE8", "#F0455C"],  # blue, then red
+	"WCE": ["#F2A900", "#6B9AF5"],  # gold, then blue lifted
+}
+
+## Two inks this far apart (CIE76, in Lab) are "alike" and the away side takes
+## its second. 25 is a clear difference at a glance on a phone, two names side
+## by side; 8 is the least any two clubs' first inks differ on their own.
+const INK_CLASH := 25.0
 
 
 ## The club's primary identity colour as text on `surface` (the screen's ground
-## by default, the panel, a little lighter than the page): the colour a supporter names first (Bulldogs blue, Melbourne
-## navy, St Kilda red, Hawthorn brown). A colour too dark for the surface is
-## lifted along its own hue, brighter and a little paler, only as far as it
-## takes to read at 4.5:1, so navy comes out a clear blue, not slate grey. A
-## club with no hue (Collingwood) is plain TEXT. A name or a bar that is the
-## club's; never body text and never a rating (those stay TEXT, not GOOD/BAD).
+## by default, the panel, a little lighter than the page): the first of its two
+## hand-picked inks (CLUB_INKS). A single-club screen shows this one; a screen
+## with two sides uses club_ink_pair. A created club, or the light ground, has
+## no picked ink: its colour is lifted (or deepened) along its own hue only as
+## far as it takes to read at 4.5:1. A name or a bar that is the club's; never
+## body text and never a rating (those stay TEXT, not GOOD/BAD).
 static func club_ink(code: String, surface := AUTO_COLOUR) -> Color:
+	return _ink(code, 0, surface)
+
+
+## The club's second hand-picked ink (its clash guernsey), same rules.
+static func club_ink_second(code: String, surface := AUTO_COLOUR) -> Color:
+	return _ink(code, 1, surface)
+
+
+static func _ink(code: String, which: int, surface) -> Color:
+	if CLUB_INKS.has(code) and _appearance == "dark" and surface == AUTO_COLOUR:
+		return Color(str((CLUB_INKS[code] as Array)[which]))
 	if surface == AUTO_COLOUR:
 		surface = PANEL
 	var slot := int(INK_SLOT.get(code, 0))
+	if which == 1:
+		slot = 1 if slot == 0 else 0
 	if slot < 0:
 		return TEXT
 	var cols: Array = GameDB.club_colours(code)
 	var pick: Color = cols[slot]
 	if pick.s < 0.25:
-		# A custom club whose first colour is black or white: its most saturated.
+		# A custom club whose colour is black or white: its most saturated.
 		pick = Color(0, 0, 0, 0)
 		var best_s := 0.25
 		for c in cols:
@@ -320,14 +372,69 @@ static func club_ink(code: String, surface := AUTO_COLOUR) -> Color:
 	return TEXT
 
 
+## CIE76 colour distance, in Lab: the perceptual gap between two colours.
+static func colour_distance(a: Color, b: Color) -> float:
+	return _lab(a).distance_to(_lab(b))
+
+
+static func _lab(c: Color) -> Vector3:
+	var r := _lin(c.r)
+	var g := _lin(c.g)
+	var b := _lin(c.b)
+	var x := (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047
+	var y := 0.2126 * r + 0.7152 * g + 0.0722 * b
+	var z := (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883
+	var fx := _lab_f(x)
+	var fy := _lab_f(y)
+	var fz := _lab_f(z)
+	return Vector3(116.0 * fy - 16.0, 500.0 * (fx - fy), 200.0 * (fy - fz))
+
+
+static func _lin(v: float) -> float:
+	return v / 12.92 if v <= 0.04045 else pow((v + 0.055) / 1.055, 2.4)
+
+
+static func _lab_f(t: float) -> float:
+	return pow(t, 1.0 / 3.0) if t > 0.008856 else 7.787 * t + 16.0 / 116.0
+
+
+## The two inks for a screen where both clubs appear (director, 2026-10-13: a
+## clash swap). The home side keeps its first ink; the away side keeps its first
+## too unless that looks like the home's (INK_CLASH), when it shows its second,
+## like an away guernsey. If the second is no better, the farther of the two.
+static func club_ink_pair(home: String, away: String) -> Array:
+	var h := club_ink(home)
+	var a := club_ink(away)
+	if colour_distance(h, a) < INK_CLASH:
+		var a2 := club_ink_second(away)
+		if colour_distance(h, a2) > colour_distance(h, a):
+			a = a2
+	return [h, a]
+
+
+## A name in the club's colour is for colours that are not red: a red name
+## beside the red action button reads as a warning (director, 2026-10-13: "red
+## bar and crest, name in white"). Red clubs carry the red in the bar and the
+## crest only; their name is plain bold TEXT.
+static func club_name_colour(ink: Color) -> Color:
+	var deg := ink.h * 360.0
+	if ink.s > 0.45 and (deg <= 18.0 or deg >= 335.0):
+		return TEXT
+	return ink
+
+
 ## A section's own club, at a glance (director 2026-10-13, for every screen with
 ## two sides or a club's section): the club's guernsey and its name in bold,
-## in the club's readable colour, with `right` (a column heading, say) at the
-## end. The heading row only; pair it with club_section_body for the bar.
-static func club_heading(code: String, right: Control = null, fs := NAME, marker := 22.0) -> HBoxContainer:
+## in the club's readable colour (white for a red club, whose red is in the bar
+## and guernsey), with `right` (a column heading, say) at the end. Pass `ink`
+## from club_ink_pair on a screen with two sides. The heading row only; pair it
+## with club_section_body for the bar.
+static func club_heading(code: String, right: Control = null, fs := NAME, marker := 22.0, ink := Color(0, 0, 0, 0)) -> HBoxContainer:
+	if ink.a == 0.0:
+		ink = club_ink(code)
 	var h := hbox(6)
 	h.add_child(club_marker(code, marker))
-	var n := ellipsis(GameDB.club_name(code), fs, club_ink(code), true)
+	var n := ellipsis(GameDB.club_name(code), fs, club_name_colour(ink), true)
 	n.name = "ClubName"
 	h.add_child(n)
 	if right != null:
@@ -335,14 +442,15 @@ static func club_heading(code: String, right: Control = null, fs := NAME, marker
 	return h
 
 
-## `content` set beside a 4 px bar in the same ink as the club's name, so the
-## bar and the name agree: a club's section reads as that club's down its whole
-## length. The club's second colour never appears here.
-static func club_section_body(code: String, content: Control) -> HBoxContainer:
+## `content` set beside a 4 px bar in the club's ink (the same `ink` as its
+## heading), so a club's section reads as that club's down its whole length.
+static func club_section_body(code: String, content: Control, ink := Color(0, 0, 0, 0)) -> HBoxContainer:
+	if ink.a == 0.0:
+		ink = club_ink(code)
 	var wrap := hbox(6)
 	var bar := ColorRect.new()
 	bar.name = "ClubBar"
-	bar.color = club_ink(code)
+	bar.color = ink
 	bar.custom_minimum_size = Vector2(4, 0)
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	wrap.add_child(bar)

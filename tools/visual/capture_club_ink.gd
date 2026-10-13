@@ -1,7 +1,7 @@
 extends SceneTree
 ## Swatch board of every club's ink on the dark ground: guernsey marker, the
-## club's name in club_ink, its 4 px bar, the contrast ratio, and the raw
-## primary colour beside it for comparison. One image, <out>.png:
+## club's name in club_ink, its 4 px bar, the two hand-picked inks as
+## swatches with hex and contrast. One image, <out>.png:
 ##   gh workflow run capture.yml --ref <branch> -f tool=capture_club_ink
 ##   --light   the light ground
 
@@ -23,8 +23,8 @@ func _run() -> void:
 	var db = root.get_node("GameDB")
 	var UK = load("res://scripts/ui/UiKit.gd")
 	UK.apply_appearance(mode)
-	root.size = Vector2i(1100, 520)
-	DisplayServer.window_set_size(Vector2i(1100, 520))
+	root.size = Vector2i(1560, 520)
+	DisplayServer.window_set_size(Vector2i(1560, 520))
 	var bg := ColorRect.new()
 	bg.color = UK.PANEL
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -41,31 +41,29 @@ func _run() -> void:
 		var c := str(code)
 		var ink: Color = UK.club_ink(c)
 		var wrap: HBoxContainer = UK.hbox(8)
-		wrap.custom_minimum_size = Vector2(560, 40)
+		wrap.custom_minimum_size = Vector2(700, 40)
 		var bar := ColorRect.new()
 		bar.color = ink
 		bar.custom_minimum_size = Vector2(4, 34)
 		wrap.add_child(bar)
-		var mk: Control = UK.club_marker(c, 30.0)
-		wrap.add_child(mk)
-		var nm: Label = UK.ellipsis(db.club_name(c), 18, ink, true)
-		nm.custom_minimum_size.x = 220
+		wrap.add_child(UK.club_marker(c, 30.0))
+		# The name as the game shows it: the ink, or bold white for a red club.
+		var nm: Label = UK.ellipsis(db.club_name(c), 18, UK.club_name_colour(ink), true)
+		nm.custom_minimum_size.x = 210
 		wrap.add_child(nm)
-		var ratio: Label = UK.lbl("#%s  %.1f:1" % [ink.to_html(false), UK.contrast(ink, UK.PANEL)], 14, UK.TEXT)
-		ratio.autowrap_mode = TextServer.AUTOWRAP_OFF
-		ratio.custom_minimum_size.x = 120
-		wrap.add_child(ratio)
-		var raw: Color = db.club_colours(c)[int(UK.INK_SLOT.get(c, 0))] if int(UK.INK_SLOT.get(c, 0)) >= 0 else UK.TEXT
-		var sw := ColorRect.new()
-		sw.color = raw
-		sw.custom_minimum_size = Vector2(22, 22)
-		var sw_box: VBoxContainer = UK.vbox(0)
-		sw_box.alignment = BoxContainer.ALIGNMENT_CENTER
-		sw_box.add_child(sw)
-		wrap.add_child(sw_box)
-		var hex: Label = UK.lbl("club colour #%s" % raw.to_html(false), 12, UK.MUTED)
-		hex.autowrap_mode = TextServer.AUTOWRAP_OFF
-		wrap.add_child(hex)
+		for which in [0, 1]:
+			var col: Color = UK.club_ink(c) if which == 0 else UK.club_ink_second(c)
+			var sw := ColorRect.new()
+			sw.color = col
+			sw.custom_minimum_size = Vector2(22, 22)
+			var sw_box: VBoxContainer = UK.vbox(0)
+			sw_box.alignment = BoxContainer.ALIGNMENT_CENTER
+			sw_box.add_child(sw)
+			wrap.add_child(sw_box)
+			var t: Label = UK.lbl("%s #%s  %.1f:1" % ["first" if which == 0 else "second", col.to_html(false), UK.contrast(col, UK.PANEL)], 13, UK.TEXT)
+			t.autowrap_mode = TextServer.AUTOWRAP_OFF
+			t.custom_minimum_size.x = 170
+			wrap.add_child(t)
 		grid.add_child(wrap)
 	for i in range(8):
 		await process_frame

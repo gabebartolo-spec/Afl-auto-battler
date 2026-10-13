@@ -910,14 +910,16 @@ func _best_so_far(sz: Vector2i) -> void:
 			var st: Dictionary = (res["players"] as Dictionary).get(str(p["id"]), {})
 			ranked.append([str(p["id"]), int(notes.rating(st)), int(float(st.get("disposals", 0.0)))])
 		ranked.sort_custom(func(a, b): return a[1] > b[1] or (a[1] == b[1] and a[2] > b[2]))
-		for r in ranked.slice(0, 2 if sz.x >= 900 else 3):
+		for r in ranked.slice(0, 3):
 			want.append(r)
 	var bad := []
 	var found := 0
 	for r in want:
 		var row: Node = block.find_child("BestRow_%s" % str(r[0]), true, false)
 		if row == null:
-			bad.append("missing " + str(r[0]))
+			# A PC break drops the third of each side when it will not fit 720 high.
+			if not (sz.x >= 900 and want.find(r) % 3 == 2):
+				bad.append("missing " + str(r[0]))
 			continue
 		found += 1
 		var rating_l: Label = row.find_child("StandoutRating", true, false)
@@ -934,12 +936,14 @@ func _best_so_far(sz: Vector2i) -> void:
 			texts.append((lb as Label).text)
 		if not texts.has(line_want):
 			bad.append("%s line %s not shown" % [str(r[0]), line_want])
-	_check(found == want.size() and bad.is_empty(), "Best so far lists the best of each side with the match's own ratings (%s: %s)" % [tag, str(bad)])
+	_check((found == want.size() or (sz.x >= 900 and found == 4)) and bad.is_empty(), "Best so far lists the best of each side with the match's own ratings (%s: %s)" % [tag, str(bad)])
 	# Each side under its own club name, even numbers each; on a phone the
 	# block sits below the controls, so the next quarter's choices are never
 	# pushed under the pinned Start button.
 	_check(block.find_child("BestClub_%d" % me, true, false) != null and block.find_child("BestClub_%d" % (1 - me), true, false) != null
-			and found == (4 if sz.x >= 900 else 6), "Best so far has a heading per club and the same number each (%s: %d rows)" % [tag, found])
+			and (found == 6 or (sz.x >= 900 and found == 4)), "Best so far has a heading per club and the same number each (%s: %d rows)" % [tag, found])
+	_check(block.find_children("RatingHeading", "Label", true, false).size() == 1, "Best so far says Rating once, not per club (%s)" % tag)
+	var pair_inks: Array = load("res://scripts/ui/UiKit.gd").club_ink_pair(str(res["home"]), str(res["away"]))
 	# Allegiance: each side has its club-colour bar; its name and ratings are in
 	# the club's readable colour (4.5:1 on the break) or plain text, never a
 	# club colour that fails (Carlton, Collingwood on dark).
@@ -952,11 +956,13 @@ func _best_so_far(sz: Vector2i) -> void:
 		if bar == null or nm == null:
 			ally_bad.append("side %d missing bar/name" % side)
 			continue
-		if (bar as ColorRect).color != uk.club_ink(code):
-			ally_bad.append("%s bar is not the colour of its name" % code)
+		if (bar as ColorRect).color != pair_inks[side]:
+			ally_bad.append("%s bar is not the pair's ink" % code)
 		if (bar as ColorRect).custom_minimum_size.x != 4.0:
 			ally_bad.append("%s bar is not 4 px" % code)
 		var ink: Color = nm.get_theme_color("font_color")
+		if ink != uk.club_name_colour(pair_inks[side]):
+			ally_bad.append("%s name is not in its ink (white for a red club)" % code)
 		if uk.contrast(ink, uk.BG) < 4.5:
 			ally_bad.append("%s name contrast %.1f" % [code, uk.contrast(ink, uk.BG)])
 		for rl in (bar.get_parent() as Node).find_children("StandoutRating", "Label", true, false):
@@ -987,32 +993,58 @@ func _best_so_far(sz: Vector2i) -> void:
 	await _settle()
 
 
-## Every club's ink on the break: reads as text (4.5:1), its bar reads (3:1),
-## and it is still the hue of the club's primary identity colour (a supporter
-## names Bulldogs blue, not red), only lifted and paler; Collingwood has no hue.
+## Every club's two hand-picked inks (director, 2026-10-13: hand-picked, clash
+## swap): each reads as text on the page and on a panel (4.5:1); no two clubs'
+## first inks are closer than 8 in CIE76 Lab (a clear difference side by side;
+## the two reds and two blues that are nearest sit at 8.8 and 9.9); and on a
+## screen with both clubs, every pairing in both orders keeps the home ink and
+## gives two inks at least 25 apart, so two sides are never near-identical.
+## A red ink carries its bar and crest only: the name is plain TEXT.
 func _club_ink_all() -> void:
 	var uk = load("res://scripts/ui/UiKit.gd")
 	var db = root.get_node("GameDB")
 	var bad := []
-	var n := 0
-	for code in db.clubs.keys():
-		var ink: Color = uk.club_ink(str(code))
-		n += 1
-		if uk.contrast(ink, uk.BG) < 4.5 or uk.contrast(ink, uk.PANEL) < 4.5:
-			bad.append("%s ink contrast %.1f" % [code, uk.contrast(ink, uk.BG)])
-		var slot := int(uk.INK_SLOT.get(str(code), 0))
-		if slot < 0:
-			if ink != uk.TEXT:
-				bad.append("%s should be plain text" % code)
-			continue
-		var prim: Color = db.club_colours(str(code))[slot]
-		var dh := absf(ink.h - prim.h)
-		dh = minf(dh, 1.0 - dh)
-		if dh > 0.04:
-			bad.append("%s hue %.0f deg from its primary" % [code, dh * 360.0])
-		if ink.s < 0.5:
-			bad.append("%s ink is grey (s %.2f)" % [code, ink.s])
-	_check(n >= 18 and bad.is_empty(), "All %d clubs' ink reads, keeps its primary hue and is never grey (%s)" % [n, str(bad)])
+	var codes: Array = db.clubs.keys()
+	codes.sort()
+	for code in codes:
+		var c := str(code)
+		for ink in [uk.club_ink(c), uk.club_ink_second(c)]:
+			if uk.contrast(ink, uk.BG) < 4.5 or uk.contrast(ink, uk.PANEL) < 4.5:
+				bad.append("%s ink %s contrast %.1f" % [c, (ink as Color).to_html(false), minf(uk.contrast(ink, uk.BG), uk.contrast(ink, uk.PANEL))])
+	_check(codes.size() >= 18 and bad.is_empty(), "All %d clubs' two inks read on the page and a panel (%s)" % [codes.size(), str(bad)])
+	var near := []
+	for i in range(codes.size()):
+		for j in range(i + 1, codes.size()):
+			var a: String = codes[i]
+			var b: String = codes[j]
+			if a == "COL" or b == "COL":
+				continue
+			var d: float = uk.colour_distance(uk.club_ink(a), uk.club_ink(b))
+			if d < 8.0:
+				near.append("%s/%s %.1f" % [a, b, d])
+	_check(near.is_empty(), "No two clubs' first inks are near-identical (%s)" % str(near))
+	var pairs := 0
+	var alike := []
+	for h in codes:
+		for a in codes:
+			if h == a:
+				continue
+			pairs += 1
+			var pr: Array = uk.club_ink_pair(str(h), str(a))
+			if pr[0] != uk.club_ink(str(h)):
+				alike.append("%s keeps its ink v %s" % [h, a])
+			var d2: float = uk.colour_distance(pr[0], pr[1])
+			if d2 < 25.0:
+				alike.append("%s v %s %.1f" % [h, a, d2])
+	_check(pairs >= 18 * 17 and alike.is_empty(), "Every pairing (%d, home and away) shows two inks 25 or more apart (%s)" % [pairs, str(alike)])
+	var reds := ["ADE", "ESS", "GCS", "MEL", "STK", "SYD"]
+	var red_bad := []
+	for code in codes:
+		var c := str(code)
+		var nm: Color = uk.club_name_colour(uk.club_ink(c))
+		if reds.has(c) != (nm == uk.TEXT) and c != "COL":
+			red_bad.append("%s name %s" % [c, nm.to_html(false)])
+	_check(red_bad.is_empty(), "A red-ink club's name is plain TEXT, every other club's name is its ink (%s)" % str(red_bad))
 
 
 func _pc_break_worst_case(club := "COL") -> void:
