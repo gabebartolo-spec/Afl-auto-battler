@@ -36,6 +36,10 @@ const TAG_PLAIN := 0.55
 ## outrun his contested ball.
 const TAGGER_PRESSURE := 0.70
 const TAGGER_MARGIN := 0.20
+## The median midfielder's Pressure: at or below it a tag holds no tighter
+## than any midfielder doing the job (TAG_PLAIN); from it up to a Tagger's
+## level (TAGGER_PRESSURE) the hold tightens to a Tagger's (director, 2026-10-11).
+const TAG_HOLD_FROM := 0.50
 
 
 ## What the wing rewards: carry and disposal. Raw attribute blend.
@@ -86,6 +90,20 @@ static func is_tagger(p: Dictionary) -> bool:
 	var win := PlayerProfile.percentile(mid_view, "contested")
 	var run := 0.5 * (PlayerProfile.percentile(mid_view, "carry") + PlayerProfile.percentile(mid_view, "disposal"))
 	return press >= TAGGER_PRESSURE and press - maxf(win, run) >= TAGGER_MARGIN
+
+
+## How much of a full tagger's hold his Pressure gives, 0 to 1: 0 at or
+## below the median midfielder (TAG_HOLD_FROM), 1 at a Tagger's level and
+## for a Tagger. His legs on the day scale it again (MatchSim.tag_hold).
+static func tag_press(p: Dictionary) -> float:
+	if p.is_empty() or not p.has("attr"):
+		return 0.0
+	if is_tagger(p):
+		return 1.0
+	var mid_view := p.duplicate()
+	mid_view["role"] = "MID"
+	var press := PlayerProfile.percentile(mid_view, "pressure")
+	return clampf((press - TAG_HOLD_FROM) / (TAGGER_PRESSURE - TAG_HOLD_FROM), 0.0, 1.0)
 
 
 ## His football identity in two or three words: "Wing", "Tagger",

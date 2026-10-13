@@ -36,7 +36,7 @@ const BOUNDARY_EXIT_P := 0.008
 const BOUNDARY_RUSHED_BONUS := 0.004
 const OUT_ON_FULL_SHARE := 0.12
 const BOUNDARY_TOUCHED_SHARE := 0.28
-var tactics := [{}, {}]      # per side: gameplan, focus_mid/fwd/def (focus_id), tag_id, pep
+var tactics := [{}, {}]      # per side: gameplan, focus_mid/fwd/def (focus_id), tag_id, tagger_id, pep
 ## Tags dropped because the man was no longer a midfielder: {side, id, q}.
 var tag_drops: Array = []
 ## How well each side's match-day players suit each plan (PlanFit): the
@@ -398,6 +398,7 @@ func set_matchups(def_side: int, m: Dictionary) -> void:
 	for fid in m:
 		((_own[def_side] as Dictionary)["duels"] as Dictionary)[str(fid)] = true
 		_note_duel_was(def_side, str(fid))
+		_note_swapped(def_side, str(m[fid]))
 		set_matchup(def_side, str(fid), str(m[fid]), false)
 	if not m.is_empty() and _assisted(def_side) and not bool((_own[def_side] as Dictionary)["interceptor"]):
 		set_interceptor(def_side, _assistant_interceptor(def_side), false)
@@ -419,7 +420,17 @@ func coach_matchup(def_side: int, fwd_id: String, def_id: String) -> bool:
 		return false
 	((_own[def_side] as Dictionary)["duels"] as Dictionary)[fwd_id] = true
 	_note_duel_was(def_side, fwd_id)
+	_note_swapped(def_side, def_id)
 	return set_matchup(def_side, fwd_id, def_id)
+
+
+## The forward `def_id` leaves when the coach moves him: his match-up changes
+## too (the swap), so it is the coach's change as well.
+func _note_swapped(def_side: int, def_id: String) -> void:
+	var d: Dictionary = duels[def_side]
+	for f in d:
+		if str(d[f]) == def_id:
+			_note_duel_was(def_side, str(f))
 
 
 ## Who was on `fwd_id` before the coach's first change of that match-up.
@@ -595,7 +606,7 @@ func _note_tactics() -> void:
 		var tag := _tag_id(side)
 		var tagger := ""
 		if tag != "":
-			var t = tagger_for((squads[side] as Squad).ground)
+			var t = tagger_of(side)
 			if t != null:
 				tagger = str(t["id"])
 		var kinds: Array = (bursts[side] as Dictionary).keys()
@@ -922,7 +933,7 @@ func _tag_parts(side: int) -> Array:
 	if not tagged.is_empty() and taggable(tagged):
 		theirs = (1.0 - _tag_share(1 - side)) * _mid_value(tagged, n_centre, n_mids)
 	if _tag_id(side) != "" and not _on_ground(1 - side, _tag_id(side)).is_empty():
-		var t = tagger_for(sq.ground)
+		var t = tagger_of(side)
 		if t != null:
 			ours = TAGGER_COST * _mid_value(t, n_centre, n_mids)
 	return [theirs, ours]
@@ -937,11 +948,15 @@ func _mid_value(p: Dictionary, n_centre: int, n_mids: int) -> float:
 	return v
 
 
-## How much of the ball the player `side` tags still gets: less when a
-## tagger (Roles) is on the ground to do the job.
+## How much of the ball the player `side` tags still gets: from TAG_PLAIN
+## down to TAG_WITH_TAGGER as the man on him holds tighter (tag_hold: his
+## Pressure and his legs now, so a tiring tagger lets him off the leash).
 func _tag_share(side: int) -> float:
-	var t = tagger_for((squads[side] as Squad).ground)
-	return Roles.TAG_WITH_TAGGER if t != null and Roles.is_tagger(t) else Roles.TAG_PLAIN
+	var t = tagger_of(side)
+	if t == null:
+		return Roles.TAG_PLAIN
+	var hold := tag_hold(t, float(energy.get(str(t["id"]), 100.0)))
+	return Roles.TAG_PLAIN - (Roles.TAG_PLAIN - Roles.TAG_WITH_TAGGER) * hold
 
 
 # ---------------------------------------------------------------------------
@@ -1208,7 +1223,7 @@ func _pick_ctx(side: int) -> Dictionary:
 	var their_tag := _tag_id(1 - side)
 	var tagger_id := ""
 	if _tag_id(side) != "":
-		var tagger = tagger_for((squads[side] as Squad).ground)
+		var tagger = tagger_of(side)
 		if tagger != null:
 			tagger_id = str(tagger["id"])
 	var plan := _plan(side)
@@ -4035,7 +4050,7 @@ func _after_chain() -> void:
 			fatigue_pace *= Traits.power("running_machine")
 		var tagger_id := ""
 		if _tag_id(side) != "":
-			var tagger = tagger_for(sq.ground)
+			var tagger = tagger_of(side)
 			if tagger != null:
 				tagger_id = str(tagger["id"])
 		# Asked once a side, not once a player (the same answers every time).
@@ -4262,8 +4277,11 @@ func _auto_rotate(side: int) -> void:
 ## The freshest bench player (at or above `min_energy`) for a ground role,
 ## or -1. Natural or secondary role first; any bench player as a fallback.
 ## `rotation`: a routine interchange, which leaves a rested star on the bench.
+## The coach's named tagger goes back on only in a midfielder's place, and
+## first when one comes off, so he picks the tag up again (tagger_of).
 func _bench_for(side: int, role: String, min_energy: float, rotation := false) -> int:
 	var sq: Squad = squads[side]
+	var named := str((tactics[side] as Dictionary).get("tagger_id", "")) if _tag_id(side) != "" else ""
 	var best := -1
 	var best_score := -1.0
 	for i in range(sq.bench.size()):
@@ -4271,9 +4289,12 @@ func _bench_for(side: int, role: String, min_energy: float, rotation := false) -
 		var e := float(energy.get(str(p["id"]), 100.0))
 		if e < min_energy or (rotation and str(_held.get(str(p["id"]), "")) == "rest"):
 			continue
+		var is_named := rotation and named != "" and str(p["id"]) == named
+		if is_named and role != "MID":
+			continue
 		var fits := str(p.get("role", "")) == role or Traits.plays(p, role) \
 				or str(p.get("list_tag", "")) == role
-		var score := e + (100.0 if fits else 0.0)
+		var score := e + (100.0 if fits else 0.0) + (200.0 if is_named else 0.0)
 		if score > best_score:
 			best = i
 			best_score = score
@@ -4508,7 +4529,7 @@ func _boundary_moment() -> bool:
 			continue
 		_asked["hot|" + str(id)] = true
 		# The midfielder who would actually go to him (tagger_for).
-		var minder = tagger_for((squads[me] as Squad).ground)
+		var minder = tagger_of(me)
 		var stopper := GameDB.player_display_name(minder) if minder != null else "a midfielder"
 		var cost := ("Tagging is %s's job: he takes more of the ball off him and gives up little." % stopper) \
 				if minder != null and Roles.is_tagger(minder) else \
@@ -5177,7 +5198,7 @@ func ai_tactics(side: int) -> Dictionary:
 		if not minders.is_empty():
 			t["spare_minder_id"] = str(minders[0]["id"])
 
-	var tagger = tagger_for((squads[side] as Squad).ground)
+	var tagger = tagger_of(side)
 	if current_quarter >= (2 if read >= 0.4 else 3) and tagger != null and Roles.is_tagger(tagger):
 		var best := ""
 		var best_inf := -1.0
@@ -5260,17 +5281,69 @@ static func midfielder_on_ground(p: Dictionary) -> bool:
 	return own == "MID" or Ratings.second_positions(p).has("MID")
 
 
-## Who goes to the player `side` tags: its tagger if one is on the ground,
-## otherwise the midfielder with the most pressure in his game. null with no
-## midfielder on the ground.
+## Who `side` sends to its tag: the coach's own choice (tactics "tagger_id")
+## while he is a midfielder on the ground, otherwise the assistant's man
+## (tagger_for: the best hold for the least given up, on starting legs, so
+## the job does not hop between players as they tire). A chosen man who
+## goes to the bench or out of the midfield hands the job back.
+func tagger_of(side: int):
+	var ground: Array = (squads[side] as Squad).ground
+	var want := str((tactics[side] as Dictionary).get("tagger_id", ""))
+	if want != "":
+		for p in ground:
+			if str(p["id"]) == want and midfielder_on_ground(p):
+				return p
+	return tagger_for(ground)
+
+
+## Who goes to the player a side tags, before the bounce: the first of
+## tag_order on starting legs. null with no midfielder on the ground.
 static func tagger_for(ground: Array):
-	var best = null
+	var order := tag_order(ground)
+	return null if order.is_empty() else order[0]
+
+
+## How tightly `p` holds the man he tags, 0 to 1 (director, 2026-10-11): his
+## Pressure (Roles.tag_press, 1 for a Tagger) times his legs now (energy
+## out of 100). A fresh Tagger is 1, today's tightest tag, and never more.
+static func tag_hold(p: Dictionary, legs: float) -> float:
+	return Roles.tag_press(p) * clampf(legs / 100.0, 0.0, 1.0)
+
+
+## What sending `p` to a tag gives up of his own game: his part in the
+## side's midfield contest from his ratings (as _mid_value: disposal, and
+## contested ball unless he plays on a wing).
+static func tag_give_up(p: Dictionary, ground: Array) -> float:
+	var n_mids := 0
+	var n_centre := 0
+	for q in ground:
+		if str(q.get("role", "")) == "MID":
+			n_mids += 1
+			if not Roles.on_wing(q):
+				n_centre += 1
+	var a: Dictionary = p.get("attr", {})
+	var v := 0.22 * float(a.get("disposal", 0)) / float(maxi(1, n_mids))
+	if not Roles.on_wing(p):
+		v += 0.42 * float(a.get("contested", 0)) / float(maxi(1, n_centre))
+	return v
+
+
+## The side's midfielders on the ground in the order a coach would send them
+## to a tag: the tightest hold first (tag_hold, on `legs` by id, else his
+## starting legs), then the least given up of his own game. The assistant
+## and the AI send the first; the break screen lists them in this order.
+static func tag_order(ground: Array, legs: Dictionary = {}) -> Array:
+	var rows := []
 	for p in ground:
 		if not midfielder_on_ground(p):
 			continue
-		if Roles.is_tagger(p):
-			return p
-		if best == null or float(p["attr"]["pressure"]) > float(best["attr"]["pressure"]):
-			best = p
-	return best
+		var e := float(legs.get(str(p["id"]), _start_energy(p)))
+		rows.append([tag_hold(p, e), tag_give_up(p, ground), str(p["id"]), p])
+	rows.sort_custom(func(a, b):
+		if not is_equal_approx(float(a[0]), float(b[0])):
+			return float(a[0]) > float(b[0])
+		if not is_equal_approx(float(a[1]), float(b[1])):
+			return float(a[1]) < float(b[1])
+		return str(a[2]) < str(b[2]))
+	return rows.map(func(r): return r[3])
 
