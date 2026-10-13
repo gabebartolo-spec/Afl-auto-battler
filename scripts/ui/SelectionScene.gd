@@ -419,8 +419,11 @@ func _this_week() -> Control:
 		v.add_child(_plan_row())
 		return v
 	var code := str(nxt["code"])
-	v.add_child(UiKit.lbl("This week %s %s" % ["v" if str(nxt["venue"]) == "home" else "at",
-			GameDB.club_name(code)], UiKit.BODY, UiKit.TEXT, true))
+	var wk := UiKit.hbox(6)
+	wk.name = "ThisWeekHead"
+	wk.add_child(UiKit.line("This week %s" % ["v" if str(nxt["venue"]) == "home" else "at"], UiKit.BODY, UiKit.TEXT, true))
+	wk.add_child(_side_name(code, UiKit.BODY, 20.0))
+	v.add_child(wk)
 	var lines := UiKit.vbox(3)
 	lines.name = "HeadToHead"
 	v.add_child(lines)
@@ -448,7 +451,10 @@ func _this_week() -> Control:
 		var mv := UiKit.vbox(2)
 		mv.name = "KeyMatchups"
 		v.add_child(mv)
-		mv.add_child(UiKit.lbl("Their key forwards", UiKit.BODY, UiKit.TEXT, true))
+		var kf := UiKit.hbox(6)
+		kf.add_child(UiKit.club_marker(code, 18.0))
+		kf.add_child(UiKit.line("Their key forwards", UiKit.BODY, _side_ink(code), true))
+		mv.add_child(kf)
 		for m in mus:
 			mv.add_child(_matchup_row(m))
 	v.add_child(UiKit.spacer(6))
@@ -474,16 +480,57 @@ func _matchup_row(m: Dictionary) -> Control:
 	var t := UiKit.vbox(0)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(t)
-	var who := _para(MatchNotes.matchup_line(GameDB.player_display_name(f),
-			GameDB.player_display_name(m.get("def", {}))), 14, UiKit.TEXT)
-	who.name = "MatchupLine"
-	t.add_child(who)
+	t.add_child(_matchup_sentence(f, m.get("def", {})))
 	t.add_child(_para(Matchups.describe(f), 12, UiKit.MUTED))
 	var b := UiKit.btn("Change", 14)
 	b.name = "ChangeMatchup"
 	b.custom_minimum_size = Vector2(104, 44)
 	b.pressed.connect(func(): _show_matchup(f, m["def"]))
 	h.add_child(b)
+	return h
+
+
+## "Moore is on Curnow." with each name in its side's colour and its guernsey
+## beside it: your defender reads as yours, their forward as theirs (director,
+## 2026-10-13, readability). Same words as MatchNotes.matchup_line. Where a
+## club's colour is too dark for the page the name stays TEXT and the guernsey
+## alone says whose he is; the two sides are also told apart by position
+## (yours first, theirs after "is on").
+func _matchup_sentence(fwd: Dictionary, def: Dictionary) -> Control:
+	var flow := HFlowContainer.new()
+	flow.name = "MatchupLine"
+	flow.add_theme_constant_override("h_separation", 4)
+	flow.add_theme_constant_override("v_separation", 0)
+	var mine := GameState.my_club
+	var theirs := str(GameState.my_next_opponent().get("code", ""))
+	var their_name := GameDB.player_display_name(fwd)
+	if def.is_empty():
+		flow.add_child(UiKit.line("Nobody is on", 14, UiKit.TEXT))
+	else:
+		flow.add_child(_side_chip(mine, GameDB.player_display_name(def)))
+		flow.add_child(UiKit.line("is on", 14, UiKit.TEXT))
+	flow.add_child(_side_chip(theirs, their_name, "."))
+	return flow
+
+
+## A guernsey and a bold name in the club's ink.
+func _side_chip(code: String, text: String, tail := "") -> Control:
+	var h := UiKit.hbox(4)
+	h.add_child(UiKit.club_marker(code, 16.0))
+	h.add_child(UiKit.line(text + tail, 14, _side_ink(code), true))
+	return h
+
+
+## A club's colour as ink on the page when it reads (4.5:1), else TEXT, so a
+## dark club (Collingwood, Carlton) is carried by its guernsey instead.
+func _side_ink(code: String) -> Color:
+	return UiKit.score_colour(code, UiKit.BG)
+
+
+func _side_name(code: String, fs: int, marker := 18.0) -> Control:
+	var h := UiKit.hbox(6)
+	h.add_child(UiKit.club_marker(code, marker))
+	h.add_child(UiKit.line(GameDB.club_name(code), fs, _side_ink(code), true))
 	return h
 
 
@@ -527,7 +574,11 @@ func _close_matchup() -> void:
 func _plan_row() -> Control:
 	var h := UiKit.hbox(8)
 	h.name = "PlanRow"
-	var l := UiKit.lbl("Game plan: %s" % CoachReport.plan_label(GameState.club_plan), UiKit.BODY, UiKit.TEXT, true)
+	# Your plan, your club: its guernsey and ink, bold (the chosen thing).
+	var mark := UiKit.club_marker(GameState.my_club, 18.0)
+	mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(mark)
+	var l := UiKit.lbl("Game plan: %s" % CoachReport.plan_label(GameState.club_plan), UiKit.BODY, _side_ink(GameState.my_club), true)
 	l.name = "PlanLine"
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(l)
