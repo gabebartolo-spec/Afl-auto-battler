@@ -1,8 +1,10 @@
 extends SceneTree
 ## Readability roll-out batch 2 (director, 2026-10-13): This week, Coaching,
 ## Staff, Club Forge and the menu, for one match-up "your club v opponent".
-##   godot --path . --script tools/visual/capture_readability_b2.gd -- --club COL --opp CAR --size 390x844 --out /tmp/rb2
-## Writes <out>_selection.png, _plan.png, _coaching.png, _staff.png, _forge.png, _main.png
+##   godot --path . --script tools/visual/capture_readability_b2.gd -- --out /tmp/rb2
+## (no --club: all three match-ups, Collingwood v Carlton, Essendon v Sydney and
+## Hawthorn v Brisbane, at 390x844 and 1280x720). Writes
+## <out>_<club>_<opp>_<width>_selection.png, _plan.png, _coaching.png, _staff.png, _forge.png, _main.png
 ## and prints the deterministic clipped-text check: "CLIPPED n" is the number
 ## of visible labels with more lines than they may show, or with trimmed text
 ## on a one-line label, on all of these screens.
@@ -47,19 +49,27 @@ func _check_clipped(scene: Node, tag: String) -> void:
 
 func _run() -> void:
 	var out := "/tmp/rb2"
-	var club := "COL"
-	var opp := "CAR"
+	var sets := [["COL", "CAR"], ["ESS", "SYD"], ["HAW", "BRL"]]
+	var sizes := [[390, 844], [1280, 720]]
 	var a := OS.get_cmdline_user_args()
 	for i in range(a.size() - 1):
 		match str(a[i]):
 			"--out": out = str(a[i + 1])
-			"--club": club = str(a[i + 1])
-			"--opp": opp = str(a[i + 1])
+			"--club": sets = [[str(a[i + 1]), str(a[i + 2])]]
 			"--size":
 				var wh := str(a[i + 1]).split("x")
-				W = int(wh[0])
-				H = int(wh[1])
+				sizes = [[int(wh[0]), int(wh[1])]]
 	await process_frame
+	for st in sets:
+		for sz in sizes:
+			W = int(sz[0])
+			H = int(sz[1])
+			await _one(str(st[0]), str(st[1]), "%s_%s_%s_%d" % [out, st[0], st[1], W])
+	print("CLIPPED ", _clipped.size(), " ", str(_clipped))
+	quit(0)
+
+
+func _one(club: String, opp: String, out: String) -> void:
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
 	state.autosave_enabled = false
@@ -115,5 +125,6 @@ func _run() -> void:
 		await _frames(6)
 	await _shot(out + "_forge.png")
 	_check_clipped(f, "forge")
-	print("CLIPPED ", _clipped.size(), " ", str(_clipped))
-	quit(0)
+
+	f.queue_free()
+	await _frames(3)
