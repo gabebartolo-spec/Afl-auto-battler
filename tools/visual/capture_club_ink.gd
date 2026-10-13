@@ -40,7 +40,7 @@ func _run() -> void:
 	for code in codes:
 		var c := str(code)
 		var ink: Color = UK.club_ink(c)
-		var wrap := UK.hbox(8)
+		var wrap: HBoxContainer = UK.hbox(8)
 		wrap.custom_minimum_size = Vector2(500, 52)
 		var bar := ColorRect.new()
 		bar.color = ink
@@ -48,7 +48,7 @@ func _run() -> void:
 		wrap.add_child(bar)
 		var mk: Control = UK.club_marker(c, 30.0)
 		wrap.add_child(mk)
-		var nm := UK.ellipsis(db.club_name(c), 18, ink, true)
+		var nm: Label = UK.ellipsis(db.club_name(c), 18, ink, true)
 		nm.custom_minimum_size.x = 220
 		wrap.add_child(nm)
 		wrap.add_child(UK.lbl("%.1f:1" % UK.contrast(ink, UK.PANEL), 14, UK.TEXT))
@@ -56,7 +56,7 @@ func _run() -> void:
 		var sw := ColorRect.new()
 		sw.color = raw
 		sw.custom_minimum_size = Vector2(22, 22)
-		var sw_box := UK.vbox(0)
+		var sw_box: VBoxContainer = UK.vbox(0)
 		sw_box.alignment = BoxContainer.ALIGNMENT_CENTER
 		sw_box.add_child(sw)
 		wrap.add_child(sw_box)
