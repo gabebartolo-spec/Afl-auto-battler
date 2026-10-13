@@ -49,6 +49,9 @@ func _check(condition: bool, message: String) -> void:
 
 func _new_season(club := "GEE") -> void:
 	GameState.reset()
+	# reset() rolls a career seed from the clock; this season's timing draws
+	# (Conditioning) hang on it, so two "same" seasons must share one.
+	GameState.career_seed = SUITE_SEED
 	GameState.start_season(club, GameDB.club_list(club))
 
 
