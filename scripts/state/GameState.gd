@@ -3742,7 +3742,7 @@ func _after_round(results: Array) -> void:
 			and int(season_awards.get("year", 0)) != season_year:
 		_close_season_awards()
 	_captaincy_week()
-	_culture_week()
+	_culture_week(results)
 	_next_week_event()
 	_find_coach_approaches()
 
@@ -8717,12 +8717,20 @@ func _culture_move(code: String, strand: String, d: int, why: String) -> void:
 	add_news("culture", line)
 
 
-## After each round, every club: a run of losses or wins that has just reached
-## its mark moves Togetherness. When the season is over, its close.
-func _culture_week() -> void:
+## After each round, every club that played in it (`results`): a run of losses
+## or wins that has just reached its mark moves Togetherness, once. A club on a
+## bye, or out of the finals, has reached nothing new that week. When the
+## season is over, its close.
+func _culture_week(results: Array) -> void:
 	if season == null or my_club == "":
 		return
+	var played := {}
+	for res in results:
+		played[str((res as Dictionary).get("home", ""))] = true
+		played[str((res as Dictionary).get("away", ""))] = true
 	for code in season.lists:
+		if not played.has(str(code)):
+			continue
 		var form: Array = season.club_results(str(code))
 		var losses := 0
 		var wins := 0

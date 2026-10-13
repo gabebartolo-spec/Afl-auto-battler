@@ -50,6 +50,7 @@ func run() -> void:
 	_test_culture_headline()
 	_test_culture_order_and_tails()
 	_test_culture_sentences()
+	_test_culture_runs_once()
 	_test_culture_copy_is_true()
 	_test_captain_cards()
 	_test_group_words_are_sentence_case()
@@ -1506,6 +1507,12 @@ func _test_culture() -> void:
 		if any:
 			moved_clubs += 1
 	_check(moved_clubs >= 12 and values.size() >= 4, "Most clubs have a culture after a season, and they differ (%d clubs, %d values)" % [moved_clubs, values.size()])
+	var repeats := PackedStringArray()
+	for code in GameState.season.lists:
+		var raw: Array = (rel2.get(Culture.key(str(code), "together"), {}) as Dictionary).get("log", [])
+		if Culture.reasons(rel2, str(code), "together").size() != raw.size():
+			repeats.append(str(code))
+	_check(repeats.is_empty(), "Through a whole season no club's run is logged twice (%s)" % ", ".join(repeats))
 	var again := JSON.stringify(rel2)
 	GameState._culture_season()
 	_check(JSON.stringify(GameState.relations) == again, "Closing the season twice moves nothing")
@@ -1764,6 +1771,74 @@ func _test_culture_sentences() -> void:
 			and "Played finals in 2026 and 2027." in texts and "Five wins in a row in 2025 and 2026." in texts,
 			"Reasons read as football sentences with the time at the end (%s)" % " | ".join(texts))
 	_check(Culture.group_text("Togetherness", g[0]).contains("2027"), "The newest year leads (%s)" % texts[0])
+
+
+## A run of losses or wins is one row: logged the week it reaches its mark, by
+## the club that played; an older save's repeats read as one.
+func _test_culture_runs_once() -> void:
+	var four := str(Culture.run_step(4, 0)[2])
+	var five := str(Culture.run_step(0, 5)[2])
+	var rel := {}
+	for w in ["Round 24", "Wildcard Round", "Qualifying & Elimination Finals", "Semi Finals", "Grand Final"]:
+		Culture.change(rel, "GEE", "together", -3, four, 2027, w)
+	var told := Culture.reasons(rel, "GEE", "together")
+	_check(told.size() == 1 and str(told[0]["w"]) == "Round 24", "A run logged again through the finals reads as one row (%d)" % told.size())
+	_check(((rel[Culture.key("GEE", "together")] as Dictionary)["log"] as Array).size() == 5, "The save keeps what it holds")
+	rel = {}
+	Culture.change(rel, "GEE", "together", 3, five, 2027, "Round 9")
+	Culture.change(rel, "GEE", "together", 3, five, 2027, "Round 10")
+	Culture.change(rel, "GEE", "together", -3, four, 2027, "Round 3")
+	Culture.change(rel, "GEE", "together", -3, four, 2027, "Round 15")
+	Culture.change(rel, "GEE", "together", -3, four, 2027, "Semi Finals")
+	Culture.change(rel, "GEE", "together", -3, four, 2028, "Round 4")
+	var rows := PackedStringArray()
+	for r in Culture.reasons(rel, "GEE", "together"):
+		rows.append("%d %s %s" % [int(r["y"]), str(r["w"]), str(r["why"])])
+	_check(" | ".join(rows) == "2028 Round 4 %s | 2027 Semi Finals %s | 2027 Round 15 %s | 2027 Round 3 %s | 2027 Round 9 %s" % [four, four, four, four, five],
+			"A bye week's repeat goes; a second run later in the year, a run that ends in a final and next year's all stay (%s)" % " | ".join(rows))
+	_check(Culture.event_text("Togetherness", {"w": "Semi Finals", "why": four, "d": -3}) == "Semi Finals: a run of four losses. Togetherness fell."
+			and Culture.event_text("Togetherness", {"w": "Off-season", "why": "Played finals", "d": 3}) == "Played finals. Togetherness rose.",
+			"A run that reaches its mark in a final names the final; an off-season reason names no week")
+	_check(Culture.run_length(four) == 4 and Culture.run_length(str(Culture.run_step(8, 0)[2])) == 8 and Culture.run_length(five) == 5
+			and Culture.run_length("Played finals") == 0, "Only a run's reason counts as a run")
+	# In the game: the club that played reaches the mark once; a week it sits out adds nothing.
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var rivals := []
+	for code in GameState.season.lists:
+		if str(code) != "GEE":
+			rivals.append(str(code))
+	var rounds := []
+	for i in range(8):
+		rounds.append([{"home": "GEE", "away": rivals[i], "score": [50, 80]}])
+	var key := Culture.key("GEE", "together")
+	var count := func() -> int:
+		return ((GameState.relations.get(key, {}) as Dictionary).get("log", []) as Array).size()
+	GameState.season.results = rounds.slice(0, 4)
+	GameState.last_label = "Round 4"
+	GameState._culture_week(rounds[3])
+	var first: int = count.call()
+	GameState.last_label = "Round 5"
+	GameState._culture_week([{"home": rivals[9], "away": rivals[10], "score": [70, 60]}])
+	GameState.last_label = "Round 6"
+	GameState._culture_week([])
+	var after_idle: int = count.call()
+	var shown := Culture.reasons(GameState.relations, "GEE", "together")
+	_check(first == 1 and after_idle == 1 and shown.size() == 1 and str(shown[0]["w"]) == "Round 4" and str(shown[0]["why"]) == four,
+			"Four losses in a row is logged once, in its round; a bye and a week out add nothing (%d, %d)" % [first, after_idle])
+	GameState.season.results = rounds.slice(0, 5)
+	GameState.last_label = "Round 7"
+	GameState._culture_week(rounds[4])
+	_check(count.call() == 1, "A fifth loss in a row is the same run")
+	GameState.season.results = rounds
+	GameState.last_label = "Round 10"
+	GameState._culture_week(rounds[7])
+	shown = Culture.reasons(GameState.relations, "GEE", "together")
+	_check(count.call() == 2 and shown.size() == 2 and str(shown[0]["why"]) == str(Culture.run_step(8, 0)[2]) and str(shown[0]["w"]) == "Round 10",
+			"The run is told again only when it reaches eight")
+	GameState.reset()
 
 
 # --- A result that names players (the time trial) --------------------------------
