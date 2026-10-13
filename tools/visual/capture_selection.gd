@@ -63,6 +63,7 @@ func _run() -> void:
 	for i in range(6):
 		await process_frame
 	print("view ", root.get_visible_rect().size)
+	state.replay_seed = 2027
 	state.start_season(club, db.club_list(club))
 	for r in range(rounds):
 		state.advance()
