@@ -122,7 +122,7 @@ func _run() -> void:
 	# Each treatment (CultureSheet.variant): the way in by a real tap (phone), the
 	# screen, the reasons, then Back. Writes <out>_<V>_culture.png and <out>_<V>_reasons.png.
 	for v in ["A", "B", "C"]:
-		CultureSheet.variant = v
+		load("res://scripts/ui/CultureSheet.gd").variant = v
 		current_scene.queue_free()
 		await process_frame
 		root.get_node("Router").go("list")
