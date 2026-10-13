@@ -98,6 +98,16 @@ func _run() -> void:
 	await _frames(8)
 	print("scene ", current_scene.name, " stop ", state.preseason_stop())
 	await _shot(out + "_trial.png")
+	var hurt: Node = current_scene.find_child("TrialHurt_0", true, false)
+	if hurt != null:
+		# The "Hurt in training" list, brought into view.
+		var hp: Node = hurt.get_parent()
+		while hp != null and not (hp is ScrollContainer):
+			hp = hp.get_parent()
+		if hp != null:
+			(hp as ScrollContainer).ensure_control_visible(hurt as Control)
+			(hp as ScrollContainer).scroll_vertical += 60
+		await _shot(out + "_trial_hurt.png")
 	await _scroll(true)
 	await _shot(out + "_trial_low.png")
 	await _press("PreSeasonGo")
