@@ -35,6 +35,10 @@ var _db: Node
 var _checks := 0
 var _failures: Array[String] = []
 
+## The career the other screens are opened on starts from this seed; the
+## draft is built with its own explicit seed (12345).
+const SUITE_SEED := 2027
+
 
 func _initialize() -> void:
 	_run.call_deferred()
@@ -61,6 +65,7 @@ func _run() -> void:
 	_state.save_path = "user://test_keyboard.save"
 	_state.settings_path = "user://test_keyboard.cfg"
 	_state.show_real_names = false
+	_state.replay_seed = SUITE_SEED
 	_state.delete_saved_career()
 
 	_preset()
@@ -227,6 +232,7 @@ func _draft(row: Array) -> void:
 func _fresh_career() -> void:
 	_state.reset()
 	_state.start_season("COL", _db.club_list("COL"))
+	_state.replay_seed = SUITE_SEED
 	_state.tutorials = false
 
 
