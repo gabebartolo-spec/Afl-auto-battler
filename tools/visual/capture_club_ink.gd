@@ -23,8 +23,8 @@ func _run() -> void:
 	var db = root.get_node("GameDB")
 	var UK = load("res://scripts/ui/UiKit.gd")
 	UK.apply_appearance(mode)
-	root.size = Vector2i(1100, 640)
-	DisplayServer.window_set_size(Vector2i(1100, 640))
+	root.size = Vector2i(1100, 520)
+	DisplayServer.window_set_size(Vector2i(1100, 520))
 	var bg := ColorRect.new()
 	bg.color = UK.PANEL
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -33,7 +33,7 @@ func _run() -> void:
 	grid.columns = 2
 	grid.position = Vector2(24, 20)
 	grid.add_theme_constant_override("h_separation", 40)
-	grid.add_theme_constant_override("v_separation", 12)
+	grid.add_theme_constant_override("v_separation", 6)
 	root.add_child(grid)
 	var codes: Array = db.clubs.keys()
 	codes.sort()
@@ -41,17 +41,20 @@ func _run() -> void:
 		var c := str(code)
 		var ink: Color = UK.club_ink(c)
 		var wrap: HBoxContainer = UK.hbox(8)
-		wrap.custom_minimum_size = Vector2(500, 52)
+		wrap.custom_minimum_size = Vector2(500, 40)
 		var bar := ColorRect.new()
 		bar.color = ink
-		bar.custom_minimum_size = Vector2(4, 0)
+		bar.custom_minimum_size = Vector2(4, 34)
 		wrap.add_child(bar)
 		var mk: Control = UK.club_marker(c, 30.0)
 		wrap.add_child(mk)
 		var nm: Label = UK.ellipsis(db.club_name(c), 18, ink, true)
 		nm.custom_minimum_size.x = 220
 		wrap.add_child(nm)
-		wrap.add_child(UK.lbl("%.1f:1" % UK.contrast(ink, UK.PANEL), 14, UK.TEXT))
+		var ratio: Label = UK.lbl("%.1f:1" % UK.contrast(ink, UK.PANEL), 14, UK.TEXT)
+		ratio.autowrap_mode = TextServer.AUTOWRAP_OFF
+		ratio.custom_minimum_size.x = 48
+		wrap.add_child(ratio)
 		var raw: Color = db.club_colours(c)[int(UK.INK_SLOT.get(c, 0))] if int(UK.INK_SLOT.get(c, 0)) >= 0 else UK.TEXT
 		var sw := ColorRect.new()
 		sw.color = raw
@@ -60,7 +63,9 @@ func _run() -> void:
 		sw_box.alignment = BoxContainer.ALIGNMENT_CENTER
 		sw_box.add_child(sw)
 		wrap.add_child(sw_box)
-		wrap.add_child(UK.lbl("primary #%s" % raw.to_html(false), 12, UK.MUTED))
+		var hex: Label = UK.lbl("from #%s" % raw.to_html(false), 12, UK.MUTED)
+		hex.autowrap_mode = TextServer.AUTOWRAP_OFF
+		wrap.add_child(hex)
 		grid.add_child(wrap)
 	for i in range(8):
 		await process_frame
