@@ -42,6 +42,7 @@ var _wide := false
 var _short := false
 var _layout_key := ""
 var _resize_queued := false
+var _built_width := 0.0
 var _last_batch_start := 0
 
 var _margin: MarginContainer
@@ -125,12 +126,16 @@ func _reflow() -> void:
 	if not is_inside_tree():
 		return
 	_apply_margins()
+	# The phone keyboard shrinks the window's height only: leave the screen
+	# (and the focused search field) alone until it goes away.
+	if UiKit.keyboard_resize(self, _built_width):
+		return
 	if _layout_signature() != _layout_key:
 		var scrolls := _scroll_positions()
 		var search_focus := is_instance_valid(_search_field) and _search_field.has_focus()
 		var caret := _search_field.caret_column if search_focus else 0
 		_build_layout()
-		_restore_scrolls.call_deferred(scrolls)
+		_restore_scrolls(scrolls)
 		if search_focus and is_instance_valid(_search_field):
 			_search_field.grab_focus()
 			_search_field.caret_column = caret
@@ -144,16 +149,17 @@ func _usable_size() -> Vector2:
 
 func _layout_signature() -> String:
 	var area := _usable_size()
-	return "%s/%s/%d" % [area.x >= 760.0 and area.x > area.y,
+	return "%s/%s/%d" % [ScreenLayout.wide_view(area.x, area.y, 760.0),
 			area.y < 680.0, _grid_columns()]
 
 
 func _build_layout() -> void:
 	_club_backdrop()
 	var area := _usable_size()
-	_wide = area.x >= 760.0 and area.x > area.y
+	_wide = ScreenLayout.wide_view(area.x, area.y, 760.0)
 	_short = area.y < 680.0
 	_layout_key = _layout_signature()
+	_built_width = UiKit.view_width(self)
 	_apply_margins()
 	_root.add_theme_constant_override("separation", 6 if _short else 10)
 	if _phase == "club":
@@ -174,7 +180,7 @@ func _apply_margins() -> void:
 func _scroll_positions() -> Array:
 	var values := []
 	for sc in [_board_scroll, _history_scroll, _mine_scroll, _order_scroll]:
-		values.append(sc.scroll_vertical if is_instance_valid(sc) else 0)
+		values.append(UiKit.scroll_place(sc) if is_instance_valid(sc) else 0)
 	return values
 
 
@@ -182,7 +188,7 @@ func _restore_scrolls(values: Array) -> void:
 	var scrolls := [_board_scroll, _history_scroll, _mine_scroll, _order_scroll]
 	for i in range(scrolls.size()):
 		if is_instance_valid(scrolls[i]):
-			scrolls[i].scroll_vertical = int(values[i])
+			UiKit.restore_scroll(scrolls[i], int(values[i]))
 
 
 # ---------------------------------------------------------------------------
@@ -1076,6 +1082,9 @@ func _open_player(id: String) -> void:
 		var pl := UiKit.lbl(ped, UiKit.SECONDARY, UiKit.MUTED)
 		pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(pl)
+	var family := FamilyLine.make(p, self)
+	if family != null:
+		v.add_child(family)
 	var status := _draft_status(p)
 	var st := UiKit.lbl(status[0], 14, status[1])
 	st.name = "DetailStatus"

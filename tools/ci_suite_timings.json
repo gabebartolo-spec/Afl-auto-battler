@@ -41,6 +41,8 @@
     "matchup": 79,
     "stats": 10,
     "story": 30,
-    "back_nav": 140
+    "back_nav": 140,
+    "family": 15,
+    "scroll": 30
   }
 }

@@ -11,6 +11,7 @@ const LONG_PRESS_SECONDS := 0.45
 
 var _role := ""
 var _query := ""
+var _built_width := 0.0
 var _selected := ""
 var _showing_detail := false
 var _notice := ""
@@ -50,7 +51,7 @@ func _ready() -> void:
 	_root = UiKit.vbox(8)
 	margin.add_child(_root)
 	get_viewport().size_changed.connect(func():
-		if is_inside_tree():
+		if is_inside_tree() and not UiKit.keyboard_resize(self, _built_width):
 			_build())
 	_build()
 	if GameState.intro_due("training"):
@@ -126,9 +127,10 @@ func _on_names() -> void:
 
 
 func _build() -> void:
-	_wide = UiKit.view_width(self) >= 760.0
-	var list_y := _list_scroll.scroll_vertical if is_instance_valid(_list_scroll) else 0
-	var detail_y := _detail_scroll.scroll_vertical if is_instance_valid(_detail_scroll) else 0
+	_wide = ScreenLayout.wide_view(UiKit.view_width(self), 0.0, 760.0, false)
+	_built_width = UiKit.view_width(self)
+	var list_y := UiKit.scroll_place(_list_scroll) if is_instance_valid(_list_scroll) else 0
+	var detail_y := UiKit.scroll_place(_detail_scroll) if is_instance_valid(_detail_scroll) else 0
 	UiKit.clear(_root)
 	_list_scroll = null
 	_detail_scroll = null
@@ -150,14 +152,8 @@ func _build() -> void:
 		_root.add_child(_detail_panel())
 	else:
 		_root.add_child(_list_panel())
-	_restore_scroll.call_deferred(list_y, detail_y)
-
-
-func _restore_scroll(list_y: int, detail_y: int) -> void:
-	if is_instance_valid(_list_scroll):
-		_list_scroll.scroll_vertical = list_y
-	if is_instance_valid(_detail_scroll):
-		_detail_scroll.scroll_vertical = detail_y
+	UiKit.restore_scroll(_list_scroll, list_y)
+	UiKit.restore_scroll(_detail_scroll, detail_y)
 
 
 func _summary() -> Control:

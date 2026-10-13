@@ -49,7 +49,10 @@ func _run() -> void:
 		await _minder_cards(sz)
 		await _loose_interceptor(sz)
 		await _main_ruck_picker(sz)
+		await _best_so_far(sz)
 	_break_units_keep_followups()
+	_break_packing_is_shortest()
+	_club_ink_all()
 	for club in ["COL", "GWS", "STK"]:
 		await _pc_break_worst_case(club)
 	await _tag_not_saved()
@@ -623,12 +626,62 @@ func _coach_descriptions(sz: Vector2i) -> void:
 	if named != null:
 		var tw: String = await Tap.tap(named)
 		await _settle()
-		_check(tw == "" and tn.text.contains("goes to him"), "Picking a player brings the tagger line (%s: %s)" % [tag, tn.text])
+		_check(tw == "" and tn.text.contains(" tags "), "Picking a player brings the tagger line (%s: %s)" % [tag, tn.text])
 		var tw2: String = await Tap.tap(box.find_child("TagPickerGrid_", true, false))
 		await _settle()
 		_check(tw2 == "" and tn.text.begins_with("No tag"), "Back to no tag, the line says so (%s)" % tag)
 		await Tap.tap(named)
 		await _settle()
+		# Who tags: your assistant's man first, another midfielder a real tap away.
+		var who_box: Node = box.find_child("TaggerPicker", true, false)
+		var mine_btn: Button = null
+		if who_box != null:
+			for b in who_box.find_children("TaggerPickerGrid_*", "Button", true, false):
+				if str(b.name) != "TaggerPickerGrid_":
+					mine_btn = b
+					break
+		_check(who_box != null and mine_btn != null, "You are offered who goes to the tag (%s)" % tag)
+		var dflt: Button = who_box.find_child("TaggerPickerGrid_", true, false) if who_box != null else null
+		# The card's words are kept on the button (its labels are children); the
+		# trade is his season Player rating, never his disposals (director, 2026-10-13).
+		var words := func(b: Button) -> String: return str(b.get_meta("card_text", b.text))
+		var gives := func(t: String) -> bool:
+			return t.contains("Gives up His own game (") and not t.contains("disposals") 					and (t.contains("season rating ") or t.contains("yet to play this season"))
+		_check(dflt != null and gives.call(words.call(dflt)) and words.call(dflt).contains("Your assistant's pick")
+				and mine_btn != null and gives.call(words.call(mine_btn)),
+				"Your assistant's tagger shows what he gives up, like the others, marked as the pick (%s: %s)" % [tag, words.call(dflt).replace("
+", " / ") if dflt else "-"])
+		# Name bold on top, three labelled facts, the pick a quiet label on his card, your club's rule.
+		var cards: Array = who_box.find_children("Card_TaggerPickerGrid_*", "Control", true, false) if who_box != null else []
+		var shaped := not cards.is_empty()
+		for cd in cards:
+			shaped = shaped and cd.find_child("CardName", true, false) != null and cd.find_child("ClubRule", true, false) != null 					and (cd.find_child("CardFacts", true, false) as Container).get_child_count() >= 3
+		_check(shaped, "Each Who tags card is a name, three labelled facts and your club's rule (%s)" % tag)
+		_check(dflt != null and dflt.get_parent().find_child("CardPick", true, false) != null
+				and cards.filter(func(cd): return cd.find_child("CardPick", true, false) != null).size() == 1,
+				"Only your assistant's pick carries the pick label (%s)" % tag)
+		if sz.x >= 800 and cards.size() >= 2:
+			# A narrow half of a column, so two to a row: the first two share one.
+			_check(absf((cards[1] as Control).global_position.y - (cards[0] as Control).global_position.y) < 2.0,
+					"On a PC the Who tags cards sit side by side, not in a phone column (%s)" % tag)
+		if sz.x < 800:
+			var short := []
+			for pk in ["TagPicker", "TaggerPicker"]:
+				var pk_node: Node = box.find_child(pk, true, false)
+				if pk_node != null:
+					for b in pk_node.find_children("*", "Button", true, false):
+						if (b as Control).is_visible_in_tree() and (b as Control).size.y < 44.0:
+							short.append("%s %.0f" % [b.name, (b as Control).size.y])
+			_check(short.is_empty(), "Every Tag and Who tags button is a thumb's height on a phone (%s: %s)" % [tag, ", ".join(short)])
+		if mine_btn != null:
+			# The card's first line is his name; the facts sit under it.
+			var mine_name: String = words.call(mine_btn).split("\n")[0].strip_edges()
+			var ww: String = await Tap.tap(mine_btn)
+			await _settle()
+			_check(ww == "" and tn.text.begins_with(mine_name), "The midfielder you tap is the one who goes (%s: %s; tapped %s)" % [tag, tn.text, mine_name])
+			var wd: String = await Tap.tap(who_box.find_child("TaggerPickerGrid_", true, false))
+			await _settle()
+			_check(wd == "" and not tn.text.begins_with(mine_name), "Back to your assistant's man (%s: %s; was %s)" % [tag, tn.text, mine_name])
 
 	# Play through, three calls: each offers only the men who fill its job, and
 	# its note says his job and what it does; with nobody, what that means. Real taps.
@@ -817,6 +870,29 @@ func _follows_its_question(par: Node, at: int) -> bool:
 	return false
 
 
+## The height packer deals a break's calls into four columns so the tallest is
+## as short as it can be. The units are GWS's fullest PC break with Best so far
+## (heights in px, measured): the old greedy deal left a column of 551, the
+## best deal is 532.
+func _break_packing_is_shortest() -> void:
+	var ms = load("res://scripts/ui/MatchScene.gd")
+	var h := [333.0, 96.0, 122.0, 133.0, 124.0, 263.0, 140.0, 240.0, 122.0, 207.0, 176.0, 122.0]
+	var picks: Array = ms.call("_shortest_tallest", h, 4, 1000.0)
+	var seen := []
+	var tallest := 0.0
+	for col in picks:
+		var t := 0.0
+		for k in col:
+			seen.append(int(k))
+			t += float(h[int(k)])
+		tallest = maxf(tallest, t)
+	seen.sort()
+	_check(picks.size() == 4 and seen == range(h.size()), "Every call lands in exactly one column (%s)" % str(seen))
+	_check(tallest <= 540.0, "The tallest column is the shortest there is, not the greedy 551 (%.0f)" % tallest)
+	_check((ms.call("_shortest_tallest", h, 4, tallest) as Array).is_empty(),
+			"No better deal exists than the shortest one found (%.0f)" % tallest)
+
+
 ## The packer's grouping on a made-up break (a follow-up is the first thing in
 ## the next column): it stays with its question, whichever column holds it.
 func _break_units_keep_followups() -> void:
@@ -853,6 +929,176 @@ func _break_units_keep_followups() -> void:
 		c.free()
 
 
+## Best so far on the break (director, 2026-10-11): three of each side by match
+## rating so far, the numbers the match's own player stats, a real tap on
+## "All player stats" opens the full table.
+func _best_so_far(sz: Vector2i) -> void:
+	var tag := "%dx%d" % [sz.x, sz.y]
+	var db = root.get_node("GameDB")
+	var notes = load("res://scripts/ui/match/MatchNotes.gd")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = sz
+	_check(_state.prepare_interactive_match(), "A live match is prepared for Best so far (%s)" % tag)
+	var sim = _state.pending_sim
+	var me := int(sim.moment_side)
+	sim.run_quarter()
+	var res: Dictionary = sim.result()
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	var box: Node = m.find_child("CoachBox", true, false)
+	var block: Node = box.find_child("BestSoFar", true, false) if box != null else null
+	_check(block != null, "The break shows Best so far (%s)" % tag)
+	if block == null:
+		m.queue_free()
+		await _settle()
+		return
+	# The top three of each side, from the match's own player stats.
+	var want := []
+	for side in [me, 1 - me]:
+		var ranked := []
+		for p in (res["roster"] as Array)[side]:
+			var st: Dictionary = (res["players"] as Dictionary).get(str(p["id"]), {})
+			ranked.append([str(p["id"]), int(notes.rating(st)), int(float(st.get("disposals", 0.0)))])
+		ranked.sort_custom(func(a, b): return a[1] > b[1] or (a[1] == b[1] and a[2] > b[2]))
+		for r in ranked.slice(0, 3):
+			want.append(r)
+	var bad := []
+	var found := 0
+	for r in want:
+		var row: Node = block.find_child("BestRow_%s" % str(r[0]), true, false)
+		if row == null:
+			# A PC break drops the third of each side when it will not fit 720 high.
+			if not (sz.x >= 900 and want.find(r) % 3 == 2):
+				bad.append("missing " + str(r[0]))
+			continue
+		found += 1
+		var rating_l: Label = row.find_child("StandoutRating", true, false)
+		if rating_l == null or rating_l.text != str(r[1]):
+			bad.append("%s rating %s v %d" % [str(r[0]), rating_l.text if rating_l else "-", int(r[1])])
+		# ...and his stat line is the match's own numbers in words (game_line of
+		# result["players"], read now), not a second count.
+		var line_want: String = notes.game_line((res["players"] as Dictionary).get(str(r[0]), {}))
+		if sz.x >= 900:
+			# A PC column holds two numbers; a third would run off the line.
+			line_want = ", ".join(PackedStringArray(line_want.split(", ")).slice(0, 2))
+		var texts := []
+		for lb in row.find_children("*", "Label", true, false):
+			texts.append((lb as Label).text)
+		if not texts.has(line_want):
+			bad.append("%s line %s not shown" % [str(r[0]), line_want])
+	_check((found == want.size() or (sz.x >= 900 and found == 4)) and bad.is_empty(), "Best so far lists the best of each side with the match's own ratings (%s: %s)" % [tag, str(bad)])
+	# Each side under its own club name, even numbers each; on a phone the
+	# block sits below the controls, so the next quarter's choices are never
+	# pushed under the pinned Start button.
+	_check(block.find_child("BestClub_%d" % me, true, false) != null and block.find_child("BestClub_%d" % (1 - me), true, false) != null
+			and (found == 6 or (sz.x >= 900 and found == 4)), "Best so far has a heading per club and the same number each (%s: %d rows)" % [tag, found])
+	_check(block.find_children("RatingHeading", "Label", true, false).size() == 1, "Best so far says Rating once, not per club (%s)" % tag)
+	var pair_inks: Array = load("res://scripts/ui/UiKit.gd").club_ink_pair(str(res["home"]), str(res["away"]))
+	# Allegiance: each side has its club-colour bar; its name and ratings are in
+	# the club's readable colour (4.5:1 on the break) or plain text, never a
+	# club colour that fails (Carlton, Collingwood on dark).
+	var uk = load("res://scripts/ui/UiKit.gd")
+	var ally_bad := []
+	for side in [me, 1 - me]:
+		var code := str(res["home"] if side == 0 else res["away"])
+		var bar: Node = block.find_child("BestSide_%d" % side, true, false).find_child("ClubBar", true, false)
+		var nm: Label = block.find_child("BestClub_%d" % side, true, false)
+		if bar == null or nm == null:
+			ally_bad.append("side %d missing bar/name" % side)
+			continue
+		if (bar as ColorRect).color != pair_inks[side]:
+			ally_bad.append("%s bar is not the pair's ink" % code)
+		if (bar as ColorRect).custom_minimum_size.x != 4.0:
+			ally_bad.append("%s bar is not 4 px" % code)
+		var ink: Color = nm.get_theme_color("font_color")
+		if ink != uk.club_name_colour(pair_inks[side]):
+			ally_bad.append("%s name is not in its ink (white for a red club)" % code)
+		if uk.contrast(ink, uk.BG) < 4.5:
+			ally_bad.append("%s name contrast %.1f" % [code, uk.contrast(ink, uk.BG)])
+		for rl in (bar.get_parent() as Node).find_children("StandoutRating", "Label", true, false):
+			if (rl as Label).get_theme_color("font_color") != uk.TEXT:
+				ally_bad.append("%s rating is not plain bold text" % code)
+	_check(ally_bad.is_empty(), "Best so far carries each club's colour, readable (%s: %s)" % [tag, str(ally_bad)])
+	# Nothing in the block is clipped: every label's text fits its width.
+	var clipped := []
+	for lb in block.find_children("*", "Label", true, false):
+		var l := lb as Label
+		if l.text == "" or not l.is_visible_in_tree():
+			continue
+		var w := l.get_theme_font("font").get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, l.get_theme_font_size("font_size")).x
+		if w > l.size.x + 1.0 and l.autowrap_mode == TextServer.AUTOWRAP_OFF:
+			clipped.append("%s (%.0f > %.0f)" % [l.text, w, l.size.x])
+	_check(clipped.is_empty(), "Best so far clips no text (%s: %s)" % [tag, str(clipped)])
+	var plan_pick: Node = box.find_child("PlanPicker", true, false)
+	if sz.x < 900 and plan_pick != null:
+		_check((plan_pick as Control).global_position.y < (block as Control).global_position.y,
+				"On a phone Best so far sits below the gameplan choices (%s)" % tag)
+	var all_b: Button = block.find_child("BestSoFarAll", true, false)
+	_check(all_b != null and (await Tap.tap(all_b)) == "", "All player stats takes a real tap (%s)" % tag)
+	await _settle()
+	var sheet: Node = m.find_child("BreakStatsSheet", true, false)
+	_check(sheet != null and sheet.find_child("PlayerStats", true, false) != null,
+			"...and opens the full player table (%s)" % tag)
+	m.queue_free()
+	await _settle()
+
+
+## Every club's two hand-picked inks (director, 2026-10-13: hand-picked, clash
+## swap): each reads as text on the page and on a panel (4.5:1); no two clubs'
+## first inks are closer than 8 in CIE76 Lab (a clear difference side by side;
+## the two reds and two blues that are nearest sit at 8.8 and 9.9); and on a
+## screen with both clubs, every pairing in both orders keeps the home ink and
+## gives two inks at least 25 apart, so two sides are never near-identical.
+## A red ink carries its bar and crest only: the name is plain TEXT.
+func _club_ink_all() -> void:
+	var uk = load("res://scripts/ui/UiKit.gd")
+	var db = root.get_node("GameDB")
+	var bad := []
+	var codes: Array = db.clubs.keys()
+	codes.sort()
+	for code in codes:
+		var c := str(code)
+		for ink in [uk.club_ink(c), uk.club_ink_second(c)]:
+			if uk.contrast(ink, uk.BG) < 4.5 or uk.contrast(ink, uk.PANEL) < 4.5:
+				bad.append("%s ink %s contrast %.1f" % [c, (ink as Color).to_html(false), minf(uk.contrast(ink, uk.BG), uk.contrast(ink, uk.PANEL))])
+	_check(codes.size() >= 18 and bad.is_empty(), "All %d clubs' two inks read on the page and a panel (%s)" % [codes.size(), str(bad)])
+	var near := []
+	for i in range(codes.size()):
+		for j in range(i + 1, codes.size()):
+			var a: String = codes[i]
+			var b: String = codes[j]
+			if a == "COL" or b == "COL":
+				continue
+			var d: float = uk.colour_distance(uk.club_ink(a), uk.club_ink(b))
+			if d < 8.0:
+				near.append("%s/%s %.1f" % [a, b, d])
+	_check(near.is_empty(), "No two clubs' first inks are near-identical (%s)" % str(near))
+	var pairs := 0
+	var alike := []
+	for h in codes:
+		for a in codes:
+			if h == a:
+				continue
+			pairs += 1
+			var pr: Array = uk.club_ink_pair(str(h), str(a))
+			if pr[0] != uk.club_ink(str(h)):
+				alike.append("%s keeps its ink v %s" % [h, a])
+			var d2: float = uk.colour_distance(pr[0], pr[1])
+			if d2 < 25.0:
+				alike.append("%s v %s %.1f" % [h, a, d2])
+	_check(pairs >= 18 * 17 and alike.is_empty(), "Every pairing (%d, home and away) shows two inks 25 or more apart (%s)" % [pairs, str(alike)])
+	var reds := ["ADE", "ESS", "GCS", "MEL", "STK", "SYD"]
+	var red_bad := []
+	for code in codes:
+		var c := str(code)
+		var nm: Color = uk.club_name_colour(uk.club_ink(c))
+		if reds.has(c) != (nm == uk.TEXT) and c != "COL":
+			red_bad.append("%s name %s" % [c, nm.to_html(false)])
+	_check(red_bad.is_empty(), "A red-ink club's name is plain TEXT, every other club's name is its ink (%s)" % str(red_bad))
+
+
 func _pc_break_worst_case(club := "COL") -> void:
 	var db = root.get_node("GameDB")
 	var Mu = load("res://scripts/sim/Matchups.gd")
@@ -883,6 +1129,7 @@ func _pc_break_worst_case(club := "COL") -> void:
 	await _settle()
 	var box: Node = m.find_child("CoachBox", true, false)
 	_check(box != null and box.find_child("LooseTally", true, false) != null, "(setup) your loose man's tally is on the break")
+	_check(box != null and box.find_child("BestSoFar", true, false) != null, "Best so far is on the fullest PC break (%s)" % club)
 	var bc: Control = box.find_child("BreakColumns", true, false) if box != null else null
 	var bsc: ScrollContainer = null
 	var up: Node = bc
@@ -893,6 +1140,8 @@ func _pc_break_worst_case(club := "COL") -> void:
 	var need := (bsc.get_child(0) as Control).get_combined_minimum_size().y if bsc != null else INF
 	_check(box != null and box.find_child("SpareMinderPicker", true, false) != null and need <= room + 1.0,
 			"Quarter time with both loose men and your tally fits 1280x720 without scrolling (%s: %.0f of %.0f)" % [club, need, room])
+	# With room to spare: a longer name or one more line must not tip it over.
+	_check(need <= 608.0 - 8.0, "...with at least 8 px to spare (%s: %.0f of 608)" % [club, need])
 	# Packing moves whole calls: no column opens on a bare line without its
 	# heading (a sentence, a note such as the synergies line, cut loose from its block),
 	# and the synergies line sits with the legs line it is about.
@@ -920,6 +1169,10 @@ func _pc_break_worst_case(club := "COL") -> void:
 	var legs: Node = box.find_child("LegsView", true, false) if box != null else null
 	_check(syn == null or (legs != null and syn.get_parent() == legs.get_parent()),
 			"The synergies line sits beside the legs line, not alone in a call column (%s)" % club)
+	var best_blk: Node = box.find_child("BestSoFar", true, false) if box != null else null
+	if syn != null and legs != null and best_blk != null and best_blk.get_parent() == legs.get_parent():
+		_check(best_blk.get_index() > syn.get_index() and syn.get_index() > legs.get_index(),
+				"The synergies line stays with the legs line, above Best so far (%s)" % club)
 	var stats: Button = box.find_child("BreakStats", true, false) if box != null else null
 	var w: String = await Tap.tap(stats)
 	_check(w == "" and m.find_child("BreakStatsSheet", true, false) != null, "Match stats opens from the actions row with a real tap (%s)" % w)
@@ -1511,6 +1764,27 @@ func _rings_on_the_oval() -> void:
 	_check(pitch.ringed(focus_id), "The player you play through is ringed from the bounce")
 	var tagger = load("res://scripts/sim/MatchSim.gd").tagger_for(sim.squads[me].ground)
 	_check(tagger != null and pitch.ringed(str(tagger["id"])), "So is the player who goes to your tag")
+	# Who tags is the coach's call: another midfielder on the ground takes the
+	# job when named, and it goes back to the assistant's man when the named
+	# player is not a midfielder on the ground.
+	var MS = load("res://scripts/sim/MatchSim.gd")
+	var other_mid = null
+	var not_mid = null
+	for p in sim.squads[me].ground:
+		if MS.midfielder_on_ground(p) and tagger != null and str(p["id"]) != str(tagger["id"]) and other_mid == null:
+			other_mid = p
+		if not MS.midfielder_on_ground(p) and not_mid == null:
+			not_mid = p
+	_check(other_mid != null and not_mid != null, "The side has another midfielder to send")
+	if other_mid != null and not_mid != null:
+		var was: Dictionary = (sim.tactics[me] as Dictionary).duplicate()
+		sim.tactics[me]["tagger_id"] = str(other_mid["id"])
+		_check(str(sim.tagger_of(me)["id"]) == str(other_mid["id"]), "The midfielder you name goes to the tag")
+		_check(str(sim.tagger_of(1 - me)["id"]) == str(MS.tagger_for(sim.squads[1 - me].ground)["id"]),
+				"The other side's tagger is its own")
+		sim.tactics[me]["tagger_id"] = str(not_mid["id"])
+		_check(str(sim.tagger_of(me)["id"]) == str(tagger["id"]), "A player who is not a midfielder on the ground cannot be sent")
+		sim.tactics[me] = was
 	_check(not pitch.ringed(tag_id), "The man you tag is not ringed")
 	var mine := {}
 	for r in (m.get("_res")["roster"][me] as Array):
@@ -1905,6 +2179,34 @@ func _vignettes_setting() -> void:
 					"TV is kept and applied (%s)" % tag)
 			_state.set_screen_size("standard")
 			await _settle()
+		# Screen orientation, on a phone or its browser: a real tap holds it.
+		_check(sheet.find_child("SettingsOrientation_portrait", true, false) == null,
+				"A desktop has no Screen orientation row (%s)" % tag)
+		load("res://scripts/core/ScreenLayout.gd").force_web_phone = true
+		host.queue_free()
+		host = Control.new()
+		host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		root.add_child(host)
+		host.size = Vector2(sz)
+		sheet = options.open(host, true)
+		await _settle()
+		var land: Button = sheet.find_child("SettingsOrientation_landscape", true, false)
+		_check(land != null and sheet.find_child("SettingsOrientation_auto", true, false) != null
+				and _state.screen_orientation() == "auto",
+				"A phone's Settings has Screen: follow the phone, portrait, landscape (%s)" % tag)
+		if land != null:
+			_check((await Tap.tap(land)) == "", "Landscape takes a real tap (%s)" % tag)
+			await _settle()
+			_check(_state.screen_orientation() == "landscape", "Landscape is kept (%s)" % tag)
+			var cfg2 := ConfigFile.new()
+			_check(cfg2.load(_state.settings_path) == OK and cfg2.get_value("ui", "screen_orientation") == "landscape",
+					"Landscape is saved with the settings (%s)" % tag)
+			_state.set_screen_orientation("auto")
+		load("res://scripts/core/ScreenLayout.gd").force_web_phone = false
+		_check(root.get_node("ScreenLayout").orientation_for("portrait") == DisplayServer.SCREEN_PORTRAIT
+				and root.get_node("ScreenLayout").orientation_for("landscape") == DisplayServer.SCREEN_LANDSCAPE
+				and root.get_node("ScreenLayout").orientation_for("junk") == DisplayServer.SCREEN_SENSOR,
+				"Each choice maps to the engine's orientation; unknown follows the phone (%s)" % tag)
 		host.queue_free()
 		await _settle()
 

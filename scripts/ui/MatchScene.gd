@@ -80,6 +80,7 @@ var _ft_tabs: HBoxContainer
 var _ft_tab := "summary"        # summary (home), stats or report
 var _run_side := -1            # who kicked the last goal, and how many in a row
 var _run_len := 0
+var _press_said := [false, false]  # the Defensive press line, once a side
 var _duel_mem := {}             # the feed's memory of the key match-ups (MatchNotes.duel_feed_line)
 var _matchup_overlay: Control
 
@@ -547,6 +548,9 @@ const ROTATION_SHORT := {"hard": "Freshness", "normal": "Balanced", "stars": "Ke
 func _show_coach_box() -> void:
 	if _coach_overlay != null and is_instance_valid(_coach_overlay):
 		return
+	# A new break: nothing to pack again until this one is built.
+	_break_pack_cols = []
+	_break_reading = []
 	_pitch.pause()
 	_sync_controls()
 	var sim: MatchSim = GameState.pending_sim
@@ -638,10 +642,10 @@ func _show_coach_box() -> void:
 		else:
 			rep.add_child(stats)
 			rep.add_child(UiKit.spacer(UiKit.GAP))
-		# The quarter just played, by name: what happened, not what is happening.
 		var played := UiKit.section(str({2: "First quarter", 3: "Second quarter",
 				4: "Third quarter"}.get(q, "Last quarter")))
 		played.name = "QuarterHeading"
+		played.set_meta("break_unit", true)
 		rep.add_child(played)
 		rep.add_child(_quarter_view(q - 1))
 		var did := MatchNotes.calls_lines(_res, _my_side, q - 1) \
@@ -675,6 +679,7 @@ func _show_coach_box() -> void:
 	var calls := {
 		"gameplan": _current_plan(sim),
 		"tag_id": str((sim.tactics[_my_side] as Dictionary).get("tag_id", _last_tactics.get("tag_id", ""))),
+		"tagger_id": str((sim.tactics[_my_side] as Dictionary).get("tagger_id", _last_tactics.get("tagger_id", ""))),
 		"focus_mid": str(_last_tactics.get("focus_mid", "")),
 		"focus_fwd": str(_last_tactics.get("focus_fwd", "")),
 		"focus_def": str(_last_tactics.get("focus_def", "")),
@@ -712,22 +717,77 @@ func _show_coach_box() -> void:
 	var opp := _roster_side(1 - _my_side).filter(func(r): return _taggable_now(sim, r))
 	# Who goes to him - a fact, not advice (Roles: a tagger makes a tag bite
 	# harder than a midfielder doing the job). With no tag, say that instead.
+	# Who does the job is the coach's call too (director, 2026-10-10: the
+	# side's best player was sent to tag, with no say in it). Any of your
+	# midfielders on the ground can go; your assistant's man is the default.
 	var tagger = MatchSim.tagger_for(my_ground)
+	var my_mids := {}
+	for p in my_ground:
+		if MatchSim.midfielder_on_ground(p):
+			my_mids[str(p["id"])] = p
+	if not my_mids.has(str(calls["tagger_id"])):
+		calls["tagger_id"] = ""
+	var others := _roster_side(_my_side).filter(func(r):
+		return my_mids.has(str(r["id"])) and (tagger == null or str(r["id"]) != str(tagger["id"])))
+	# Most able first, by the number on the card: Pressure.
+	var press := func(r: Dictionary) -> float:
+		return float((my_mids.get(str(r["id"]), r) as Dictionary).get("attr", {}).get("pressure", 0.0))
+	others.sort_custom(func(a, b): return press.call(a) > press.call(b))
+	# What he gives up: his Player rating for the season so far, the figure the
+	# Ratings screen shows (a game's average); -1 before he has played.
+	var season_rating := func(id: String) -> float:
+		var book: Dictionary = GameState.season_stats.get(id, {})
+		var games := int(book.get("games", 0))
+		return StatsPlayers.season_rating(book.get("s", {}) as Dictionary) / float(games) if games > 0 else -1.0
+	var tag_detail := func(r: Dictionary, wide: bool) -> String:
+		var p: Dictionary = my_mids.get(str(r["id"]), r)
+		return MatchNotes.tagger_card_detail(p, float(sim.energy.get(str(r["id"]), 100.0)), wide, season_rating.call(str(r["id"])))
 	var tag_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	tag_note.name = "TagNote"
 	tag_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var sync_tag := func(key: String) -> void:
-		if key == "":
+	# Who goes to him is only a question once there is a him: hidden with no
+	# tag (the fullest PC break then still fits without scrolling).
+	var who_block: Array = []
+	var sync_tag := func(_key: String) -> void:
+		var shown_before := who_block.any(func(b): return (b as Control).visible)
+		for b in who_block:
+			(b as Control).visible = str(calls["tag_id"]) != ""
+		var shown_now := who_block.any(func(b): return (b as Control).visible)
+		if _pc_break and shown_now != shown_before and not _break_pack_cols.is_empty():
+			_balance_break_columns.call_deferred(_break_pack_cols)
+		var who = my_mids.get(str(calls["tagger_id"]), tagger)
+		var target := GameDB.player_display_name_by_id(str(calls["tag_id"]), "")
+		if str(calls["tag_id"]) == "":
 			tag_note.text = "No tag: your midfielders play their own game."
-		elif tagger == null:
+		elif who == null:
 			tag_note.text = "No midfielder on the ground to tag with."
+		elif Roles.is_tagger(who):
+			tag_note.text = "%s, your tagger, tags %s." % [GameDB.player_display_name(who), target]
 		else:
-			tag_note.text = ("%s, your tagger, goes to him." if Roles.is_tagger(tagger)
-					else "No specialist tagger on the ground: %s goes to him and gives up his own game.") % GameDB.player_display_name(tagger)
+			tag_note.text = "%s tags %s. He gives up his own game." % [GameDB.player_display_name(who), target]
 	var tag := _player_choice("TagPicker", "No tag", opp, _in_the_game(opp, quick if quick > 0 else 4), calls, "tag_id",
 			"Tag which midfielder?", sync_tag)
 	col_a.add_child(_call_block("Tag", tag))
-	sync_tag.call(str(calls["tag_id"]))
+	if tagger != null and not others.is_empty():
+		# Your assistant's man carries the same facts as the others, so
+		# they can be compared card for card.
+		# On a PC two alternatives beside his card (two rows, so the fullest
+		# break still fits 1280x720); the rest are behind Other player....
+		var card := func(b: Button, id: String) -> void:
+			var who: Dictionary = tagger if id == "" else my_mids.get(id, {})
+			if who.is_empty():
+				return
+			var pid := str(who.get("id", ""))
+			_dress_tagger_card(b, _short_name(who), MatchNotes.tagger_card(who, float(sim.energy.get(pid, 100.0)), season_rating.call(pid)), id == "")
+		var who_tags := _player_choice("TaggerPicker", _card_text(tagger, tag_detail) + "\nYour assistant's pick", others,
+				others.slice(0, 2 if _pc_break else 3),
+				calls, "tagger_id", "Who goes to him?", sync_tag, tag_detail, card)
+		var wb := _call_block("Who tags", who_tags)
+		# The follow-up to Tag: packed with its question, never ahead of it.
+		wb.set_meta("break_follow", true)
+		who_block.append(wb)
+		col_a.add_child(wb)
+	sync_tag.call("")
 	col_a.add_child(tag_note)
 
 	# Key match-ups: who is on their key forwards, how the contests went last
@@ -896,7 +956,16 @@ func _show_coach_box() -> void:
 	var sync_rot := func(key: String) -> void:
 		rot_note.text = str(MatchSim.ROTATION_POLICIES[key]["text"])
 	var rot := _segmented("RotationPicker", rot_opts, calls, "rotation", sync_rot)
-	tail.add_child(_call_block("Rotations", rot))
+	var rot_block := _call_block("Rotations", rot)
+	rot_block.name = "RotationsBlock"
+	if wide:
+		# A gap above Rotations on a PC, so the pep note above it does not run
+		# into the heading; hidden when the block lands at a column's top.
+		var gap := UiKit.spacer(6)
+		gap.name = "RotationsGap"
+		rot_block.add_child(gap)
+		rot_block.move_child(gap, 0)
+	tail.add_child(rot_block)
 	tail.add_child(rot_note)
 	sync_rot.call(_rotation)
 	# On a wide screen the three play-through calls fill the last column, so the
@@ -914,6 +983,10 @@ func _show_coach_box() -> void:
 		syn_label.get_parent().remove_child(syn_label)
 		syn_label.remove_meta("break_unit")
 		(rep if rep != v else tail).add_child(syn_label)
+	# Who is playing well, on the break (director, 2026-10-11): on a PC in the
+	# report column; on a phone below the choices, so nothing the next quarter
+	# depends on is pushed under the pinned Start button.
+	(rep if rep != v else tail).add_child(_best_so_far())
 
 	var start := UiKit.btn("Start quarter" if q > 1 else "Ball it up", UiKit.HEADING, true)
 	start.name = "StartQuarter"
@@ -927,6 +1000,7 @@ func _show_coach_box() -> void:
 			"focus_def": str(calls["focus_def"]),
 			"main_ruck": str(calls["main_ruck"]),
 			"tag_id": str(calls["tag_id"]),
+			"tagger_id": str(calls["tagger_id"]),
 			"interceptor_id": str(calls["interceptor_id"]),
 			"interceptor_set": str(calls["interceptor_id"]) != loose_was,
 			"spare_accountable": str(calls["minder_id"]) != "",
@@ -956,7 +1030,9 @@ func _show_coach_box() -> void:
 		for b in cols.find_children("*", "Button", true, false):
 			if (b as Button).custom_minimum_size.y == 44.0:
 				(b as Button).custom_minimum_size.y = 40.0
-		_balance_break_columns.call_deferred([rep, col_a, col_b, col_c] if rep != v else [col_a, col_b, col_c])
+		_break_pack_cols = [rep, col_a, col_b, col_c] if rep != v else [col_a, col_b, col_c]
+		_break_reading = []
+		_balance_break_columns.call_deferred(_break_pack_cols)
 	else:
 		box["footer"].add_child(start)
 		box["footer"].add_child(skip)
@@ -967,23 +1043,36 @@ func _show_coach_box() -> void:
 			UiKit.attention(found.get_parent() as CanvasItem)
 
 
+## The PC break's call columns and its calls in the order it was built, so a
+## call shown later (Who tags, once there is a tag) packs the break again.
+var _break_pack_cols: Array = []
+var _break_reading: Array = []
+
+
 ## A PC break's calls read in one order down and across the call columns;
 ## where each column ends follows what is in it this break (a loose defender
 ## of theirs, a second ruck), so the tallest column is as short as it can be
 ## and nothing scrolls on a 720-unit screen. A call keeps its words under it.
-func _balance_break_columns(cols: Array) -> void:
-	await get_tree().process_frame
+func _balance_break_columns(cols: Array, again := false) -> void:
+	if not again:
+		await get_tree().process_frame
 	if not is_instance_valid(cols[0]):
 		return
+	# Packed again (a call shown or hidden since): from the reading order the
+	# break was built in, never from the last packing.
+	if _break_reading.is_empty():
+		for c in cols:
+			for n in (c as Node).get_children():
+				_break_reading.append(n)
+	else:
+		for n in _break_reading:
+			if is_instance_valid(n):
+				(n as Node).get_parent().remove_child(n)
+				(cols[0] as Node).add_child(n)
 	# Calls in reading order: a call starts a unit; its notes go with it.
 	var units := _break_units(cols)
 	var sep := float((cols[0] as VBoxContainer).get_theme_constant("separation"))
-	var h: Array = []
-	for u in units:
-		var t := 0.0
-		for n in u:
-			t += (n as Control).get_combined_minimum_size().y + sep
-		h.append(t)
+	var h: Array = _unit_heights(units, sep)
 	# Where each column ends, so the tallest column is as short as it can be
 	# (every split of the units, in order, into that many columns).
 	var n_units := units.size()
@@ -1000,7 +1089,8 @@ func _balance_break_columns(cols: Array) -> void:
 	# is too tall for the screen (both loose men, a tag card, your tally), pack
 	# by height instead: the tallest call goes to the shortest column, and each
 	# column still lists its calls in reading order.
-	await get_tree().process_frame
+	if not again:
+		await get_tree().process_frame
 	if not is_instance_valid(cols[0]):
 		return
 	var sc: ScrollContainer = null
@@ -1008,7 +1098,10 @@ func _balance_break_columns(cols: Array) -> void:
 	while up != null and sc == null:
 		sc = up as ScrollContainer
 		up = up.get_parent()
-	if sc == null or (sc.get_child(0) as Control).get_combined_minimum_size().y <= sc.size.y + 1.0:
+	# Tight counts too: under 8 px to spare, the next line or a longer name
+	# would tip it over, so look for the shorter deal.
+	if sc == null or (sc.get_child(0) as Control).get_combined_minimum_size().y <= sc.size.y - 8.0:
+		_settle_rotations_gap()
 		return
 	var order := range(n_units)
 	order.sort_custom(func(a, b): return float(h[a]) > float(h[b]))
@@ -1060,12 +1153,110 @@ func _balance_break_columns(cols: Array) -> void:
 					break
 			if improved:
 				break
+	# The greedy answer can sit a whole call above the best there is (Best so
+	# far on the fullest PC break: 551 against 532 with the same blocks), so
+	# look for the true shortest tallest column before placing anything.
+	var exact := _shortest_tallest(h, cols.size(), load_h.max())
+	if not exact.is_empty():
+		picks = exact
 	for c in range(cols.size()):
 		(picks[c] as Array).sort()
 		for k in picks[c]:
 			for n in units[k]:
 				(n as Node).get_parent().remove_child(n)
 				(cols[c] as Node).add_child(n)
+	_settle_rotations_gap()
+	# Best so far shows three a side on a PC, as on a phone, while the break
+	# still fits 720 high; when even the best deal overflows, the third of each
+	# side goes (the older two-a-side break) and the calls are dealt again.
+	if _coach_overlay == null or not is_instance_valid(_coach_overlay):
+		return
+	if (sc.get_child(0) as Control).get_combined_minimum_size().y > sc.size.y - 8.0:
+		var dropped := false
+		for r in _coach_overlay.find_children("BestRow_*", "", true, false):
+			if (r as Node).has_meta("best_third"):
+				(r as Node).get_parent().remove_child(r)
+				(r as Node).queue_free()
+				dropped = true
+		if dropped:
+			_balance_break_columns(cols, true)
+			return
+		# Still too tall: the gap above Rotations is the first thing to give.
+		var gap: Node = _coach_overlay.find_child("RotationsGap", true, false)
+		if gap != null:
+			(gap as Control).visible = false
+
+
+## The gap above Rotations is only for a block that has something above it.
+func _settle_rotations_gap() -> void:
+	if _coach_overlay == null or not is_instance_valid(_coach_overlay):
+		return
+	var blk: Node = _coach_overlay.find_child("RotationsBlock", true, false)
+	var gap: Node = blk.find_child("RotationsGap", false, false) if blk != null else null
+	if gap != null:
+		(gap as Control).visible = blk.get_index() > 0
+
+
+func _unit_heights(units: Array, sep: float) -> Array:
+	var h: Array = []
+	for u in units:
+		var t := 0.0
+		for n in u:
+			# A hidden call (Who tags with no tag) takes no room in the column.
+			if (n as Control).visible:
+				t += (n as Control).get_combined_minimum_size().y + sep
+		h.append(t)
+	return h
+
+
+## Every way of dealing the units (heights h) into `parts` columns, searched
+## for the one whose tallest column is shortest; tallest calls first, and a
+## branch is dropped the moment it cannot beat the best so far. Returns the
+## unit numbers in each column, or an empty array when nothing beats `above`
+## (the answer the caller already has).
+static func _shortest_tallest(h: Array, parts: int, above: float) -> Array:
+	var order := range(h.size())
+	order.sort_custom(func(a, b): return float(h[a]) > float(h[b]))
+	var state := {"best": above - 0.5, "picks": [], "steps": 0}
+	var load_h: Array = []
+	var cur: Array = []
+	for c in range(parts):
+		load_h.append(0.0)
+		cur.append([])
+	_deal(order, 0, h, load_h, cur, state)
+	return state["picks"] as Array
+
+
+static func _deal(order: Array, i: int, h: Array, load_h: Array, cur: Array, state: Dictionary) -> void:
+	state["steps"] = int(state["steps"]) + 1
+	if int(state["steps"]) > 400000:
+		return
+	if i == order.size():
+		var top := 0.0
+		for l in load_h:
+			top = maxf(top, float(l))
+		if top < float(state["best"]):
+			state["best"] = top
+			var copy := []
+			for col in cur:
+				copy.append((col as Array).duplicate())
+			state["picks"] = copy
+		return
+	var k: int = order[i]
+	var seen := []
+	for c in range(load_h.size()):
+		# Two columns with the same load so far are the same choice.
+		if seen.has(float(load_h[c])):
+			continue
+		seen.append(float(load_h[c]))
+		var after := float(load_h[c]) + float(h[k])
+		if after >= float(state["best"]):
+			continue
+		load_h[c] = after
+		(cur[c] as Array).append(k)
+		_deal(order, i + 1, h, load_h, cur, state)
+		(cur[c] as Array).pop_back()
+		load_h[c] = after - float(h[k])
 
 
 ## The break's calls as units in reading order: a node marked "break_unit"
@@ -1156,7 +1347,7 @@ func _break_answers() -> Dictionary:
 	var sim: MatchSim = GameState.pending_sim
 	if sim == null:
 		return out
-	var tagger = MatchSim.tagger_for((sim.squads[_my_side] as Squad).ground)
+	var tagger = sim.tagger_of(_my_side)
 	if tagger != null:
 		var tag_id := str((sim.tactics[_my_side] as Dictionary).get("tag_id", ""))
 		for r in _roster_side(1 - _my_side):
@@ -1458,7 +1649,7 @@ func _segmented(node_name: String, options: Array, calls: Dictionary, field: Str
 ## ("" for none); wide is the list sheet's one-line form.
 func _player_choice(node_name: String, none_label: String, roster: Array, first: Array,
 		calls: Dictionary, field: String, sheet_title: String, on_change: Callable = Callable(),
-		detail: Callable = Callable()) -> Control:
+		detail: Callable = Callable(), card: Callable = Callable()) -> Control:
 	var box := UiKit.vbox(0)
 	box.name = node_name
 	var rebuild := func(self_ref: Callable) -> void:
@@ -1486,14 +1677,22 @@ func _player_choice(node_name: String, none_label: String, roster: Array, first:
 					on_change.call(id)
 				self_ref.call(self_ref)))
 		grid.add_child(other)
+		if card.is_valid():
+			# Cards set their own facts (_dress_tagger_card): one to a line on
+			# a phone, side by side on a PC, "Other player..." last.
+			grid.columns = 2 if _pc_break else 1
+			for gb in grid.get_children().duplicate():
+				if gb is Button and gb != other:
+					card.call(gb, str(gb.name).trim_prefix(node_name + "Grid_"))
+			return
 		# On a PC, cards with a detail line sit together in their own row and
 		# "Other player..." beside the none choice: two short buttons share a
 		# row instead of each standing beside a tall card.
-		if _pc_break and detail.is_valid():
+		if _pc_break and detail.is_valid() and not none_label.contains("\n"):
 			grid.move_child(other, 1)
 		if _pc_break:
 			for gb in grid.get_children():
-				(gb as Control).custom_minimum_size.y = 40.0
+				(gb as Control).custom_minimum_size.y = 38.0
 	rebuild.call(rebuild)
 	return box
 
@@ -1504,6 +1703,98 @@ func _card_text(r: Dictionary, detail: Callable) -> String:
 	var extra := str(detail.call(r, false)) if detail.is_valid() else ""
 	return _short_name(r) if extra == "" else "%s
 %s" % [_short_name(r), extra]
+
+
+## A "Who tags" card (director, 2026-10-13: it must read at a glance): his name
+## in bold with where he plays small beside it, then three short facts, one to
+## a line, label quiet and value clear (his Pressure, his legs, what he gives
+## up of his own game). Your club's colour is the rule down the left edge;
+## selection stays the button's own text outline. The button stays the card's
+## background and its tap target, under the words; its words are kept in the
+## "card_text" meta for the tests.
+func _dress_tagger_card(b: Button, who_name: String, c: Dictionary, is_pick: bool) -> void:
+	var gives_value := str(c["gives"]).left(1).to_upper() + str(c["gives"]).substr(1)
+	var plain := "%s\n%s\nPressure %s\nLegs %s\n%s %s" % [who_name, c["where"], c["pressure"], c["legs"],
+			c["gives_label"], gives_value]
+	if is_pick:
+		plain += "\nYour assistant's pick"
+	b.set_meta("card_text", plain)
+	b.text = ""
+	var grid := b.get_parent()
+	var at := b.get_index()
+	var wrap := MarginContainer.new()
+	wrap.name = "Card_" + str(b.name)
+	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.remove_child(b)
+	grid.add_child(wrap)
+	grid.move_child(wrap, at)
+	wrap.add_child(b)
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_left", 10)
+	pad.add_theme_constant_override("margin_right", 10)
+	pad.add_theme_constant_override("margin_top", 10)
+	pad.add_theme_constant_override("margin_bottom", 10)
+	wrap.add_child(pad)
+	var row := UiKit.hbox(10)
+	pad.add_child(row)
+	# Your side's colour, in the shade of it that reads on the card.
+	var rule := ColorRect.new()
+	rule.name = "ClubRule"
+	rule.color = UiKit.club_vivid(str(GameState.my_club), UiKit.SURFACE)
+	rule.custom_minimum_size = Vector2(4, 0)
+	row.add_child(rule)
+	var col := UiKit.vbox(6)
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(col)
+	var head := HFlowContainer.new()
+	head.add_theme_constant_override("h_separation", 8)
+	head.add_theme_constant_override("v_separation", 0)
+	var nm := UiKit.line(who_name, UiKit.NAME, UiKit.TEXT, true)
+	nm.name = "CardName"
+	head.add_child(nm)
+	var where := UiKit.line(str(c["where"]), UiKit.SECONDARY, UiKit.MUTED)
+	where.name = "CardWhere"
+	head.add_child(where)
+	col.add_child(head)
+	var rows := [["Pressure", str(c["pressure"]), false], ["Legs", str(c["legs"]), bool(c["legs_bad"])],
+			[str(c["gives_label"]), gives_value, false]]
+	# A phone card is wide: label and value in two columns. A PC's card is a
+	# narrow half of a column: the label above the long value instead.
+	var facts: Container = VBoxContainer.new() if _pc_break else GridContainer.new()
+	if _pc_break:
+		facts.add_theme_constant_override("separation", 2)
+	else:
+		(facts as GridContainer).columns = 2
+		facts.add_theme_constant_override("h_separation", 10)
+		facts.add_theme_constant_override("v_separation", 2)
+	for f in rows:
+		var k := UiKit.line(str(f[0]), UiKit.SECONDARY, UiKit.MUTED)
+		k.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		var v := UiKit.lbl(str(f[1]), UiKit.BODY, UiKit.BAD if bool(f[2]) else UiKit.TEXT)
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if _pc_break and str(f[0]) != str(c["gives_label"]):
+			var one := HBoxContainer.new()
+			one.add_theme_constant_override("separation", 8)
+			one.add_child(k)
+			one.add_child(v)
+			facts.add_child(one)
+		elif _pc_break:
+			facts.add_child(k)
+			facts.add_child(v)
+		else:
+			facts.add_child(k)
+			facts.add_child(v)
+	facts.name = "CardFacts"
+	col.add_child(facts)
+	if is_pick:
+		var pick := UiKit.line("Your assistant's pick", UiKit.SECONDARY, UiKit.MUTED)
+		pick.name = "CardPick"
+		pick.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		head.add_child(pick)
+	for n in wrap.find_children("*", "Control", true, false):
+		if n != b:
+			(n as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 func _short_name(r: Dictionary) -> String:
@@ -1609,7 +1900,7 @@ func _roster_side(side: int) -> Array:
 # ---------------------------------------------------------------------------
 ## The match so far in full, over the break: team and player stats for both
 ## clubs, any quarter on its own. Close (or Back) returns to your calls.
-func _show_break_stats() -> void:
+func _show_break_stats(players_first := false) -> void:
 	_close_report()
 	var box := UiKit.modal_box(self, 1100.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
@@ -1621,11 +1912,98 @@ func _show_break_stats() -> void:
 	box_score.name = "BreakBoxScore"
 	v.add_child(box_score)
 	v.add_child(UiKit.spacer(UiKit.GAP))
-	v.add_child(MatchStatsView.new().setup(_res, _my_side, true))
+	var msv := MatchStatsView.new()
+	msv.players_first = players_first
+	v.add_child(msv.setup(_res, _my_side, true))
 	var close := UiKit.btn("Back to your calls", UiKit.NAME, true)
 	close.custom_minimum_size = Vector2(0, 44)
 	close.pressed.connect(_close_report)
 	box["footer"].add_child(close)
+
+
+## Best so far, on the break: the three best of each side by match rating so
+## far (yours first), each with his rating and the numbers that stand out, as
+## full time's best players read; "All player stats" opens the full table.
+# A PC break is tight (the fullest one, GWS with both loose men, has 8 px to
+# spare and Best so far may be at most ~213 px tall), so the rows sit 4 px apart
+# there; a phone scrolls and has room for more.
+const BEST_ROW_GAP_PC := 2
+
+
+func _best_so_far() -> Control:
+	var box := UiKit.vbox(4 if _pc_break else 6)
+	box.name = "BestSoFar"
+	box.set_meta("break_unit", true)
+	var head := UiKit.hbox(8)
+	var title := UiKit.section("Best so far")
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	var all := UiKit.btn("All player stats", UiKit.BODY)
+	all.name = "BestSoFarAll"
+	all.custom_minimum_size = Vector2(0, 24 if _pc_break else 44)
+	all.pressed.connect(func(): _show_break_stats(true))
+	# On a PC the way to the table sits in the heading row (shorter block: the
+	# fullest break still fits 1280x720); a phone has it under the list.
+	if _pc_break:
+		head.add_child(all)
+	box.add_child(head)
+	# Your club first, then theirs, each under its own name, best rated first;
+	# the same number each side: three, as on a phone, and on a PC the third
+	# goes (row meta best_third) when the break would not fit 720 high with it.
+	# Allegiance (director 2026-10-13): each side carries its club's colour (bar,
+	# guernsey, name, rating) where it reads; see UiKit.club_heading.
+	# One screen, both clubs: the pair helper gives the away side its second ink
+	# when the two first inks look alike (a clash guernsey).
+	var inks := UiKit.club_ink_pair(str(_res["home"]), str(_res["away"]))
+	for side in [_my_side, 1 - _my_side]:
+		var code := str(_res["home"] if side == 0 else _res["away"])
+		var side_box := UiKit.vbox(4 if _pc_break else 6)
+		var rows_box := UiKit.vbox(BEST_ROW_GAP_PC if _pc_break else 8)
+		# The column heading is a label he can skip: quiet, lighter than the
+		# figures under it.
+		# Said once, in the first club's heading: both columns line up under it.
+		var rh: Label = null
+		if side == _my_side:
+			rh = UiKit.lbl("Rating", UiKit.SECONDARY, UiKit.MUTED)
+			rh.name = "RatingHeading"
+			rh.custom_minimum_size.x = 56
+			rh.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		var sh := UiKit.club_heading(code, rh, UiKit.BODY if _pc_break else UiKit.NAME, 20.0 if _pc_break else 22.0, inks[side])
+		sh.get_node("ClubName").name = "BestClub_%d" % side
+		side_box.add_child(sh)
+		var shown := 0
+		for p in MatchNotes.standouts(_res, side, 3):
+			shown += 1
+			var row := UiKit.hbox(8)
+			row.name = "BestRow_%s" % str(p["id"])
+			if _pc_break and shown == 3:
+				row.set_meta("best_third", true)
+			var col := UiKit.vbox(0)
+			col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			col.add_child(UiKit.emphasis(str(p["name"]), UiKit.BODY if _pc_break else UiKit.NAME))
+			# A PC column is narrow: two numbers fit on the line, a third ran
+			# off it ("6 rebound 5...", capture 2026-10-12).
+			var bits: PackedStringArray = str(p["line"]).split(", ")
+			var line := ", ".join(bits.slice(0, 2)) if _pc_break else str(p["line"])
+			# Under the bold name, a step down in size and tone, still readable.
+			col.add_child(UiKit.ellipsis(line, UiKit.SECONDARY, UiKit.TEXT.lerp(UiKit.MUTED, 0.4)))
+			row.add_child(col)
+			# The figure says how well, in bold TEXT: the club colour says who, and
+			# a red or pink number would read as BAD beside the red Start button.
+			var r := UiKit.line(MatchNotes.rating_text(float(p["rating"])), 20, UiKit.TEXT, true)
+			r.name = "StandoutRating"
+			r.custom_minimum_size.x = 56
+			r.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			row.add_child(r)
+			rows_box.add_child(row)
+		side_box.add_child(rows_box)
+		var wrap := UiKit.club_section_body(code, side_box, inks[side])
+		wrap.name = "BestSide_%d" % side
+		side_box.name = "BestSideBox_%d" % side
+		box.add_child(wrap)
+	if not _pc_break:
+		box.add_child(all)
+	return box
 
 
 func _glance_section(v: VBoxContainer, title: String, node_name: String, lines: Array) -> void:
@@ -1838,6 +2216,7 @@ func _on_event(ev: Dictionary) -> void:
 	_feed_add(ev)
 	_duel_feed(ev)
 	_story_feed(ev)
+	_press_feed(event_index, ev)
 	if str(ev.get("kind", "")) == "goal":
 		_flash_score(int(ev.get("side", 0)))
 		_track_run(int(ev.get("side", 0)))
@@ -2638,6 +3017,18 @@ func _story_feed(ev: Dictionary) -> void:
 	if text != "":
 		_feed_text("%s  %s" % [_clock_text(int(ev.get("q", 1)), int(ev.get("min", 0))), text],
 				UiKit.TEXT, false, "StoryLine")
+
+
+## The Defensive press taking hold, once a side a match: the first time the
+## side whose plan it is defends after setting it (V2, press pilot).
+func _press_feed(event_index: int, ev: Dictionary) -> void:
+	var presser := MatchNotes.press_trigger(_res.get("timeline", []), event_index, ev, _press_said)
+	if presser < 0:
+		return
+	_press_said[presser] = true
+	var code := str(_res["home"] if presser == 0 else _res["away"])
+	_feed_text("%s  %s" % [_clock_text(int(ev.get("q", 1)), int(ev.get("min", 0))), MatchNotes.press_line(code)],
+			UiKit.TEXT, false, "PressLine")
 
 
 ## The battle in the feed, rarely (MatchNotes.duel_feed_line).

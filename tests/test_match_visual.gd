@@ -43,6 +43,7 @@ func run() -> void:
 	_test_set_shot_calls()
 	_test_role_labels(res)
 	_test_flood_shape(res)
+	_test_press_shape(res)
 	_test_centre_setups(res)
 	_test_farewell()
 	_test_match_ground()
@@ -1026,11 +1027,65 @@ func _test_oval_people(res: Dictionary) -> void:
 	_check(pv3.caption_text() == "", "A tackle alone is not a turnover")
 	pv3._cue_turnover({"kind": "pressure", "side": 1, "num": away})
 	_check(pv3.caption_text() == "Turnover", "A forced turnover always says so")
-	_check(pv3.shaking(), "With Screen shake on, a turnover shakes the oval")
-	for i in range(10):
-		pv3._process(0.05)
-	_check(not pv3.shaking(), "...for a quarter of a second at most")
+	_check(not pv3.shaking(), "A turnover is an ordinary event: no shake")
+	# The club banner's light (UiKit.drift) is smooth: a pure function of time, monotone,
+	# near-constant change per unit time, the same position at 30 and 60 fps.
+	for fps in [30.0, 60.0]:
+		var prev := 0.0
+		var prev_step := -1.0
+		var smooth := true
+		var mono := true
+		for f in range(1, 61):
+			var v := UiKit.drift_at(float(f) / fps, 12.0)
+			var step := v - prev
+			if step < 0.0:
+				mono = false
+			if prev_step > 0.0 and absf(step - prev_step) > prev_step * 0.05:
+				smooth = false
+			prev = v
+			prev_step = step
+		_check(mono and smooth, "The banner light moves monotonically and smoothly across 60 frames at %d fps" % int(fps))
+	_check(is_equal_approx(UiKit.drift_at(1.0, 12.0), UiKit.drift_at(30.0 / 30.0, 12.0)),
+			"The light's place depends on time, not on the frame rate")
+	# A layout refresh mid-sweep does not reset it.
+	var duel := ClubDuel.new().setup("COL", "CAR")
+	duel.size = Vector2(390, 120)
+	duel._settle = 0.5
+	duel.resized.emit()
+	duel.size = Vector2(380, 120)
+	_check(is_equal_approx(duel._settle, 0.5), "A layout refresh mid-sweep leaves the light where it is")
+	duel.free()
+	# The goal shake: the only one. Capped at a share of the oval's height at any screen
+	# size (about 4 px on a phone), replaced and not stacked, and zero with it off.
 	var was := GameState.screen_shake_on()
+	GameState.set_screen_shake_on(true)
+	for sz in [Vector2(390, 844), Vector2(1920, 1080)]:
+		var pv4 := PitchView.new()
+		pv4.size = sz
+		pv4.setup(res)
+		var sc := -1
+		for t in pv4.director.tokens:
+			if sc < 0:
+				sc = int(t["num"])
+		var cap := minf(pv4.pitch_rect().size.y * PitchView.SHAKE_SHARE, PitchView.SHAKE_MAX_PX)
+		var worst := 0.0
+		pv4._name_the_scorer({"kind": "goal", "side": 0, "num": sc})
+		pv4._name_the_scorer({"kind": "goal", "side": 0, "num": sc})
+		_check(pv4.shaking(), "A goal shakes the oval at %s" % [sz])
+		for i in range(200):
+			worst = maxf(worst, pv4.shake_offset().length())
+			pv4._shake = maxf(0.0, pv4._shake - 0.001)
+		_check(worst <= cap + 0.001 and worst > 0.0, "Shake offset %.2f px stays within the cap %.2f at %s" % [worst, cap, sz])
+		_check(PitchView.SHAKE_TIME <= 0.2, "The shake lasts under a fifth of a second")
+		if sz.x < 500:
+			_check(cap <= 4.5, "On a phone the cap is about 4 px (%.2f)" % cap)
+		else:
+			_check(cap <= 4.0, "On a big monitor the cap stays small (%.2f)" % cap)
+		pv4._shake = PitchView.SHAKE_TIME
+		GameState.set_screen_shake_on(false)
+		pv4._name_the_scorer({"kind": "goal", "side": 0, "num": sc})
+		_check(pv4.shake_offset() == Vector2.ZERO, "With Screen shake off the offset is zero at %s" % [sz])
+		GameState.set_screen_shake_on(true)
 	GameState.set_screen_shake_on(false)
 	pv3._cue_turnover({"kind": "rebound", "side": 0, "num": home})
 	_check(pv3.caption_text() == "Turnover" and not pv3.shaking(), "With it off, the label shows and the screen stays still")
@@ -1323,6 +1378,125 @@ func _test_flood_shape(res: Dictionary) -> void:
 			"Flooding puts more players behind the ball on the opposition's entries (%d against %d over three entries)" % [flood, plain])
 	_check(other == plain, "Only a recorded flood changes the shape (%d with another call, %d without)" % [other, plain])
 	d._tac[1] = {}
+
+
+## Defensive press pilot, V1-V3 (director, 2026-10-11): from its recorded plan, a
+## side that presses stands higher while the ball is in its opponents' back half
+## or the middle, narrower, and only then; the plan changes nothing else.
+func _test_press_shape(res: Dictionary) -> void:
+	var d := MatchDirector.new()
+	d.setup(res, res["events"])
+	# Side 0 attacks toward +x; side 1 defends the +x goal and presses (or not).
+	# Its height is how far up the ground it stands, from its own goal end, over
+	# three balls in its opponents' back half, plus its width (spread across).
+	var stand := func(plan: String, bx0: float) -> Dictionary:
+		d._tac[1] = {"side": 1, "plan": plan, "bursts": []}
+		var high := 0.0
+		var wide := 0.0
+		var n := 0
+		var front := -1.0e9
+		var back := 1.0e9
+		var mid_gap := 0.0
+		var mids := 0
+		var back_h := 0.0
+		var backs := 0
+		for t in d.tokens:
+			if int(t["side"]) == 1:
+				var p: Vector2 = d._structure_spot(t, Vector2(bx0, 0.0), 0)
+				high += -p.x
+				wide += absf(p.y)
+				front = maxf(front, -p.x)
+				back = minf(back, -p.x)
+				if str(t["role"]) == "DEF":
+					back_h += -p.x
+					backs += 1
+				if str(t["role"]) != "FWD" and str(t["role"]) != "DEF":
+					mid_gap += absf(p.x - bx0)
+					mids += 1
+				n += 1
+		return {"high": high / n, "wide": wide / n, "span": front - back, "mid_gap": mid_gap / maxi(1, mids), "back": back_h / maxi(1, backs)}
+	var worst := 1.0e9
+	for bx in [5.0, -10.0, -30.0, -50.0]:
+		# Side 1 faces -x, so its own goal end is +x: "up the ground" is -x.
+		var base: Dictionary = stand.call("balanced", bx)
+		var press: Dictionary = stand.call("defensive", bx)
+		worst = minf(worst, float(press["back"]) - float(base["back"]))
+		_check(float(press["wide"]) < float(base["wide"]), "The press stands narrower (ball at %d: %.1f v %.1f)" % [int(bx), float(press["wide"]), float(base["wide"])])
+	# One band around the ball: front to back inside 70 m, the midfield within
+	# 25 m of the ball (balls in the opponents' back half and the middle).
+	for bx in [5.0, -10.0, -30.0]:
+		var pb: Dictionary = stand.call("defensive", bx)
+		_check(float(pb["span"]) <= 70.0 and float(pb["mid_gap"]) <= 25.0,
+				"The press is one band round the ball (ball at %d: %.0f m front to back, midfield %.0f m off it)" % [int(bx), float(pb["span"]), float(pb["mid_gap"])])
+	_check(worst >= 12.0, "The press side's back line stands at least 12 m higher with the ball in their opponents' back half or the middle (least gain %.1f m)" % worst)
+	# The ball deep at the press side's own end (world x of 60): no change.
+	var far_base: Dictionary = stand.call("balanced", 60.0)
+	var far_press: Dictionary = stand.call("defensive", 60.0)
+	_check(absf(float(far_press["high"]) - float(far_base["high"])) < 0.01, "The shape is the same when the ball is at their own end")
+	# The faint press zone (director, 2026-10-11): strongest over the opponents'
+	# back third, a quarter of it in the middle, none in their forward third (the
+	# sim's own zone table); it fades in and out, never pops.
+	_check(is_equal_approx(MatchDirector.press_zone_strength(40.0), 1.0)
+			and is_equal_approx(MatchDirector.press_zone_strength(0.0), 0.25)
+			and MatchDirector.press_zone_strength(-40.0) == 0.0,
+			"The press zone follows the sim's zones: full in their back third, a quarter in the middle, none in their forward third")
+	# The field is soft-edged (no step between zones, none anywhere), and full / none far in.
+	var jump := 0.0
+	var xs := -70.0
+	while xs < 70.0:
+		jump = maxf(jump, absf(MatchDirector.press_zone_field(xs + 0.5) - MatchDirector.press_zone_field(xs)))
+		xs += 0.5
+	_check(jump < 0.06 and is_equal_approx(MatchDirector.press_zone_field(60.0), 1.0) and MatchDirector.press_zone_field(-60.0) == 0.0,
+			"The press zone's edges are feathered, never a step (largest change per half metre %.3f)" % jump)
+	d._tac[1] = {"side": 1, "plan": "defensive", "bursts": []}
+	d._poss = 0
+	d.ball["pos"] = Vector2(-30.0, 0.0)
+	_check(d.press_zone_on(1) and not d.press_zone_on(0), "The zone is on for the press side only, while it hunts")
+	d._poss = 1
+	_check(not d.press_zone_on(1), "...and off when it has the ball")
+	d._poss = 0
+	MatchDirector.debug_no_press_shape = true
+	_check(not d.press_zone_on(1), "No zone when the shape is off")
+	MatchDirector.debug_no_press_shape = false
+	var pvs = load("res://scripts/ui/PitchView.gd")
+	_check(pvs.ease_fade(0.0) == 0.0 and pvs.ease_fade(1.0) == 1.0 and pvs.ease_fade(0.1) < 0.05
+			and is_equal_approx(pvs.ease_fade(0.5), 0.5) and float(pvs.PRESS_FADE_SECS) >= 0.9,
+			"The zone eases in and out over 0.9 s, not linearly")
+	# The tint is the press club's own colour and shows on a phone (director,
+	# 2026-10-13: 0.12 moved a channel 8-11 of 255, a darker turf stripe). At full
+	# strength the mix with the turf must move a channel by at least 12% of the range
+	# (30/255) and keep the club's hue, whatever the club (navy and brown included).
+	var turf: Color = pvs.PRESS_TURF
+	var pa := float(pvs.PRESS_ZONE_ALPHA)
+	# Director, 2026-10-13: "right colour, about half as strong" (0.4 -> 0.3: 0.2 lost the hue).
+	_check(is_equal_approx(pa, 0.3), "The press tint is laid at 0.3, lighter than the first 0.4 and not so light the club colour is lost")
+	var tint_ok := true
+	var tint_note := ""
+	for code in ["FRE", "MEL", "WBD", "STK", "CAR", "HAW"]:
+		var w: Color = pvs.press_zone_colour(code)
+		var mix := Color(turf.r * (1.0 - pa) + w.r * pa, turf.g * (1.0 - pa) + w.g * pa, turf.b * (1.0 - pa) + w.b * pa)
+		var shift := maxf(absf(mix.r - turf.r), maxf(absf(mix.g - turf.g), absf(mix.b - turf.b)))
+		var slot := 1 if code == "WBD" else 0
+		var club_h: float = (GameDB.club_colours(code)[slot] as Color).h * 360.0
+		var dh := absf(fposmod(mix.h * 360.0 - club_h + 180.0, 360.0) - 180.0)
+		if shift < 0.12 or dh > 30.0:
+			tint_ok = false
+			tint_note += " %s shift %.0f/255 hue off %.0f" % [code, shift * 255.0, dh]
+	_check(tint_ok, "The press tint shows on a phone and is the press club's colour:" + tint_note)
+	var black: Color = pvs.press_zone_colour("COL")
+	_check(black.v < 0.2 and float(turf.g) - (turf.g * (1.0 - pa) + black.g * pa) >= 0.05,
+			"A club with no hue (Collingwood) gets a dark wash that still darkens the turf visibly")
+	d._tac[1] = {}
+	# The line, once: only the pressing side's opponents' disposals open it.
+	var tl := [{"at": 0, "side": 1, "plan": "defensive"}, {"at": 0, "side": 0, "plan": "balanced"}]
+	var said := [false, false]
+	_check(MatchNotes.press_trigger(tl, 3, {"kind": "kick", "side": 1}, said) == -1, "No line when the press side has the ball")
+	_check(MatchNotes.press_trigger(tl, 3, {"kind": "goal", "side": 0}, said) == -1, "No line on a goal")
+	_check(MatchNotes.press_trigger(tl, 3, {"kind": "kick", "side": 0}, said) == 1, "The line comes the first time the press side defends")
+	said[1] = true
+	_check(MatchNotes.press_trigger(tl, 9, {"kind": "kick", "side": 0}, said) == -1, "...and only once")
+	_check(MatchNotes.press_trigger([{"at": 5, "side": 1, "plan": "defensive"}], 3, {"kind": "kick", "side": 0}, [false, false]) == -1, "No line before the plan is set")
+	_check(MatchNotes.press_line("RIC").ends_with("push up to press."), "The line reads as a commentator would say it")
 
 
 ## ARD-M8-003 step 3, the second demonstration: attacking (stack) against

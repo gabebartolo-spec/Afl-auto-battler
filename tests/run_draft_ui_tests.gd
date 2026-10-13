@@ -114,6 +114,9 @@ func _run() -> void:
 	await _settle()
 	await _test_start_season_footer()
 	await _test_intake_combine()
+	await _test_search_keyboard()
+	await _test_rotation()
+	await _test_phone_browser_never_wide()
 	print("Draft UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
 
@@ -202,6 +205,130 @@ func _test_start_season_footer() -> void:
 	var draft_class = load("res://scripts/sim/Draft.gd")
 	_check(draft_class.role_noun("DEF", 1) == "defender" and draft_class.role_noun("FWD", 2) == "forwards",
 			"Positions are named in the singular for one and the plural for more")
+	root.size = old_size
+
+
+## A phone's keyboard shrinks the window's height while "Search players" has
+## focus. The draft must not rebuild, flip to its short layout, or lose the
+## field: that loop (rebuild frees the field, keyboard hides, window grows,
+## rebuild again) shifted the screen for a tester. Tap elsewhere = focus gone.
+func _test_search_keyboard() -> void:
+	var old_size := root.size
+	root.size = Vector2i(390, 844)
+	_state.reset()
+	_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(),
+			_db.active_clubs(2026).duplicate(), 12345)
+	var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
+	root.add_child(ui)
+	ui.call("_on_club_chosen", "COL")
+	await _settle()
+	ui.call("_select_tab", "pool")
+	await _settle()
+	var field: LineEdit = ui.find_child("PlayerSearch", true, false)
+	_check(field != null and field.is_visible_in_tree(), "Search players is on the pool")
+	if field == null:
+		return
+	await Tap.tap(field)
+	_check(field.has_focus(), "A real tap on Search players gives it focus")
+	for ch in "van":
+		for down in [true, false]:
+			var ev := InputEventKey.new()
+			ev.unicode = ch.unicode_at(0)
+			ev.keycode = ch.unicode_at(0) - 32
+			ev.pressed = down
+			Input.parse_input_event(ev)
+			Input.flush_buffered_events()
+			await process_frame
+	await _settle()
+	# The list follows the typing after a short pause (the search timer).
+	await create_timer(0.4).timeout
+	await _settle()
+	_check(field.text == "van", "Typing van fills the field (%s)" % field.text)
+	var all_n: int = _state.draft.board("", "", "", "overall", true).size()
+	var want: int = _state.draft.board("", "", "van", "overall", true).size()
+	_check(want < all_n and str(ui.get("_board_info").text).contains(str(want)),
+			"Typing van filters the pool (%s)" % ui.get("_board_info").text)
+	var key_before: String = ui.get("_layout_key")
+	var short_before: bool = ui.get("_short")
+	for cycle in range(3):
+		root.size = Vector2i(390, 464)
+		await _settle()
+		_check(ui.find_child("PlayerSearch", true, false) == field and is_instance_valid(field),
+				"Keyboard up %d: the search field is the same node" % cycle)
+		_check(is_instance_valid(field) and field.has_focus() and field.text == "van",
+				"Keyboard up %d: focus and text kept" % cycle)
+		_check(ui.get("_layout_key") == key_before and ui.get("_short") == short_before,
+				"Keyboard up %d: layout mode did not flip" % cycle)
+		root.size = Vector2i(390, 844)
+		await _settle()
+		_check(is_instance_valid(field) and ui.find_child("PlayerSearch", true, false) == field and field.has_focus(),
+				"Keyboard down %d: same field, still focused" % cycle)
+	# Tap elsewhere: focus leaves, and the screen then follows the window.
+	field = ui.find_child("PlayerSearch", true, false)
+	field.release_focus()
+	await _settle()
+	_check(not field.has_focus(), "Focus leaves the field")
+	root.size = Vector2i(390, 464)
+	await _settle()
+	_check(ui.get("_short") == true, "With no field focused, a short window still gets the short layout")
+	root.size = old_size
+	ui.queue_free()
+	await _settle()
+
+
+## Turning the phone swaps width and height: the draft follows the window each
+## time (wide on its side, stacked upright) and rebuilds once per turn, with a
+## search field focused or not. Height alone shrinking is a keyboard, not this.
+func _test_rotation() -> void:
+	var old_size := root.size
+	root.size = Vector2i(390, 844)
+	_state.reset()
+	_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(),
+			_db.active_clubs(2026).duplicate(), 12345)
+	var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
+	root.add_child(ui)
+	ui.call("_on_club_chosen", "COL")
+	await _settle()
+	var sizes := [Vector2i(844, 390), Vector2i(390, 844), Vector2i(844, 390), Vector2i(390, 844)]
+	var last_key: String = ui.get("_layout_key")
+	for i in range(sizes.size()):
+		var margin_before = ui.get("_margin")
+		root.size = sizes[i]
+		await _settle()
+		var key: String = ui.get("_layout_key")
+		var landscape: bool = sizes[i].x > sizes[i].y
+		_check(key != last_key and ui.get("_short") == landscape,
+				"Turn %d to %s: the layout follows (%s)" % [i, "landscape" if landscape else "portrait", key])
+		_check(is_instance_valid(ui.get("_search_field")) or ui.get("_phase") == "board",
+				"Turn %d: the board is still built" % i)
+		last_key = key
+	root.size = old_size
+	ui.queue_free()
+	await _settle()
+
+
+## A phone's browser in a wide frame (itch's 1280x720 shown on a phone, seen
+## at 900x700 or 1280x720 units) must keep the phone layout, not the PC one.
+func _test_phone_browser_never_wide() -> void:
+	var old_size := root.size
+	var layout = load("res://scripts/core/ScreenLayout.gd")
+	for sz in [Vector2i(900, 700), Vector2i(1280, 720)]:
+		for phone in [true, false]:
+			layout.force_web_phone = phone
+			root.size = sz
+			_state.reset()
+			_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(),
+					_db.active_clubs(2026).duplicate(), 12345)
+			var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
+			root.add_child(ui)
+			ui.call("_on_club_chosen", "COL")
+			await _settle()
+			_check(bool(ui.get("_wide")) == (not phone),
+					"%dx%d %s: the draft is %s" % [sz.x, sz.y, "phone browser" if phone else "PC browser",
+					"the phone layout" if phone else "the wide layout"])
+			ui.queue_free()
+			await _settle()
+	layout.force_web_phone = false
 	root.size = old_size
 
 
