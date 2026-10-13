@@ -21,6 +21,18 @@ const SPOTS := {
 const LINES := ["RUCK", "MID", "WING", "DEF", "FWD", "BENCH"]
 const PHONE_MIDS := {"IL": Vector2(0.0, -0.48), "IR": Vector2(0.0, 0.48), "WL": Vector2(0.18, -0.90),
 		"WR": Vector2(0.18, 0.90), "CB": Vector2(-0.42, 0.0), "HFF": Vector2(0.42, 0.0)}
+## Up the screen on a selection page, eight rows of three at most so the
+## oval fits beside the interchange and the list without scrolling.
+const COMPACT := {
+	"FB": Vector2(-0.96, 0.0),
+	"BPL": Vector2(-0.69, -0.45), "BPR": Vector2(-0.69, 0.45),
+	"HBFL": Vector2(-0.41, -0.78), "CB": Vector2(-0.41, 0.0), "HBFR": Vector2(-0.41, 0.78),
+	"IL": Vector2(-0.14, -0.62), "C": Vector2(-0.14, 0.0), "IR": Vector2(-0.14, 0.62),
+	"WL": Vector2(0.14, -0.84), "RUCK": Vector2(0.14, 0.0), "WR": Vector2(0.14, 0.84),
+	"HFFL": Vector2(0.41, -0.78), "HFF": Vector2(0.41, 0.0), "HFFR": Vector2(0.41, 0.78),
+	"FPL": Vector2(0.69, -0.45), "FPR": Vector2(0.69, 0.45),
+	"FF": Vector2(0.96, 0.0),
+}
 const SPINE := {"CB": Vector2(-0.50, 0.0), "C": Vector2(-0.18, 0.0), "RUCK": Vector2(0.16, 0.0),
 		"HFF": Vector2(0.48, 0.0)}
 const ROLE_TABS := [["", "All"], ["DEF", "DEF"], ["MID", "MID"], ["RUCK", "RUCK"], ["FWD", "FWD"]]
@@ -46,6 +58,16 @@ var _read_only := false
 ## Just the oval and the interchange, the right way round: a team that isn't
 ## anyone's opponent (the projected All-Australian team). Set before setup().
 var field_only := false
+## One page of the selection screen (the director, 2026-10-13: no scrolling):
+## the oval and the interchange stacked over the not-picked list, which
+## scrolls inside its own area; the oval takes whatever height is left.
+var stacked := false
+## The line of the last move (or Auto-pick), said under the interchange in
+## place of the tap hint; `hint_extra` is added to the tap hint.
+var start_note := ""
+var hint_extra := ""
+## Controls that act on the side, set beside the "Interchange" word.
+var interchange_actions: Control = null
 ## With field_only: a line under each name in place of position and OVR
 ## (id -> text; the All-Australian team shows each player's club).
 var notes := {}
@@ -59,7 +81,7 @@ func setup(side: Dictionary, wide: bool, list: Array = [], read_only := false) -
 		if not _side.has(line):
 			_side[line] = []
 	_wide = wide
-	vertical = not wide
+	vertical = stacked or not wide
 	add_theme_constant_override("separation", 14)
 	for s in FormationView.SLOTS:
 		_spot_at[str(s["key"])] = s["at"]
@@ -78,11 +100,17 @@ func picked() -> String:
 
 
 func _build() -> void:
+	# The screen's own actions outlive a rebuild: take them out before the clear.
+	if interchange_actions != null and interchange_actions.get_parent() != null:
+		interchange_actions.get_parent().remove_child(interchange_actions)
 	UiKit.clear(self)
 	var field := UiKit.vbox(8)
 	field.name = "BuilderField"
 	field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	field.size_flags_stretch_ratio = 1.15
+	if stacked:
+		field.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		field.size_flags_stretch_ratio = 1.0
 	add_child(field)
 	_pitch = Control.new()
 	_pitch.name = "Pitch"
@@ -90,6 +118,9 @@ func _build() -> void:
 	# On a 1280x720 PC canvas the oval leaves room for the interchange below
 	# it, so the whole side shows without scrolling (director, 2026-10-10).
 	_pitch.custom_minimum_size = Vector2(0, 370 if _wide else 600)
+	if stacked:
+		_pitch.custom_minimum_size = Vector2(0, 300 if _wide else 392)
+		_pitch.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_pitch.mouse_filter = Control.MOUSE_FILTER_PASS
 	_pitch.draw.connect(_draw_pitch)
 	_pitch.resized.connect(_place_spots)
@@ -103,11 +134,21 @@ func _build() -> void:
 			card.name = "Spot_" + str(keys[i])
 			card.set_meta("spot", str(keys[i]))
 			_pitch.add_child(card)
-	field.add_child(UiKit.lbl("Interchange", UiKit.SMALL, UiKit.MUTED, true))
+	var inter := UiKit.lbl("Interchange", UiKit.SMALL, UiKit.MUTED, true)
+	if interchange_actions != null:
+		# The word and what acts on the side, side by side (no stretch between).
+		var irow := UiKit.hbox(12)
+		irow.name = "InterchangeRow"
+		inter.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		irow.add_child(inter)
+		irow.add_child(interchange_actions)
+		field.add_child(irow)
+	else:
+		field.add_child(inter)
 	# A row of five on a PC; on a phone it wraps rather than widen the screen.
 	var bench := GridContainer.new()
 	bench.name = "Bench"
-	bench.columns = 5 if _wide else 3
+	bench.columns = 5 if (_wide or stacked) else 3
 	bench.add_theme_constant_override("h_separation", 6)
 	bench.add_theme_constant_override("v_separation", 6)
 	field.add_child(bench)
@@ -116,6 +157,9 @@ func _build() -> void:
 		var bid := str(bench_ids[i]) if i < bench_ids.size() else ""
 		var bc := _card(bid, true, "BENCH:%d" % i)
 		bc.name = "BenchSpot_%d" % i
+		if stacked:
+			# Five across a phone: the cards share the width, names cut short.
+			bc.custom_minimum_size.x = 0.0
 		bc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		bench.add_child(bc)
 	_place_spots.call_deferred()
@@ -125,15 +169,30 @@ func _build() -> void:
 	var rest := UiKit.vbox(6)
 	rest.name = "BuilderRest"
 	rest.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if stacked:
+		rest.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		rest.size_flags_stretch_ratio = 0.35
+		rest.custom_minimum_size.y = 120
 	add_child(rest)
+	# Role filter and search on one line when the page is stacked.
+	var controls: BoxContainer = rest
+	if stacked:
+		controls = UiKit.hbox(6)
+		controls.name = "BuilderControls"
+		rest.add_child(controls)
 	var tabs := HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", 4)
-	rest.add_child(tabs)
+	if stacked:
+		tabs.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	controls.add_child(tabs)
 	for t in ROLE_TABS:
 		var tb := UiKit.btn(str(t[1]), 13)
 		tb.name = "BuilderRole_" + (str(t[0]) if str(t[0]) != "" else "ALL")
 		tb.custom_minimum_size = Vector2(0, 44)
-		tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if stacked:
+			tb.custom_minimum_size.x = 44
+		else:
+			tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		UiKit.paint_choice(tb, _role == str(t[0]))
 		var key := str(t[0])
 		tb.pressed.connect(func():
@@ -145,7 +204,10 @@ func _build() -> void:
 	_search_field.text_changed.connect(func(t: String):
 		_search = t
 		_fill_grid())
-	rest.add_child(_search_field)
+	if stacked:
+		_search_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_search_field.custom_minimum_size = Vector2(90, 44)
+	controls.add_child(_search_field)
 	if _read_only:
 		var ro := UiKit.lbl("Their side as it would take the field: tap a player to see him.", UiKit.SMALL, UiKit.MUTED)
 		ro.name = "ReadOnlyHint"
@@ -178,18 +240,28 @@ func _build() -> void:
 		bar.add_child(cancel)
 		rest.add_child(bar)
 	else:
-		var hint := UiKit.lbl(ScreenLayout.tap_word() + " a player, then another (or drag one onto another) to swap them.",
-				UiKit.SMALL, UiKit.MUTED)
+		var tap_hint := ScreenLayout.tap_word() + " a player, then another (or drag one onto another) to swap them."
+		if hint_extra != "":
+			tap_hint = hint_extra + " " + tap_hint
+		var hint := UiKit.lbl(start_note if start_note != "" else tap_hint, UiKit.SMALL,
+				UiKit.GOOD if start_note != "" else UiKit.MUTED)
 		hint.name = "BuilderHint"
 		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		rest.add_child(hint)
 	_grid = GridContainer.new()
 	_grid.name = "NotSelected"
 	_grid.columns = 2
+	if stacked and _wide:
+		_grid.columns = 3 if UiKit.view_width(self) < 1600.0 else 4
 	_grid.add_theme_constant_override("h_separation", 6)
 	_grid.add_theme_constant_override("v_separation", 6)
 	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	rest.add_child(_grid)
+	if stacked:
+		var gs := UiKit.scroll(_grid)
+		gs.name = "NotSelectedScroll"
+		rest.add_child(gs)
+	else:
+		rest.add_child(_grid)
 	_fill_grid()
 
 
@@ -251,6 +323,9 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 		var sub := UiKit.lbl(str(notes[id]) if field_only and notes.has(id)
 				else "%s %d" % [Ratings.role_tag(p), int(p["overall"])], 11, UiKit.MUTED)
 		sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		if stacked:
+			sub.autowrap_mode = TextServer.AUTOWRAP_OFF
+			sub.clip_text = true
 		face.add_child(sub)
 		b.custom_minimum_size = Vector2(84 if _wide else 70, 44)
 		if not on and not _read_only:
@@ -432,6 +507,8 @@ func _place_spots() -> void:
 			# Up the screen the midfield runs across it: the inside mids and
 			# wings spread to its edges.
 			at = PHONE_MIDS[key]
+		if not _across and stacked and COMPACT.has(key):
+			at = COMPACT[key]
 		# Across: the ground runs left to right, our goal on the left. Otherwise
 		# it runs up the screen, attacking upward.
 		if _read_only and not field_only:

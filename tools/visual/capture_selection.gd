@@ -5,7 +5,7 @@ extends SceneTree
 ## --picked: one player tapped, waiting for the second tap. --opp: the oval
 ## flipped to this week's opponent. --guide: the synergy guide with Complete.
 ## --report: the assistant's report. --rounds N: play N rounds first.
-## --oval: scrolled down to the oval.
+## --oval: (old) scrolled down to the oval. --club CODE, --page side|week (phone).
 ## Writes <out>_sheet.png.
 
 var W := 1280
@@ -21,6 +21,8 @@ func _run() -> void:
 	var picked := false
 	var oval := false
 	var mode := ""
+	var club := "COL"
+	var page := ""
 	var rounds := 0
 	var a := OS.get_cmdline_user_args()
 	for i in range(a.size()):
@@ -30,6 +32,10 @@ func _run() -> void:
 			var wh := str(a[i + 1]).split("x")
 			W = int(wh[0])
 			H = int(wh[1])
+		if str(a[i]) == "--club" and i + 1 < a.size():
+			club = str(a[i + 1])
+		if str(a[i]) == "--page" and i + 1 < a.size():
+			page = str(a[i + 1])
 		if str(a[i]) == "--rounds" and i + 1 < a.size():
 			rounds = int(a[i + 1])
 		if str(a[i]) == "--picked":
@@ -47,10 +53,12 @@ func _run() -> void:
 	state.reset()
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))
-	state.start_season("COL", db.club_list("COL"))
+	state.start_season(club, db.club_list(club))
 	for r in range(rounds):
 		state.advance()
 	var ui: Control = load("res://scenes/SelectionScene.tscn").instantiate()
+	if page != "":
+		ui.set("_page", page)
 	root.add_child(ui)
 	for i in range(8):
 		await process_frame
