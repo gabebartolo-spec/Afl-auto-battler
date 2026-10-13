@@ -338,6 +338,21 @@ func _test_ui() -> void:
 				"The player profile shows his career through 2026 (%s, want %s)" % [cl.text if cl != null else "none", want])
 		_check(_text(o).contains("Sydney 2017–2021") and _text(o).contains("Adelaide 2022–2026"),
 				"and the clubs, when there is more than one")
+	# The Norm Smith Medal stays on a player's profile for good, a real-named player too.
+	var medallist: Dictionary = dawson if not dawson.is_empty() else (GameState.season.lists["ADE"] as Array)[0]
+	var plain := PlayerSheet.open(host, medallist)
+	await tree.process_frame
+	_check(plain.find_child("ProfileHonours", true, false) == null, "A player with no honours shows no honours line")
+	plain.queue_free()
+	GameState.honour_roll.append({"year": 2031, "premier": "ADE", "norm_smith": [{"id": str(medallist["id"]), "club": "ADE", "line": "30 disp 2.1"}]})
+	GameState.honour_roll.append({"year": 2033, "premier": "GEE", "norm_smith": [{"id": str(medallist["id"]), "club": "ADE", "line": "28 disp"}]})
+	var decorated := PlayerSheet.open(host, medallist)
+	await tree.process_frame
+	var hon: Label = decorated.find_child("ProfileHonours", true, false)
+	_check(hon != null and hon.text == "Norm Smith Medal 2031, 2033",
+			"His profile lists the Norm Smith Medal under his honours (%s)" % [hon.text if hon != null else "none"])
+	decorated.queue_free()
+	GameState.honour_roll.resize(GameState.honour_roll.size() - 2)
 	host.queue_free()
 
 

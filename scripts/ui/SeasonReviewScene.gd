@@ -385,6 +385,11 @@ func _awards_panel() -> Control:
 	var rising: Array = aw.get("rising_star", [])
 	if not rising.is_empty():
 		v.add_child(_award_line("Rising Star", rising[0], "age %d" % int(rising[0]["age"]), false))
+	var norm_smith: Dictionary = aw.get("norm_smith", {})
+	if not norm_smith.is_empty():
+		var ns := _award_line("Norm Smith Medal", norm_smith, str(norm_smith.get("line", "")), true)
+		ns.name = "NormSmithMedal"
+		v.add_child(ns)
 	var mine: Array = (aw.get("best_and_fairest", {}) as Dictionary).get(GameState.my_club, [])
 	if not mine.is_empty():
 		var bf := []
@@ -419,9 +424,11 @@ func _awards_panel() -> Control:
 		v.add_child(UiKit.lbl("Honour roll", UiKit.BODY, UiKit.EMPH, true))
 		for h in GameState.honour_roll:
 			var b: Array = h.get("brownlow", [])
-			v.add_child(_small("%d  Premiers %s  ·  Brownlow %s  ·  you finished %s" % [int(h["year"]),
+			var ns_rows: Array = h.get("norm_smith", [])
+			var ns_part := "  ·  Norm Smith %s" % GameState.award_name(ns_rows[0]) if not ns_rows.is_empty() else ""
+			v.add_child(_small("%d  Premiers %s  ·  Brownlow %s%s  ·  you finished %s" % [int(h["year"]),
 					GameDB.club_short(str(h["premier"])),
-					GameState.award_name(b[0]) if not b.is_empty() else "-",
+					GameState.award_name(b[0]) if not b.is_empty() else "-", ns_part,
 					_ordinal(int(h.get("my_position", 0)))]))
 	var ceremony := UiKit.btn("Open awards program", UiKit.BODY, false)
 	ceremony.name = "AwardsProgram"

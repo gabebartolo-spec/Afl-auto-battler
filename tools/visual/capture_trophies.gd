@@ -11,10 +11,13 @@ extends SceneTree
 ## (scrolled to your seasons), <out>_flag.png and <out>_medal.png (the sheets)
 ## and <out>_filtered.png (the All-Australians alone).
 ##   --size WxH   window size (default 390x844)    --light   light appearance
+##   --club CODE  the club to coach (default COL; use a coloured club for a look)
+##   --history    show a stand-in "Before you" row for that club (fixture, not data)
 ## Never touches a real save.
 
 var _w := 390
 var _h := 844
+var _club := "COL"
 
 
 func _initialize() -> void:
@@ -35,6 +38,14 @@ func _run() -> void:
 				_h = int(wh[1])
 			"--light":
 				mode = "light"
+			"--club":
+				_club = str(a[i + 1])
+			"--history":
+				# A stand-in table, to see the "Before you" row (not real data).
+				var fake := {}
+				fake[_club] = {"years": [1896, 1902, 1910, 1917, 1919, 1927, 1928, 1930, 1935, 1936, 1953, 1958, 1990, 2010, 2023],
+						"comps": {}, "none": false}
+				ClubHistory.use(fake)
 	await process_frame
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
@@ -45,7 +56,7 @@ func _run() -> void:
 	state.reset()
 	state.career_seed = 2031
 	state.replay_seed = 2031
-	state.start_season("COL", db.club_list("COL"))
+	state.start_season(_club, db.club_list(_club))
 	# The hub's first-visit note would sit over the room.
 	state.set_setting("seen_season_stats_intro", true)
 	UK.apply_appearance(mode)
@@ -66,18 +77,18 @@ func _run() -> void:
 	var year: int = state.season_year
 	var entry: Dictionary = state.honour_roll.back()
 	var ids := []
-	for p in state.season.lists["COL"]:
+	for p in state.season.lists[_club]:
 		ids.append(str(p["id"]))
-	entry["premier"] = "COL"
+	entry["premier"] = _club
 	entry["runner_up"] = "CAR"
 	entry["my_position"] = 1
 	# A record that fits a minor premier (the season played may not).
 	entry["my_record"] = "18-5-0"
-	entry["brownlow"] = [{"id": ids[0], "club": "COL", "votes": 31}]
+	entry["brownlow"] = [{"id": ids[0], "club": _club, "votes": 31}]
 	entry["my_aa"] = [ids[0], ids[2]]
-	var old := {"year": year - 1, "my_club": "COL", "premier": "GEE", "runner_up": "COL", "my_position": 3,
-		"brownlow": [], "coleman": [{"id": ids[4], "club": "COL", "goals": 71}], "rising_star": [],
-		"coaches_award": [], "my_bf": [{"id": ids[0], "club": "COL", "bf": 120}]}
+	var old := {"year": year - 1, "my_club": _club, "premier": "GEE", "runner_up": _club, "my_position": 3,
+		"brownlow": [], "coleman": [{"id": ids[4], "club": _club, "goals": 71}], "rising_star": [],
+		"coaches_award": [], "my_bf": [{"id": ids[0], "club": _club, "bf": 120}]}
 	state.honour_roll = [old, entry]
 	scene = load("res://scenes/StatsHubScene.tscn").instantiate()
 	root.add_child(scene)
