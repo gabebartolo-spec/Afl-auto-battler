@@ -18,7 +18,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var out := "readability_b1"
-	var clubs := ["COL", "ESS", "HAW"]
+	var clubs := ["FRE", "MEL", "WBD"]
 	var sizes := ["390x844", "1280x720"]
 	var rounds := 10
 	var a := OS.get_cmdline_user_args()
