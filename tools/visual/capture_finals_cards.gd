@@ -13,7 +13,7 @@ func _initialize() -> void:
 
 
 func _shot(path: String) -> void:
-	for i in range(8):
+	for i in range(90):
 		await process_frame
 	var img := root.get_viewport().get_texture().get_image()
 	img.convert(Image.FORMAT_RGBA8)
