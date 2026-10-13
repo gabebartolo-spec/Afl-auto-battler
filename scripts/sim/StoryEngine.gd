@@ -455,7 +455,7 @@ static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
 		"extend_early":
 			return [["gain", EXTEND_GAIN], ["cost", EXTEND_COST]]
 		"role_trial":
-			return [["note", _trial_words(e)]]
+			return [["gain", _trial_words(e)]]
 	var kind := ""
 	match op:
 		"morale", "board", "trust":
@@ -536,7 +536,7 @@ static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
 static func _trial_words(e: Dictionary) -> String:
 	var n := int(e.get("weeks", 3))
 	var word: String = ["one", "two", "three", "four", "five", "six"][clampi(n, 1, 6) - 1]
-	return "He plays as a {trial_word} for the next %s %s, then goes back." % [word, "game" if n == 1 else "games"]
+	return "He plays as a {trial_word} for the next %s %s, then goes back to being a {trial_home}." % [word, "game" if n == 1 else "games"]
 
 
 ## Left to the captain: what happens if the group listens and what if it doesn't,

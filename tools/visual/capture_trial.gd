@@ -107,7 +107,8 @@ func _run() -> void:
 		gs.start_role_trial(p, 3)
 		gs.advance()
 		gs.advance()
-		gs.pos_ratings[role2] = [70 * 40, 40] if pass_it else [125 * 40, 40]
+		# The league average stays real; his two earlier games are set high or low.
+		gs.role_trial["ratings"] = [140, 140] if pass_it else [30, 30]
 		gs.advance()
 		print("RESULT pass=", pass_it, " role now ", gs._line_of(gs.current_side(), id), " project ", gs.project_job(gs.list_player(id)),
 				" weeks ", (gs.list_player(id).get("project", {}) as Dictionary).get("weeks", 0), " plan ", gs.list_player(id).get("train_plan", ""))

@@ -49,7 +49,7 @@ const PLAYER_FACTS := ["name", "first", "age", "games", "fit", "selected", "over
 		"pot_gap", "contract_years", "morale", "trust", "trust_band", "discipline", "backed",
 		"fit_rank", "talk_case", "kpi", "kpi_or_need", "explain_label", "talk_text", "sore_odds",
 		"ask", "early_price", "more_seasons", "extension_ok", "job", "real_named",
-		"form", "form_games", "has_role2", "starting", "form_low", "trial_word", "trial_avg", "trial_par", "trial_tail",
+		"form", "form_games", "has_role2", "starting", "form_low", "trial_word", "trial_home", "trial_avg", "trial_par", "trial_tail",
 		"leadership", "captain", "delegate_holds", "holds_at", "holds_trust_at"]
 ## Facts about the club and the week (GameState._story_club_facts).
 const CLUB_FACTS := ["club", "opp", "round", "year", "losing_run", "winning_run", "ladder",

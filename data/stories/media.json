@@ -330,7 +330,7 @@
 			"{name} wants to front the group"
 		],
 		"text": [
-			"You kept {name} in when the papers wanted him out. He asks to take the group through what he is working on."
+			"You kept {name} in when the papers wanted him out. He asks for five minutes with the group at the review to answer the papers' story himself."
 		],
 		"choices": [
 			{
@@ -349,7 +349,7 @@
 						"line": "He trusts you a little more."
 					}
 				],
-				"result": "{name} takes the group through what he is working on."
+				"result": "{name} answers the papers' story in front of the group."
 			},
 			{
 				"key": "private",
@@ -465,7 +465,7 @@
 			"{name} passed his trial as a {trial_word}"
 		],
 		"text": [
-			"{first} averaged {trial_avg} as a {trial_word} over the three games. The average {trial_word} this year is {trial_par}. {trial_tail}"
+			"{first} averaged {trial_avg} as a {trial_word} over the three games. Players who started as a {trial_word} this year average {trial_par}. {trial_tail}"
 		],
 		"choices": [
 			{
@@ -493,7 +493,7 @@
 			"{name}'s trial as a {trial_word} is over"
 		],
 		"text": [
-			"{first} averaged {trial_avg} as a {trial_word} over the three games. The average {trial_word} this year is {trial_par}. {trial_tail}"
+			"{first} averaged {trial_avg} as a {trial_word} over the three games. Players who started as a {trial_word} this year average {trial_par}. {trial_tail}"
 		],
 		"choices": [
 			{

@@ -250,6 +250,12 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 		face.add_child(top)
 		var sub := UiKit.lbl(str(notes[id]) if field_only and notes.has(id)
 				else "%s %d" % [Ratings.role_tag(p), int(p["overall"])], 11, UiKit.MUTED)
+		if not field_only and _trial_note(id) != "":
+			# A role trial from a story card: the position and the games left, in the
+			# tile's own second line (it does not grow the tile); the full words are the tooltip.
+			sub.text = _trial_short(id)
+			sub.name = "Trial_" + id
+			sub.add_theme_color_override("font_color", UiKit.TEXT)
 		sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		face.add_child(sub)
 		b.custom_minimum_size = Vector2(84 if _wide else 70, 44)
@@ -261,14 +267,6 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 				sb.border_width_top = 3
 				sb.border_color = UiKit.team_colour()
 				b.add_theme_stylebox_override(st, sb)
-		if not field_only and _trial_note(id) != "":
-			# A role trial from a story card: how long he has in the new role.
-			var tr := UiKit.lbl(_trial_note(id), UiKit.TINY, UiKit.TEXT, true)
-			tr.name = "Trial_" + id
-			tr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			tr.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			face.add_child(tr)
-			b.custom_minimum_size.y = 58
 		if not field_only and Workload.value(p) >= Workload.CARRYING:
 			# How fresh he is, on the card: no profile needed to see it.
 			var ready := UiKit.lbl(Workload.label(p), UiKit.TINY, UiKit.BAD if Workload.value(p) >= Workload.NEEDS_BREAK else UiKit.MUTED)
@@ -277,7 +275,8 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 			ready.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			face.add_child(ready)
 			b.custom_minimum_size.y = 58
-		b.tooltip_text = GameDB.player_display_name(p)
+		b.tooltip_text = GameDB.player_display_name(p) + ("
+" + _trial_note(id) if _trial_note(id) != "" else "")
 	else:
 		var row := UiKit.hbox(6)
 		face.add_child(row)
@@ -338,13 +337,18 @@ func _player(id: String) -> Dictionary:
 	return {}
 
 
-## "Trial: 2 games left" beside the player a story card is trying in a new role.
+## "Trial at midfield, 2 left" beside the player a story card is trying in a new role.
 func _trial_note(id: String) -> String:
 	var t: Dictionary = GameState.role_trial
 	if t.is_empty() or str(t.get("id", "")) != id:
 		return ""
-	var n := int(t.get("left", 0))
-	return "Trial: %d %s left" % [n, "game" if n == 1 else "games"]
+	var where: String = {"MID": "at midfield", "DEF": "in defence", "FWD": "up forward", "RUCK": "in the ruck"}.get(str(t.get("role", "")), "in a new role")
+	return "Trial %s, %d left" % [where, int(t.get("left", 0))]
+
+
+## The same, short enough for a tile: "MID · 2 left".
+func _trial_short(id: String) -> String:
+	return "%s · %d left" % [str(GameState.role_trial.get("role", "")), int(GameState.role_trial.get("left", 0))]
 
 
 func _why_out(p: Dictionary) -> String:

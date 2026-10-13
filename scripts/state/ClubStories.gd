@@ -201,7 +201,7 @@ static func player_fact(gs, p: Dictionary, selected: bool, i: Dictionary, fit_ra
 			# Recent form: his last games' Player Rating, averaged (the form the
 			# game already keeps and shows); form_games counts them (0 to 3).
 			"form": form, "form_games": recent.size(), "has_role2": trial_role(p) != "", "form_low": false,
-			"trial_word": CoachPathway.position_word({"pos": trial_role(p)}), "trial_avg": 0, "trial_par": 0, "trial_tail": "",
+			"trial_word": CoachPathway.position_word({"pos": trial_role(p)}), "trial_home": CoachPathway.position_word({"pos": str(p.get("role", ""))}), "trial_avg": 0, "trial_par": 0, "trial_tail": "",
 			"starting": false,   # player_facts sets it from the side
 			"backed": Backing.is_active(p), "fit_rank": fit_rank, "talk_case": case, "kpi": kpi,
 			"kpi_or_need": kpi if kpi != "" else need_line,
@@ -227,7 +227,7 @@ static func player_fact(gs, p: Dictionary, selected: bool, i: Dictionary, fit_ra
 		out["trial_par"] = int(tr["par"])
 		var back := "He goes back to his usual spot."
 		if bool(tr["ok"]):
-			out["trial_tail"] = ("%s He starts training as a %s, three weeks done already." % [back, str(tr["word"])]
+			out["trial_tail"] = ("%s He starts training as a %s with three weeks already banked." % [back, str(tr["word"])]
 					if bool(tr["trained"]) else "%s He cannot start training there just now." % back)
 		else:
 			out["trial_tail"] = back

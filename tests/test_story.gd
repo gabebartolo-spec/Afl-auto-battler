@@ -340,6 +340,8 @@ func _test_choice_stakes_are_stated() -> void:
 				f["name"] = "Sam"
 				f["vice_name"] = "Joe"
 				f["kid_name"] = "Kid"
+				f["trial_word"] = "midfielder"
+				f["trial_home"] = "defender"
 				var txt := " ".join(StoryEngine.stakes_lines(c.get("effects", []), f))
 				if vague.search(txt) != null or txt.contains("{"):
 					vague_lines.append("%s/%s: %s" % [t["id"], c["key"], txt])
@@ -1071,9 +1073,9 @@ func _test_trial_result() -> void:
 			_check(GameState.project_job(player) == "", "A fail starts no training")
 		var t := str(card["text"])
 		_check(t.contains("averaged %d as a %s" % [int(f["trial_avg"]), str(f["trial_word"])])
-				and t.contains("The average %s this year is %d" % [str(f["trial_word"]), int(f["trial_par"])]),
+				and t.contains("who started as a %s this year average %d" % [str(f["trial_word"]), int(f["trial_par"])]),
 				"The card shows both numbers in words: %s" % t)
-		_check(t.contains("three weeks done already") == started, "...and says whether training starts: %s" % t)
+		_check(t.contains("three weeks already banked") == started, "...and says whether training starts: %s" % t)
 	# The league's position averages fill from every club's starters.
 	_start()
 	_run_on(3)
@@ -1116,7 +1118,8 @@ func _test_role_card_shape() -> void:
 			"The body names the position and who wants to know: %s" % str(card["text"]))
 	_check(not str(card["text"]).contains("He wants to know"), "...not 'He'")
 	_check(str((card["options"] as Array)[1]["label"]) == "Try him as a " + word, "The button reads 'Try him as a %s'" % word)
-	_check(str((card["options"] as Array)[1]["detail"]).contains("plays as a " + word), "...and so does its effect line")
+	var detail := str((card["options"] as Array)[1]["detail"])
+	_check(detail.contains("plays as a " + word) and detail.contains("goes back to being a "), "...and so does its Gain line, naming where he goes back to: %s" % detail)
 	# Already picked in his second position (qa T12): no card, no trial.
 	_start()
 	GameState.set_selection(GameState.current_side())
