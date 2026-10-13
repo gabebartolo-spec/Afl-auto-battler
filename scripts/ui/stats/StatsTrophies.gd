@@ -60,6 +60,10 @@ static func build(host: Control) -> Control:
 	var intro := _para("Your time at %s: %d %s, from %d." % [GameDB.club_name(club), count,
 			"season" if count == 1 else "seasons", first], UiKit.TEXT)
 	intro.name = "TrophiesTenure"
+	# The page's one headline fact, in your colour where it reads.
+	intro.add_theme_font_override("font", UiKit.BOLD)
+	intro.add_theme_font_size_override("font_size", UiKit.BODY)
+	intro.add_theme_color_override("font_color", StatsSide.mine_ink())
 	v.add_child(intro)
 	var kinds := kinds_won(seasons)
 	if not kinds.has(award_filter):
@@ -374,9 +378,13 @@ static func _tenure_table(host: Control, seasons: Array, in_progress: bool) -> C
 
 static func _tenure_row(cols: Array, head: bool, band := false, row_h := ROW_H) -> Control:
 	var p := PanelContainer.new()
-	var flat := StyleBoxFlat.new()
-	flat.bg_color = UiKit.PANEL if band else Color.TRANSPARENT
-	flat.content_margin_left = 4
+	# A premiership season is marked as the ladder marks your row: a wash of
+	# your colour and a rule down its left.
+	var won := not head and str(cols[3]) == "Premiers"
+	var flat := StatsSide.row_style(GameState.my_club, band, true) if won else StyleBoxFlat.new()
+	if not won:
+		flat.bg_color = UiKit.PANEL if band else Color.TRANSPARENT
+	flat.content_margin_left = StatsSide.RULE_INSET + 2   # clear of the rule, in every row so the columns line up
 	flat.content_margin_right = 4
 	p.add_theme_stylebox_override("panel", flat)
 	var h := UiKit.hbox(8)
@@ -385,8 +393,9 @@ static func _tenure_row(cols: Array, head: bool, band := false, row_h := ROW_H) 
 	var widths := [56, 56, 72, 0]
 	for i in range(cols.size()):
 		var text := str(cols[i])
+		# The season and where you finished lead each row; the column heads are quiet.
 		var l := UiKit.line(text, 12 if head else UiKit.BODY,
-				UiKit.MUTED if head or i == 0 else UiKit.TEXT, not head and text == "Premiers")
+				UiKit.MUTED if head else UiKit.TEXT, not head and (i < 2 or text == "Premiers"))
 		l.custom_minimum_size.x = float(widths[i])
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		if i == 3:
@@ -437,7 +446,7 @@ static func _item(art: Control, top: String, bottom: String, wrap_top := false) 
 	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_l.custom_minimum_size.x = width
 	v.add_child(name_l)
-	var what := UiKit.lbl(bottom, 12, UiKit.MUTED)
+	var what := UiKit.lbl(bottom, UiKit.SMALL, UiKit.TEXT)
 	what.name = "Bottom"
 	what.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	what.custom_minimum_size.x = width
@@ -534,7 +543,7 @@ static func _title(v: Control, text: String) -> void:
 	air.custom_minimum_size.y = 16
 	air.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(air)
-	var t := UiKit.section(text)
+	var t := StatsSide.heading(text)
 	t.name = "Title"
 	v.add_child(t)
 
