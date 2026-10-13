@@ -458,7 +458,7 @@
 			"{name} passed his trial as a {trial_word}"
 		],
 		"text": [
-			"{first} averaged {trial_avg} as a {trial_word} over the three games. Players who started as a {trial_word} this year average {trial_par}. {trial_tail}"
+			"{first} averaged a Player rating of {trial_avg} as a {trial_word} over the three games. Players who started as a {trial_word} this year average a Player rating of {trial_par}. {trial_tail}"
 		],
 		"choices": [
 			{
@@ -486,7 +486,7 @@
 			"{name}'s trial as a {trial_word} is over"
 		],
 		"text": [
-			"{first} averaged {trial_avg} as a {trial_word} over the three games. Players who started as a {trial_word} this year average {trial_par}. {trial_tail}"
+			"{first} averaged a Player rating of {trial_avg} as a {trial_word} over the three games. Players who started as a {trial_word} this year average a Player rating of {trial_par}. {trial_tail}"
 		],
 		"choices": [
 			{

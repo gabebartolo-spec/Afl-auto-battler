@@ -1095,8 +1095,8 @@ func _test_trial_result() -> void:
 		else:
 			_check(GameState.project_job(player) == "", "A fail starts no training")
 		var t := str(card["text"])
-		_check(t.contains("averaged %d as a %s" % [int(f["trial_avg"]), str(f["trial_word"])])
-				and t.contains("who started as a %s this year average %d" % [str(f["trial_word"]), int(f["trial_par"])]),
+		_check(t.contains("averaged a Player rating of %d as a %s" % [int(f["trial_avg"]), str(f["trial_word"])])
+				and t.contains("who started as a %s this year average a Player rating of %d" % [str(f["trial_word"]), int(f["trial_par"])]),
 				"The card shows both numbers in words: %s" % t)
 		_check(t.contains("three weeks already banked") == started, "...and says whether training starts: %s" % t)
 	# The league's position averages fill from every club's starters.
