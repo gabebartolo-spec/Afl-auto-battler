@@ -430,6 +430,8 @@ func _poster_ball() -> void:
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
 		var tag := "%dx%d" % [sz.x, sz.y]
 		_reset()
+		# The first-visit intro is answered, as a returning player has.
+		_state.set_setting("seen_weekly_loop_intro", true)
 		_state.start_season("FRE", db.club_list("FRE"))
 		root.size = sz
 		var hub := await _open_hub()
