@@ -17,6 +17,10 @@ static func _gs():
 	return Engine.get_main_loop().root.get_node("GameState")
 
 
+static func _short(club: String) -> String:
+	return str(Engine.get_main_loop().root.get_node("GameDB").club_short(club))
+
+
 const PLATE := "res://assets/vignette/rooms/press_room_plate.png"
 
 
@@ -180,7 +184,7 @@ static func _hero(club: String, size: int) -> HBoxContainer:
 	row.add_child(UiKit.club_marker(club, 48.0))
 	var col := UiKit.vbox(0)
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	var name := UiKit.heading(GameDB.club_short(club), size)
+	var name := UiKit.heading(_short(club), size)
 	name.name = "CultureClub"
 	col.add_child(name)
 	col.add_child(UiKit.lbl("Club culture", UiKit.NAME, UiKit.TEXT, true))
@@ -302,7 +306,7 @@ static func _build_b(root: Control, club: String, data: Array, wide: bool, done:
 	var mark := UiKit.hbox(8)
 	mark.alignment = BoxContainer.ALIGNMENT_BEGIN
 	mark.add_child(UiKit.club_marker(club, 32.0))
-	mark.add_child(UiKit.lbl("%s culture" % GameDB.club_short(club), UiKit.NAME, UiKit.TEXT, true))
+	mark.add_child(UiKit.lbl("%s culture" % _short(club), UiKit.NAME, UiKit.TEXT, true))
 	top.add_child(mark)
 	page.add_child(top)
 	page.add_child(UiKit.spacer(14))
