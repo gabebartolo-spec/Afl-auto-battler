@@ -104,4 +104,4 @@ func _show_card(scene: Control) -> void:
 		n = n.get_parent()
 	if n != null:
 		(n as ScrollContainer).ensure_control_visible(card)
-	await _frames(6)
+	await _frames(40)
