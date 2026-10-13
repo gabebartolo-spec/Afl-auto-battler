@@ -34,6 +34,7 @@ func _run() -> void:
 	_checks += suite.checks
 	_failures.append_array(suite.failures)
 	await _hub_tests()
+	await _poster_ball()
 	await _wide_hub_footer()
 	await _regular_bye()
 	await _finals_week_by_week()
@@ -420,6 +421,102 @@ func _season_wrap() -> void:
 
 ## A fresh career on the suite's seeds (tools/audit/README.md: both seeds,
 ## after reset and before start_season).
+## The match ball on the poster (director, 2026-10-14): the real picture
+## where the "v" was, never tinted, taking no room from the clubs' names and
+## no taps; without the file the "v" is back and nothing has moved.
+func _poster_ball() -> void:
+	var db = root.get_node("GameDB")
+	var art = load("res://scripts/ui/UiArt.gd")
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		var tag := "%dx%d" % [sz.x, sz.y]
+		_reset()
+		_state.start_season("FRE", db.club_list("FRE"))
+		root.size = sz
+		var hub := await _open_hub()
+		var poster: Control = hub.find_child("MatchPoster", true, false)
+		var ball: TextureRect = poster.find_child("MatchBall", true, false) if poster != null else null
+		var tex: Texture2D = ball.texture if ball != null else null
+		_check(tex != null and tex.resource_path == "res://assets/ui/models/match_ball.png"
+				and float(tex.get_width()) >= 2.0 * ball.size.x,
+				"%s: the poster shows the match ball's own picture, sharp at this size (%s)" % [tag, tex.resource_path if tex != null else "missing"])
+		if ball == null:
+			hub.queue_free()
+			await _settle()
+			continue
+		var img := tex.get_image()
+		var mid := img.get_pixel(img.get_width() / 2, img.get_height() / 2)
+		_check(img.get_pixel(0, 0).a < 0.05 and mid.a > 0.95 and mid.r > 2.0 * mid.g and mid.r > 2.0 * mid.b
+				and ball.modulate == Color.WHITE,
+				"%s: it is a red football on a clear background, in no club's colour" % tag)
+		var crests := poster.find_children("ClubMarker", "", true, false)
+		var clear := poster.get_global_rect().grow(0.5).encloses(ball.get_global_rect())
+		for c in crests:
+			clear = clear and not (c as Control).get_global_rect().intersects(ball.get_global_rect())
+		var venue: Label = poster.find_child("MatchVenue", true, false)
+		clear = clear and not venue.get_global_rect().intersects(ball.get_global_rect())
+		_check(crests.size() == 2 and clear and absf(ball.get_global_rect().get_center().x - poster.get_global_rect().get_center().x) <= 1.0,
+				"%s: the ball sits between the two guernseys, on the poster's centre, touching neither them nor the fixture line" % tag)
+		var names_fit := true
+		var name_places := []
+		for l in poster.find_children("*", "Label", true, false):
+			var lab := l as Label
+			if lab.name == "Versus" or lab.name == "Opponent":
+				continue
+			name_places.append(lab.get_global_rect())
+			var need := lab.get_theme_font("font").get_string_size(lab.text, HORIZONTAL_ALIGNMENT_LEFT, -1, lab.get_theme_font_size("font_size")).x
+			if lab.autowrap_mode == TextServer.AUTOWRAP_OFF and need > lab.size.x + 0.5:
+				names_fit = false
+			if lab.autowrap_mode == TextServer.AUTOWRAP_OFF and Rect2(lab.global_position.x + (lab.size.x - need) / 2.0,
+					lab.global_position.y, need, lab.size.y).intersects(ball.get_global_rect()):
+				names_fit = false
+		_check(names_fit, "%s: both clubs' names are whole and clear of the ball" % tag)
+		_check(ball.mouse_filter == Control.MOUSE_FILTER_IGNORE
+				and (poster.find_child("MatchBallShadow", true, false) as Control).mouse_filter == Control.MOUSE_FILTER_IGNORE,
+				"%s: the ball takes no taps" % tag)
+		if sz.x < 600:
+			var acts: Control = hub.find_child("WeekActions", true, false)
+			var first: Button = null
+			for b in (acts.find_children("*", "Button", true, false) if acts != null else []):
+				if (b as Button).is_visible_in_tree() and not (b as Button).disabled:
+					first = b
+					break
+			var act_h := first.size.y if first != null else 0.0
+			var poster_rect := poster.get_global_rect()
+			# Its route unhooked, so the tap does not leave the hub mid-test.
+			for c in (first.pressed.get_connections() if first != null else []):
+				first.pressed.disconnect(c["callable"])
+			var why: String = await Tap.tap(first)
+			_check(why == "", "%s: a real tap still reaches the week's first action under the poster (%s)" % [tag, why])
+			if is_instance_valid(hub):
+				hub.queue_free()
+			await _settle()
+			# Without the file: the "v", and every word where it was.
+			art.dir = "res://assets/ui/no_such_folder"
+			hub = await _open_hub()
+			poster = hub.find_child("MatchPoster", true, false)
+			var v: Label = poster.find_child("Versus", true, false)
+			var same := poster.get_global_rect().is_equal_approx(poster_rect)
+			var i := 0
+			for l in poster.find_children("*", "Label", true, false):
+				if (l as Label).name != "Versus" and (l as Label).name != "Opponent":
+					same = same and i < name_places.size() and (l as Label).get_global_rect().is_equal_approx(name_places[i])
+					i += 1
+			_check(poster.find_child("MatchBall", true, false) == null and v != null and v.self_modulate.a == 1.0 and v.text == "v",
+					"%s: without the picture the poster says 'v', as before" % tag)
+			_check(same and i == name_places.size(), "%s: the ball moves no word on the poster and does not change its size" % tag)
+			acts = hub.find_child("WeekActions", true, false)
+			first = null
+			for b in (acts.find_children("*", "Button", true, false) if acts != null else []):
+				if (b as Button).is_visible_in_tree() and not (b as Button).disabled:
+					first = b
+					break
+			_check(first != null and is_equal_approx(first.size.y, act_h) and act_h >= 44.0,
+					"%s: the week's actions keep their size, a thumb tall (%d)" % [tag, int(act_h)])
+			art.dir = "res://assets/ui/models"
+		hub.queue_free()
+		await _settle()
+
+
 func _reset() -> void:
 	_state.reset()
 	_state.career_seed = SUITE_SEED

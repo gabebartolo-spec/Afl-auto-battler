@@ -58,6 +58,8 @@ func _run() -> void:
 	await _tag_not_saved()
 	await _bounce_close_up()
 	await _playtest_bounce_scene()
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		await _first_box_ball(sz)
 	await _rings_on_the_oval()
 	await _first_goal_line()
 	await _momentum_meter()
@@ -540,6 +542,64 @@ func _phone_match(sz: Vector2i) -> void:
 ## Every coaching choice says what it does, the neutral one too, and the
 ## words follow the choice. Real taps (tests/tap.gd) at the break, and the
 ## plan line under the clock shows every call in full.
+## The match ball on the band before the first ball-up (director,
+## 2026-10-14): the real picture between the two clubs' names, the round and
+## the ground beside them, nothing cut short, and the quarter still starts on
+## a real tap. Without the file the band says "A v B" in one line, as before.
+func _first_box_ball(sz: Vector2i) -> void:
+	var tag := "%dx%d" % [sz.x, sz.y]
+	var db = root.get_node("GameDB")
+	var art = load("res://scripts/ui/UiArt.gd")
+	for with_art in [true, false]:
+		art.dir = "res://assets/ui/models" if with_art else "res://assets/ui/no_such_folder"
+		_state.reset()
+		_state.start_season("FRE", db.club_list("FRE"))
+		root.size = sz
+		_state.prepare_interactive_match()
+		var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+		root.add_child(m)
+		await _settle()
+		var box: Node = m.find_child("CoachBox", true, false)
+		var band: Control = box.find_child("BreakBand", true, false) if box != null else null
+		var where: Label = band.find_child("BandWhere", true, false) if band != null else null
+		var res: Dictionary = m.get("_res")
+		var home := str(db.club_short(str(res["home"])))
+		var away := str(db.club_short(str(res["away"])))
+		if not with_art:
+			_check(where != null and where.text.contains("%s v %s" % [home, away]) and band.find_child("Art_match_ball", true, false) == null,
+					"%s: without the picture the band names the match in one line, as before (%s)" % [tag, where.text if where != null else "-"])
+			m.queue_free()
+			await _settle()
+			continue
+		var ball: TextureRect = band.find_child("Art_match_ball", true, false) if band != null else null
+		_check(ball != null and ball.texture.resource_path == "res://assets/ui/models/match_ball.png" and ball.modulate == Color.WHITE
+				and ball.mouse_filter == Control.MOUSE_FILTER_IGNORE and band.get_global_rect().encloses(ball.get_global_rect()),
+				"%s: the band before the first ball-up shows the match ball's own picture, untinted, inside the band" % tag)
+		var h: Label = band.find_child("Band_home", true, false) if band != null else null
+		var a: Label = band.find_child("Band_away", true, false) if band != null else null
+		_check(h != null and a != null and h.text == home and a.text == away and ball != null
+				and h.get_global_rect().end.x <= ball.global_position.x and ball.get_global_rect().end.x <= a.global_position.x,
+				"%s: the ball sits between the home club's name and the away club's (%s, %s)" % [tag, home, away])
+		var whole := where != null and where.text.contains(str(res.get("label", ""))) and where.text.contains(str(m.call("_venue")))
+		for l in (band.find_children("*", "Label", true, false) if band != null else []):
+			var lab := l as Label
+			var need := lab.get_theme_font("font").get_string_size(lab.text, HORIZONTAL_ALIGNMENT_LEFT, -1, lab.get_theme_font_size("font_size")).x
+			if need > lab.size.x + 0.5 or not band.get_global_rect().grow(0.5).encloses(lab.get_global_rect()):
+				whole = false
+		_check(whole, "%s: the round and the ground are still on the band and no word on it is cut short" % tag)
+		var start: Button = box.find_child("StartQuarter", true, false) if box != null else null
+		_check(start != null and start.size.y >= 44.0, "%s: the button that starts the quarter is still a thumb tall" % tag)
+		if sz.x < 600:
+			# Its handler unhooked: the tap is the test, not the quarter.
+			for c in (start.pressed.get_connections() if start != null else []):
+				start.pressed.disconnect(c["callable"])
+			var why: String = await Tap.tap(start)
+			_check(why == "", "%s: a real tap still starts the first quarter (%s)" % [tag, why])
+		m.queue_free()
+		await _settle()
+	art.dir = "res://assets/ui/models"
+
+
 func _coach_descriptions(sz: Vector2i) -> void:
 	var tag := "%dx%d" % [sz.x, sz.y]
 	var db = root.get_node("GameDB")
