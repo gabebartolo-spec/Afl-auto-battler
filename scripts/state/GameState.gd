@@ -269,6 +269,7 @@ func _ready() -> void:
 	# A desktop opens fullscreen unless the player chose Window (director, 2026-10-12).
 	ScreenLayout.set_fullscreen(bool(cfg.get_value("ui", "fullscreen", true)))
 	_apply_battery_saver(bool(cfg.get_value("ui", "battery_saver", false)))
+	ScreenLayout.set_orientation(screen_orientation())
 
 
 func _exit_tree() -> void:
@@ -435,6 +436,16 @@ func screen_size() -> String:
 func set_screen_size(key: String) -> void:
 	set_setting("screen_size", key)
 	ScreenLayout.set_screen_size(key)
+
+
+func screen_orientation() -> String:
+	var key := str(get_setting("screen_orientation", "auto"))
+	return key if ["auto", "portrait", "landscape"].has(key) else "auto"
+
+
+func set_screen_orientation(key: String, from_tap := false) -> void:
+	set_setting("screen_orientation", key)
+	ScreenLayout.set_orientation(key, from_tap)
 
 
 func fullscreen() -> bool:
@@ -3731,7 +3742,7 @@ func _after_round(results: Array) -> void:
 			and int(season_awards.get("year", 0)) != season_year:
 		_close_season_awards()
 	_captaincy_week()
-	_culture_week()
+	_culture_week(results)
 	_next_week_event()
 	_find_coach_approaches()
 
@@ -8706,12 +8717,20 @@ func _culture_move(code: String, strand: String, d: int, why: String) -> void:
 	add_news("culture", line)
 
 
-## After each round, every club: a run of losses or wins that has just reached
-## its mark moves Togetherness. When the season is over, its close.
-func _culture_week() -> void:
+## After each round, every club that played in it (`results`): a run of losses
+## or wins that has just reached its mark moves Togetherness, once. A club on a
+## bye, or out of the finals, has reached nothing new that week. When the
+## season is over, its close.
+func _culture_week(results: Array) -> void:
 	if season == null or my_club == "":
 		return
+	var played := {}
+	for res in results:
+		played[str((res as Dictionary).get("home", ""))] = true
+		played[str((res as Dictionary).get("away", ""))] = true
 	for code in season.lists:
+		if not played.has(str(code)):
+			continue
 		var form: Array = season.club_results(str(code))
 		var losses := 0
 		var wins := 0

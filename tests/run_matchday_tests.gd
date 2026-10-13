@@ -2179,6 +2179,34 @@ func _vignettes_setting() -> void:
 					"TV is kept and applied (%s)" % tag)
 			_state.set_screen_size("standard")
 			await _settle()
+		# Screen orientation, on a phone or its browser: a real tap holds it.
+		_check(sheet.find_child("SettingsOrientation_portrait", true, false) == null,
+				"A desktop has no Screen orientation row (%s)" % tag)
+		load("res://scripts/core/ScreenLayout.gd").force_web_phone = true
+		host.queue_free()
+		host = Control.new()
+		host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		root.add_child(host)
+		host.size = Vector2(sz)
+		sheet = options.open(host, true)
+		await _settle()
+		var land: Button = sheet.find_child("SettingsOrientation_landscape", true, false)
+		_check(land != null and sheet.find_child("SettingsOrientation_auto", true, false) != null
+				and _state.screen_orientation() == "auto",
+				"A phone's Settings has Screen: follow the phone, portrait, landscape (%s)" % tag)
+		if land != null:
+			_check((await Tap.tap(land)) == "", "Landscape takes a real tap (%s)" % tag)
+			await _settle()
+			_check(_state.screen_orientation() == "landscape", "Landscape is kept (%s)" % tag)
+			var cfg2 := ConfigFile.new()
+			_check(cfg2.load(_state.settings_path) == OK and cfg2.get_value("ui", "screen_orientation") == "landscape",
+					"Landscape is saved with the settings (%s)" % tag)
+			_state.set_screen_orientation("auto")
+		load("res://scripts/core/ScreenLayout.gd").force_web_phone = false
+		_check(root.get_node("ScreenLayout").orientation_for("portrait") == DisplayServer.SCREEN_PORTRAIT
+				and root.get_node("ScreenLayout").orientation_for("landscape") == DisplayServer.SCREEN_LANDSCAPE
+				and root.get_node("ScreenLayout").orientation_for("junk") == DisplayServer.SCREEN_SENSOR,
+				"Each choice maps to the engine's orientation; unknown follows the phone (%s)" % tag)
 		host.queue_free()
 		await _settle()
 

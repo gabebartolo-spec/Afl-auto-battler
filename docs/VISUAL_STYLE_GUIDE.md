@@ -98,7 +98,7 @@ ratings, titles and the "v" between two clubs, never for body copy.
 - RADIUS 6, nothing rounder. Panels have no border. Rules are 1 px LINE.
 - No drop shadows, no top-edge highlights, no glows, no glassmorphism, no gradients except the
   club wash in 2.2.
-- Thumb targets are at least 44 px tall; a scrollbar rail is 20 px wide with a 6 px thumb.
+- Thumb targets are at least 44 px tall; a scrollbar rail is 20 px wide with a 6 px thumb that grows to 10 px under the pointer or when held.
 
 ## 3. Components: the whole kit
 

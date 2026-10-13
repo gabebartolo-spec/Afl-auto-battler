@@ -53,6 +53,9 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 	if role != "":
 		who.append(role)
 	v.add_child(UiKit.lbl("  ·  ".join(who), UiKit.SMALL, UiKit.MUTED))
+	var family := FamilyLine.make(p, host)
+	if family != null:
+		v.add_child(family)
 
 	# Now: available or not, and how he is feeling.
 	var state := PackedStringArray()
