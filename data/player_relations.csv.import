@@ -1,19 +1,7 @@
 [remap]
 
-importer="csv_translation"
-type="Translation"
-uid="uid://c78xhah7v80ug"
+importer="keep"
 
 [deps]
 
-files=["res://data/player_relations.last.translation", "res://data/player_relations.dob.translation", "res://data/player_relations.club.translation", "res://data/player_relations.relation.translation", "res://data/player_relations.other.translation", "res://data/player_relations.other.translation", "res://data/player_relations.other.translation", "res://data/player_relations.other.translation", "res://data/player_relations.source.translation", "res://data/player_relations.checked.translation"]
-
 source_file="res://data/player_relations.csv"
-dest_files=["res://data/player_relations.last.translation", "res://data/player_relations.dob.translation", "res://data/player_relations.club.translation", "res://data/player_relations.relation.translation", "res://data/player_relations.other.translation", "res://data/player_relations.other.translation", "res://data/player_relations.other.translation", "res://data/player_relations.other.translation", "res://data/player_relations.source.translation", "res://data/player_relations.checked.translation"]
-
-[params]
-
-compress=1
-delimiter=0
-unescape_keys=false
-unescape_translations=true
