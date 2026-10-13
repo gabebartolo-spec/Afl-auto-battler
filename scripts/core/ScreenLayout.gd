@@ -65,6 +65,10 @@ func _update_scale() -> void:
 func _fit_first_window() -> void:
 	if DisplayServer.get_name() == "headless" or OS.get_name() != "Windows":
 		return
+	# A tool run with --script sets its own window size and position (and a
+	# capture is parked off-screen so it never takes the keyboard focus).
+	if OS.get_cmdline_args().has("--script") or OS.get_cmdline_args().has("-s"):
+		return
 	if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_WINDOWED:
 		return
 	var os_density := float(DisplayServer.screen_get_dpi()) / 96.0
