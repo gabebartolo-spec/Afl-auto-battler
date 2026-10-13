@@ -1082,6 +1082,9 @@ func _open_player(id: String) -> void:
 		var pl := UiKit.lbl(ped, UiKit.SECONDARY, UiKit.MUTED)
 		pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(pl)
+	var family := FamilyLine.make(p, self)
+	if family != null:
+		v.add_child(family)
 	var status := _draft_status(p)
 	var st := UiKit.lbl(status[0], 14, status[1])
 	st.name = "DetailStatus"
