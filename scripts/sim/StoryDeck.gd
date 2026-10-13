@@ -204,6 +204,8 @@ static func _check_card(t: Dictionary) -> Array:
 	var un: Dictionary = t.get("unanswered", {})
 	if absi(int(un.get("board", 0))) > int(CAPS["board"]):
 		errs.append("%s: saying nothing costs more than the board cap" % id)
+	if int(un.get("trust", 0)) != 0 and (not player or str(un.get("why", "")) == ""):
+		errs.append("%s: saying nothing can cost trust only on a player card, with a reason" % id)
 	return errs
 
 

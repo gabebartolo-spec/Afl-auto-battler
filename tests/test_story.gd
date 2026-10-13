@@ -873,17 +873,24 @@ func _test_papers_cards_are_football() -> void:
 	var none := ClubStories.player_fact(GameState, {"id": "x", "role": "MID", "role2": "", "overall": 60}, true, {}, 1, 0)
 	_check(not bool(none["has_role2"]), "A player with no second position is not offered the role card")
 	# The cards' own effects.
+	# Each effect follows from the story (director, 2026-10-14): he asked about the move,
+	# so trying it earns his trust and refusing costs it; nothing about the board or his mood.
 	var down := _choice("media_papers_again", "down")
-	_check(int(_effect(down, "role_trial").get("weeks", 0)) == 3 and not _effect(down, "morale").is_empty()
-			and not _effect(down, "board").is_empty() and not _effect(down, "trust").is_empty(),
-			"Trying him in a new role is a real three-game trial, with the sheet's other effects")
-	_check(_effect(_choice("media_papers_fronts_group", "front"), "board").is_empty()
-			and not _effect(_choice("media_papers_fronts_group", "private"), "trust").is_empty(),
-			"Fronting the group has no board effect; keeping it private earns a little trust")
-	_check(int(_effect(_choice("media_papers_fronts_group", "private"), "trust").get("d", 0))
-			> int(_effect(_choice("media_papers_fronts_group", "front"), "trust").get("d", 0))
-			and not _effect(_choice("media_papers_fronts_group", "front"), "morale").is_empty(),
-			"Each side gives something: fronting lifts the room, keeping it private earns more of his trust")
+	var stand := _choice("media_papers_again", "stand")
+	_check(int(_effect(down, "role_trial").get("weeks", 0)) == 3 and int(_effect(down, "trust").get("d", 0)) > 0
+			and _effect(down, "morale").is_empty() and _effect(down, "board").is_empty(),
+			"Trying him in the role he asked about: a three-game trial and more trust, no morale or board effect")
+	_check(int(_effect(stand, "trust").get("d", 0)) < 0 and _effect(stand, "board").is_empty() and _effect(stand, "morale").is_empty(),
+			"Leaving him where he is costs his trust and nothing else")
+	var again := StoryDeck.by_id(StoryDeck.all(), "media_papers_again")
+	_check(int((again["unanswered"] as Dictionary).get("trust", 0)) < 0 and int((again["unanswered"] as Dictionary).get("board", 0)) == 0,
+			"Saying nothing on the role card costs his trust, not the board's confidence")
+	var front := _choice("media_papers_fronts_group", "front")
+	var priv := _choice("media_papers_fronts_group", "private")
+	_check(_effect(front, "board").is_empty() and _effect(priv, "board").is_empty()
+			and int(_effect(front, "trust").get("d", 0)) > 0 and int(_effect(priv, "trust").get("d", 0)) < 0
+			and not _effect(front, "morale").is_empty() and not _effect(priv, "morale").is_empty(),
+			"Fronting the group lifts the room and his trust; keeping it private lifts his morale but costs trust (he asked for the group)")
 	GameState.show_real_names = false
 
 
@@ -1152,6 +1159,18 @@ func _test_role_card_shape() -> void:
 	_check(GameState.role_trial.is_empty() and out.contains("nothing changes") and GameState.board_confidence() == board0
 			and ClubLife.morale(GameState.list_player(id)) == morale0 and Trust.value(GameState.relations, key) == trust0,
 			"Benched before the answer: no trial and no trust, morale or board cost (%s)" % out)
+	# Saying nothing costs his trust (not the board), and the card says so.
+	_start()
+	p = _trial_candidate()
+	id = str(p["id"])
+	var quiet := GameState.story_card("media_papers_again", p)
+	_check(str((quiet["unanswered"] as Dictionary)["hint"]).contains("trusts you a little less"), "The silence hint names the trust cost: %s" % str(quiet["unanswered"]["hint"]))
+	GameState.week_events = [quiet]
+	var b2 := GameState.board_confidence()
+	var t2 := Trust.value(GameState.relations, Trust.player_key(id))
+	GameState._settle_week_event()
+	_check(Trust.value(GameState.relations, Trust.player_key(id)) < t2 and GameState.board_confidence() == b2,
+			"Unanswered, the role card costs his trust and leaves the board alone")
 	# He leaves the list mid-trial (qa T5): the trial clears, no stale note.
 	_start()
 	p = _trial_candidate()
@@ -1170,7 +1189,7 @@ func _test_front_group_words() -> void:
 		return
 	var d0 := str((card["options"] as Array)[0]["detail"])
 	var d1 := str((card["options"] as Array)[1]["detail"])
-	_check(d0.contains("a little more") and d1.contains("trusts you more") and not d1.contains("a little more"),
+	_check(d0.contains("trusts you more") and d1.contains("a little less"),
 			"Card 3's trust lines differ in size: '%s' / '%s'" % [d0, d1])
 
 

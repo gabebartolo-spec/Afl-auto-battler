@@ -7825,6 +7825,11 @@ func _settle_week_event() -> void:
 		var cost: Dictionary = card.get("unanswered", {})
 		if int(cost.get("board", 0)) != 0 and not board.is_empty():
 			board["confidence"] = clampi(board_confidence() + int(cost["board"]), 0, 100)
+		if int(cost.get("trust", 0)) != 0 and str(card.get("player_id", "")) != "":
+			var facts: Dictionary = card.get("facts", {})
+			var when := "Round %d" % int(facts.get("round", 0)) if int(facts.get("finals_week", 0)) == 0 else "Finals"
+			Trust.change(relations, Trust.player_key(str(card["player_id"])), int(cost["trust"]),
+					str(cost.get("why", "You said nothing")), int(season_year), when)
 		card["resolved"] = true
 		card["choice"] = -1
 		card["outcome"] = str(cost.get("text", "Business as usual."))

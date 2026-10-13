@@ -344,9 +344,9 @@
 					},
 					{
 						"op": "trust",
-						"d": 2,
+						"d": 4,
 						"why": "You let him front the group",
-						"line": "He trusts you a little more."
+						"line": "He trusts you more."
 					}
 				],
 				"result": "{name} answers the papers' story in front of the group."
@@ -361,9 +361,9 @@
 					},
 					{
 						"op": "trust",
-						"d": 4,
-						"why": "You kept it between you two",
-						"line": "He trusts you more."
+						"d": -2,
+						"why": "You kept it between you two when he asked for the group",
+						"line": "He trusts you a little less."
 					}
 				],
 				"result": "You talk it through with {name} alone."
@@ -406,12 +406,8 @@
 				"effects": [
 					{
 						"op": "trust",
-						"d": 6,
-						"why": "You left him in his role"
-					},
-					{
-						"op": "board",
-						"d": -6
+						"d": -4,
+						"why": "You said no when he asked to try the move"
 					}
 				],
 				"result": "{name} stays in his role."
@@ -425,17 +421,9 @@
 						"weeks": 3
 					},
 					{
-						"op": "morale",
-						"d": -8
-					},
-					{
 						"op": "trust",
-						"d": -10,
-						"why": "You moved him after the criticism"
-					},
-					{
-						"op": "board",
-						"d": 5
+						"d": 4,
+						"why": "You tried him in the role he asked about"
 					}
 				],
 				"result": "You try {name} as a {trial_word}."
@@ -444,8 +432,9 @@
 		"cooldown": 40,
 		"subject_cooldown": 30,
 		"unanswered": {
-			"board": -4,
-			"text": "You say nothing. The board wanted an answer."
+			"trust": -2,
+			"why": "You said nothing when he asked about the move",
+			"text": "You say nothing. {first} is left waiting for an answer."
 		}
 	},
 	{
