@@ -31,11 +31,14 @@ const OPS := {
 	"morale": false, "xp": false, "board": false, "trust": true, "rest": true, "sore": true,
 	"fresh": false, "heavy_legs": false, "expects_game": true, "start_backing": true,
 	"extend_early": true, "promise_win": false, "flag": false, "explain": true, "talk_note": true,
+	"role_trial": true,
 	# The captain's cards: a dispute left to the captain, settled by his Leadership and his
 	# trust in you; a promised run for the young player the card names; the vice-captain
 	# takes the armband (through the Captaincy rules and their costs).
 	"delegate": true, "back_kid": false, "captaincy_swap": false,
 }
+## A role trial lasts this many of your games at most ("weeks" on the effect).
+const TRIAL_GAMES_MAX := 6
 ## The rule a dispute left to the captain follows: the group listens to him if his
 ## Leadership is at least HOLDS_AT, or at least HOLDS_WITH_TRUST and he trusts you.
 const HOLDS_AT := 60
@@ -46,6 +49,7 @@ const PLAYER_FACTS := ["name", "first", "age", "games", "fit", "selected", "over
 		"pot_gap", "contract_years", "morale", "trust", "trust_band", "discipline", "backed",
 		"fit_rank", "talk_case", "kpi", "kpi_or_need", "explain_label", "talk_text", "sore_odds",
 		"ask", "early_price", "more_seasons", "extension_ok", "job", "real_named",
+		"form", "form_games", "has_role2", "starting", "form_low", "trial_word", "trial_home", "trial_avg", "trial_par", "trial_tail",
 		"leadership", "captain", "delegate_holds", "holds_at", "holds_trust_at"]
 ## Facts about the club and the week (GameState._story_club_facts).
 const CLUB_FACTS := ["club", "opp", "round", "year", "losing_run", "winning_run", "ladder",
@@ -180,7 +184,7 @@ static func _check_card(t: Dictionary) -> Array:
 	# What's at risk, in one short line under the text (optional).
 	errs.append_array(_check_text(id, str(t.get("stakes", "")), player))
 	var choices: Array = t.get("choices", [])
-	if choices.size() < 2:
+	if choices.size() < 2 and not (bool(t.get("scripted", false)) and choices.size() == 1):
 		errs.append("%s: a card needs at least two choices" % id)
 	var d := int(t.get("default", -1))
 	if d < -1 or d >= choices.size():
@@ -223,6 +227,10 @@ static func _check_effect(where: String, e, player: bool) -> Array:
 		errs.append("%s: a trust change needs its reason" % where)
 	if op == "trust":
 		errs.append_array(_check_text(where, str(e.get("why", "")), player))
+	if op == "role_trial":
+		var wk := int(e.get("weeks", 0))
+		if wk < 1 or wk > TRIAL_GAMES_MAX:
+			errs.append("%s: a role trial of %d games is outside 1..%d" % [where, wk, TRIAL_GAMES_MAX])
 	if op == "flag" and str(e.get("name", "")) == "":
 		errs.append("%s: a flag needs a name" % where)
 	if op == "delegate":
