@@ -186,7 +186,12 @@ static func _history(club: String) -> Control:
 	var v := UiKit.vbox(2)
 	v.name = "ClubHistory"
 	var years: Array = h["years"]
-	if years.is_empty():
+	var also: Dictionary = h.get("also", {})
+	if years.is_empty() and not also.is_empty():
+		var lead := UiKit.lbl("Before you", UiKit.SMALL, UiKit.MUTED, true)
+		lead.name = "HistoryTitle"
+		v.add_child(lead)
+	elif years.is_empty():
 		var none := UiKit.lbl("Before you", UiKit.SMALL, UiKit.MUTED, true)
 		none.name = "HistoryTitle"
 		v.add_child(none)
@@ -201,6 +206,15 @@ static func _history(club: String) -> Control:
 		var list := _para(", ".join(years.map(func(y): return str(y))))
 		list.name = "HistoryYears"
 		v.add_child(list)
+	for label in also:
+		var ys: Array = also[label]
+		var al := UiKit.lbl("%s: %d %s" % [label, ys.size(), "premiership" if ys.size() == 1 else "premierships"],
+				UiKit.SMALL, UiKit.MUTED, true)
+		al.name = "HistoryAs_" + str(label)
+		v.add_child(al)
+		var ayears := _para(", ".join(ys.map(func(y): return str(y))))
+		ayears.name = "HistoryAsYears_" + str(label)
+		v.add_child(ayears)
 	var gap := Control.new()
 	gap.custom_minimum_size.y = 6
 	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE

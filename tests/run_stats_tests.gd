@@ -1640,7 +1640,7 @@ func _trophies() -> void:
 	# The club's real history from the data file (a stand-in table here): a long
 	# list, so it has to wrap on a phone.
 	var hist_years := [1896, 1902, 1910, 1917, 1919, 1927, 1928, 1930, 1935, 1936, 1953, 1958, 1990, 2010, 2023]
-	ClubHistory.use({"COL": {"years": hist_years, "comps": {}, "none": false}})
+	ClubHistory.use({"COL": {"years": hist_years, "comps": {}, "also": {"Fitzroy": [1898, 1899]}, "none": false}})
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
 		s = await _open_trophies(sz)
 		var tag := "%dx%d" % [sz.x, sz.y]
@@ -1650,6 +1650,10 @@ func _trophies() -> void:
 		_check(hist_title != null and hist_title.text == "Before you: 15 premierships"
 				and hist_list != null and hist_list.text == ", ".join(hist_years.map(func(y): return str(y))),
 				"The club's history reads from the file: a count, then every year (%s)" % tag)
+		var fz: Label = s.find_child("HistoryAsYears_Fitzroy", true, false)
+		var fzt: Label = s.find_child("HistoryAs_Fitzroy", true, false)
+		_check(fz != null and fz.text == "1898, 1899" and fzt != null and fzt.text == "Fitzroy: 2 premierships",
+				"Flags carried from a merged club read under its name, apart from the club's own (%s)" % tag)
 		_check(hist_list != null and hist_list.get_theme_color("font_color") == UiKit.MUTED
 				and hist_list.autowrap_mode != TextServer.AUTOWRAP_OFF and hist_list.get_combined_minimum_size().x < 380.0,
 				"The history is the quiet colour and wraps rather than widening the screen (%s)" % tag)
@@ -1744,6 +1748,19 @@ func _trophies() -> void:
 			await _settle()
 		s.queue_free()
 		await _settle()
+	# The shipped file: the counts the public list gives, Fitzroy's apart on Brisbane's, Fremantle none.
+	ClubHistory.reload()
+	var real := {}
+	for code in ["COL", "ESS", "CAR", "RIC", "HAW", "MEL", "GEE", "SYD", "BRL", "NTH", "WCE", "WBD", "ADE", "STK", "PAD", "FRE", "GCS", "GWS"]:
+		real[code] = ClubHistory.before_career(code)
+	var brl_also: Dictionary = real["BRL"]["also"]
+	_check(real["COL"]["years"].size() == 16 and real["ESS"]["years"].size() == 16 and real["CAR"]["years"].size() == 16
+			and real["RIC"]["years"].size() == 13 and real["GEE"]["years"].size() == 10 and real["SYD"]["years"].size() == 5
+			and real["BRL"]["years"].size() == 5 and (brl_also.get("Fitzroy", []) as Array).size() == 8
+			and real["WBD"]["years"].size() == 2 and real["STK"]["years"].size() == 1 and real["PAD"]["years"].size() == 1,
+			"The shipped file gives each club its flags, Brisbane's own five and Fitzroy's eight apart")
+	_check(real["FRE"]["known"] and real["FRE"]["years"].is_empty() and real["GCS"]["known"] and real["GWS"]["years"].is_empty(),
+			"Fremantle, Gold Coast and GWS are on file as having none")
 	# History cases: nothing on file shows nothing; confirmed none says so; a new club has none.
 	ClubHistory.use({})
 	s = await _open_trophies(Vector2i(390, 844))
@@ -1757,14 +1774,14 @@ func _trophies() -> void:
 	_check(no_hist != null and no_hist.text == "No premierships yet.", "A club confirmed to have none says so plainly")
 	s.queue_free()
 	await _settle()
-	_check(ClubHistory.before_career("TAS") == {"known": true, "years": []}
-			and ClubHistory.before_career("CANB") == {"known": true, "years": []},
+	_check(ClubHistory.before_career("TAS") == {"known": true, "years": [], "also": {}}
+			and ClubHistory.before_career("CANB") == {"known": true, "years": [], "also": {}},
 			"Tasmania and Canberra have no premierships before the career")
 	var forged: Dictionary = root.get_node("GameDB").clubs["COL"].duplicate()
 	forged["custom"] = true
 	root.get_node("GameDB").clubs["ZZZ"] = forged
 	ClubHistory.use({"ZZZ": {"years": [1999], "comps": {}, "none": false}})
-	_check(ClubHistory.before_career("ZZZ") == {"known": true, "years": []},
+	_check(ClubHistory.before_career("ZZZ") == {"known": true, "years": [], "also": {}},
 			"A Club Forge club has none, whatever the file says")
 	root.get_node("GameDB").clubs.erase("ZZZ")
 	ClubHistory.use({"COL": {"years": hist_years, "comps": {}, "none": false}})
