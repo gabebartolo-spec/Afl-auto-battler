@@ -438,7 +438,7 @@ func _selection_pages_tests() -> void:
 		_check(sl != null and rules != null and _gap_x(sl, rules) < 48.0 and _gap_y(sl, rules) < 24.0,
 				"Phone: Synergies sits right under its own line (%s)" % tag)
 		var rep: Button = ui.find_child("AssistantReport", true, false)
-		var head: Label = ui.find_child("WeekHeading", true, false)
+		var head: Control = ui.find_child("WeekHeading", true, false)
 		_check(rep != null and head != null and _gap_x(head, rep) < 48.0 and _gap_y(head, rep) < 24.0,
 				"Phone: the assistant's report sits right under This week (%s)" % tag)
 		var why3: String = await Tap.tap(rules)
@@ -481,7 +481,7 @@ func _selection_pages_tests() -> void:
 			var sl2: Label = ui.find_child("SynergyLine", true, false)
 			var rules2: Button = ui.find_child("SynergyRules", true, false)
 			var rep2: Button = ui.find_child("AssistantReport", true, false)
-			var head2: Label = ui.find_child("WeekHeading", true, false)
+			var head2: Control = ui.find_child("WeekHeading", true, false)
 			_check(_gap_x(sl2, rules2) < 48.0 and _gap_y(sl2, rules2) < 24.0
 					and _gap_x(head2, rep2) < 48.0 and _gap_y(head2, rep2) < 24.0,
 					"PC: each button is beside or under its own line, under 48 px away (%s)" % ptag)
@@ -1074,16 +1074,21 @@ func _week_ink_tests() -> void:
 		_state.reset()
 		_state.start_season(str(code), db.club_list(str(code)))
 		var ui := await _open()
-		var h: Label = ui.find_child("WeekHeading", true, false)
+		var opp := str(_state.my_next_opponent().get("code", ""))
+		var h: Label = null
 		var kf: Label = null
 		for l in ui.find_children("*", "Label", true, false):
+			if str(l.text) == db.club_name(opp) and h == null and ui.find_child("WeekHeading", true, false).is_ancestor_of(l):
+				h = l
 			if str(l.text) == "Their key forwards":
 				kf = l
+		_check(h != null, "The week heading names the opponent beside its guernsey (%s)" % str(code))
 		for lab in [h, kf]:
 			if lab == null:
 				continue
+			# The side ink is the club's vivid colour at 3:1 (the bold heading size), or plain TEXT.
 			var ratio: float = uk.contrast(lab.get_theme_color("font_color"), uk.BG)
-			if ratio < 4.5:
+			if ratio < 3.0:
 				bad.append("%s %s %.1f" % [code, lab.text, ratio])
 		if str(code) == "FRE":
 			_check(ui.find_child("LineStandings", true, false) == null and ui.find_child("H2H_midfield", true, false) != null,
@@ -1096,5 +1101,5 @@ func _week_ink_tests() -> void:
 			_check(not long_tag, "No oval tile lists three positions")
 		ui.queue_free()
 		await _settle()
-	_check(bad.is_empty(), "Every club's week headings read at 4.5:1 on the dark page (%s)" % str(bad))
+	_check(bad.is_empty(), "Every club's week headings read at 3:1 or better on the dark page (%s)" % str(bad))
 	_check(codes.size() >= 18, "All the clubs were checked (%d)" % codes.size())

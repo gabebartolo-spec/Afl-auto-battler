@@ -97,7 +97,10 @@ static func build(host: Control) -> Control:
 		var names := PackedStringArray()
 		for c in byes:
 			names.append(GameDB.club_short(str(c)))
-		var b := UiKit.lbl("Bye: " + ", ".join(names), UiKit.SMALL, UiKit.MUTED)
+		# Your own bye is something to see; the others can be skipped.
+		var yours_bye: bool = byes.has(GameState.my_club)
+		var b := UiKit.lbl("Bye: " + ", ".join(names), UiKit.SMALL,
+				UiKit.TEXT if yours_bye else UiKit.MUTED, yours_bye)
 		b.name = "ByeLine"
 		v.add_child(b)
 	return v
@@ -190,8 +193,9 @@ static func _row(host: Control, season: Season, m: Dictionary, index: int, narro
 	if not narrow:
 		b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	b.clip_contents = true
-	var flat := StyleBoxFlat.new()
-	flat.bg_color = Color.TRANSPARENT
+	# Your club's match is marked as the ladder marks your row: a wash of your
+	# colour and a rule down its left.
+	var flat := StatsSide.row_style(mine if yours else "", false, yours)
 	var hover := StyleBoxFlat.new()
 	hover.bg_color = Color(UiKit.TEXT, 0.05)
 	hover.set_corner_radius_all(UiKit.RADIUS)
@@ -203,7 +207,7 @@ static func _row(host: Control, season: Season, m: Dictionary, index: int, narro
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(box)
 	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	box.add_theme_constant_override("margin_left", 4)
+	box.add_theme_constant_override("margin_left", StatsSide.RULE_INSET)
 	box.add_theme_constant_override("margin_right", 4)
 	var row := UiKit.hbox(10)
 	box.add_child(row)
@@ -217,12 +221,13 @@ static func _row(host: Control, season: Season, m: Dictionary, index: int, narro
 	for s in range(2):
 		var code := str(m["home"] if s == 0 else m["away"])
 		var badge := UiKit.club_badge(code, UiKit.BODY, narrow, true)
-		if yours:
-			_bold_labels(badge)
+		# Each club's name in its own colour where it reads (the guernsey beside
+		# it says the side where it does not); yours, and the winner's score, bold.
+		StatsSide.badge(badge, code, yours or (done and _won(res, s)))
 		clubs.add_child(badge)
 		if done:
 			var sc := UiKit.line(UiKit.scoreline(int(res["goals"][s]), int(res["behinds"][s])), UiKit.BODY,
-					UiKit.TEXT, yours)
+					UiKit.TEXT, yours or _won(res, s))
 			sc.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 			side.add_child(sc)
 	var where := UiKit.ellipsis(str(m["venue"]), UiKit.SMALL, UiKit.MUTED)
@@ -244,19 +249,18 @@ static func _row(host: Control, season: Season, m: Dictionary, index: int, narro
 	return b
 
 
+## Whether side `s` (0 home, 1 away) won the match: the winner is set in bold.
+static func _won(res: Dictionary, s: int) -> bool:
+	var sc: Array = res.get("score", [0, 0])
+	return int(sc[s]) > int(sc[1 - s])
+
+
 ## Everything inside a tappable row hands the tap to the row.
 static func _ignore(n: Node) -> void:
 	if n is Control:
 		(n as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for c in n.get_children():
 		_ignore(c)
-
-
-static func _bold_labels(n: Node) -> void:
-	if n is Label:
-		(n as Label).add_theme_font_override("font", UiKit.BOLD)
-	for c in n.get_children():
-		_bold_labels(c)
 
 
 # ---------------------------------------------------------------------------
@@ -364,7 +368,9 @@ static func _preview_sheet(host: Control, season: Season, m: Dictionary) -> void
 		var block := UiKit.vbox(3)
 		block.name = "Preview_" + str(code)
 		var head := UiKit.hbox(8)
-		head.add_child(UiKit.club_badge(str(code), UiKit.NAME, false, true))
+		var heads := UiKit.club_badge(str(code), UiKit.NAME, false, true)
+		StatsSide.badge(heads, str(code), true)
+		head.add_child(heads)
 		var row: Dictionary = season.ladder.get(code, {})
 		var pos := ("%s · %d-%d" % [_ordinal(int(order.get(code, 0))), int(row.get("w", 0)), int(row.get("l", 0))]) \
 				if int(row.get("p", 0)) > 0 else "No games yet"

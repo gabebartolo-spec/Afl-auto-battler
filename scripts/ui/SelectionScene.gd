@@ -275,14 +275,14 @@ func _week_page() -> Control:
 ## verdict. How they play is in the assistant's report.
 func _fill_week(v: VBoxContainer) -> void:
 	var nxt := GameState.my_next_opponent()
-	var accent := UiKit.club_ink(GameState.my_club)
 	if nxt.is_empty():
 		v.add_child(_strength_line())
 	else:
 		var code := str(nxt["code"])
-		var heading := UiKit.lbl("This week %s %s" % ["v" if str(nxt["venue"]) == "home" else "at",
-				GameDB.club_name(code)], UiKit.BODY, accent, true)
+		var heading := UiKit.hbox(6)
 		heading.name = "WeekHeading"
+		heading.add_child(UiKit.line("This week %s" % ["v" if str(nxt["venue"]) == "home" else "at"], UiKit.BODY, UiKit.TEXT, true))
+		heading.add_child(_side_name(code, UiKit.BODY, 20.0))
 		v.add_child(heading)
 		# What your assistant has seen of them - said there, and only there.
 		var report := UiKit.text_action("Assistant's report ›", UiKit.SECONDARY)
@@ -323,7 +323,10 @@ func _fill_week(v: VBoxContainer) -> void:
 			var mv := UiKit.vbox(2)
 			mv.name = "KeyMatchups"
 			v.add_child(mv)
-			mv.add_child(UiKit.lbl("Their key forwards", UiKit.BODY, accent, true))
+			var kf := UiKit.hbox(6)
+			kf.add_child(UiKit.club_marker(str(nxt["code"]), 18.0))
+			kf.add_child(UiKit.line("Their key forwards", UiKit.BODY, _side_ink(str(nxt["code"])), true))
+			mv.add_child(kf)
 			for m in mus:
 				var f: Dictionary = m["fwd"]
 				var fl := _para("%s. %s" % [GameDB.player_display_name(f), Matchups.describe(f)], 14, UiKit.TEXT)
@@ -484,6 +487,24 @@ func handle_back() -> bool:
 		_close_synergies()
 		return true
 	return _bar_back()
+
+
+## A club's most vivid colour that reads on the page (3:1), else TEXT, so a
+## dark club (Collingwood, Carlton) is carried by its guernsey instead.
+func _side_ink(code: String) -> Color:
+	var col := UiKit.club_vivid(code, UiKit.BG)
+	# A red or orange club's ink would read as BAD or the primary action, and
+	# two red clubs could not be told apart by it: the guernsey carries it.
+	if col.s > 0.4 and (col.h < 0.09 or col.h > 0.96):
+		return UiKit.TEXT
+	return col
+
+
+func _side_name(code: String, fs: int, marker := 18.0) -> Control:
+	var h := UiKit.hbox(6)
+	h.add_child(UiKit.club_marker(code, marker))
+	h.add_child(UiKit.line(GameDB.club_name(code), fs, _side_ink(code), true))
+	return h
 
 
 ## What you have promised: one line for each run you have given a player,

@@ -17,7 +17,8 @@ class_name VignetteFigures
 ## centres (the pivot is under his ankles; the boots reach forward of it). Numbers are
 ## printed on the guernsey by the shader (figures_digits.png), not placed here.
 
-const SHEET_SIZE := Vector2i(2048, 3120)
+const SHEET_SIZE := Vector2i(2048, 3356)
+const HAS_TRIM := false
 const DESIGN_SCALE := 1
 const PX_PER_M := 100.0
 const BODIES := {
@@ -1579,6 +1580,115 @@ const BODIES := {
 							"size": [24, 20],
 							"frames": 8,
 							"offset": [48, 34],
+						},
+					},
+				},
+			},
+			"mark_f": {
+				"front": {
+					"x": 0,
+					"y": 3120,
+					"size": [108, 230],
+					"frames": 7,
+					"pivot": [54.0, 224.0],
+					"reach": [1.6, 1.85, 1.88, 2.07, 2.18, 2.18, 2.15],
+					"contact": [65.11, 224.0],
+					"hips": [0.875, 1.024, 1.042, 0.986, 0.954, 0.927, 0.914],
+					"hands": [[74.5, 144.1, 33.5, 144.1, 0], [80.7, 127.9, 27.3, 127.9, 1], [97.1, 70.1, 10.3, 72.2, 1], [74.2, 27.4, 29.1, 37.0, 1], [60.2, 17.5, 41.7, 29.7, 1], [62.1, 18.1, 41.1, 29.2, 1], [62.9, 22.4, 40.3, 32.8, 1]],
+					"hair": {
+						"short_crop": {
+							"atlas": 0,
+							"x": 0,
+							"y": 284,
+							"size": [36, 48],
+							"frames": 7,
+							"offset": [30, 32],
+						},
+						"bald": {
+							"atlas": 1,
+							"x": 0,
+							"y": 304,
+							"size": [36, 52],
+							"frames": 7,
+							"offset": [30, 32],
+						},
+						"dreadlocks": {
+							"atlas": 2,
+							"x": 0,
+							"y": 516,
+							"size": [42, 58],
+							"frames": 7,
+							"offset": [28, 30],
+						},
+						"swept_back": {
+							"atlas": 3,
+							"x": 0,
+							"y": 304,
+							"size": [36, 52],
+							"frames": 7,
+							"offset": [30, 28],
+						},
+						"textured_short": {
+							"atlas": 4,
+							"x": 0,
+							"y": 292,
+							"size": [36, 50],
+							"frames": 7,
+							"offset": [30, 30],
+						},
+					},
+				},
+			},
+			"brace_f": {
+				"front": {
+					"x": 756,
+					"y": 3120,
+					"size": [114, 236],
+					"frames": 10,
+					"pivot": [58.0, 230.0],
+					"reach": [1.88, 1.88, 1.87, 1.83, 2.12, 2.24, 2.13, 1.77, 1.69, 1.6],
+					"contact": [58.09, 230.0],
+					"hands": [[84.9, 134.6, 31.1, 134.6, 1], [84.0, 136.5, 30.8, 133.7, 1], [88.9, 129.7, 28.2, 132.5, 1], [102.1, 81.6, 14.1, 85.7, 1], [89.8, 32.1, 25.4, 37.5, 1], [72.2, 20.4, 44.6, 23.6, 1], [86.7, 32.1, 27.3, 35.8, 1], [99.8, 66.0, 13.6, 70.2, 1], [100.5, 98.5, 13.1, 103.5, 1], [98.8, 114.4, 14.2, 119.3, 1]],
+					"hair": {
+						"short_crop": {
+							"atlas": 0,
+							"x": 252,
+							"y": 284,
+							"size": [30, 50],
+							"frames": 10,
+							"offset": [44, 38],
+						},
+						"bald": {
+							"atlas": 1,
+							"x": 252,
+							"y": 304,
+							"size": [30, 54],
+							"frames": 10,
+							"offset": [44, 38],
+						},
+						"dreadlocks": {
+							"atlas": 2,
+							"x": 294,
+							"y": 516,
+							"size": [38, 54],
+							"frames": 10,
+							"offset": [40, 36],
+						},
+						"swept_back": {
+							"atlas": 3,
+							"x": 252,
+							"y": 304,
+							"size": [32, 58],
+							"frames": 10,
+							"offset": [44, 32],
+						},
+						"textured_short": {
+							"atlas": 4,
+							"x": 252,
+							"y": 292,
+							"size": [32, 54],
+							"frames": 10,
+							"offset": [44, 36],
 						},
 					},
 				},
@@ -3175,6 +3285,11 @@ const BODIES := {
 		},
 	},
 }
+
+
+## Frame i's hips (the pelvis) above the feet, metres; -1.0 when the strip has none.
+static func hips(s: Dictionary, i: int) -> float:
+	return float(s["hips"][clampi(i, 0, int(s["frames"]) - 1)]) if s.has("hips") else -1.0
 
 
 ## The strip for a body's move from one side: {"x", "y", "size", "frames", "pivot", "reach"}.
