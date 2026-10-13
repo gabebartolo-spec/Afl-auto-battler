@@ -1699,6 +1699,8 @@ func _on_finish() -> void:
 	if not _draft.is_finished() or not _draft.is_valid():
 		return
 	GameState.start_season(_club, _draft.list())
+	# A new career's first season starts with a pre-season, like every other.
+	GameState.open_preseason()
 	Router.go("hub")
 
 

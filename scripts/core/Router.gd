@@ -16,6 +16,7 @@ const SCENES := {
 	"coaching": "res://scenes/CoachingScene.tscn",
 	"season_review": "res://scenes/SeasonReviewScene.tscn",
 	"forge": "res://scenes/ClubForgeScene.tscn",
+	"preseason": "res://scenes/PreSeasonScene.tscn",
 }
 
 var stack: Array = []
@@ -134,7 +135,7 @@ func handle_back(from_os := false) -> void:
 		"main", "":
 			if from_os:
 				quit_game()
-		"hub":
+		"hub", "preseason":
 			to_main_menu(false)
 		"draft":
 			# The draft knows whether it is on Choose your club (one step back is

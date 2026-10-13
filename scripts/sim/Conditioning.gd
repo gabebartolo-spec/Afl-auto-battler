@@ -150,8 +150,52 @@ static func _value(rec: Dictionary, w: int, offset: int, height: float) -> float
 	var peak_w := int(PEAK_WEEK[plan])
 	var c := shape(plan, w, peak_w + offset)
 	if c > 0.0:
-		c *= height * build_share(peak_w, chosen_at(rec, w))
+		c *= height * build_share(peak_w, chosen_at(rec, w)) * base_peak_share(rec)
 	return c
+
+
+# ---------------------------------------------------------------------------
+# The fitness base (PreSeason.gd): the one value the pre-season hands over,
+# written on the season's record at Round 1 as "base": thin / sound / strong.
+# No base on the record is sound, which is exactly the game without one.
+# ---------------------------------------------------------------------------
+static func base_of(rec: Dictionary) -> String:
+	var b := str(rec.get("base", PreSeason.DEFAULT_BASE))
+	return b if PreSeason.BASES.has(b) else PreSeason.DEFAULT_BASE
+
+
+## The share of a planned peak's height the base lets the side reach (the
+## coach's share of it; the department's is PEAK_HEIGHT).
+static func base_peak_share(rec: Dictionary) -> float:
+	match base_of(rec):
+		"thin":
+			return float(PreSeason.tune("thin_peak_share"))
+		"strong":
+			return float(PreSeason.tune("strong_peak_share"))
+	return 1.0
+
+
+## The base's own part of the curve at week `w`: a thin base leaves the side
+## underdone early, a strong one holds the legs a little longer, both fading
+## to nothing over the first rounds. 0 for a sound base, every week.
+static func base_curve(rec: Dictionary, w: int) -> float:
+	var size := 0.0
+	var span := 0.0
+	match base_of(rec):
+		"thin":
+			size = -float(PreSeason.tune("thin_early"))
+			span = float(PreSeason.tune("thin_weeks"))
+		"strong":
+			size = float(PreSeason.tune("strong_early"))
+			span = float(PreSeason.tune("strong_weeks"))
+	if span <= 0.0 or w < 0 or float(w) >= span:
+		return 0.0
+	return size * (1.0 - float(w) / span)
+
+
+## The legs the side really has at week `w`: the plan's curve and the base's.
+static func legs(rec: Dictionary, w: int, hp_level: int) -> float:
+	return actual(rec, w, hp_level) + base_curve(rec, w)
 
 
 ## The share of a peak's height a plan chosen at week `from` can still build.
@@ -165,15 +209,22 @@ static func build_share(peak_w: int, from: int) -> float:
 ## an unstamped player is exactly the pre-conditioning game.
 ## Develop and manage holds players short of their best legs, but managed
 ## loads are the point of it: its soft-tissue risk goes down, not up.
-static func stamps(c: float, plan := "") -> Dictionary:
-	if is_zero_approx(c):
+## `base` is the fitness base's part of the curve this week (base_curve): it
+## moves the legs with the plan's, and soft-tissue risk in its own direction
+## whatever the plan (an underdone side is at more risk, even a managed one).
+static func stamps(c: float, plan := "", base := 0.0) -> Dictionary:
+	if is_zero_approx(c) and is_zero_approx(base):
 		return {}
 	var injury := 1.0 - INJURY_K * c
 	if plan == "develop":
 		injury = 1.0 + INJURY_K * c
+	var t := c
+	if not is_zero_approx(base):
+		injury *= 1.0 - INJURY_K * base
+		t = c + base
 	return {
-		"cond_drain": 1.0 - DRAIN_K * c,
-		"cond_cap": CAP_K * maxf(0.0, -c) - RESTORE_K * maxf(0.0, c),
+		"cond_drain": 1.0 - DRAIN_K * t,
+		"cond_cap": CAP_K * maxf(0.0, -t) - RESTORE_K * maxf(0.0, t),
 		"cond_injury": injury,
 	}
 
@@ -181,8 +232,8 @@ static func stamps(c: float, plan := "") -> Dictionary:
 const STAMP_KEYS := ["cond_drain", "cond_cap", "cond_injury"]
 
 
-static func stamp_list(list: Array, c: float, plan := "") -> void:
-	var st := stamps(c, plan)
+static func stamp_list(list: Array, c: float, plan := "", base := 0.0) -> void:
+	var st := stamps(c, plan, base)
 	for p in list:
 		for k in STAMP_KEYS:
 			p.erase(k)
@@ -274,6 +325,14 @@ static func status_words(rec: Dictionary, w: int) -> String:
 	var c := shape(plan, w, pw)
 	var when := "peak due in %s" % month_of_week(pw)
 	return ("Building, " if c <= 0.0 else "Coming into form, ") + when
+
+
+## The same line with the pre-season's base in it, when the base is not the
+## ordinary sound one: "Building, peak due in August, on a thin base".
+static func status_line(rec: Dictionary, w: int) -> String:
+	var words := status_words(rec, w)
+	var b := base_of(rec)
+	return words if b == PreSeason.DEFAULT_BASE else "%s, on a %s base" % [words, b]
 
 
 ## What a coach may do at a revision week, said as when it is.
