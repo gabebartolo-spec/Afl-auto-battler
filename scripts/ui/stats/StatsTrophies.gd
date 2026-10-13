@@ -26,6 +26,7 @@ const PLAYER_HONOURS := [
 	["brownlow", "league_bnf_medal", "Brownlow Medal", "votes", "vote"],
 	["coleman", "leading_goalkicker_medal", "Coleman Medal", "goals", "goal"],
 	["rising_star", "rising_star", "Rising Star", "", ""],
+	["norm_smith", "norm_smith_medal", "Norm Smith Medal", "", ""],
 	["coaches_award", "coaches_award", "Coaches Award", "coaches", "vote"],
 	["my_bf", "club_bnf", "Best and fairest", "bf", "best and fairest vote"],
 ]
@@ -39,6 +40,7 @@ const AWARD_KINDS := [
 	["coleman", "Coleman Medal"],
 	["all_australian", "All-Australian"],
 	["rising_star", "Rising Star"],
+	["norm_smith", "Norm Smith Medal"],
 	["coaches_award", "Coaches Award"],
 	["my_bf", "Best and fairest"],
 ]
@@ -152,6 +154,13 @@ static func _club_honours(host: Control, seasons: Array) -> Control:
 				items.append({"kind": "premiership", "year": year, "entry": e})
 		if int(e.get("my_position", 0)) == 1 and award_filter != "premiership":
 			items.append({"kind": "minor_premiership", "year": year, "entry": e})
+	# The club's flags from before your time, kept quieter than your own.
+	var history := _history(club) if award_filter == "" or award_filter == "premiership" else null
+	if history != null:
+		v.add_child(history)
+		var mine := UiKit.lbl("Your premierships", UiKit.BODY, UiKit.club_name_colour(UiKit.club_ink(club)), true)
+		mine.name = "YourPremierships"
+		v.add_child(mine)
 	if flags == 0:
 		var none := _para("No premierships yet.")
 		none.name = "NoPremierships"
@@ -164,6 +173,38 @@ static func _club_honours(host: Control, seasons: Array) -> Control:
 	var ach := _achievement(seasons) if award_filter == "" else null
 	if ach != null:
 		v.add_child(ach)
+	return v
+
+
+## "Before you": the premierships the club won before the career began
+## (data/club_premierships.csv), as a quiet line and its years. Null when the
+## file has nothing for the club yet: nothing is guessed.
+static func _history(club: String) -> Control:
+	var h := ClubHistory.before_career(club)
+	if not bool(h["known"]):
+		return null
+	var v := UiKit.vbox(2)
+	v.name = "ClubHistory"
+	var years: Array = h["years"]
+	if years.is_empty():
+		var none := UiKit.lbl("Before you", UiKit.SMALL, UiKit.MUTED, true)
+		none.name = "HistoryTitle"
+		v.add_child(none)
+		var words := _para("No premierships yet.")
+		words.name = "HistoryNone"
+		v.add_child(words)
+	else:
+		var title := UiKit.lbl("Before you: %d %s" % [years.size(), "premiership" if years.size() == 1 else "premierships"],
+				UiKit.SMALL, UiKit.MUTED, true)
+		title.name = "HistoryTitle"
+		v.add_child(title)
+		var list := _para(", ".join(years.map(func(y): return str(y))))
+		list.name = "HistoryYears"
+		v.add_child(list)
+	var gap := Control.new()
+	gap.custom_minimum_size.y = 6
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(gap)
 	return v
 
 

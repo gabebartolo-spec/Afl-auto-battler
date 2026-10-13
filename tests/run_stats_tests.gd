@@ -1628,7 +1628,7 @@ func _trophies() -> void:
 	entry["my_position"] = 1
 	entry["my_aa"] = [ids[2]]
 	entry["brownlow"] = [{"id": ids[0], "club": "COL", "votes": 31}]
-	for key in ["coleman", "rising_star", "coaches_award", "my_bf"]:
+	for key in ["coleman", "rising_star", "coaches_award", "my_bf", "norm_smith"]:
 		entry[key] = []
 	var old := {"year": year - 1, "my_club": "COL", "premier": "GEE", "runner_up": "COL", "my_position": 3,
 		"brownlow": [], "coleman": [{"id": "far_away", "club": "CAR", "goals": 70}], "rising_star": [],
@@ -1637,6 +1637,31 @@ func _trophies() -> void:
 		"brownlow": [{"id": ids[3], "club": "COL", "votes": 40}], "coleman": [], "rising_star": [],
 		"coaches_award": [], "my_bf": [], "my_record": "20-3-0", "my_finals": "GF1", "my_aa": []}
 	_state.honour_roll = [elsewhere, old, entry]
+	# The club's real history from the data file (a stand-in table here): a long
+	# list, so it has to wrap on a phone.
+	var hist_years := [1896, 1902, 1910, 1917, 1919, 1927, 1928, 1930, 1935, 1936, 1953, 1958, 1990, 2010, 2023]
+	ClubHistory.use({"COL": {"years": hist_years, "comps": {}, "none": false}})
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		s = await _open_trophies(sz)
+		var tag := "%dx%d" % [sz.x, sz.y]
+		var hist_title: Label = s.find_child("HistoryTitle", true, false)
+		var hist_list: Label = s.find_child("HistoryYears", true, false)
+		var yours: Label = s.find_child("YourPremierships", true, false)
+		_check(hist_title != null and hist_title.text == "Before you: 15 premierships"
+				and hist_list != null and hist_list.text == ", ".join(hist_years.map(func(y): return str(y))),
+				"The club's history reads from the file: a count, then every year (%s)" % tag)
+		_check(hist_list != null and hist_list.get_theme_color("font_color") == UiKit.MUTED
+				and hist_list.autowrap_mode != TextServer.AUTOWRAP_OFF and hist_list.get_combined_minimum_size().x < 380.0,
+				"The history is the quiet colour and wraps rather than widening the screen (%s)" % tag)
+		_check(hist_list != null and yours != null and hist_list.is_visible_in_tree()
+				and s.find_child("ClubHistory", true, false).get_index() < yours.get_index()
+				and yours.get_index() < s.find_child("ClubShelf", true, false).get_index(),
+				"History comes first, then 'Your premierships' with your own flags apart from it (%s)" % tag)
+		_check(yours != null and s.find_children("Club_premiership_*", "Button", true, false).size() == 1
+				and s.find_child("ClubHistory", true, false).find_child("Club_premiership_%d" % year, true, false) == null,
+				"Your flag is on the shelf, not among the history years (%s)" % tag)
+		s.queue_free()
+		await _settle()
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
 		s = await _open_trophies(sz)
 		var tag := "%dx%d" % [sz.x, sz.y]
@@ -1719,6 +1744,30 @@ func _trophies() -> void:
 			await _settle()
 		s.queue_free()
 		await _settle()
+	# History cases: nothing on file shows nothing; confirmed none says so; a new club has none.
+	ClubHistory.use({})
+	s = await _open_trophies(Vector2i(390, 844))
+	_check(s.find_child("ClubHistory", true, false) == null and s.find_child("YourPremierships", true, false) == null,
+			"A club the file does not cover shows no history row (nothing guessed)")
+	s.queue_free()
+	await _settle()
+	ClubHistory.use({"COL": {"years": [], "comps": {}, "none": true}})
+	s = await _open_trophies(Vector2i(390, 844))
+	var no_hist: Label = s.find_child("HistoryNone", true, false)
+	_check(no_hist != null and no_hist.text == "No premierships yet.", "A club confirmed to have none says so plainly")
+	s.queue_free()
+	await _settle()
+	_check(ClubHistory.before_career("TAS") == {"known": true, "years": []}
+			and ClubHistory.before_career("CANB") == {"known": true, "years": []},
+			"Tasmania and Canberra have no premierships before the career")
+	var forged: Dictionary = root.get_node("GameDB").clubs["COL"].duplicate()
+	forged["custom"] = true
+	root.get_node("GameDB").clubs["ZZZ"] = forged
+	ClubHistory.use({"ZZZ": {"years": [1999], "comps": {}, "none": false}})
+	_check(ClubHistory.before_career("ZZZ") == {"known": true, "years": []},
+			"A Club Forge club has none, whatever the file says")
+	root.get_node("GameDB").clubs.erase("ZZZ")
+	ClubHistory.use({"COL": {"years": hist_years, "comps": {}, "none": false}})
 	# The filter: the kinds won, one at a time; your seasons stay.
 	s = await _open_trophies(Vector2i(390, 844))
 	var opt: OptionButton = s.find_child("AwardFilter", true, false)
@@ -1741,6 +1790,9 @@ func _trophies() -> void:
 	_check(s.find_child("PlayerHonours", true, false) == null and s.find_child("Club_premiership_%d" % year, true, false) != null
 			and s.find_child("Club_minor_premiership_%d" % year, true, false) == null,
 			"Premierships shows the flags alone")
+	_check(s.find_child("ClubHistory", true, false) != null, "Premierships keeps the club's history with the flags")
+	await _pick_filter(s, 2)
+	_check(s.find_child("ClubHistory", true, false) == null, "Minor premierships leaves the history out")
 	await _pick_filter(s, 0)
 	_check(s.find_child("ClubHonours", true, false) != null and s.find_child("PlayerHonours", true, false) != null,
 			"All honours brings everything back")
@@ -1753,6 +1805,7 @@ func _trophies() -> void:
 	s = await _open_trophies(Vector2i(390, 844))
 	_check(s.find_child("Club_premiership_%d" % year, true, false) != null, "The premiership is still on the shelf after loading")
 	s.queue_free()
+	ClubHistory.reload()
 	await _settle()
 
 

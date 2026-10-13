@@ -166,6 +166,19 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 			for line in clubs:
 				v.add_child(UiKit.lbl(str(line), UiKit.SMALL, UiKit.MUTED))
 
+	# His honours, kept for good in the honour roll.
+	var medal_years := GameState.norm_smith_years(str(p.get("id", "")))
+	if not medal_years.is_empty():
+		v.add_child(UiKit.spacer(4))
+		v.add_child(UiKit.lbl("Honours", UiKit.SMALL, UiKit.MUTED))
+		var years: PackedStringArray = []
+		for y in medal_years:
+			years.append(str(y))
+		var hl := UiKit.lbl("Norm Smith Medal %s" % ", ".join(years), UiKit.BODY, UiKit.TEXT, true)
+		hl.name = "ProfileHonours"
+		hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(hl)
+
 	# What he has done for your club: games, goals, best and fairests, flags.
 	if not GameState.list_player(str(p.get("id", ""))).is_empty():
 		var wu := GameState.with_us_text(p)

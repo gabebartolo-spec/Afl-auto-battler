@@ -1415,6 +1415,15 @@ func _show_results(results: Array) -> void:
 	if GameState.season.is_season_over():
 		v.add_child(UiKit.ellipsis("Premiers: %s" % GameDB.club_name(GameState.premier()),
 				18, UiKit.TEXT, true))
+	var medal := {}
+	for r in results:
+		if medal.is_empty():
+			medal = GameState.norm_smith_for(r)
+	if not medal.is_empty():
+		var ml := UiKit.lbl(str(medal["text"]), UiKit.BODY, UiKit.TEXT, true)
+		ml.name = "NormSmithMedal"
+		ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(ml)
 	if not others.is_empty():
 		v.add_child(UiKit.spacer(UiKit.GAP))
 		v.add_child(UiKit.lbl("Other results" if others.size() < results.size() else "Results",

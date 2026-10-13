@@ -2687,6 +2687,22 @@ func _ft_summary(v: VBoxContainer) -> void:
 					payoffs.add_child(pl)
 				v.add_child(payoffs)
 
+	# The Grand Final's best on ground, from either side.
+	var medal := GameState.norm_smith_for(_res)
+	if not medal.is_empty():
+		v.add_child(UiKit.spacer(UiKit.GAP))
+		v.add_child(UiKit.section("Norm Smith Medal"))
+		var mc := UiKit.club_ink(str(medal["club"]))
+		var ml := UiKit.lbl("%s (%s)" % [str(medal["name"]), GameDB.club_name(str(medal["club"]))],
+				UiKit.NAME, UiKit.club_name_colour(mc), true)
+		ml.name = "NormSmithMedal"
+		ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(ml)
+		var ms := UiKit.lbl(str(medal["line"]), UiKit.BODY, UiKit.TEXT)
+		ms.name = "NormSmithLine"
+		ms.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(ms)
+
 	# How it went: the few things that decided it, in football words.
 	v.add_child(UiKit.spacer(UiKit.GAP))
 	v.add_child(UiKit.section("How it went"))

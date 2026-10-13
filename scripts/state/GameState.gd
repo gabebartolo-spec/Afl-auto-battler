@@ -3770,6 +3770,9 @@ func _close_season_awards() -> void:
 	Career.close_season(players, season_tally, season_year, season_stats, season_stats_from)
 	open_offseason()
 	season_awards = Awards.season_awards(season_tally, players, season_year, rising_star_noms)
+	var medal := Awards.norm_smith(_grand_final_result())
+	if not medal.is_empty():
+		season_awards["norm_smith"] = medal
 	records = Awards.update_records(records, season_awards, season_log)
 	var mine_bf: Array = (season_awards["best_and_fairest"] as Dictionary).get(my_club, [])
 	honour_roll.append({
@@ -3780,6 +3783,8 @@ func _close_season_awards() -> void:
 		"coleman": (season_awards["coleman"] as Array).slice(0, 1),
 		"rising_star": (season_awards["rising_star"] as Array).slice(0, 1),
 		"coaches_award": (season_awards["coaches_award"] as Array).slice(0, 1),
+		# Absent in a season played before the medal existed: never back-filled.
+		"norm_smith": [season_awards["norm_smith"]] if season_awards.has("norm_smith") else [],
 		"my_bf": mine_bf.slice(0, 1),
 		"my_club": my_club,
 		"my_position": my_position(),
@@ -3796,6 +3801,43 @@ func _close_season_awards() -> void:
 	_board_season_end()
 	_coaching_offseason()
 	_season_news()
+
+
+## This season's Grand Final result, or {} before it is played.
+func _grand_final_result() -> Dictionary:
+	if season == null:
+		return {}
+	for week in season.finals.get("weeks", []):
+		for res in week:
+			if str(res.get("tag", "")) == "GF":
+				return res
+	return {}
+
+
+## The Norm Smith Medal for a Grand Final result, for the screens that show it
+## straight after the siren: {} for any other match, else {name, club, line,
+## text}. `text` is the plain-words line the news uses.
+func norm_smith_for(res: Dictionary) -> Dictionary:
+	if str(res.get("tag", "")) != "GF":
+		return {}
+	var m := Awards.norm_smith(res)
+	if m.is_empty():
+		return {}
+	var who := award_name(m)
+	var out: Dictionary = m.duplicate()
+	out["name"] = who
+	out["text"] = "Norm Smith Medal: %s (%s), %s" % [who, GameDB.club_name(str(m["club"])), str(m["line"])]
+	return out
+
+
+## The seasons a player won the Norm Smith Medal in this save, oldest first.
+func norm_smith_years(player_id: String) -> Array:
+	var out := []
+	for e in honour_roll:
+		var rows: Array = (e as Dictionary).get("norm_smith", [])
+		if not rows.is_empty() and str((rows[0] as Dictionary).get("id", "")) == player_id:
+			out.append(int((e as Dictionary).get("year", 0)))
+	return out
 
 
 ## The tag of the last final your club played this season ("" if none).
@@ -7221,6 +7263,10 @@ func _season_news() -> void:
 	if not gk.is_empty():
 		add_news("award", "%s (%s) won the Coleman Medal with %d goals." % [
 				award_name(gk[0]), GameDB.club_name(str(gk[0]["club"])), int(gk[0]["goals"])])
+	var medal: Dictionary = season_awards.get("norm_smith", {})
+	if not medal.is_empty():
+		add_news("award", "Norm Smith Medal: %s (%s), %s" % [award_name(medal),
+				GameDB.club_name(str(medal["club"])), str(medal["line"])])
 	if premier() != "":
 		add_news("premiers", "%s are the %d premiers." % [GameDB.club_name(premier()), season_year])
 

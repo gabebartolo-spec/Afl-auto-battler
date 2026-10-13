@@ -9,6 +9,8 @@ extends RefCounted
 ##   Rising Star      best votes-then-influence among the season's weekly
 ##                    nominees (one a round: the most influential player 21
 ##                    and under not yet nominated)
+##   Norm Smith Medal the most influential player on the ground in the Grand
+##                    Final, from either side (the same measure as the votes)
 ##   Best & fairest   5-4-3-2-1 within each side every match, finals included
 ##   All-Australian   the season's best 23 by position (12+ games)
 ##
@@ -68,6 +70,29 @@ static func tally_match(tally: Dictionary, res: Dictionary, regular: bool) -> vo
 		for i in range(mini(5, everyone.size())):
 			var t: Dictionary = tally[str(everyone[i][0])]
 			t["coaches"] = int(t.get("coaches", 0)) + (5 - i)
+
+
+## The Norm Smith Medal for one Grand Final result: the most influential
+## player on the ground, from either side (CoachReport.influence, the measure
+## the Brownlow votes use). A level count goes to the home side's player who
+## comes first in the roster, so the same match always names the same man.
+## Returns {id, club, influence, line} (`line` is his stat line that day), or
+## {} when the match kept no player stats.
+static func norm_smith(res: Dictionary) -> Dictionary:
+	var stats_all: Dictionary = res.get("players", {})
+	var roster: Array = res.get("roster", [])
+	var codes := [str(res.get("home", "")), str(res.get("away", ""))]
+	var best := {}
+	for side in range(mini(2, roster.size())):
+		for r in roster[side]:
+			var id := str(r["id"])
+			if not stats_all.has(id):
+				continue
+			var inf := CoachReport.influence(stats_all[id])
+			if best.is_empty() or inf > float(best["influence"]):
+				best = {"id": id, "club": codes[side], "influence": inf,
+						"line": CoachReport.stat_line(stats_all[id])}
+	return best
 
 
 ## The season's awards. `players` maps id -> player dict (role, age) for
