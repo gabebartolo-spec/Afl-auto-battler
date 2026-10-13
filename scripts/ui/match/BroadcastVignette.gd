@@ -17,8 +17,8 @@ const BOUNDARY_SNAP := "boundary_snap"
 
 const DURATIONS := {
 	SPECCY_FRONT: 2.5,    # (round 15: the mark at 1.5 s, then the picture holds on it)
-	SPECCY_SIDE: 2.5,
-	SPECCY_DEFENSIVE: 2.6,
+	SPECCY_SIDE: 3.6,
+	SPECCY_DEFENSIVE: 3.7,
 	AFTER_SIREN: 5.4,
 	GOAL_LINE: 4.6,
 	BOUNDARY_SNAP: 4.1,
@@ -72,48 +72,15 @@ const KICK_BOOT := Vector2(0.49, 0.54)
 const SNAP_BOOT := Vector2(0.62, 0.63)
 ## Heights in metres, so a leap is a footballer's leap on any screen: a speccy's
 ## knees in the pack's backs, a one-on-one contest.
-## His height at the top comes from the climb: the speccy knee (~0.53 m above his lowest boot,
-## pose_probe) resting on the braced man's upper back (~1.2 m, the brace move) - 0.7 m by the
-## numbers; 1.0 m measured on screen (at 0.7 the knee landed on his lower back, round 8b crop);
-## 1.2 m in round 9 so his hips clear the braced man's head (the knee now sits below the hips).
-const SPECCY_PEAK := 1.03   # (round 12: his hips sit on the braced man's shoulders, not a head above)
-## Where the braced man stands relative to the marker's spot at the top: x to the marker's right, y
-## upfield (metres). Round 13: square from behind and 0.3 m to the right, so his left shoulder is under
-## the marker's right thigh and his head, turned up to the ball, is beside the marker's hip, not under
-## it (fitted with the two posed together in 3D).
-const SPECCY_KNEE := Vector2(0.38, -0.05)   # (round 14: 0.30 pressed his face into the marker's shorts)
-## The marker's run at the pack (round 14): metres he covers in his strides before he plants and
-## crouches (he used to wait on the spot and slide in), and the time he plants, just before take-off.
-const SPECCY_RUN := 1.7
-const SPECCY_PLANT := 0.84
-## The marker waits and takes off this far behind that spot (nearer us, metres) and his leap carries
-## him on to the man (round 13: standing level, the braced man was nearer us but drawn behind him).
-const SPECCY_RUNUP := 0.6
-## At the top of the speccy the marker's right thigh lies across the braced man's left shoulder and
-## his shin hangs down in front of the man's chest, so from behind the man's back hides it. The
-## braced man is drawn under the marker, so his figure below this height (metres on screen above his
-## boots: his shoulder line) is drawn again over the marker while the thigh is on the shoulder.
-const SPECCY_COVER := 1.53
-## Metres the marker slides to his left off the braced man's shoulder as he comes down (round 12).
-const SPECCY_SLIDE := 0.3
-## The top pose, with the cover, holds while he is at least this share of the peak (round 13); then
-## his right leg swings off the shoulder to his own side over three frames.
-const SPECCY_HOLD := 0.9
-## The braced man's facing: square from behind (round 13: his face turned up to the ball reads in
-## profile; turned to his right, as round 12, it read as the back of his head).
-const BRACE_FACING := "back"
+const SPECCY_PEAK := 1.05
 ## A man carried on another casts no shadow of his own: the pack's is the one anchor.
 var _no_shadow := false
 ## The speccy: the ball between his palms, this far under his fingertips (the leap frame's
 ## reach), and when he has it in to his chest.
 const SPECCY_PALMS := 0.14
 ## He hangs at the top with it until SPECCY_DOWN, then drops, landing at SPECCY_LAND.
-## Off the turf at SPECCY_UP, at the top (the ball arriving) at SPECCY_TOP, starting down at
-## SPECCY_DOWN, on the turf at SPECCY_LAND: about 0.9 s in the air, like a real speccy.
-const SPECCY_UP := 0.95
-const SPECCY_TOP := 1.42
-const SPECCY_DOWN := 1.5
-const SPECCY_LAND := 1.85
+const SPECCY_DOWN := 1.78
+const SPECCY_LAND := 2.2
 const CONTEST_PEAK := 0.55
 ## The crumber's scale: nearer the camera than the marking contest, so a little larger
 ## on screen - but a small forward, not a giant (he's drawn on his own build too).
@@ -533,11 +500,8 @@ func _camera_aim() -> Array:
 			# The pack and the ball's flight, in tight on his hands for the grab, then
 			# easing back as he comes down with it.
 			var m: Vector2 = _hip(SPECCY_AT[kind])[0]
-			# One move, in and out, no stop-start while he comes down. The lens keeps pushing in through
-			# the grab and turns as he drops to the turf (round 14: it and the tilt both turned at the
-			# top, so the picture stood still for the frames of the mark).
-			var z: float = G.glide(G.glide(1.0, 1.3, _t, 0.4, SPECCY_LAND - 0.1), 1.15, _t, SPECCY_LAND - 0.1, 2.6)
-			var fy: float = G.glide(G.glide(h * 0.52, h * 0.42, _t, 0.4, SPECCY_TOP), h * 0.5, _t, SPECCY_TOP, 2.6)
+			var z: float = G.glide(G.glide(1.0, 1.3, _t, 0.4, 1.45), 1.12, _t, 1.85, 2.9)
+			var fy: float = G.glide(G.glide(h * 0.52, h * 0.42, _t, 0.4, 1.45), h * 0.5, _t, 1.85, 2.9)
 			return [Vector2(m.x, fy), z]
 		AFTER_SIREN:
 			# On him lining it up, wider as he runs in, then with the ball to the posts.
@@ -592,173 +556,77 @@ func _draw_speccy() -> void:
 	var m: Vector2 = SPECCY_AT[kind]
 	var fwd := _ground.fwd
 	var right := Vector2(fwd.y, -fwd.x)
-	# Ballistic: up to the top as the ball arrives, straight back down (a 2-3 frame apex, not a hang).
+	var jump_t := clampf((_t - 0.42) / 1.75, 0.0, 1.0)
 	var lift := 0.0                                   # metres
-	if _t >= SPECCY_UP and _t < SPECCY_LAND:
-		var u := (_t - SPECCY_TOP) / ((SPECCY_TOP - SPECCY_UP) if _t < SPECCY_TOP else (SPECCY_LAND - SPECCY_TOP))
+	if jump_t < 0.62:
+		lift = ease(jump_t / 0.62, -2.0) * SPECCY_PEAK
+	else:
+		lift = SPECCY_PEAK
+	if _t > SPECCY_DOWN:
+		# Then straight down under gravity, square to us, and onto his feet.
+		var u := clampf((_t - SPECCY_DOWN) / (SPECCY_LAND - SPECCY_DOWN), 0.0, 1.0)
 		lift = SPECCY_PEAK * (1.0 - u * u)
 
 	# The pack: everyone faces the ball coming in, so their backs are to us, just upfield
 	# of the marker. Each contests his own way: the man he climbs goes up with both
 	# hands; one punches with a fist (a spoil); one stays down, body-on, bracing.
-	# The man he climbs is close in front of him (half a metre: the marker's knee goes into
-	# his back) and still in the air as the marker comes over the top, so the marker is
-	# carried on him, not floating over an empty space (realism pass, 2026-10-11).
 	var pack := [
-		# Under the marker's right thigh (round 13): the braced man stands to his right, his left
-		# shoulder under the thigh at the top, his head beside the marker's hip. The marker comes from
-		# nearer us (drawn last); SPECCY_COVER hides the shin that hangs in front of the man's chest.
-		{"at": m + fwd * SPECCY_KNEE.y + right * SPECCY_KNEE.x, "how": "brace", "delay": 0.0, "lift": 0.0},
-		# (Round 14: both are back down by the time the marker is, their arms up for a moment, not a second.)
-		{"at": m + fwd * 0.6 - right * 0.75, "how": "tap_b", "delay": 0.42, "lift": 0.22, "dur": 0.9},
-		# The third leans in and reaches for it too, not standing flat-footed.
-		{"at": m + fwd * 1.4 + right * 0.85, "how": "leap", "delay": 0.66, "lift": 0.18, "dur": 0.68},
+		{"at": m + fwd * 1.0 + right * 0.12, "how": "leap", "delay": 0.0, "lift": 0.45},
+		{"at": m + fwd * 0.6 - right * 0.75, "how": "tap_b", "delay": 0.12, "lift": 0.3},
+		{"at": m + fwd * 1.6 + right * 0.72, "how": "ready_turn", "delay": 0.0, "lift": 0.0},
 	]
 	_draw_extras([m, pack[0]["at"], pack[1]["at"], pack[2]["at"]])
-	# Far to near (we look up the ground, fwd), so a nearer man is drawn over a further one.
-	var order := range(2 if kind == SPECCY_DEFENSIVE else 3)
-	order.sort_custom(func(a_, b_): return (pack[a_]["at"] as Vector2).dot(fwd) > (pack[b_]["at"] as Vector2).dot(fwd))
-	for i in order:
+	for i in range(2 if kind == SPECCY_DEFENSIVE else 3):
 		var p: Dictionary = pack[i]
-		var k := clampf((_t - 0.42 - float(p["delay"])) / float(p.get("dur", 0.9)), 0.0, 1.0)
-		var up := sin(k * PI) * float(p["lift"])
-		if str(p["how"]) == "brace":
-			# The man he climbs (round 12, the director: near upright like the pack-mark photo, the
-			# marker riding his shoulders): standing, he braces as the marker crouches to go, his right
-			# arm going up (0-1-2); once the marker has landed the arm comes down (3-4), then he stands
-			# up again (5, 0). Round 13: a frame between each pose, nothing popped.
-			if VignetteFigures.has(BODY, "brace", BRACE_FACING):
-				_player(p["at"], 0.0, other, "brace", BRACE_FACING, _brace_frame(), 0, EXTRA_LOOK, false)
-			elif _t > 0.35 and _t < SPECCY_LAND + 0.1:
-				_player(p["at"], 0.0, other, "tap_b", "back", 0, 0, EXTRA_LOOK, false)
-			else:
-				_ready_player(p["at"], other, "back", 13, true, true)     # turned to the ball
-		elif k <= 0.0 or k >= 1.0:
-			# Waiting on it or back down after the contest: turned towards the ball (the marker),
-			# shifting his weight at his own rhythm - not square-on statues.
-			_ready_player(p["at"], other, "back", 13 + i * 5, true, i == 1)
+		var k := clampf((_t - 0.42 - float(p["delay"])) / 0.9, 0.0, 1.0)
+		var up := sin(k * PI) * float(p["lift"]) * SPECCY_PEAK
+		if str(p["how"]) == "ready_turn" or k <= 0.0 or k >= 1.0:
+			# Waiting on it, holding his ground body-on, or back down after the contest:
+			# watching the ball, his own rhythm (not frozen with his hands up).
+			_ready_player(p["at"], other, "back", 13 + i * 5, i == 2, i == 2)
 		else:
-			# Up through the move and back down through it (no snap from the top frame to
-			# standing when the contest is over).
-			# Round 14: evenly through the frames (a sine sat on the top frame for a third of a second:
-			# mannequins), and a body in the air drifts a little.
 			var frames := 6 if str(p["how"]) == "leap" else 4
-			var f := int(roundf((1.0 - absf(2.0 * k - 1.0)) * float(frames - 1)))
-			var how := str(p["how"])
-			if how == "tap_b" and VignetteFigures.has(BODY, "contest", "back"):
-				how = "contest"          # the same leap with the hand open for the ball (round 12)
-			var sway := right * (0.025 * sin(k * PI) * sin(_t * 7.0 + float(i) * 2.1))
-			_player((p["at"] as Vector2) + sway, up, other, how, "back", f, 0, EXTRA_LOOK, i == 1)
+			_player(p["at"], up, other, str(p["how"]), "back", mini(frames - 1, int(k * frames * 1.4)),
+					0, EXTRA_LOOK, i == 1)
 
 	# The marker, back to us so his number shows, comes over the pack from behind
 	# (drawn last, nearest): crouch on the turf, spring, arms up for the ball and the
 	# knee in a back, then down with it held to his chest.
 	var num := int(event.get("num", 0))
-	# The speccy move (knee in the man's back, legs splayed) where the sheets have it.
-	var anim := "speccy" if VignetteFigures.has(_build, "speccy", "back") or VignetteFigures.has(BODY, "speccy", "back") else "leap"
-	var leap_frame := 0                      # crouched, ready to go
-	# Round 14: he runs at the pack (three strides), plants, a short crouch (speccy frame 0), and goes.
-	var standing := anim == "speccy" and _t < SPECCY_PLANT
-	# The top pose holds until he has fallen to SPECCY_HOLD of the peak (lift = peak (1 - u^2)).
-	var t_hold := SPECCY_TOP + sqrt(1.0 - SPECCY_HOLD) * (SPECCY_LAND - SPECCY_TOP)
-	if anim == "speccy" and _t >= SPECCY_UP - 0.08:
-		# 10 frames (round 13): rising 0-4 with the hands closing on the ball gradually, the top 5-6,
-		# then the right leg swinging back off the man's shoulder to his own side, knee bent, 7-9.
-		if _t < SPECCY_TOP - 0.07:
-			leap_frame = clampi(int((_t - (SPECCY_UP - 0.08)) / (SPECCY_TOP - 0.07 - SPECCY_UP + 0.08) * 5.0), 0, 4)
-		elif _t < t_hold:
-			leap_frame = 5 if _t < SPECCY_TOP else 6                # the top, held
+	var leap_frame := 0
+	if _t >= 0.42:
+		if jump_t < 0.08:
+			leap_frame = 1                                         # the take-off crouch
 		else:
-			leap_frame = 7 + clampi(int((_t - t_hold) / 0.034), 0, 2)
-		if _t >= SPECCY_LAND - 0.16:
-			# Down from overhead to his chest (round 14, 8 frames): in the air with the ball overhead (0),
-			# it comes down in front of his face (1) to his chest, elbows by his ribs, legs reaching (2);
-			# the boots meet the turf (3) and the knees give in the next two frames (4, 5: low over it);
-			# then up (6, 7). He turns his shoulders to his left, so the ball shows past his side.
-			anim = "speccy_land" if VignetteFigures.has(_build, "speccy_land", "back") or VignetteFigures.has(BODY, "speccy_land", "back") else "leap"
-			var a2 := _t - (SPECCY_LAND - 0.16)
-			leap_frame = 0 if a2 < 0.06 else (1 if a2 < 0.1 else (2 if a2 < 0.16 else (3 if a2 < 0.19 else (4 if a2 < 0.225 else (5 if a2 < 0.325 else (6 if a2 < 0.42 else 7))))))
-	if anim in ["speccy", "speccy_land"] and _t >= SPECCY_TOP and _t < SPECCY_LAND:
-		# Coming down, his hips fall on one arc (round 13): the frames are grounded on their lowest
-		# boot, so a leg swinging down moved his body in the frame (a 30 px pop). From the hips at the
-		# top to the hips of the frame that meets the turf; his boots are where that leaves them.
-		var bb := _build if VignetteFigures.has(_build, "speccy", "back") else BODY
-		var bl := _build if VignetteFigures.has(_build, "speccy_land", "back") else BODY
-		var top_hips := VignetteFigures.hips(VignetteFigures.strip(bb, "speccy", "back"), 6)
-		var cur := VignetteFigures.strip(bb if anim == "speccy" else bl, anim, "back")
-		var hips := VignetteFigures.hips(cur, leap_frame)
-		if top_hips > 0.0 and hips > 0.0 and VignetteFigures.has(bl, "speccy_land", "back"):
-			var touch := VignetteFigures.hips(VignetteFigures.strip(bl, "speccy_land", "back"), 3)
-			var u := (_t - SPECCY_TOP) / (SPECCY_LAND - SPECCY_TOP)
-			var arc := SPECCY_PEAK + top_hips - (SPECCY_PEAK + top_hips - touch) * u * u
-			lift = maxf(0.0, arc - hips)
-	elif anim == "speccy_land":
-		lift = 0.0
-	var held_in := anim != "speccy_land" and _t >= SPECCY_LAND + 0.07   # at his chest (sheets without the landing)
+			leap_frame = 2 + int(roundf(clampf((jump_t - 0.08) / 0.4, 0.0, 1.0) * 3.0))
+		if _t > SPECCY_DOWN:
+			leap_frame = 4                                         # both hands still on it
+		# Bringing it in to his chest as he lands, then the landing crouch, then up out
+		# of it: square to us the whole way, the ball held in front of him (director: not
+		# landing on an angle as if he's about to run off).
+		if _t > SPECCY_LAND - 0.12:
+			leap_frame = 1
+		if _t > SPECCY_LAND and _t < SPECCY_LAND + 0.35:
+			leap_frame = 0
+	var held_in := _t > SPECCY_LAND - 0.12
 	# The ball comes down out of the night at a kick's pace (no easing to a stop above
 	# him) into his hands - between his palms, a hand's width under his fingertips (the
 	# frame's reach: the top of the figure) - and stays there. It is just beyond him all
 	# the way (we're behind him), so it's drawn before him: his hands close round it and
 	# his head and shoulders hide it as he brings it down to his chest (director: the ball
 	# hung above his head, not caught).
-	var build := _build if VignetteFigures.has(_build, anim, "back") else BODY
-	# Coming down (round 12) he slides off the man's shoulder to his left, away from him, so his
-	# leg comes down beside the man, not down his back.
-	# (Round 13: eased, from just after the top, so it is under way as his leg leaves the shoulder.)
-	# Before that he waits SPECCY_RUNUP behind his spot, nearer us, and the leap carries him on to the man.
-	var slide := smoothstep(SPECCY_TOP + 0.07, SPECCY_LAND, _t)
-	# Round 14: the run covers SPECCY_RUN at a jog's pace up to the plant; off the turf he keeps that
-	# pace and loses it into the man (a leap carries on, it doesn't ease in from a standstill).
-	var air := clampf((_t - SPECCY_UP) / (SPECCY_TOP - 0.07 - SPECCY_UP), 0.0, 1.0)
-	var run_in := 1.0 - (1.0 - air) * (1.0 - air)
-	var run_up := clampf(_t / SPECCY_PLANT, 0.0, 1.0)
-	var mm := m - right * SPECCY_SLIDE * slide - fwd * (SPECCY_RUNUP * (1.0 - run_in) + SPECCY_RUN * (1.0 - run_up))
-	var held := m - right * SPECCY_SLIDE * slide + fwd * 0.18
+	var strip := VignetteFigures.strip(_build if VignetteFigures.has(_build, "leap", "back") else BODY, "leap", "back")
+	var hands_h := lift + VignetteFigures.reach(strip, leap_frame) - SPECCY_PALMS
+	var held := Vector2(m.x, m.y) + fwd * 0.18
 	var from := Vector3(held.x, held.y, 0.0) + Vector3(fwd.x, fwd.y, 0.0) * 34.0 + Vector3(0, 0, 16.0)
-	var k := clampf((_t - 0.35) / (SPECCY_TOP - 0.35), 0.0, 1.0)
-	# In his hands from the moment it arrives until it's at his chest: between his palms in
-	# the frame he shows (the sheet's per-frame palms), so it moves with them, never left
-	# floating over his head.
-	var la := _palm(mm, anim, "back", leap_frame, 0, build)
-	var ra := _palm(mm, anim, "back", leap_frame, 1, build)
-	var s0 := _ground.project(mm)
-	var in_hands := Vector2.INF
-	if la != Vector2.INF and ra != Vector2.INF and s0.z > 0.0:
-		in_hands = (la + ra) * 0.5 - Vector2(0, lift * s0.z)
-	var behind := anim == "speccy_land" and leap_frame >= 1 and in_hands != Vector2.INF
-	if behind:
-		# In front of his face, then at his chest (round 14): the ball is beyond his head and shoulders
-		# from here, between his palms, and shows past his left side as he turns with it.
-		_draw_ball(in_hands, s0.z / 64.0, false)
-	elif held_in or in_hands == Vector2.INF:
-		var chest := Vector3(held.x, held.y, lift + (0.85 if leap_frame == 0 else 1.0))   # at his chest: hidden by him
-		_ball3(Vector2(chest.x, chest.y), chest.z)
-	elif _t < SPECCY_TOP - 0.02:
-		# Coming in out of the night, onto his palms as he tops out.
-		var hp := _ground.project(held)
-		var target_h := (hp.y - in_hands.y) / maxf(hp.z, 0.001)
-		var b := from.lerp(Vector3(held.x, held.y, target_h), k)
-		_ball3(Vector2(b.x, b.y), b.z)
-	var in_front := false
-	if not held_in and not behind and in_hands != Vector2.INF and _t >= SPECCY_TOP - 0.02:
-		in_front = true          # between his palms, over his hands (drawn after him, below)
-	_no_shadow = lift > 0.25          # on the man's back: the pack's shadow is the anchor
-	if standing:
-		var jb := _build if VignetteFigures.has(_build, "jog", "back") else BODY
-		_player(mm, 0.0, side, "jog", "back", int(_t * 11.0) % 8, num, _look, false, jb)
-	else:
-		_player(mm, lift, side, anim, "back", leap_frame, num, _look, false, _build if VignetteFigures.has(_build, anim, "back") else BODY)
-	_no_shadow = false
-	# At the top (frames 4-6) his thigh is on the braced man's shoulder and his shin hangs in front of
-	# the man's chest: the man's body hides it. Climbing (0-3) the knee is in his back and the shin
-	# behind it, nearer us. Coming down (round 13) the cover stays until he is on the turf, so the leg
-	# swinging off the shoulder (7-9) never jumps from in front of the man's chest to over his back;
-	# by then he has slid to his left, beside the man (on his spot, a little beyond him).
-	if not standing and ((anim == "speccy" and leap_frame >= 4) or (anim == "speccy_land" and _t < SPECCY_LAND)) \
-			and VignetteFigures.has(BODY, "brace", BRACE_FACING):
-		_figure_below(pack[0]["at"], other, "brace", BRACE_FACING, _brace_frame(), SPECCY_COVER)
-	if in_front:
-		_draw_ball(in_hands, s0.z / 64.0, false)
+	var k := clampf((_t - 0.35) / 1.1, 0.0, 1.0)
+	var ball := Vector3(held.x, held.y, hands_h)
+	if _t < 1.45:
+		ball = from.lerp(ball, k)
+	if held_in:
+		ball = Vector3(held.x, held.y, lift + (0.85 if leap_frame == 0 else 1.0))   # at his chest: hidden by him
+	_ball3(Vector2(ball.x, ball.y), ball.z)
+	_player(m, lift, side, "leap", "back", leap_frame, num, _look, false, _build)
 
 
 # ---------------------------------------------------------------------------
@@ -964,46 +832,6 @@ func _draw_speccy_front() -> void:
 	if s.z > 0.0:
 		# End over end, slowly, arriving on the frame it is held on (one ball, one colour, all the way).
 		VignetteBall.draw(self, Vector2(s.x, s.y), 0.28 * s.z, 0.0, false, posmod(SF_HELD - int(ceil(u * 14.0)), VignetteBall.FRAMES))
-
-
-## The braced man's frame at this moment (round 13, see the brace move): standing (0), half (1),
-## braced with his arm up (2) from as the marker crouches; after the marker lands the arm comes
-## down (3, 4); half up (5), standing (0).
-func _brace_frame() -> int:
-	var t_in := SPECCY_UP - 0.25
-	var t_down := SPECCY_LAND + 0.04
-	var t_out := SPECCY_LAND + 0.32
-	if _t < t_in or _t >= t_out + 0.07:
-		return 0
-	if _t < t_in + 0.07:
-		return 1
-	if _t < t_down:
-		# Round 14: under the marker's weight (his thigh on the shoulder until he swings off) the knees
-		# and hips give a little: frame 6, the same pose a few cm lower.
-		var t_off := SPECCY_TOP + sqrt(1.0 - SPECCY_HOLD) * (SPECCY_LAND - SPECCY_TOP) + 0.07
-		var loaded := _t >= SPECCY_TOP - 0.22 and _t < t_off and int(VignetteFigures.strip(BODY, "brace", BRACE_FACING)["frames"]) > 6
-		return 6 if loaded else 2
-	if _t < t_down + 0.07:
-		return 3
-	return 4 if _t < t_out else 5
-
-
-## Part of a standing figure drawn again: only below height h (metres on screen above his boots),
-## over whatever was drawn since (the speccy's braced man hiding the marker's shin).
-func _figure_below(p: Vector2, side: int, anim: String, facing: String, frame: int, h: float,
-		look: Dictionary = EXTRA_LOOK) -> void:
-	var s := _ground.project(p)
-	if s.z <= 0.0 or not VignetteFigures.has(BODY, anim, facing):
-		return
-	var feet := Vector2(s.x, s.y)
-	var k := s.z / VignetteFigures.PX_PER_M
-	var info := VignetteFigures.strip(BODY, anim, facing)
-	var src := VignetteFigures.source(info, StoppageVignette.figure_frame(info, frame, anim, facing))
-	var pivot := Vector2(info["pivot"][0], info["pivot"][1])
-	var cut := clampf(pivot.y - h * VignetteFigures.PX_PER_M, 0.0, src.size.y)
-	var part := Rect2(src.position + Vector2(0, cut), Vector2(src.size.x, src.size.y - cut))
-	draw_texture_rect_region(StoppageVignette.FIGURE_SHADE, Rect2(feet - pivot * k + Vector2(0, cut * k), part.size * k),
-			part, StoppageVignette.look_colour(side, look, false))
 
 
 # ---------------------------------------------------------------------------
