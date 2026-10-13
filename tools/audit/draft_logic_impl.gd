@@ -634,6 +634,41 @@ func dbg() -> void:
 			print("DBG|drafted %s" % str(d._draft_pick(code, p)))
 
 
+func who() -> void:
+	var pool: Array = GameDB.all_players_sorted() + GameDB.all_draftees_sorted()
+	pool.sort_custom(func(a, b): return a["overall"] > b["overall"])
+	var clubs: Array = GameDB.active_clubs(GameDB.START_YEAR).duplicate()
+	var d := Draft.new(pool, clubs, 1)
+	d.start_for_user("")
+	var pick_of := {}
+	for e in d.pick_history:
+		pick_of[str(e["player_id"])] = int(e["pick"])
+	var d0 := Draft.new(pool, clubs, 1)
+	var code: String = str(d0.draft_order[0])
+	for i in range(0, 10):
+		var p: Dictionary = pool[i]
+		print("WHO|rank %d %s %s role %s/%s age %.1f ovr %d pot %d value %d height %s picked %d | horizon(%s) %.1f build %.1f now %.1f need %.2f score %.1f cappen %.1f" % [
+				i + 1, str(p["id"]), GameDB.player_display_name(p), str(p["role"]), str(p.get("role2", "")), float(p.get("age", 0)),
+				int(p["overall"]), int(p.get("potential", 0)), int(p["value"]), str(p.get("height_cm", "")), int(pick_of.get(str(p["id"]), 0)),
+				d0.club_horizon(code), d0._club_worth(code, p), d0.horizon_worth(p, "build"), d0.horizon_worth(p, "now"),
+				d0._need_weight(code, str(p["role"])), d0._ai_score(code, p), d0._cap_penalty(code, p)])
+
+
+func who2() -> void:
+	var pool: Array = GameDB.all_players_sorted() + GameDB.all_draftees_sorted()
+	pool.sort_custom(func(a, b): return a["overall"] > b["overall"])
+	for p in pool:
+		if str(p["id"]) == "MEL_11" or str(p["id"]) == "SYD_5":
+			print("WHO2|%s outlook %s" % [str(p["id"]), str(Potential.outlook(p, 8))])
+	var d := Draft.new(pool, GameDB.active_clubs(GameDB.START_YEAR).duplicate(), 1)
+	d.start_for_user("")
+	var rk := []
+	for e in d.pick_history:
+		if str(e["role"]).begins_with("RUCK"):
+			rk.append("#%d ovr %d" % [int(e["pick"]), int(e["overall"])])
+	print("WHO2|ruck picks (pick, ovr): %s" % ", ".join(rk.slice(0, 30)))
+
+
 func _sig(d: Draft) -> String:
 	var parts := []
 	for e in d.pick_history:
@@ -705,4 +740,7 @@ func run() -> void:
 			edge()
 		"dbg":
 			dbg()
+		"who":
+			who()
+			who2()
 	summary()
