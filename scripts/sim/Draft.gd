@@ -410,6 +410,39 @@ static func need_word(st: Dictionary, role: String) -> String:
 	return "covered"
 
 
+## A position's players in football words, for a count of n.
+static func role_noun(role: String, n: int) -> String:
+	var one := {"RUCK": "ruck", "MID": "midfielder", "DEF": "defender", "FWD": "forward"}
+	var word: String = one.get(role, role.to_lower())
+	return word if n == 1 else word + "s"
+
+
+## Where the finished list still cannot field the match-day side, in words:
+## "6 defenders" or "6 defenders, 2 forwards" ("" when no position is short).
+func short_positions() -> String:
+	var status := position_status()
+	var parts: Array[String] = []
+	for role in ["RUCK", "MID", "DEF", "FWD"]:
+		var short := int((status[role] as Dictionary)["short"])
+		if short > 0:
+			parts.append("%d %s" % [short, role_noun(role, short)])
+	return ", ".join(parts)
+
+
+## Why a finished list cannot start the season, in one sentence ("" when it
+## can): the same three tests as is_valid(), said in the order a manager
+## would count them.
+func invalid_reason() -> String:
+	if intake_mode or is_valid():
+		return ""
+	if count() != target_size:
+		return "You have %d of %d players." % [count(), target_size]
+	if spent() > budget:
+		return "You are %s over the salary cap." % Contracts.money(spent() - budget)
+	return "You have %d ruck%s. Every list needs two." % [count_covering("RUCK"),
+			"" if count_covering("RUCK") == 1 else "s"]
+
+
 ## [[role, role2], ...] for everyone on `code`'s list (kept players too).
 func role_pairs_for(code: String) -> Array:
 	var out: Array = []
@@ -1058,11 +1091,25 @@ func user_stuck() -> bool:
 	return true
 
 
+## A finished list the rules refuse (over the cap, or short of two rucks) with
+## every place filled. Play cannot reach it - every pick is checked against
+## the cap and the two-ruck rule - but an older save can. Releasing a pick
+## reopens the draft with one extra pick at the end, so the coach can fix it
+## without starting again. Never true for a list that is valid.
+func finished_list_refused() -> bool:
+	return league_mode and not intake_mode and is_finished() 			and not is_valid() and count() >= target_size
+
+
+## Releasing a pick is offered when you are stuck or the finished list is refused.
+func can_release() -> bool:
+	return user_stuck() or finished_list_refused()
+
+
 ## The way out of a stuck draft without ever breaching the cap: release one
 ## of your picks. He goes back into the pool, his salary comes off your books
 ## and you get an extra pick at the end of the draft to fill his place.
 func release_for_room(id: String) -> bool:
-	if not user_stuck() or not picked.has(id) or drafted_by(id) != user_club:
+	if not can_release() or not picked.has(id) or drafted_by(id) != user_club:
 		return false
 	var p: Dictionary = picked[id]
 	(club_lists[user_club] as Array).erase(p)

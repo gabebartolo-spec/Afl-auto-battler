@@ -10,6 +10,8 @@ extends RefCounted
 ##   changes  {"<year>": n} captains taken off mid-season (one a year for you)
 ##   passed   {"<id>": year} players already passed over once
 ##   log      [{"y", "w", "text"}] the last few changes, newest last
+##   seeded   true once the club has had its first appointment (your own club is named
+##            by the rule then, never again: a spot left open stays open)
 ## A club with nothing named has no slots. An older save has no record at all,
 ## which reads the same.
 ##
