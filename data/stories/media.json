@@ -380,15 +380,15 @@
 	{
 		"id": "media_papers_again",
 		"category": "media",
+		"weight": 2,
 		"subject": {
 			"kind": "player",
 			"where": {
 				"fit": true,
 				"starting": true,
-				"has_role2": true,
-				"form_games_min": 3
+				"has_role2": true
 			},
-			"pick": "lowest:form"
+			"pick": "random"
 		},
 		"title": [
 			"They say {name} is in the wrong spot"
@@ -438,15 +438,8 @@
 				"result": "You try {name} somewhere new."
 			}
 		],
-		"arc": "papers",
-		"beat": "end",
-		"needs": {
-			"flag": "backed_in_papers",
-			"after": 3,
-			"within": 15
-		},
-		"cooldown": 0,
-		"subject_cooldown": 0,
+		"cooldown": 40,
+		"subject_cooldown": 30,
 		"unanswered": {
 			"board": -4,
 			"text": "You say nothing. The board wanted an answer."

@@ -103,9 +103,14 @@ func _run() -> void:
 		await _show_card(scene)
 		await _frames(30)
 		root.get_viewport().get_texture().get_image().save_png("%s_%s_card.png" % [out, tid])
+		var whoid := str(who.get("id", ""))
+		if str(tid) == "media_papers_again" and whoid != "":
+			print("ROLE before: home ", who.get("role", ""), " line ", gs._line_of(gs.current_side(), whoid), " trial ", gs.role_trial)
 		var b = scene.find_child("Event_%d" % CHOICE, true, false)
 		if b != null:
 			b.emit_signal("pressed")
+		if str(tid) == "media_papers_again" and whoid != "":
+			print("ROLE after: line ", gs._line_of(gs.current_side(), whoid), " trial ", gs.role_trial)
 		await _frames(60)
 		await _show_card(scene)
 		await _frames(30)
