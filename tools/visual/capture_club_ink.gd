@@ -26,7 +26,7 @@ func _run() -> void:
 	# Drawn into its own viewport, so the board is the same size whatever the
 	# window (or the runner's screen) is: nothing cropped.
 	var vp := SubViewport.new()
-	vp.size = Vector2i(1360, 500)
+	vp.size = Vector2i(1400, 500)
 	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	root.add_child(vp)
 	var bg := ColorRect.new()
@@ -66,7 +66,7 @@ func _run() -> void:
 			wrap.add_child(sw_box)
 			var t: Label = UK.lbl("%s #%s  %.1f:1" % ["first" if which == 0 else "second", col.to_html(false), UK.contrast(col, UK.PANEL)], 13, UK.TEXT)
 			t.autowrap_mode = TextServer.AUTOWRAP_OFF
-			t.custom_minimum_size.x = 135
+			t.custom_minimum_size.x = 150
 			wrap.add_child(t)
 		grid.add_child(wrap)
 	for i in range(8):
