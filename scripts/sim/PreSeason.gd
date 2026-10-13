@@ -239,105 +239,46 @@ static func block_title(i: int) -> String:
 	return "Weeks %d to %d" % [int(b[0]), int(b[1])] if int(b[0]) != int(b[1]) else "Week %d" % int(b[0])
 
 
-const _SESSIONS := {"running": "running sessions", "skills": "skills sessions"}
-const _PURPOSE := {"running": "for the fitness base", "skills": "so every fit player develops"}
-const _OF_AREA := {"running": "of running", "skills": "of skills work"}
-const _COUNT := ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"]
-
-
-static func _other(focus: String) -> String:
-	for f in focuses():
-		if str(f) != focus:
-			return str(f)
-	return focus
-
-
-static func _count(n: int) -> String:
-	return str(_COUNT[n]) if n >= 0 and n < _COUNT.size() else str(n)
-
-
-## An amount of work as weeks, in words: "three weeks", "a week and a half",
-## "four and a half weeks". Anything that is not a whole or a half is a figure.
-static func weeks_words(x: float) -> String:
-	var halves := x * 2.0
-	if not is_equal_approx(halves, roundf(halves)):
-		return "%.1f weeks" % x
-	var whole := int(floor(x + 0.001))
-	var half := int(roundf(halves)) % 2 == 1
-	if not half:
-		return "one week" if whole == 1 else "%s weeks" % _count(whole)
-	if whole == 0:
-		return "half a week"
-	if whole == 1:
-		return "a week and a half"
-	return "%s and a half weeks" % _count(whole)
-
-
-## How long a session is beside a full one, in words, from its share of a
-## full week's work: 1.0 full, 0.75 three-quarter, 0.5 half, 0.25 quarter.
-static func session_words(share: float) -> String:
-	for row in [[1.0, "full"], [0.75, "three-quarter"], [0.5, "half"], [0.25, "quarter"]]:
-		if is_equal_approx(share, float(row[0])):
-			return str(row[1])
-	return "longer" if share > 1.0 else "shorter"
-
-
-## "Three weeks", or for the block before Round 1 "The last two weeks".
-static func _span(i: int) -> String:
-	var b := block_weeks(i)
-	var n := int(b[1]) - int(b[0]) + 1
-	var words := "%s week%s" % [_count(n), "" if n == 1 else "s"]
-	return ("The last %s" % words) if is_last_block(i) else _cap(words)
-
-
-static func _cap(text: String) -> String:
-	return text.left(1).to_upper() + text.substr(1)
-
-
-## What the block's weeks hold, said from the sizes in the data: how much of
-## the focus they do and how long the other area's sessions are.
-static func _work_line(load: String, focus: String, i: int) -> String:
-	var b := block_weeks(i)
-	var n := float(int(b[1]) - int(b[0]) + 1)
-	var other := _other(focus)
-	var mine := work(load, focus, focus)
-	var theirs := str(_OF_AREA.get(other, "of everything else"))
-	var rest := "%s sessions %s." % [_cap(session_words(work(load, focus, other))), theirs]
-	var sessions := str(_SESSIONS.get(focus, focus + " sessions"))
-	if is_equal_approx(mine, 1.0):
-		return "%s: full %s, %s. %s" % [_span(i), sessions, str(_PURPOSE.get(focus, "")), rest]
-	if mine > 1.0:
-		return "%s: longer, harder %s, %s of work %s. %s" % [_span(i), sessions, weeks_words(n * mine),
-				str(_PURPOSE.get(focus, "")), rest]
-	return "%s: short %s, %s of work. %s" % [_span(i), sessions, weeks_words(n * mine), rest]
+## What a block's load and focus gain, in a coach's words. The sizes behind
+## them are in the data (the focus gets a full share of the week, the other
+## area half of one; Heavy is half as much again of both, Light half of both),
+## and each line says only what is true of them.
+const _GAIN := {
+	"running": {
+		"solid": "Running first, for the fitness base. Skills work gets half the time.",
+		"heavy": "A bigger fitness base than a Solid block builds, and more skills work too.",
+	},
+	"skills": {
+		"solid": "Skills first, so every fit player develops. Running gets half the time.",
+		"heavy": "More development than a Solid block gives, and more running too.",
+	},
+}
 
 
 ## What block `i`'s load and focus gain.
 static func gain_line(load: String, focus: String, i: int) -> String:
-	var last := is_last_block(i)
-	match load:
-		"light":
-			if last:
-				return "Fresh bodies for Round 1: less soft-tissue risk."
-			return "Easier weeks on the track. Nothing that lasts to Round 1."
-	return _work_line(load, focus, i)
+	if load == "light":
+		if is_last_block(i):
+			return "Fresh legs and less soft-tissue risk in Round 1."
+		return "An easier time on the track. Nothing carries to Round 1."
+	return str((_GAIN.get(focus, {}) as Dictionary).get(load, ""))
 
 
-## What it costs. A Solid block costs nothing: "None".
-static func cost_line(load: String, focus: String, i: int) -> String:
+## What it costs, or "" when it costs nothing (a Solid block).
+static func cost_line(load: String, _focus: String, i: int) -> String:
 	match load:
 		"light":
-			return _work_line(load, focus, i)
+			return "Half the running and half the skills work of a Solid block."
 		"heavy":
 			if is_last_block(i):
-				return "Heavy legs and more soft-tissue risk in Round 1."
-			return "Heavy legs on the track for these weeks. They are gone by Round 1."
-	return "None"
+				return "Sore legs and more soft-tissue risk in Round 1."
+			return "Heavy legs on the track these weeks, gone by Round 1."
+	return ""
 
 
 const BASE_LABEL := {"thin": "a thin fitness base", "sound": "a sound fitness base", "strong": "a strong fitness base"}
 const BASE_EFFECT := {
 	"thin": "The side starts underdone: it tires sooner and carries more soft-tissue risk for the first six rounds. A planned peak comes lower.",
-	"sound": "The side starts the season level.",
+	"sound": "The side starts Round 1 at its usual fitness: no early lift, nothing lost.",
 	"strong": "Fresher legs and a little less soft-tissue risk through the first month.",
 }
