@@ -41,7 +41,7 @@ func _run() -> void:
 		var c := str(code)
 		var ink: Color = UK.club_ink(c)
 		var wrap: HBoxContainer = UK.hbox(8)
-		wrap.custom_minimum_size = Vector2(500, 40)
+		wrap.custom_minimum_size = Vector2(560, 40)
 		var bar := ColorRect.new()
 		bar.color = ink
 		bar.custom_minimum_size = Vector2(4, 34)
@@ -51,9 +51,9 @@ func _run() -> void:
 		var nm: Label = UK.ellipsis(db.club_name(c), 18, ink, true)
 		nm.custom_minimum_size.x = 220
 		wrap.add_child(nm)
-		var ratio: Label = UK.lbl("%.1f:1" % UK.contrast(ink, UK.PANEL), 14, UK.TEXT)
+		var ratio: Label = UK.lbl("#%s  %.1f:1" % [ink.to_html(false), UK.contrast(ink, UK.PANEL)], 14, UK.TEXT)
 		ratio.autowrap_mode = TextServer.AUTOWRAP_OFF
-		ratio.custom_minimum_size.x = 48
+		ratio.custom_minimum_size.x = 120
 		wrap.add_child(ratio)
 		var raw: Color = db.club_colours(c)[int(UK.INK_SLOT.get(c, 0))] if int(UK.INK_SLOT.get(c, 0)) >= 0 else UK.TEXT
 		var sw := ColorRect.new()
@@ -63,7 +63,7 @@ func _run() -> void:
 		sw_box.alignment = BoxContainer.ALIGNMENT_CENTER
 		sw_box.add_child(sw)
 		wrap.add_child(sw_box)
-		var hex: Label = UK.lbl("from #%s" % raw.to_html(false), 12, UK.MUTED)
+		var hex: Label = UK.lbl("club colour #%s" % raw.to_html(false), 12, UK.MUTED)
 		hex.autowrap_mode = TextServer.AUTOWRAP_OFF
 		wrap.add_child(hex)
 		grid.add_child(wrap)
