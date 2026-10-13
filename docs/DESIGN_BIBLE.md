@@ -35,6 +35,21 @@ that lean toward the uninteractive.
 - The game is designed for a player who plays most matches and sims the odd one.
   Playing hands-off is the gamer's call, and the risk of it is theirs.
 
+## The second pillar: readability and intuitive interfaces
+
+_Director, 2026-10-13._
+
+Readability and intuitive interfaces are a core pillar of this project, paramount
+to its success. It is a challenge for an information-heavy game, but it is what
+we have to aspire to.
+
+This applies to the entire game. On every screen:
+
+- Sections feel distinct. Text that is all the same colour harms readability;
+  club colours and strategic use of bold set sections apart.
+- A player's allegiance is obvious.
+- No text becomes overlooked.
+
 ## The principles
 
 One ethos runs through every decision in the game: the player knows the risk, the
