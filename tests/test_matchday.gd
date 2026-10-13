@@ -807,6 +807,23 @@ func _test_comeback_sentences() -> void:
 	var f3: Array = MatchNotes.match_factors(ahead, 0)
 	for f in f3:
 		_check(not str(f).contains("in front for good"), "The go-ahead kicker is already named, so no second line (%s)" % str(f))
+	# The go-ahead kicker is named only with two or more goals in the quarter: with one, the
+	# player who kicked three is. Same match, a second Geelong player with three goals.
+	var other_id := str(GameDB.club_list("GEE")[1]["id"])
+	var two_players: Dictionary = ahead.duplicate(true)
+	(two_players["roster"][0] as Array).append({"id": other_id, "name": "Other Player"})
+	var kicks := [[0, 0], [0, 0], [3, 1], [3, 1]]   # other: cumulative goals, per quarter end
+	for i in range(4):
+		(two_players["quarter_teams"][i]["players"] as Dictionary)[other_id] = {"goals": float(kicks[i][0]), "disposals": 3.0, "clearances": 0.0}
+		(two_players["quarter_teams"][i]["players"] as Dictionary)[kid] = {"goals": 0.0 if i < 2 else 1.0, "disposals": 4.0, "clearances": 0.0}
+	var named := ComebackTelling.turn_line(two_players, 0)
+	_check(named.contains(GameDB.player_display_name_by_id(other_id, "x")) and named.contains("kicked three"),
+			"With one goal the go-ahead kicker is not the story; the three-goal scorer is (%s)" % named)
+	for i in range(2, 4):
+		(two_players["quarter_teams"][i]["players"] as Dictionary)[kid] = {"goals": 2.0, "disposals": 4.0, "clearances": 0.0}
+	var named2 := ComebackTelling.turn_line(two_players, 0)
+	_check(named2.contains(GameDB.player_display_name_by_id(kid, "x")) and named2.contains("kicked two"),
+			"With two goals the go-ahead kicker is named ahead of the three-goal scorer (%s)" % named2)
 	# No turn: an ordinary win, a win from 12 down, nothing claimed.
 	var plain := _full([[3, 2, 0, 0], [2, 2, 0, 0], [3, 2, 0, 0], [2, 2, 0, 0]], "GEE", "MEL", [none, none])
 	_check(ComebackTelling.turn_line(plain, 0) == "" and str(MatchNotes.match_factors(plain, 0)[0]).find("turned it") < 0,
