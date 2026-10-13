@@ -901,8 +901,11 @@ func _test_papers_cards_are_football() -> void:
 	var priv := _choice("media_papers_fronts_group", "private")
 	_check(_effect(front, "board").is_empty() and _effect(priv, "board").is_empty()
 			and int(_effect(front, "trust").get("d", 0)) > 0 and int(_effect(priv, "trust").get("d", 0)) < 0
-			and not _effect(front, "morale").is_empty() and not _effect(priv, "morale").is_empty(),
-			"Fronting the group lifts the room and his trust; keeping it private lifts his morale but costs trust (he asked for the group)")
+			and _effect(priv, "morale").is_empty() and not _effect(front, "delegate").is_empty(),
+			"Fronting the group is a risk on the room (it depends on whether the group listens to him); keeping it private gains nothing and costs his trust")
+	var dg := _effect(front, "delegate")
+	_check(int(((dg["held"] as Array)[0] as Dictionary)["d"]) > 0 and int(((dg["failed"] as Array)[0] as Dictionary)["d"]) < 0,
+			"...the room's morale rises if the group listens and falls if it does not")
 	GameState.show_real_names = false
 
 
@@ -1110,6 +1113,12 @@ func _test_role_card_shape() -> void:
 	_start()
 	_run_on(5)
 	_test_front_group_words()
+	# The dropped card shows what his form has been and what a starter in his position averages.
+	var pc := GameState.story_card("media_in_the_papers", _trial_candidate())
+	var pf: Dictionary = pc["facts"]
+	_check(int(pf["role_avg"]) > 0 and str(pc["text"]).contains("averaged %d over his last three games" % int(pf["form"]))
+			and str(pc["text"]).contains("this year average %d" % int(pf["role_avg"])),
+			"The dropped card states his form and the position average: %s" % str(pc["text"]))
 	var ctx := ClubStories.context(GameState)
 	var t := StoryDeck.by_id(StoryDeck.all(), "media_papers_again")
 	var starters := []
@@ -1201,7 +1210,7 @@ func _test_front_group_words() -> void:
 		return
 	var d0 := str((card["options"] as Array)[0]["detail"])
 	var d1 := str((card["options"] as Array)[1]["detail"])
-	_check(d0.contains("trusts you more") and d1.contains("a little less"),
+	_check(d0.contains("trusts you more") and d0.contains("If the group listens") and d0.contains("If it doesn't") and d1.contains("a little less"),
 			"Card 3's trust lines differ in size: '%s' / '%s'" % [d0, d1])
 
 

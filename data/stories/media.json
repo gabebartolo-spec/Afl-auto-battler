@@ -17,7 +17,7 @@
 			"The papers want {name} dropped"
 		],
 		"text": [
-			"Gary Haddon has {name} on the back page after a poor few weeks and says he should make way."
+			"Gary Haddon has {name} on the back page after a poor few weeks and says he should make way. {first} has averaged {form} over his last three games. Players who started as a {role_word} this year average {role_avg}."
 		],
 		"unanswered": {
 			"trust": -2,
@@ -331,27 +331,38 @@
 				"label": "Let him front the group",
 				"effects": [
 					{
-						"op": "morale",
-						"d": 3,
-						"who": "others"
-					},
-					{
 						"op": "trust",
 						"d": 4,
 						"why": "You let him front the group",
 						"line": "He trusts you more."
+					},
+					{
+						"op": "delegate",
+						"held": [
+							{
+								"op": "morale",
+								"d": 3,
+								"who": "others"
+							}
+						],
+						"failed": [
+							{
+								"op": "morale",
+								"d": -3,
+								"who": "others"
+							}
+						],
+						"held_result": "{name} takes the group through it and they hear him out.",
+						"failed_result": "It does not land with the group."
 					}
 				],
-				"result": "{name} answers the papers' story in front of the group."
+				"result": "",
+				"rule": "The group listens to a player with Leadership {holds_at} or more, or {holds_trust_at} or more if he trusts you. {name}: Leadership {leadership}."
 			},
 			{
 				"key": "private",
 				"label": "Keep it between you two",
 				"effects": [
-					{
-						"op": "morale",
-						"d": 2
-					},
 					{
 						"op": "trust",
 						"d": -2,
