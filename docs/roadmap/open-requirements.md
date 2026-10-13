@@ -71,6 +71,13 @@ Nothing here starts until the boss assigns it. Reconciled 2026-10-10 against mai
 | 35 | **A whole bespoke set of finals events**: cards that only fire in finals week (the elimination/qualifying week, the week after a loss that ends the season, the preliminary final build-up, the bye week, the club's first final in years, a veteran's last final), with real stakes and the finals mood in the copy | director 2026-10-12 | story | open; design sheet (ids, triggers, choices, effects, copy) to the director before any code |
 | 36 | **A small set of Grand Final events that make each Grand Final feel unique and memorable**: a handful of cards keyed to what is true of this Grand Final (the opponent, a captain's last game, a kid's first season, an injured star's fitness test, the parade, the week's press, the result's aftermath), so no two Grand Final weeks read the same | director 2026-10-12 | story | open; after 35, same sheet-first rule; the aftermath cards must handle both the win and the loss |
 
+## Pre-season (director, 2026-10-13)
+
+| # | Requirement | Source | Owner | Status |
+|---|---|---|---|---|
+| 39 | **A pre-season.** Director: "a glaring hole in our game: pre season, a period of development, narratives, media speculation, fitness building, game-plan honing etc". A phase between the off-season and round 1 in which the coach develops players, builds fitness, hones the game plan and lives the summer's stories and media speculation, so the season starts with decisions already made and felt | director 2026-10-13 | none | open, unassigned; design sheet to the director before any code (what the coach does each week, what it changes in round 1, how it ties to the season fitness plan, training, story cards and the press) |
+| 40 | **Create your own game plan (stretch goal).** Director: "stretch goal, create your own gameplan". The coach builds a game plan of his own rather than choosing only from the set ones | director 2026-10-13 | none | open, unassigned, stretch; after 39; design sheet first |
+
 ## Platforms and grounds
 
 | # | Requirement | Source | Owner | Status |

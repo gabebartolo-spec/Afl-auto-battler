@@ -132,14 +132,14 @@ static func complete(p: Dictionary) -> bool:
 
 ## "143 games · 87 goals", "1 game · no goals", or "—" when part of the
 ## career is unknown. "" before his first senior game.
-static func totals_text(p: Dictionary) -> String:
+static func totals_text(p: Dictionary, extra_games := 0, extra_goals := 0) -> String:
 	if not complete(p):
 		return "—"
 	var c := of(p)
-	var g := int(c["games"])
+	var g := int(c["games"]) + extra_games
 	if g <= 0:
 		return ""
-	return "%s · %s" % [_count(g, "game"), _count(int(c["goals"]), "goal")]
+	return "%s · %s" % [_count(g, "game"), _count(int(c["goals"]) + extra_goals, "goal")]
 
 
 ## One line per club: ["Adelaide 2027–2034 · 142 games, 89 goals", ...].

@@ -1,7 +1,7 @@
 extends RefCounted
 ## The long-save proof for the week's story cards (club-life stories phase 1).
 ## An autopilot career that answers every card with a seeded choice, for ten
-## seasons by default. Args after the impl name: seed club seasons [real]
+## seasons by default. Args after the impl name: seed club seasons [real] [lists]
 ## (`stories_impl 1 MEL 10`; `stories_impl 1 MEL 10 real` plays with real names
 ## on, where private cards only pick players shown under a fictional name).
 ##
@@ -29,18 +29,24 @@ func run() -> void:
 	var seasons := int(args[3]) if args.size() > 3 else 10
 	# "real" as a fourth argument plays with real names on: private cards then
 	# only pick players shown under a fictional name, and variety must hold.
-	var real := args.size() > 4 and str(args[4]) == "real"
+	var real := args.has("real")
+	# "lists" starts from the club's real list, as a real-lists career does: the 2026
+	# captains are named from the first week, so the captain's cards can come up.
+	var real_lists := args.has("lists")
 	GameState.reset()
 	GameState.show_real_names = real
 	GameState.career_seed = seed
 	GameState.replay_seed = seed
 	GameState.autosave_enabled = false
-	var pool: Array = GameDB.all_players_sorted() + GameDB.all_draftees_sorted()
-	pool.sort_custom(func(a, b): return a["overall"] > b["overall"])
-	GameState.draft = Draft.new(pool, GameDB.active_clubs(GameState.season_year).duplicate(), seed)
-	GameState.draft.start_for_user(club)
-	_run_draft(GameState.draft)
-	GameState.start_season(club, GameState.draft.list())
+	if real_lists:
+		GameState.start_season(club, GameDB.club_list(club))
+	else:
+		var pool: Array = GameDB.all_players_sorted() + GameDB.all_draftees_sorted()
+		pool.sort_custom(func(a, b): return a["overall"] > b["overall"])
+		GameState.draft = Draft.new(pool, GameDB.active_clubs(GameState.season_year).duplicate(), seed)
+		GameState.draft.start_for_user(club)
+		_run_draft(GameState.draft)
+		GameState.start_season(club, GameState.draft.list())
 	var answer := RandomNumberGenerator.new()
 	answer.seed = hash("stories-audit|%d" % seed)
 	var seen := {}

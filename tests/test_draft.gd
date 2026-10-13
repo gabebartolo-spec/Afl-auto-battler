@@ -25,6 +25,7 @@ func run() -> void:
 	_test_plausible_names()
 	_test_cap_guard()
 	_test_stuck_draft_recovery()
+	_test_finished_list_reachability()
 	_test_funded_scouting()
 	_test_asset_valuation()
 	_test_combine_scouting()
@@ -763,3 +764,96 @@ func _test_scouted_league_board() -> void:
 	same.start_for_user(mine)
 	_check(same.pick_history.map(func(e): return e["player_id"]) == draft.pick_history.slice(0, same.pick_history.size()).map(func(e): return e["player_id"]),
 			"Rival picks are unchanged by your recruiters' read")
+
+
+## Can a finished draft end refused? Played every way a coach can (cheapest,
+## dearest, no rucks until forced, rucks first) it never does: each pick is
+## checked against the cap and the two-ruck rule. Only an older save can hold
+## a refused list, and then Release is the way out.
+func _test_finished_list_reachability() -> void:
+	for strat in ["cheapest", "dearest", "noruck"]:
+		var d := _career_draft(61)
+		var me := str(d.draft_order[3])
+		d.start_for_user(me)
+		var guard := 0
+		while not d.is_finished() and guard < 200:
+			guard += 1
+			var best := {}
+			for p in d.pool:
+				if not d.can_pick_player(p):
+					continue
+				var rp := Ratings.plays_role(p, "RUCK")
+				var better := best.is_empty()
+				if not better:
+					match strat:
+						"cheapest": better = int(p["value"]) < int(best["value"])
+						"dearest": better = int(p["value"]) > int(best["value"])
+						"noruck":
+							var rb := Ratings.plays_role(best, "RUCK")
+							better = (rb and not rp) or (rb == rp and int(p["value"]) < int(best["value"]))
+				if better:
+					best = p
+			if best.is_empty() or not d.pick(best):
+				break
+		_check(d.is_finished() and d.is_valid() and not d.finished_list_refused() and not d.can_release(),
+				"%s-first ends a valid draft: %d/%d, %s of %s, %d rucks" % [strat, d.count(), d.target_size,
+				Contracts.money(d.spent()), Contracts.money(d.budget), d.count_covering("RUCK")])
+
+	# An older save: finished over the cap. Release reopens the draft, never breaching it.
+	var o := _career_draft(61)
+	var mine := str(o.draft_order[3])
+	o.start_for_user(mine)
+	var g2 := 0
+	while not o.is_finished() and g2 < 200:
+		g2 += 1
+		var c := _cheapest_legal(o)
+		if c.is_empty() or not o.pick(c):
+			break
+	_check(o.is_valid() and not o.can_release(), "A valid finished list offers no Release")
+	var seq := o.pick_sequence.size()
+	o.club_spend[mine] = o.budget + 5000
+	_check(not o.is_valid() and o.finished_list_refused() and o.can_release(),
+			"Over the cap and finished: refused, and Release is offered")
+	var dear: Dictionary = o.list()[0]
+	for p in o.list():
+		if int(p["value"]) > int(dear["value"]):
+			dear = p
+	_check(o.release_for_room(str(dear["id"])) and o.pick_sequence.size() == seq + 1 and not o.is_finished()
+			and o.is_user_turn() and not o.picked.has(str(dear["id"])),
+			"Releasing reopens the draft with one extra pick; he is back in the pool")
+	var cheap := _cheapest_legal(o)
+	_check(o.spent() <= o.budget and ((not cheap.is_empty() and o.pick(cheap) and o.spent() <= o.budget) or o.can_release()),
+			"The replacement is checked against the cap like any pick, or Release is still offered")
+
+	# An older save: finished with one ruck. Release, and the places left must go to rucks.
+	var r := _career_draft(61)
+	var mr := str(r.draft_order[3])
+	r.start_for_user(mr)
+	var g3 := 0
+	while not r.is_finished() and g3 < 200:
+		g3 += 1
+		var c3 := _cheapest_legal(r)
+		if c3.is_empty() or not r.pick(c3):
+			break
+	var lst: Array = r.club_lists[mr]
+	var kept := 0
+	var swapped := false
+	for i in range(lst.size()):
+		if Ratings.plays_role(lst[i], "RUCK"):
+			kept += 1
+			if kept >= 2:
+				var fake: Dictionary = (lst[i] as Dictionary).duplicate()
+				fake["id"] = "legacy_fill"
+				fake["role"] = "DEF"
+				fake["role2"] = ""
+				lst[i] = fake
+				swapped = true
+	_check(swapped and not r.is_valid() and r.count_covering("RUCK") < 2 and r.finished_list_refused(),
+			"Finished with fewer than two rucks: refused (%s)" % r.invalid_reason())
+	var any_id := ""
+	for p in r.list():
+		if str(p["id"]) != "legacy_fill" and not Ratings.plays_role(p, "RUCK"):
+			any_id = str(p["id"])
+			break
+	_check(r.release_for_room(any_id) and r._forced_role(mr) == "RUCK",
+			"Release reopens it and the place left must go to a ruck")

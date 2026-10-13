@@ -1595,6 +1595,7 @@ func _run() -> void:
 	await _test_names_fit()
 	_state.delete_saved_career()
 	await _new_career_keeps_the_save()
+	await _pc_hub_and_list_layout()
 	print("Career UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
@@ -1848,3 +1849,47 @@ func _new_career_keeps_the_save() -> void:
 			and str(_state.saved_career_meta().get("club", "")) == "COL",
 			"Escape on Choose your club also steps back to the options with the old career kept")
 	_state.delete_saved_career()
+
+
+## web's PC pass (2026-10-12): at 1280x720 the hub shows Play match and Play
+## round together without scrolling, and My list's Captaincy row is a row of
+## text, not a bar across the window.
+func _pc_hub_and_list_layout() -> void:
+	root.size = Vector2i(1280, 720)
+	_state.reset()
+	_state.start_season("COL", _db.club_list("COL"))
+	_router.stack = []
+	_router.go("main")
+	await _settle()
+	_router.go("hub")
+	await _settle()
+	await _settle()
+	var play: Control = current_scene.find_child("WeekActions", true, false)
+	var play_btn: Button = null
+	if play != null:
+		for b in play.find_children("*", "Button", true, false):
+			if (b as Button).text == "Play match":
+				play_btn = b
+	var sim: Button = current_scene.find_child("SimRound", true, false)
+	var win := Rect2(Vector2.ZERO, Vector2(root.size))
+	var in_scroll := func(c: Control) -> bool:
+		var p := c.get_parent()
+		while p != null:
+			if p is ScrollContainer:
+				return true
+			p = p.get_parent()
+		return false
+	_check(play_btn != null and sim != null, "The hub has Play match and Play round at 1280x720")
+	if play_btn != null and sim != null:
+		_check(win.encloses(play_btn.get_global_rect()) and win.encloses(sim.get_global_rect())
+				and not in_scroll.call(play_btn) and not in_scroll.call(sim),
+				"Play match and Play round are both on screen without scrolling at 1280x720 (%s, %s)" % [str(play_btn.get_global_rect()), str(sim.get_global_rect())])
+	_check(play_btn != null and sim != null and play_btn.get_parent() == sim.get_parent(),
+			"On a PC bar the match choices sit together: Play round beside Pick the side and Play match")
+	_router.go("list")
+	await _settle()
+	await _settle()
+	var cap: Control = current_scene.find_child("CaptaincyOpen", true, false)
+	var cap_title: Control = cap.find_child("SectionTitle", true, false) if cap != null else null
+	_check(cap_title != null and cap_title.size.x >= 60.0, "The Captaincy label is visible beside the names (%.0f wide)" % (cap_title.size.x if cap_title != null else -1.0))
+	_check(cap != null and cap.size.x < 640.0 and cap.size.y >= 44.0, "My list's Captaincy row is not a bar across the PC window and is thumb high (%.0f x %.0f)" % [cap.size.x if cap != null else -1.0, cap.size.y if cap != null else -1.0])
