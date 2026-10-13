@@ -203,7 +203,7 @@ func _stakes_in(effects: Array) -> Array:
 			continue
 		if op == "captaincy_swap":
 			gains.append(op)
-			costs.append(op)
+			costs.append_array([op, "morale", "trust"])
 			continue
 		if op in ["morale", "board", "trust"]:
 			if d > 0 and not gains.has(op):
@@ -322,6 +322,7 @@ func _test_choice_stakes_are_stated() -> void:
 				f["delegate_holds"] = holds
 				f["name"] = "Sam"
 				f["vice_name"] = "Joe"
+				f["kid_name"] = "Kid"
 				var txt := " ".join(StoryEngine.stakes_lines(c.get("effects", []), f))
 				if vague.search(txt) != null or txt.contains("{"):
 					vague_lines.append("%s/%s: %s" % [t["id"], c["key"], txt])
@@ -1234,8 +1235,8 @@ func _test_captain_cards() -> void:
 
 func _test_group_words_are_sentence_case() -> void:
 	var words := StoryEngine._morale_words(-3, "all") + " " + StoryEngine._morale_words(-8, "others") + " " + StoryEngine._morale_words(-3, "side")
-	_check(words.contains("The whole list is a little flat about it.") and words.contains("The rest of the group takes it hard.")
-			and words.contains("The side is a little flat about it."), "A group's mood line is in sentence case (%s)" % words)
+	_check(words.contains("Morale down a little across the whole list.") and words.contains("Morale down in the rest of the group.")
+			and words.contains("Morale down a little across the side."), "A group's mood line is in sentence case and names morale (%s)" % words)
 
 
 ## The paths a normal career rarely walks: a captain who can't settle a dispute, a stale

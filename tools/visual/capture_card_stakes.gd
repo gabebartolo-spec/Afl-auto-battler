@@ -61,7 +61,12 @@ func _run() -> void:
 		await process_frame
 	state.start_season("FRE", db.club_list("FRE"))
 	var p: Dictionary = state.my_list[4]
-	for pair in [["training_extra_session", {}, "_one"], ["media_papers_again", p, "_two"], ["selection_talk_dropped", p, "_three"], ["health_pulled_up_sore", p, "_risk"]]:
+	var cap: Dictionary = {}
+	var rec: Dictionary = state.captaincy_record("FRE")
+	for q in state.my_list:
+		if Captaincy.role_of(rec, str(q["id"])) == "captain":
+			cap = q
+	for pair in [["captain_group_flat", cap, "_captain"], ["training_extra_session", {}, "_one"], ["media_papers_again", p, "_two"], ["selection_talk_dropped", p, "_three"], ["health_pulled_up_sore", p, "_risk"]]:
 		state.week_events = [state.story_card(str(pair[0]), pair[1])]
 		root.get_node("Router").go("hub")
 		for i in range(8):

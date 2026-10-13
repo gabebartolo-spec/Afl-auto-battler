@@ -402,7 +402,7 @@ func _event_card(index: int) -> Control:
 			sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(sl)
 		var opts: Array = e.get("options", [])
-		var row: BoxContainer = UiKit.vbox(10) if _narrow() else UiKit.hbox(6)
+		var row: BoxContainer = UiKit.vbox(16) if _narrow() else UiKit.hbox(8)
 		v.add_child(row)
 		for i in range(opts.size()):
 			var o: Dictionary = opts[i]
