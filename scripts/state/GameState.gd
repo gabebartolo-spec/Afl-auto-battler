@@ -269,6 +269,7 @@ func _ready() -> void:
 	# A desktop opens fullscreen unless the player chose Window (director, 2026-10-12).
 	ScreenLayout.set_fullscreen(bool(cfg.get_value("ui", "fullscreen", true)))
 	_apply_battery_saver(bool(cfg.get_value("ui", "battery_saver", false)))
+	ScreenLayout.set_orientation(screen_orientation())
 
 
 func _exit_tree() -> void:
@@ -435,6 +436,16 @@ func screen_size() -> String:
 func set_screen_size(key: String) -> void:
 	set_setting("screen_size", key)
 	ScreenLayout.set_screen_size(key)
+
+
+func screen_orientation() -> String:
+	var key := str(get_setting("screen_orientation", "auto"))
+	return key if ["auto", "portrait", "landscape"].has(key) else "auto"
+
+
+func set_screen_orientation(key: String, from_tap := false) -> void:
+	set_setting("screen_orientation", key)
+	ScreenLayout.set_orientation(key, from_tap)
 
 
 func fullscreen() -> bool:

@@ -172,6 +172,21 @@ static func view_height(node: Node) -> float:
 	return vp.get_visible_rect().size.y if vp != null else 720.0
 
 
+## True when a phone's on-screen keyboard is the likely cause of a resize: a
+## text field inside `node` has focus and the width is the one the screen was
+## built for (a keyboard takes height, never width). A screen skips its
+## rebuild then: freeing the focused field hides the keyboard, the window
+## grows back, the rebuild runs again, and the screen shifts in a loop.
+static func keyboard_resize(node: Node, built_width: float) -> bool:
+	var vp := node.get_viewport()
+	if vp == null:
+		return false
+	var owner := vp.gui_get_focus_owner()
+	if not (owner is LineEdit or owner is TextEdit) or not node.is_ancestor_of(owner):
+		return false
+	return absf(view_width(node) - built_width) < 1.0
+
+
 static func full_rect(c: Control) -> Control:
 	c.set_anchors_preset(Control.PRESET_FULL_RECT)
 	return c
