@@ -1116,8 +1116,8 @@ func _test_role_card_shape() -> void:
 	# The dropped card shows what his form has been and what a starter in his position averages.
 	var pc := GameState.story_card("media_in_the_papers", _trial_candidate())
 	var pf: Dictionary = pc["facts"]
-	_check(int(pf["role_avg"]) > 0 and str(pc["text"]).contains("averaged %d over his last three games" % int(pf["form"]))
-			and str(pc["text"]).contains("this year average %d" % int(pf["role_avg"])),
+	_check(int(pf["role_avg"]) > 0 and str(pc["text"]).contains("averaged a Player rating of %d over his last three games" % int(pf["form"]))
+			and str(pc["text"]).contains("this year average a Player rating of %d" % int(pf["role_avg"])),
 			"The dropped card states his form and the position average: %s" % str(pc["text"]))
 	var ctx := ClubStories.context(GameState)
 	var t := StoryDeck.by_id(StoryDeck.all(), "media_papers_again")
@@ -1210,7 +1210,7 @@ func _test_front_group_words() -> void:
 		return
 	var d0 := str((card["options"] as Array)[0]["detail"])
 	var d1 := str((card["options"] as Array)[1]["detail"])
-	_check(d0.contains("trusts you more") and d0.contains("If the group listens") and d0.contains("If it doesn't") and d1.contains("a little less"),
+	_check(d0.contains("trusts you more") and d0.contains("morale up a little") and d0.contains("morale down a little") and d0.contains("the group") and d1.contains("a little less"),
 			"Card 3's trust lines differ in size: '%s' / '%s'" % [d0, d1])
 
 

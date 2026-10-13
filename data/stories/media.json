@@ -17,7 +17,7 @@
 			"The papers want {name} dropped"
 		],
 		"text": [
-			"Gary Haddon has {name} on the back page after a poor few weeks and says he should make way. {first} has averaged {form} over his last three games. Players who started as a {role_word} this year average {role_avg}."
+			"Gary Haddon has {name} on the back page after a poor few weeks and says he should make way. {first} has averaged a Player rating of {form} over his last three games. Players who started as a {role_word} this year average a Player rating of {role_avg}."
 		],
 		"unanswered": {
 			"trust": -2,
