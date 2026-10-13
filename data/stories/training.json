@@ -292,7 +292,7 @@
 						"who": "all"
 					}
 				],
-				"result": "The time trial's done. Some sore lungs and some honest answers."
+				"result": "The time trial's done. Best over the two k: {best3}. Off the pace: {worst2}."
 			},
 			{
 				"key": "skip",

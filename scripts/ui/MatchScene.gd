@@ -163,9 +163,10 @@ func _mount_body(stack: bool) -> void:
 	if _pitch == null:
 		_pitch = PitchView.new()
 		_pitch.speed = GameState.match_speed()
-		# A phone follows the ball close up because its screen is small; a PC
-		# shows the whole ground (director, 2026-10-09).
-		_pitch.camera_enabled = not ScreenLayout.is_desktop()
+	# A phone follows the ball close up because its screen is small (and so does
+	# any narrow, stacked window); a wide window shows the whole ground whatever
+	# the platform (director, 2026-10-09; the web build on a PC, 2026-10-12).
+	_pitch.camera_enabled = stack or ScreenLayout.is_phone()
 	_pitch.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_pitch.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	# The feed is a handful of lines (scores, breaks, calls): on a phone the
@@ -290,7 +291,7 @@ func _paint_momentum() -> void:
 	if _interactive and not _mom_note.visible and absf(_momentum) >= MOMENTUM_EVEN \
 			and GameState.intro_due("momentum"):
 		GameState.set_setting("seen_momentum_intro", true)
-		_mom_note.text = "Momentum swings with each goal and fades with time; the side on top wins a little more of the ball. %s it for more." % ("Click" if ScreenLayout.is_desktop() else "Tap")
+		_mom_note.text = "Momentum swings with each goal and fades with time; the side on top wins a little more of the ball. %s it for more." % ScreenLayout.tap_word()
 		_mom_note.visible = true
 
 
@@ -1121,7 +1122,7 @@ static func _best_split(h: Array, parts: int) -> Array:
 ## Large and TV screen sizes included).
 func _wide_break() -> bool:
 	var w := UiKit.view_width(self)
-	return ScreenLayout.is_desktop() and w >= 760.0 and w > UiKit.view_height(self) * 1.2
+	return ScreenLayout.roomy(w, UiKit.view_height(self))
 
 
 ## The quarter just played: what stood out, what they ran, how your calls
@@ -2496,6 +2497,14 @@ func _notification(what: int) -> void:
 			_reflow.call_deferred()
 	elif what == NOTIFICATION_EXIT_TREE and _pitch != null:
 		_pitch.pause()
+		# A farewell shown at full time lives on the root: leaving by Back must not
+		# leave it standing over the next screen.
+		var tree := get_tree()
+		if tree != null:
+			var fv := tree.root.find_child("FarewellVignette", true, false)
+			if fv != null:
+				var holder := fv.get_parent()
+				(holder if holder is CanvasLayer else fv).queue_free()
 
 
 func _reflow() -> void:

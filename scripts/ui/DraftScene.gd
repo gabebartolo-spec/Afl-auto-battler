@@ -15,6 +15,7 @@ const ROOKIE_MAX_AGE := 24.0
 const PRIME_MAX_AGE := 29.0
 
 var _draft: Draft
+var _meeting: Control = null    # the recruiting meeting, while it is open
 var _club := ""
 var _phase := "club"
 var _role := ""
@@ -284,7 +285,7 @@ func _header(title_text: String, sub: String) -> Control:
 	back.name = "BackToMenu"
 	back.custom_minimum_size = Vector2(44, 44)
 	back.tooltip_text = "Back to menu. Your draft stays available to resume."
-	back.pressed.connect(func(): Router.replace("main"))
+	back.pressed.connect(back_to_menu)
 	h.add_child(back)
 	var v := UiKit.vbox(0)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -358,7 +359,7 @@ func _compact_header() -> Control:
 	var h := UiKit.hbox(10)
 	var back := UiKit.btn("‹", UiKit.GLYPH)
 	back.custom_minimum_size.x = 44
-	back.pressed.connect(func(): Router.replace("main"))
+	back.pressed.connect(back_to_menu)
 	h.add_child(back)
 	var v := UiKit.vbox(0)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -964,10 +965,24 @@ func _land_my_pick() -> void:
 # ---------------------------------------------------------------------------
 ## Android Back and the top-bar back close the player first.
 func handle_back() -> bool:
+	# The recruiting meeting closes before the draft is left.
+	if is_instance_valid(_meeting):
+		_meeting.queue_free()
+		_meeting = null
+		return true
 	if is_instance_valid(_detail):
 		_close_player()
 		return true
 	return false
+
+
+## Back from the draft: from Choose your club, one step back is the New career
+## options it came from; once a club is chosen it is the title, where the draft
+## waits to be resumed.
+func back_to_menu() -> void:
+	if _phase == "club":
+		GameState.new_career_setup_requested = true
+	Router.replace("main")
 
 
 func _player_by_id(id: String) -> Dictionary:
@@ -986,6 +1001,7 @@ func _show_meeting() -> void:
 	var box := UiKit.modal_box(self, 520.0, 0.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = "DraftMeeting"
+	_meeting = overlay
 	var v: VBoxContainer = box["body"]
 	v.add_child(UiKit.lbl("Before the draft", 20, UiKit.TEXT, true))
 	if not (notes["list"] as Array).is_empty():

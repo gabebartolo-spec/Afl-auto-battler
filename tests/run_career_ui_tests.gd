@@ -235,7 +235,64 @@ func _run() -> void:
 			and current_scene.find_child("NameMode_real", true, false) == null,
 			"The menu itself carries no setup controls")
 	_check(not _screen_text().contains("players ·") and not _screen_text().contains("Quit"),
-			"No data line or Quit on the menu")
+			"No data line or Quit on the menu (the button is Exit game)")
+	# Exit game (director, 2026-10-12): on desktop, a real click saves and quits.
+	var size_pre := root.size
+	root.size = Vector2i(1280, 720)   # a desktop window, so the tap lands on screen
+	await _settle()
+	var exit_btn: Button = current_scene.find_child("ExitGame", true, false)
+	_check(exit_btn != null and exit_btn.text == "Exit game", "The menu has an Exit game button on desktop")
+	var quits := [0]
+	_router.quit_hook = func() -> void: quits[0] += 1
+	_state.mark_dirty()
+	var exit_tap: String = await Tap.tap(exit_btn) if exit_btn != null else "missing"
+	_check(exit_tap == "" and quits[0] == 1, "A real click on Exit game leaves the game once (%s, %d)" % [exit_tap, quits[0]])
+	_router.handle_back(false)
+	_check(quits[0] == 1, "Escape on the menu still does not quit")
+	_router.quit_hook = Callable()
+	root.size = size_pre
+	_check(exit_btn != null and exit_btn.custom_minimum_size.y >= 48.0
+			and exit_btn.get_parent().get_child(exit_btn.get_parent().get_child_count() - 1) == exit_btn,
+			"Exit game is last in the How to play / Settings row, at least 48 px tall")
+	# The gate is the platform, not the window width: a phone has no Exit game,
+	# a narrow desktop window still has it.
+	var sl = load("res://scripts/core/ScreenLayout.gd")
+	var wide := root.size
+	root.size = Vector2i(390, 844)
+	_router.to_main_menu(false)
+	await _settle()
+	var narrow_has: bool = current_scene.find_child("ExitGame", true, false) != null
+	sl.force_web_phone = true
+	_router.to_main_menu(false)
+	await _settle()
+	var phone_has: bool = current_scene.find_child("ExitGame", true, false) != null
+	sl.force_web_phone = false
+	root.size = wide
+	_router.to_main_menu(false)
+	await _settle()
+	_check(sl.desktop_for(["windows"]) and sl.desktop_for(["linuxbsd"]) and sl.desktop_for(["macos"])
+			and not sl.desktop_for(["web"]) and not sl.desktop_for(["android"]) and not sl.desktop_for(["ios"])
+			and not sl.desktop_for(["web", "wasm32"]),
+			"Exit game, Display and Alt+Enter follow is_desktop: false on a web export, Android and iOS")
+	_check(narrow_has and not phone_has, "Exit game: shown in a narrow desktop window, hidden on a phone (is_desktop false)")
+	# Fit to the screen (director, 2026-10-12): a desktop opens fullscreen unless
+	# the player chose Window, in which case the window opens maximised.
+	var screen_layout = load("res://scripts/core/ScreenLayout.gd")
+	var cfg_default := ConfigFile.new()
+	var cfg_window := ConfigFile.new()
+	cfg_window.set_value("ui", "fullscreen", false)
+	_check(screen_layout.start_mode(cfg_default) == DisplayServer.WINDOW_MODE_FULLSCREEN
+			and screen_layout.start_mode(cfg_window) == DisplayServer.WINDOW_MODE_MAXIMIZED,
+			"The window mode on start is fullscreen, or maximised when Window was chosen")
+	var was_full: bool = _state.fullscreen()
+	var alt_enter := InputEventKey.new()
+	alt_enter.keycode = KEY_ENTER
+	alt_enter.alt_pressed = true
+	alt_enter.pressed = true
+	root.get_node("ScreenLayout")._input(alt_enter)
+	_check(_state.fullscreen() == not was_full, "Alt+Enter switches between fullscreen and window")
+	root.get_node("ScreenLayout")._input(alt_enter)
+	_check(_state.fullscreen() == was_full, "and back again")
 	_check(current_scene.find_child("MenuHelp", true, false) != null
 			and current_scene.find_child("MenuSettings", true, false) != null,
 			"How to play and Settings are on the menu")
@@ -1411,7 +1468,7 @@ func _run() -> void:
 		confirm.emit_signal("pressed")
 		await _settle()
 	_check(_router.current() == "draft", "Confirming starts a new career at the draft")
-	_check(not _state.has_saved_career(), "The replaced save is removed")
+	_check(_state.has_saved_career(), "The old save is kept until the new career has a club (Back must not lose it)")
 	_check(_state.season == null and _state.draft != null, "The new career starts empty")
 
 	# --- Escape on the main menu never quits ---------------------------------
@@ -1537,6 +1594,8 @@ func _run() -> void:
 	_test_type_roles()
 	await _test_names_fit()
 	_state.delete_saved_career()
+	await _new_career_keeps_the_save()
+	await _pc_hub_and_list_layout()
 	print("Career UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
@@ -1733,3 +1792,104 @@ func _find_named(n: Node, named: String, out: Array) -> void:
 		out.append(n)
 	for c in n.get_children():
 		_find_named(c, named, out)
+
+
+## qa web pass, 2026-10-12: starting a new career must not cost the player the
+## one they have. The old save stays until the new career has a club; Back on
+## Choose your club steps back to the New career options, and Continue still
+## offers the old career. Real taps at each step.
+func _new_career_keeps_the_save() -> void:
+	_state.reset()
+	_state.start_season("COL", _db.club_list("COL"))
+	_check(_state.save_career(), "(setup) the old career is saved")
+	_state.reset()
+	_router.stack = []
+	_router.go("main")
+	await _settle()
+	var old_club := str(_state.saved_career_meta().get("club", ""))
+	_check(old_club == "COL" and current_scene.find_child("ContinueCareer", true, false) != null,
+			"The title offers Continue for the saved career")
+	var t1: String = await Tap.tap(current_scene.find_child("NewCareer", true, false))
+	await _settle()
+	var t2: String = await Tap.tap(current_scene.find_child("StartCareer", true, false))
+	await _settle()
+	var t3: String = await Tap.tap(current_scene.find_child("ConfirmNewCareer", true, false))
+	await _settle()
+	await _settle()
+	_check(t1 == "" and t2 == "" and t3 == "" and _router.current() == "draft",
+			"New career > Choose your club > Start new career reaches Choose your club (%s %s %s, at %s)" % [t1, t2, t3, _router.current()])
+	_check(str(_state.saved_career_meta().get("club", "")) == "COL",
+			"The old career is still saved while the club is being chosen")
+	# One step back: the New career options, not the title.
+	var back_tap: String = await Tap.tap(current_scene.find_child("BackToMenu", true, false))
+	await _settle()
+	await _settle()
+	_check(back_tap == "" and _router.current() == "main" and str(current_scene.get("_mode")) == "setup",
+			"Back on Choose your club steps back to the New career options (%s; now %s, mode %s)" % [back_tap, _router.current(), str(current_scene.get("_mode"))])
+	_check(str(_state.saved_career_meta().get("club", "")) == "COL", "...and the old career is still saved")
+	# And back to the title, where Continue still offers it.
+	_router.handle_back(false)
+	await _settle()
+	var meta: Node = current_scene.find_child("CareerMeta", true, false)
+	_check(current_scene.find_child("ContinueCareer", true, false) != null and meta != null
+			and (meta as Label).text.contains(_db.club_name("COL")),
+			"The title still offers Continue for the old career")
+	# Escape on Choose your club does the same.
+	await Tap.tap(current_scene.find_child("NewCareer", true, false))
+	await _settle()
+	await Tap.tap(current_scene.find_child("StartCareer", true, false))
+	await _settle()
+	await Tap.tap(current_scene.find_child("ConfirmNewCareer", true, false))
+	await _settle()
+	await _settle()
+	_router.handle_back(false)
+	await _settle()
+	await _settle()
+	_check(_router.current() == "main" and str(current_scene.get("_mode")) == "setup"
+			and str(_state.saved_career_meta().get("club", "")) == "COL",
+			"Escape on Choose your club also steps back to the options with the old career kept")
+	_state.delete_saved_career()
+
+
+## web's PC pass (2026-10-12): at 1280x720 the hub shows Play match and Play
+## round together without scrolling, and My list's Captaincy row is a row of
+## text, not a bar across the window.
+func _pc_hub_and_list_layout() -> void:
+	root.size = Vector2i(1280, 720)
+	_state.reset()
+	_state.start_season("COL", _db.club_list("COL"))
+	_router.stack = []
+	_router.go("main")
+	await _settle()
+	_router.go("hub")
+	await _settle()
+	await _settle()
+	var play: Control = current_scene.find_child("WeekActions", true, false)
+	var play_btn: Button = null
+	if play != null:
+		for b in play.find_children("*", "Button", true, false):
+			if (b as Button).text == "Play match":
+				play_btn = b
+	var sim: Button = current_scene.find_child("SimRound", true, false)
+	var win := Rect2(Vector2.ZERO, Vector2(root.size))
+	var in_scroll := func(c: Control) -> bool:
+		var p := c.get_parent()
+		while p != null:
+			if p is ScrollContainer:
+				return true
+			p = p.get_parent()
+		return false
+	_check(play_btn != null and sim != null, "The hub has Play match and Play round at 1280x720")
+	if play_btn != null and sim != null:
+		_check(win.encloses(play_btn.get_global_rect()) and win.encloses(sim.get_global_rect())
+				and not in_scroll.call(play_btn) and not in_scroll.call(sim),
+				"Play match and Play round are both on screen without scrolling at 1280x720 (%s, %s)" % [str(play_btn.get_global_rect()), str(sim.get_global_rect())])
+	_check(play_btn != null and sim != null and play_btn.get_parent() == sim.get_parent(),
+			"On a PC bar the match choices sit together: Play round beside Pick the side and Play match")
+	_router.go("list")
+	await _settle()
+	await _settle()
+	var cap: Control = current_scene.find_child("CaptaincyOpen", true, false)
+	var cap_title: Control = cap.find_child("SectionTitle", true, false) if cap != null else null
+	_check(cap_title != null and cap_title.size.x >= 60.0, "The Captaincy label is visible beside the names (%.0f wide)" % (cap_title.size.x if cap_title != null else -1.0))
+	_check(cap != null and cap.size.x < 640.0 and cap.size.y >= 44.0, "My list's Captaincy row is not a bar across the PC window and is thumb high (%.0f x %.0f)" % [cap.size.x if cap != null else -1.0, cap.size.y if cap != null else -1.0])

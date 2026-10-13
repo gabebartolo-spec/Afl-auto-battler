@@ -861,7 +861,7 @@ func _pick_label(pk: Dictionary) -> String:
 ## not as bars across the screen (director, 2026-10-10).
 func _wide() -> bool:
 	var w := UiKit.view_width(self)
-	return ScreenLayout.is_desktop() and w >= 760.0 and w > UiKit.view_height(self) * 1.2
+	return ScreenLayout.roomy(w, UiKit.view_height(self))
 
 
 func _compact_actions(row: HBoxContainer, main: Button) -> void:

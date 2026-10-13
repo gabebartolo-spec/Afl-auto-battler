@@ -176,6 +176,9 @@ var career_seed := 0
 ## Season conditioning (Conditioning.gd): club code -> this season's record
 ## {"year", "changes": [[week, plan]], "offset"}. Missing = Steady.
 var conditioning := {}
+## Who leads each club (Captaincy.gd): club code -> its record. A club with
+## no entry has named no one; an older save has none for anyone.
+var captaincy := {}
 ## Whether AI clubs choose a season plan by phase (never saved). Off until
 ## the plan screen lands (BOSS, 2026-10-11): a coach who cannot choose a plan
 ## yet must not face AI clubs running theirs. Audits and tests switch it on.
@@ -261,8 +264,8 @@ func _ready() -> void:
 	Feel.haptics = bool(cfg.get_value("ui", "haptics", true))
 	Feel.reduced = bool(cfg.get_value("ui", "reduced_motion", false))
 	ScreenLayout.set_screen_size(str(cfg.get_value("ui", "screen_size", "standard")))
-	if bool(cfg.get_value("ui", "fullscreen", false)):
-		ScreenLayout.set_fullscreen(true)
+	# A desktop opens fullscreen unless the player chose Window (director, 2026-10-12).
+	ScreenLayout.set_fullscreen(bool(cfg.get_value("ui", "fullscreen", true)))
 	_apply_battery_saver(bool(cfg.get_value("ui", "battery_saver", false)))
 
 
@@ -433,7 +436,7 @@ func set_screen_size(key: String) -> void:
 
 
 func fullscreen() -> bool:
-	return bool(get_setting("fullscreen", false))
+	return bool(get_setting("fullscreen", true))
 
 
 func set_fullscreen(on: bool) -> void:
@@ -636,6 +639,7 @@ func save_career() -> bool:
 		"draft_meeting_year": draft_meeting_year,
 		"career_seed": career_seed,
 		"conditioning": conditioning,
+		"captaincy": captaincy,
 		"class_tiers": class_tiers,
 		"custom_prospect_id": custom_prospect_id,
 		"start_mode": start_mode,
@@ -787,6 +791,7 @@ func load_career() -> bool:
 	# Saves from before class tiers use seed 0: still one fixed roll per year.
 	career_seed = int(state.get("career_seed", 0))
 	conditioning = state.get("conditioning", {})
+	captaincy = state.get("captaincy", {})
 	class_tiers = state.get("class_tiers", {})
 	custom_prospect_id = str(state.get("custom_prospect_id", ""))
 	start_mode = str(state.get("start_mode", "redraft"))
@@ -1072,8 +1077,23 @@ func _unlinked_lists(lists: Dictionary) -> Dictionary:
 func reset() -> void:
 	# Mid-career seasons mutate the loaded player dicts in place (intake,
 	# ageing, XP training). A new career must start from the pristine 2026
-	# dataset, so reload the data files before rebuilding anything.
+	# dataset, so reload the data files before rebuilding anything. The caches
+	# built from the players (prospect shapes, story cards) are dropped with it,
+	# so a new career never reads one built under the last. PlayerProfile's rating
+	# scale stays: matches on worker threads only read it (Season warms it first),
+	# and clearing it let a worker rebuild it and crash (CI 38237786675).
+	Prospects.forget_cache()
+	StoryDeck.reload()
 	GameDB.reload()
+	# Nothing of the last career's market or caches carries into this one
+	# (a second career in one process played its off-season differently).
+	market_stats = {}
+	_targets_signed = {}
+	_bars = {}
+	_order_cache = {}
+	_standings_cache = {}
+	_fringe_cache = {}
+	CoachEffects.table = {}
 	custom_club = {}
 	best23 = {}
 	my_club = ""
@@ -1150,6 +1170,7 @@ func reset() -> void:
 	tutorials = new_career_tutorials()
 	career_seed = randi_range(1, 999999)
 	conditioning = {}
+	captaincy = {}
 	class_tiers = {}
 	last_training_report = {}
 	_xp_grant_key = ""
@@ -1615,6 +1636,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	pending_phase = ""
 	pending_label = ""
 	_open_board_season()
+	_captaincy_refresh()
 	_build_season_wrap(next_year)
 	autosave()
 
@@ -1933,6 +1955,7 @@ func start_season(club_code: String, list: Array) -> void:
 	if department_budget_year <= 0:
 		department_budget_year = season_year
 	_open_board_season()
+	_captaincy_refresh()
 	last_phase = "regular"
 	last_label = "Round 1"
 	last_training_report = {}
@@ -3644,6 +3667,7 @@ func _after_round(results: Array) -> void:
 	if season != null and season.is_season_over() \
 			and int(season_awards.get("year", 0)) != season_year:
 		_close_season_awards()
+	_captaincy_week()
 	_next_week_event()
 	_find_coach_approaches()
 
@@ -3796,6 +3820,13 @@ func coaches_award_leaders(n := 5) -> Array:
 			return int(a["votes"]) > int(b["votes"])
 		return str(a["id"]) < str(b["id"]))
 	return rows.slice(0, n)
+
+
+## Browser builds have no threads: the round's other matches play one per
+## frame while yours is on screen (see Season.pump).
+func _process(_delta: float) -> void:
+	if not _others.is_empty() and _others.has("todo"):
+		Season.pump(_others)
 
 
 ## After a round: every club that played is a week closer to getting its
@@ -4225,8 +4256,13 @@ func open_offseason() -> void:
 	trade_table = []
 	_collect_trade_requests()
 	_open_trade_market()
-	# The market opens: rivals put their offers on the table.
+	# The market opens: rivals put their offers on the table. Last year's
+	# signings are last year's: each club aims for its targets afresh (they
+	# were never cleared, so year 2's opening offers were cut by year 1's
+	# signings, and a reload, which does not keep them, changed the market).
 	market_stats = {}
+	_targets_signed = {}
+	_bars = {}
 	_open_market(free_agents)
 	mark_dirty()
 
@@ -8338,3 +8374,184 @@ func _after_match_talks(played: Dictionary, round_no: int) -> void:
 				r[CareerFacts.OUT] = "waiting"
 				add_news("club", ("%s is still waiting for the game you promised him." if said == "promise"
 						else "%s is still waiting for a game.") % name)
+
+
+# ---------------------------------------------------------------------------
+# Captaincy (Captaincy.gd): a captain and up to two vice-captains per club
+# ---------------------------------------------------------------------------
+## A club's list as it is now: yours (the list you edit), else this season's
+## live one, else the league's (the off-season moves players between them).
+func club_roster(code: String) -> Array:
+	if code == my_club and not my_list.is_empty():
+		return my_list
+	if season != null and offseason_year != season_year and season.lists.has(code):
+		return season.lists[code]
+	if league_lists.has(code):
+		return league_lists[code]
+	if season != null and season.lists.has(code):
+		return season.lists[code]
+	return []
+
+
+## A club's record as it stands now, read only ({} when nothing is named):
+## a leader who has since left the club (traded, retired, delisted) is not in
+## it, whenever you ask, off-season included.
+func captaincy_record(code: String) -> Dictionary:
+	var rec: Dictionary = captaincy.get(code, {})
+	if rec.is_empty():
+		return rec
+	var now: Dictionary = rec.duplicate(true)
+	Captaincy.prune(now, club_roster(code))
+	return now
+
+
+## "Captain" / "Vice-captain" for a player of any club, or "".
+func captaincy_word(p: Dictionary) -> String:
+	return Captaincy.role_word(captaincy_record(str(p.get("club", ""))), str(p.get("id", "")))
+
+
+## Has the season begun, so that taking an armband off costs? Before round 1,
+## and through the off-season, changes are free.
+func captaincy_mid_season() -> bool:
+	if season == null or offseason_year == season_year:
+		return false
+	return season.round_index > 0 or season.is_regular_done() or not season.finals.is_empty()
+
+
+func _captain_name(id: String, roster: Array) -> String:
+	for p in roster:
+		if str((p as Dictionary).get("id", "")) == id:
+			return GameDB.player_display_name(p)
+	return "A player"
+
+
+## Every club has a record: the 2026 record for real lists, the rule for a
+## rival without one. Your own club stays empty until you name someone.
+func _captaincy_refresh() -> void:
+	if season == null:
+		return
+	for code in season.lists:
+		var roster: Array = season.lists[code]
+		var rec: Dictionary = captaincy.get(code, {})
+		var fresh_rec := rec.is_empty()
+		if fresh_rec:
+			rec = Captaincy.fresh(season_year)
+			rec["slots"] = Captaincy.from_record(str(code), roster)
+		Captaincy.prune(rec, roster)
+		if str(code) != my_club:
+			var made := Captaincy.fill(rec, roster)
+			if made != "" and not fresh_rec:
+				rec["since"] = season_year
+				add_news("captaincy", "%s have named %s captain." % [
+						GameDB.club_name(str(code)), _captain_name(made, roster)])
+		captaincy[code] = rec
+
+
+## After each round: players who left a club leave its captaincy, a rival may
+## replace a captain, and a vacancy at a rival is filled. Chance is a hash of
+## the career seed, club and week, never the match dice, so stories of this
+## kind cannot move a result.
+func _captaincy_week() -> void:
+	# Once the season is over the off-season refresh does it, after the premiers
+	# have made the news.
+	if season == null or my_club == "" or season.is_season_over():
+		return
+	_captaincy_refresh()
+	var week := season.round_index
+	for code in season.lists:
+		if str(code) == my_club:
+			continue
+		var roster: Array = season.lists[code]
+		var rec: Dictionary = captaincy.get(code, {})
+		var caps := Captaincy.ids(rec, "captain")
+		if caps.is_empty():
+			continue
+		var lead_id: String = str(caps[0])
+		var lead: Dictionary = {}
+		for p in roster:
+			if str((p as Dictionary).get("id", "")) == lead_id:
+				lead = p
+		if lead.is_empty():
+			continue
+		var why := ""
+		var club := GameDB.club_name(str(code))
+		var who := GameDB.player_display_name(lead)
+		if int(lead.get("injury_weeks", 0)) >= Captaincy.LONG_INJURY_WEEKS:
+			# Neutral, for anyone: a long injury, said as a fact.
+			why = "%s has stood down as %s captain: he is out for %d weeks." % [
+					who, club, int(lead.get("injury_weeks", 0))]
+		elif not Leadership.is_real(lead) and last_phase == "regular":
+			# An invented captain only: a scandal or a bad run, as league news.
+			var roll := float(("%d|%s|%d" % [career_seed, code, season_year * 100 + week]).hash() % 100000) / 100000.0
+			if roll < Captaincy.strip_chance:
+				var form: Array = season.club_results(str(code))
+				var recent: Array = form.slice(maxi(0, form.size() - 4))
+				var losses := 0
+				for r in recent:
+					if str(r) == "L":
+						losses += 1
+				if recent.size() >= 3 and losses >= 3:
+					why = "%s has been stripped of the %s captaincy after a poor run." % [who, club]
+				else:
+					why = "%s has been stripped of the %s captaincy after an off-field incident." % [who, club]
+		if why == "":
+			continue
+		var kept := []
+		for s in Captaincy.slots(rec):
+			if str((s as Dictionary)["id"]) != lead_id:
+				kept.append(s)
+		rec["slots"] = kept
+		var made := Captaincy.fill(rec, roster)
+		rec["since"] = season_year
+		var line := why
+		if made != "":
+			line += " %s takes over." % _captain_name(made, roster)
+		Captaincy.add_log(rec, season_year, last_label, line)
+		add_news("captaincy", line)
+		captaincy[code] = rec
+
+
+## What naming these leaders would cost, before anything is done.
+func captaincy_preview(new_slots: Array) -> Dictionary:
+	var roster := club_roster(my_club)
+	var rec := captaincy_record(my_club)
+	if rec.is_empty():
+		rec = Captaincy.fresh(season_year)
+	return Captaincy.preview(rec, new_slots, roster,
+			season_year, captaincy_mid_season(), func(id): return _captain_name(id, roster))
+
+
+## Name your leaders: [{"id", "role"}], at most three, a captain among them.
+## The costs the preview listed are applied. Returns the preview (ok false:
+## nothing changed).
+func set_captaincy(new_slots: Array) -> Dictionary:
+	var pv := captaincy_preview(new_slots)
+	if not bool(pv["ok"]):
+		return pv
+	var rec: Dictionary = captaincy_record(my_club)
+	if rec.is_empty():
+		rec = Captaincy.fresh(season_year)
+	var roster := club_roster(my_club)
+	var when := last_label if captaincy_mid_season() else "Pre-season"
+	for id in pv["morale"]:
+		for p in roster:
+			if str((p as Dictionary).get("id", "")) == str(id):
+				ClubLife.add_morale(p, int(pv["morale"][id]))
+	for id in pv["trust"]:
+		var passed := (pv["passed"] as Array).has(id)
+		Trust.change(relations, Trust.player_key(str(id)), int(pv["trust"][id]),
+				"You passed him over for the captaincy" if passed else "You took the armband off him",
+				season_year, when)
+	for id in pv["passed"]:
+		(rec["passed"] as Dictionary)[str(id)] = season_year
+	if bool(pv["used_change"]):
+		(rec["changes"] as Dictionary)[str(season_year)] = Captaincy.changes_used(rec, season_year) + 1
+	var names := PackedStringArray()
+	for s in new_slots:
+		names.append("%s %s" % [Captaincy.ROLE_WORDS[str((s as Dictionary)["role"])], _captain_name(str((s as Dictionary)["id"]), roster)])
+	rec["slots"] = new_slots.duplicate(true)
+	rec["since"] = season_year
+	Captaincy.add_log(rec, season_year, when, ", ".join(names) if not names.is_empty() else "No one named")
+	captaincy[my_club] = rec
+	mark_dirty()
+	return pv

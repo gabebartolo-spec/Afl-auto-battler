@@ -40,6 +40,8 @@ func run() -> void:
 	_test_save_round_trip()
 	_test_old_save()
 	_test_leadership()
+	_test_captaincy()
+	_test_time_trial_names()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	GameState.stories_on = true
@@ -730,3 +732,245 @@ func _corr(xs: Array, ys: Array) -> float:
 	if sxx <= 0.0 or syy <= 0.0:
 		return 0.0
 	return sxy / sqrt(sxx * syy)
+
+
+# --- Captaincy (P2-2) ---------------------------------------------------------
+
+func _lp(id: String, age: float, games: int, club := "GEE", real := "") -> Dictionary:
+	return {"id": id, "age": age, "club": club, "real_name": real, "career": {"games": games, "stints": []}, "gm": 0}
+
+
+func _test_captaincy() -> void:
+	# The pure rules.
+	var roster := [_lp("a", 24.0, 20), _lp("b", 31.0, 250), _lp("c", 29.0, 180), _lp("d", 33.0, 300), _lp("e", 22.0, 5)]
+	var rule := Captaincy.by_rule(roster)
+	var order := roster.duplicate()
+	order.sort_custom(func(x, y): return Leadership.of(x) > Leadership.of(y) or (Leadership.of(x) == Leadership.of(y) and Leadership.games(x) > Leadership.games(y)))
+	_check(rule.size() == 3 and str(rule[0]["role"]) == "captain" and str(rule[1]["role"]) == "vice"
+			and str(rule[0]["id"]) == str(order[0]["id"]) and str(rule[2]["id"]) == str(order[2]["id"]),
+			"The rule names the highest Leadership captain, then two vice-captains")
+	_check(JSON.stringify(Captaincy.by_rule(roster)) == JSON.stringify(rule), "The rule gives the same answer every time")
+	var rec := Captaincy.fresh(2027)
+	rec["slots"] = [{"id": "x", "role": "captain"}, {"id": "b", "role": "vice"}]
+	var gone := Captaincy.prune(rec, roster)
+	_check(gone == ["x"] and Captaincy.ids(rec) == ["b"], "A captain who left the list leaves the spot open")
+	var made := Captaincy.fill(rec, roster)
+	_check(made == "b" and Captaincy.role_of(rec, "b") == "captain", "With no captain, the best-rated vice takes over")
+	var empty := Captaincy.fresh(2027)
+	Captaincy.fill(empty, roster)
+	_check(Captaincy.slots(empty).size() == 3, "A club with no one named is appointed by the rule")
+
+	# Costs, said before the pick.
+	var nm := func(id): return "P" + str(id)
+	var cur := Captaincy.fresh(2027)
+	cur["slots"] = [{"id": "a", "role": "captain"}]
+	var pre := Captaincy.preview(cur, [{"id": "e", "role": "captain"}], roster, 2027, false, nm)
+	_check(bool(pre["ok"]) and not bool(pre["used_change"]) and pre["morale"].has("d") and pre["trust"].has("d"),
+			"Passing over a senior player with higher Leadership costs him a little, even before round 1")
+	_check(not pre["morale"].has("a"), "Before round 1 taking the armband off costs nothing")
+	var texts := " ".join(PackedStringArray(pre["lines"]))
+	_check(texts.contains("Overlooking") and texts.contains("once") and texts.contains("Pd"), "The cost is said in words before the pick (%s)" % texts)
+	var mid := Captaincy.preview(cur, [{"id": "d", "role": "captain"}], roster, 2027, true, nm)
+	_check(bool(mid["used_change"]) and int(mid["morale"]["a"]) == Captaincy.STRIPPED_MORALE
+			and " ".join(PackedStringArray(mid["lines"])).contains("one change this season"),
+			"Mid-season, taking the armband off costs him and uses the one change, and says so")
+	cur["changes"]["2027"] = 1
+	var blocked := Captaincy.preview(cur, [{"id": "d", "role": "captain"}], roster, 2027, true, nm)
+	_check(not bool(blocked["ok"]) and str(blocked["why_not"]) != "", "A second mid-season change is refused, with the reason")
+	cur["passed"] = {"d": 2027}
+	var again := Captaincy.preview(cur, [{"id": "e", "role": "captain"}], roster, 2027, false, nm)
+	_check(not again["morale"].has("d"), "A player already passed over is not stung twice")
+	var no_cap := Captaincy.preview(cur, [{"id": "a", "role": "vice"}], roster, 2027, false, nm)
+	_check(not bool(no_cap["ok"]), "Leaders without a captain are refused")
+
+	# In the game.
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var all_named := true
+	var max_leaders := 0
+	for code in GameState.season.lists:
+		var r := GameState.captaincy_record(str(code))
+		if str(code) != GameState.my_club and Captaincy.ids(r, "captain").is_empty():
+			all_named = false
+		max_leaders = maxi(max_leaders, Captaincy.ids(r).size())
+	_check(all_named and max_leaders <= Captaincy.MAX_LEADERS, "Every rival has a captain from the start, at most three leaders each")
+	var mine := GameState.captaincy_record("GEE")
+	var geelong_cap: Dictionary = {}
+	for p in GameState.my_list:
+		if Captaincy.role_word(mine, str(p["id"])) == "Captain":
+			geelong_cap = p
+	_check(not geelong_cap.is_empty() and Leadership.role_2026(geelong_cap) == "captain",
+			"A real-lists career starts from the 2026 record: the Geelong captain is named")
+	_check(GameState.captaincy_word(geelong_cap) == "Captain", "His profile word comes from the record")
+
+	# Naming leaders applies exactly what the preview said.
+	var senior := {}
+	for p in GameState.my_list:
+		if float(p.get("age", 0.0)) >= 28.0 and Leadership.games(p) >= 150 and str(p["id"]) != str(geelong_cap.get("id", "")):
+			senior = p
+			break
+	var kid := {}
+	for p in GameState.my_list:
+		if str(p["id"]) != str(geelong_cap.get("id", "")) and not senior.is_empty() \
+				and Leadership.of(p) < Leadership.of(senior) and not Captaincy.is_named(mine, str(p["id"])):
+			kid = p
+	_check(not senior.is_empty() and not kid.is_empty(), "The test list has a senior player and a lower-rated player to name")
+	if not senior.is_empty() and not kid.is_empty():
+		var slots := [{"id": str(kid["id"]), "role": "captain"}]
+		var pv := GameState.captaincy_preview(slots)
+		var morale_before := ClubLife.morale(senior)
+		var res := GameState.set_captaincy(slots)
+		_check(bool(res["ok"]) and Captaincy.ids(GameState.captaincy_record("GEE"), "captain") == [str(kid["id"])],
+				"Naming a captain before round 1 takes effect")
+		_check(ClubLife.morale(senior) - morale_before == int(pv["morale"].get(str(senior["id"]), 0)),
+				"The cost applied is the cost the preview listed")
+		var cid := str(kid["id"])
+		for i in range(GameState.my_list.size()):
+			if str(GameState.my_list[i]["id"]) == cid:
+				GameState.my_list.remove_at(i)
+				break
+		_check(Captaincy.ids(GameState.captaincy_record("GEE"), "captain").is_empty()
+				and not Captaincy.ids(GameState.captaincy_record("GEE")).has(cid),
+				"A leader who has left is out of the record the moment you look, not at the next round")
+		var after := GameState.set_captaincy([])
+		_check(bool(after["ok"]) and not JSON.stringify(GameState.captaincy["GEE"]).contains(cid),
+				"Confirming an edit never saves a leader who has gone")
+		_run_on(1)
+		_check(Captaincy.ids(GameState.captaincy_record("GEE"), "captain").is_empty(),
+				"A captain who has left your list leaves the captaincy open")
+
+	# A rival's captain: neutral facts for anyone, scandal or form only for an invented one.
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var rival := ""
+	for code in GameState.season.lists:
+		if str(code) != "GEE" and rival == "":
+			rival = str(code)
+	var rcap_id := str(Captaincy.ids(GameState.captaincy_record(rival), "captain")[0])
+	for p in GameState.season.lists[rival]:
+		if str(p["id"]) == rcap_id:
+			p["injury_weeks"] = Captaincy.LONG_INJURY_WEEKS + 2
+	var news_before := GameState.news.size()
+	GameState._captaincy_week()
+	var line := str(GameState.news[0]["text"]) if GameState.news.size() > news_before else ""
+	_check(line.contains("stood down") and not line.contains("stripped") and not line.contains("incident")
+			and Captaincy.ids(GameState.captaincy_record(rival), "captain") != [rcap_id],
+			"A long injury replaces a rival's captain as a plain fact (%s)" % line)
+	# With the roll forced to hit: real-named captains are untouched, an invented one is stripped as news.
+	var invented_club := ""
+	for code in GameState.season.lists:
+		if str(code) != "GEE" and str(code) != rival and invented_club == "":
+			invented_club = str(code)
+	var inv_id := str(Captaincy.ids(GameState.captaincy_record(invented_club), "captain")[0])
+	for p in GameState.season.lists[invented_club]:
+		if str(p["id"]) == inv_id:
+			p["real_name"] = ""
+	var caps_before := {}
+	for code in GameState.season.lists:
+		caps_before[str(code)] = Captaincy.ids(GameState.captaincy_record(str(code)), "captain")
+	Captaincy.strip_chance = 1.0
+	GameState.last_phase = "regular"
+	var n0 := GameState.news.size()
+	GameState._captaincy_week()
+	Captaincy.strip_chance = Captaincy.AI_STRIP_CHANCE
+	var changed_real := 0
+	for code in GameState.season.lists:
+		if str(code) != invented_club and str(code) != "GEE" \
+				and Captaincy.ids(GameState.captaincy_record(str(code)), "captain") != caps_before[str(code)]:
+			changed_real += 1
+	var stripped := 0
+	for i in range(GameState.news.size() - n0):
+		if str(GameState.news[i]["text"]).contains("stripped"):
+			stripped += 1
+	_check(changed_real == 0, "A real-named captain is never replaced for a scandal or a bad run (%d changed)" % changed_real)
+	_check(stripped == 1 and Captaincy.ids(GameState.captaincy_record(invented_club), "captain") != caps_before[invented_club],
+			"An invented captain can be stripped, as league news (%d lines)" % stripped)
+
+	# The save.
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var rec_before := JSON.stringify(GameState.captaincy)
+	_check(GameState.save_career() and GameState.load_career() and JSON.stringify(GameState.captaincy) == rec_before,
+			"Captaincy survives a reload")
+	GameState.save_career()
+	var old := CareerSave.read(GameState.save_path)
+	old.erase("captaincy")
+	CareerSave.write(old, GameState._save_meta(), GameState.save_path)
+	_check(GameState.load_career() and GameState.captaincy.is_empty(), "An older save loads with no one named")
+	_run_on(1)
+	_check(not GameState.captaincy_record("COL").is_empty(), "Rivals appoint on the next round of an older save")
+
+
+# --- A result that names players (the time trial) --------------------------------
+
+func _by_durability(a: Dictionary, b: Dictionary) -> bool:
+	var da := int(a["attr"]["durability"])
+	var db := int(b["attr"]["durability"])
+	return da > db or (da == db and str(a["id"]) < str(b["id"]))
+
+
+func _test_time_trial_names() -> void:
+	# The token rules, on a list we control.
+	var rows := []
+	for n in ["Ava", "Ben", "Cal", "Dan"]:
+		rows.append({"name": n})
+	_check(StoryEngine.fill_ranked("{best3} / {worst2}", rows) == "Ava, Ben and Cal / Dan",
+			"Best and worst never name the same player: %s" % StoryEngine.fill_ranked("{best3} / {worst2}", rows))
+	_check(StoryEngine.fill_ranked("{best1}", rows) == "Ava" and StoryEngine.fill_ranked("{worst2}", rows) == "Dan and Cal",
+			"One name stands alone; the worst come slowest first")
+	_check(StoryEngine.fill_ranked("{best2}", []) == "nobody" and StoryEngine.fill_ranked("plain", rows) == "plain",
+			"No list says nobody; a plain line is untouched")
+	var club_ok := {"subject": {"kind": "club"}, "title": ["t"],
+			"choices": [{"key": "a", "label": "A", "result": "Best: {best3}.", "effects": []},
+				{"key": "b", "label": "B", "effects": []}]}
+	_check(_bad(club_ok).is_empty(), "A club card's result may name players (%s)" % str(_bad(club_ok)))
+	var in_text := club_ok.duplicate(true)
+	in_text["text"] = ["Best: {best3}"]
+	_check(not _bad(in_text).is_empty(), "Names belong in a result, not the card's text")
+	var in_player := club_ok.duplicate(true)
+	in_player["subject"] = {"kind": "player"}
+	_check(not _bad(in_player).is_empty(), "A player card cannot name a ranked list")
+	var typo := club_ok.duplicate(true)
+	typo["choices"][0]["result"] = "Best: {bestx}."
+	_check(not _bad(typo).is_empty(), "A misspelt name token is refused")
+
+	# In play: Run it names the real fittest and slowest, by the rating the match
+	# uses for running fitness, once each, from the senior list.
+	var names_before: bool = GameState.show_real_names
+	for real in [false, true]:
+		_start()
+		GameState.show_real_names = real
+		var list: Array = GameState.my_list
+		var injured: Dictionary = list[0]
+		injured["injury_weeks"] = 3
+		var avail := list.filter(func(q): return int(q.get("injury_weeks", 0)) <= 0)
+		avail.sort_custom(_by_durability)
+		var morale_before := ClubLife.morale(avail[10])
+		var card := GameState.story_card("training_time_trial")
+		var want := "Best over the two k: %s. Off the pace: %s." % [
+				StoryEngine.name_list([avail[0], avail[1], avail[2]].map(func(q): return GameDB.player_display_name(q))),
+				StoryEngine.name_list([avail[-1], avail[-2]].map(func(q): return GameDB.player_display_name(q)))]
+		_check(not str(card["options"][0]["result"]).is_empty() and str(card["options"][0]["result"]).contains("{best3}"),
+				"The card keeps the names until it is answered (%s)" % str(card["options"][0]["result"]))
+		GameState.week_event = card
+		var out := GameState.resolve_week_event(0)
+		_check(out == "The time trial's done. " + want, "Run it names who is fit (real names %s): %s" % [str(real), out])
+		_check(not out.contains("{") and not out.contains(GameDB.player_display_name(injured)),
+				"No braces left, and the injured player did not run (%s)" % out)
+		var named := []
+		for q in list:
+			if out.contains(GameDB.player_display_name(q)):
+				named.append(str(q["id"]))
+		_check(named.size() == 5, "Exactly five distinct players are named (%d)" % named.size())
+		var run := _choice("training_time_trial", "run")
+		_check(ClubLife.morale(avail[10]) == clampi(morale_before - 3, 5, 100)
+				and int(_effect(run, "xp")["d"]) == 5 and str(_effect(run, "xp")["who"]) == "all"
+				and int(_effect(run, "morale")["d"]) == -3 and str(_effect(run, "morale")["who"]) == "all",
+				"The effects are unchanged: morale -3 and 5 development for everyone")
+	GameState.show_real_names = names_before
