@@ -2437,6 +2437,11 @@ func club_form_info(code: String) -> Dictionary:
 			"last": "".join(res.slice(maxi(0, res.size() - ClubLife.FORM_WEIGHTS.size())))}
 
 
+## Where a club finished last season (0 in a career's first season).
+func last_finish_of(code: String) -> int:
+	return int(_last_finish.get(code, 0))
+
+
 ## "Form: Good  ·  WWWWL" - or "Form: Steady  ·  no games yet". The word and
 ## the results say it; the internal -1..1 value stays internal.
 static func form_line(info: Dictionary, prefix := "Form") -> String:
