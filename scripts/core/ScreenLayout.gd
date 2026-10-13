@@ -89,6 +89,38 @@ static func desktop_density(pixels: Vector2, os_scale: float, dpi: int) -> float
 	return maxf(1.0, maxf(os_density, fit))
 
 
+## The Screen setting on a phone or in its browser: follow the phone's own
+## rotation (the default), or hold portrait or landscape.
+const ORIENTATIONS := [["auto", "Follow the phone"], ["portrait", "Portrait"], ["landscape", "Landscape"]]
+
+
+## The engine's orientation for a saved choice. Anything unknown follows the phone.
+static func orientation_for(key: String) -> int:
+	match key:
+		"portrait":
+			return DisplayServer.SCREEN_PORTRAIT
+		"landscape":
+			return DisplayServer.SCREEN_LANDSCAPE
+	return DisplayServer.SCREEN_SENSOR
+
+
+## Hold the chosen orientation by the engine's own means. Android honours it.
+## A browser only locks the screen while the page is fullscreen (the Fullscreen
+## API, allowed only from a tap), so choosing Portrait or Landscape on the web
+## goes fullscreen first. Safari on an iPhone has no orientation lock at all:
+## there, the choice cannot hold and the phone's own rotation rules.
+## Returns what was asked of the engine, for a test to read.
+func set_orientation(key: String, from_tap := false) -> Dictionary:
+	var asked := {"orientation": orientation_for(key), "fullscreen": false}
+	if DisplayServer.get_name() == "headless" or is_desktop() and not force_web_phone:
+		return asked
+	if OS.has_feature("web") and key != "auto" and from_tap:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+		asked["fullscreen"] = true
+	DisplayServer.screen_set_orientation(asked["orientation"])
+	return asked
+
+
 ## A test or capture stands in for the web build: not a desktop, not a phone.
 static var force_web := false
 ## ...and for a phone's browser (web_android / web_ios): the web, and touch.

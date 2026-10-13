@@ -115,6 +115,7 @@ func _run() -> void:
 	await _test_start_season_footer()
 	await _test_intake_combine()
 	await _test_search_keyboard()
+	await _test_rotation()
 	print("Draft UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
 
@@ -266,6 +267,37 @@ func _test_search_keyboard() -> void:
 	root.size = Vector2i(390, 464)
 	await _settle()
 	_check(ui.get("_short") == true, "With no field focused, a short window still gets the short layout")
+	root.size = old_size
+	ui.queue_free()
+	await _settle()
+
+
+## Turning the phone swaps width and height: the draft follows the window each
+## time (wide on its side, stacked upright) and rebuilds once per turn, with a
+## search field focused or not. Height alone shrinking is a keyboard, not this.
+func _test_rotation() -> void:
+	var old_size := root.size
+	root.size = Vector2i(390, 844)
+	_state.reset()
+	_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(),
+			_db.active_clubs(2026).duplicate(), 12345)
+	var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
+	root.add_child(ui)
+	ui.call("_on_club_chosen", "COL")
+	await _settle()
+	var sizes := [Vector2i(844, 390), Vector2i(390, 844), Vector2i(844, 390), Vector2i(390, 844)]
+	var last_key: String = ui.get("_layout_key")
+	for i in range(sizes.size()):
+		var margin_before = ui.get("_margin")
+		root.size = sizes[i]
+		await _settle()
+		var key: String = ui.get("_layout_key")
+		var landscape: bool = sizes[i].x > sizes[i].y
+		_check(key != last_key and ui.get("_short") == landscape,
+				"Turn %d to %s: the layout follows (%s)" % [i, "landscape" if landscape else "portrait", key])
+		_check(is_instance_valid(ui.get("_search_field")) or ui.get("_phase") == "board",
+				"Turn %d: the board is still built" % i)
+		last_key = key
 	root.size = old_size
 	ui.queue_free()
 	await _settle()
