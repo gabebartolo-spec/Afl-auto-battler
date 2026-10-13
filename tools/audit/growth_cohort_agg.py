@@ -4,7 +4,8 @@ Drafted players (generated classes) by draft range: mean OVR by age at season en
 league median best-22 OVR, and the share who ever do (classes with >= MIN_FOLLOW seasons of follow-up)."""
 import sys, collections
 
-MIN_FOLLOW = 5
+import os
+MIN_FOLLOW = int(os.environ.get("MIN_FOLLOW", "5"))
 arm = None
 coh = collections.defaultdict(list)    # (arm, rng) -> [(draft_year, year, age, ovr, thr, seed)]
 last_year = collections.defaultdict(int)
