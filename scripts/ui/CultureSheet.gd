@@ -182,7 +182,7 @@ static func _build(root: Control, club: String, data: Array, wide: bool, done: C
 	page.add_child(top)
 	page.add_child(UiKit.spacer(14))
 	# The statement: three phrases as one, the strand's name small beside each.
-	var statement := UiKit.vbox(52 if wide else 22)
+	var statement := UiKit.vbox(88 if wide else 22)
 	for d in data:
 		var row := UiKit.hbox(14)
 		row.name = "Strand_" + str(d["id"])
@@ -205,7 +205,7 @@ static func _build(root: Control, club: String, data: Array, wide: bool, done: C
 		cols.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		var left := UiKit.vbox(0)
 		left.custom_minimum_size.x = 600.0
-		left.add_child(UiKit.spacer(18))
+		left.add_child(UiKit.spacer(28))
 		left.add_child(statement)
 		cols.add_child(left)
 		var right := UiKit.vbox(10)
