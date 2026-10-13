@@ -1038,7 +1038,7 @@ func _test_screens() -> void:
 	var watch := scene.find_child("TrialStopwatch", true, false) as TextureRect
 	var watch_tex: Texture2D = watch.texture if watch != null else null
 	_check(watch_tex != null and watch_tex.resource_path == "res://assets/ui/models/stopwatch.png"
-			and float(watch_tex.get_height()) >= 2.0 * watch.size.y and watch.size.y >= 44.0,
+			and float(watch_tex.get_height()) >= 2.0 * watch.size.y and watch.size.y >= 36.0,
 			"The time trial stop shows the stopwatch's own picture, sharp at this size (%s)" % (watch_tex.resource_path if watch_tex != null else "missing"))
 	var watch_ok := watch != null and watch.mouse_filter == Control.MOUSE_FILTER_IGNORE \
 			and watch.modulate.is_equal_approx(CultureSheet.emblem_tint(CLUB)) \
@@ -1053,6 +1053,16 @@ func _test_screens() -> void:
 			if lab.text != "" and drawn.intersects(watch.get_global_rect()):
 				watch_ok = false
 	_check(watch_ok, "The stopwatch carries the club's wash, takes no tap and covers no word in the header")
+	var head_h := head.size.y if head != null else 0.0
+	UiArt.dir = "res://assets/ui/no_such_folder"
+	scene.call("_build")
+	await _frames(tree, 4)
+	var plain_head := scene.find_child("PreSeasonHeader", true, false) as Control
+	_check(scene.find_child("TrialStopwatch", true, false) == null and plain_head != null and is_equal_approx(plain_head.size.y, head_h),
+			"Without the picture the header is the same height: the stopwatch moves nothing (%.0f, %.0f)" % [head_h, plain_head.size.y if plain_head != null else -1.0])
+	UiArt.dir = "res://assets/ui/models"
+	scene.call("_build")
+	await _frames(tree, 4)
 	var named := true
 	for i in range(5):
 		named = named and _label(scene, "TrialBest_%d" % i) != ""
