@@ -1100,6 +1100,11 @@ func _balance_break_columns(cols: Array) -> void:
 		if dropped:
 			await get_tree().process_frame
 			_balance_break_columns(cols)
+			return
+		# Still too tall: the gap above Rotations is the first thing to give.
+		var gap: Node = _coach_overlay.find_child("RotationsGap", true, false)
+		if gap != null:
+			(gap as Control).visible = false
 
 
 ## The gap above Rotations is only for a block that has something above it.
