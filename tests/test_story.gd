@@ -680,6 +680,10 @@ func _test_papers_cards_are_football() -> void:
 	_check(_effect(_choice("media_papers_fronts_group", "front"), "board").is_empty()
 			and not _effect(_choice("media_papers_fronts_group", "private"), "trust").is_empty(),
 			"Fronting the group has no board effect; keeping it private earns a little trust")
+	_check(int(_effect(_choice("media_papers_fronts_group", "private"), "trust").get("d", 0))
+			> int(_effect(_choice("media_papers_fronts_group", "front"), "trust").get("d", 0))
+			and not _effect(_choice("media_papers_fronts_group", "front"), "morale").is_empty(),
+			"Each side gives something: fronting lifts the room, keeping it private earns more of his trust")
 	GameState.show_real_names = false
 
 

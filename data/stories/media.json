@@ -344,7 +344,7 @@
 					},
 					{
 						"op": "trust",
-						"d": 4,
+						"d": 2,
 						"why": "You let him front the group"
 					}
 				],
@@ -360,7 +360,7 @@
 					},
 					{
 						"op": "trust",
-						"d": 2,
+						"d": 4,
 						"why": "You kept it between you two"
 					}
 				],
