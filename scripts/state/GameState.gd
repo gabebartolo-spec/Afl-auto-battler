@@ -3053,6 +3053,11 @@ func set_my_matchup(fwd_id: String, def_id: String) -> void:
 
 ## Compact stored-fact history surfaces. These deliberately read existing
 ## records/honour_roll rather than reconstructing or inventing old seasons.
+## "quarter time", "half time" or "three-quarter time" for break 0, 1 or 2.
+func _break_name(i: int) -> String:
+	return ["quarter time", "half time", "three-quarter time"][clampi(i, 0, 2)]
+
+
 func history_record_lines() -> Array:
 	var out := []
 	var high: Dictionary = records.get("highest_score", {})
@@ -3065,6 +3070,17 @@ func history_record_lines() -> Array:
 		out.append("Biggest win: %s by %d points v %s (%d)" % [
 				GameDB.club_name(str(win.get("club", ""))), int(win.get("value", 0)),
 				GameDB.club_name(str(win.get("opp", ""))), int(win.get("year", 0))])
+	var back: Dictionary = records.get("biggest_comeback", {})
+	if not back.is_empty():
+		out.append("Greatest comeback: %s, from %d points down at %s, beat %s (%d)" % [
+				GameDB.club_name(str(back.get("club", ""))), int(back.get("value", 0)),
+				_break_name(int(back.get("at", 1))), GameDB.club_name(str(back.get("opp", ""))),
+				int(back.get("year", 0))])
+	var blown: Dictionary = records.get("biggest_blown", {})
+	if not blown.is_empty():
+		out.append("Biggest lead lost: %s led %s by %d points at %s and lost (%d)" % [
+				GameDB.club_name(str(blown.get("club", ""))), GameDB.club_name(str(blown.get("opp", ""))),
+				int(blown.get("value", 0)), _break_name(int(blown.get("at", 1))), int(blown.get("year", 0))])
 	var goals: Dictionary = records.get("most_goals", {})
 	if not goals.is_empty():
 		var gp := _find_player(str(goals.get("id", "")))
