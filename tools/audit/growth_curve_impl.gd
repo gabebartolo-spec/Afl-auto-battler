@@ -8,8 +8,9 @@ extends RefCounted
 ##   LEAGUE|seed|tag|year|players|mean OVR (all)|mean best-23 over clubs
 ##   BAND|seed|year|pick band|players|OVR at pick|OVR 3 seasons on|still listed (generated classes)
 ##   USER|seed|year|wins|games   (the autopilot user club, for AI v coach)
-## Args after the impl name: seed club seasons.
-## godot --headless --path . --script tools/audit/run_audit.gd -- growth_curve_impl 11 MEL 10
+## Args after the impl name: seeds (comma list) club seasons arms (comma list of step:gap, the
+## Potential.YOUTH_STEP_PACE / YOUTH_GAP_PACE to try; default the shipped values). Careers run in turn.
+## godot --headless --path . --script tools/audit/run_audit.gd -- growth_curve_impl 11,12 MEL 10 1:1,0.5:0.7
 
 var seed_n := 1
 var gen_ids := {}
@@ -125,14 +126,28 @@ func _track(lists: Dictionary, year: int) -> void:
 
 func run() -> void:
 	var args := OS.get_cmdline_user_args()
-	seed_n = int(args[1]) if args.size() > 1 else 1
+	var seeds := str(args[1]).split(",") if args.size() > 1 else PackedStringArray(["1"])
 	var club := str(args[2]) if args.size() > 2 else "MEL"
 	var seasons := int(args[3]) if args.size() > 3 else 10
+	var arms := str(args[4]).split(",") if args.size() > 4 else PackedStringArray([""])
+	for arm in arms:
+		if arm != "":
+			var sp := arm.split(":")
+			Potential.YOUTH_STEP_PACE = float(sp[0])
+			Potential.YOUTH_GAP_PACE = float(sp[1])
+		for sd in seeds:
+			seed_n = int(sd)
+			gen_ids = {}
+			cohort = []
+			_career(club, seasons)
+
+
+func _career(club: String, seasons: int) -> void:
 	GameState.reset()
 	GameState.autosave_enabled = false
 	GameState.career_seed = seed_n
 	GameState.replay_seed = seed_n
-	print("GA|%d|%s|%d" % [seed_n, club, seasons])
+	print("GA|%d|%s|%d|step %.2f|gap %.2f" % [seed_n, club, seasons, Potential.YOUTH_STEP_PACE, Potential.YOUTH_GAP_PACE])
 	GameState.begin_real_lists()
 	_snapshot("pre", GameDB.DATA_SEASON, GameState.league_lists)
 	GameState.choose_real_club(club)

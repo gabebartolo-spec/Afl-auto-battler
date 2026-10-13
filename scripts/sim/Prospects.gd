@@ -345,19 +345,7 @@ static func age_player(p: Dictionary, year: int) -> float:
 	else:
 		p["sample"] = maxf(18.0, float(p.get("gm", 0.0)))
 
-	var d := 0.0
-	if age <= 20.0:
-		d = rng.randf_range(2.5, 6.0)
-	elif age <= 23.0:
-		d = rng.randf_range(1.0, 4.0)
-	elif age <= 27.0:
-		d = rng.randf_range(0.0, 2.0)
-	elif age <= 30.0:
-		d = rng.randf_range(-1.0, 1.0)
-	elif age <= 33.0:
-		d = rng.randf_range(-3.0, 0.0)
-	else:
-		d = rng.randf_range(-6.0, -1.5)
+	var d := Potential.age_step(age, rng.randf())
 	var ov := int(p.get("overall", 50))
 	if age <= 25.0 and ov < 55:
 		d += 1.0  # late bloomers keep climbing
