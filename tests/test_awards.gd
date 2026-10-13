@@ -109,8 +109,13 @@ func _test_norm_smith_rules() -> void:
 			"...and carries his own club")
 	_check(Awards.norm_smith(res) == m and JSON.stringify(res) == before,
 			"The same match always names the same man, and the result is left untouched")
-	_check(str(m["line"]) == CoachReport.stat_line(res["players"][str(m["id"])]),
-			"His stat line is the one the game already writes")
+	_check(str(m["line"]) == Awards.plain_line(res["players"][str(m["id"])]),
+			"His line is in plain words (%s)" % str(m["line"]))
+	_check(Awards.plain_line({"goals": 3.0, "disposals": 25.0, "marks": 8.0, "tackles": 2.0}) == "3 goals, 25 disposals and 8 marks"
+			and Awards.plain_line({"goals": 1.0, "disposals": 1.0, "tackles": 5.0, "marks": 9.0}) == "1 goal, 1 disposal and 5 tackles"
+			and Awards.plain_line({"disposals": 30.0, "tackles": 7.0, "marks": 4.0, "behinds": 2.0}) == "30 disposals and 7 tackles"
+			and not Awards.plain_line({"disposals": 22.0, "clearances": 11.0, "inside50": 6.0}).contains("CLR"),
+			"At most three headline figures, goals first, no codes or percentages")
 	# The losing side can win it: lift one of the beaten side's players clear.
 	var home_won: bool = int(res["score"][0]) > int(res["score"][1])
 	var loser_side := 1 if home_won else 0

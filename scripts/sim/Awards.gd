@@ -91,8 +91,33 @@ static func norm_smith(res: Dictionary) -> Dictionary:
 			var inf := CoachReport.influence(stats_all[id])
 			if best.is_empty() or inf > float(best["influence"]):
 				best = {"id": id, "club": codes[side], "influence": inf,
-						"line": CoachReport.stat_line(stats_all[id])}
+						"line": plain_line(stats_all[id])}
 	return best
+
+
+## What he did, in plain words: up to three headline figures, goals first if he
+## kicked any, then disposals, then tackles or marks (whichever he had more of).
+## "3 goals, 25 disposals and 8 marks".
+static func plain_line(st: Dictionary) -> String:
+	var parts: Array = []
+	var goals := int(st.get("goals", 0.0))
+	if goals > 0:
+		parts.append("%d %s" % [goals, "goal" if goals == 1 else "goals"])
+	var disp := int(st.get("disposals", 0.0))
+	if disp > 0:
+		parts.append("%d %s" % [disp, "disposal" if disp == 1 else "disposals"])
+	if parts.size() < 3:
+		var tackles := int(st.get("tackles", 0.0))
+		var marks := int(st.get("marks", 0.0))
+		if tackles > 0 and tackles >= marks:
+			parts.append("%d %s" % [tackles, "tackle" if tackles == 1 else "tackles"])
+		elif marks > 0:
+			parts.append("%d %s" % [marks, "mark" if marks == 1 else "marks"])
+	if parts.is_empty():
+		return "best on the ground"
+	if parts.size() == 1:
+		return str(parts[0])
+	return "%s and %s" % [", ".join(parts.slice(0, parts.size() - 1)), parts[parts.size() - 1]]
 
 
 ## The season's awards. `players` maps id -> player dict (role, age) for
