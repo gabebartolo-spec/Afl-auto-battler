@@ -2,7 +2,7 @@ extends SceneTree
 const Tap := preload("res://tests/tap.gd")
 ## The Club culture sheet (stories P2-3), over My list, for the
 ## director's look. Needs a real renderer:
-##   godot --path . --script tools/visual/capture_culture.gd -- --out /tmp/cult [--size 1280x720]
+##   godot --path . --script tools/visual/capture_culture.gd -- --out /tmp/cult [--club FRE] [--size 1280x720] [--emblems off]
 ## Writes <out>_list.png (My list, the Club culture row), <out>_culture.png (the three strands in words). Plays a season first, so the strands have something to say.
 
 var W := 390
@@ -55,6 +55,9 @@ func _run() -> void:
 			out = str(a[i + 1])
 		if str(a[i]) == "--club":
 			club = str(a[i + 1])
+		if str(a[i]) == "--emblems" and str(a[i + 1]) == "off":
+			# Loaded here, not named: the screen's script needs the autoloads to compile.
+			load("res://scripts/ui/CultureSheet.gd").set("icon_dir", "res://assets/ui/none")
 		if str(a[i]) == "--size":
 			var wh := str(a[i + 1]).split("x")
 			W = int(wh[0])
@@ -127,7 +130,11 @@ func _run() -> void:
 		print("tap not mapped here (", why, "): pressing instead")
 		open_btn.emit_signal("pressed")
 	await _shot(out + "_culture.png")
-	print("clipped text: ", _clipped(current_scene.find_child("CultureSheet", true, false)))
+	var sheet_now: Node = current_scene.find_child("CultureSheet", true, false)
+	for ic in (sheet_now.find_children("StrandIcon", "TextureRect", true, false) if sheet_now != null else []):
+		var tr := ic as TextureRect
+		print("emblem ", tr.texture.resource_path, " ", tr.texture.get_size(), " drawn ", tr.size, " tint ", tr.modulate.to_html(false))
+	print("clipped text: ", _clipped(sheet_now))
 	current_scene.handle_back()
 	await process_frame
 	print("back closes: ", current_scene.find_child("CultureSheet", true, false) == null)

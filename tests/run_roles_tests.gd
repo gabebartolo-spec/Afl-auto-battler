@@ -802,11 +802,84 @@ func _culture_ui_tests() -> void:
 	var reasons: Node = sheet.find_child("CultureReasons", true, false) if sheet != null else null
 	_check(reasons != null and reasons.is_visible_in_tree() and _screen_text(reasons).contains("layed finals. Togetherness rose."),
 			"Each reason is one event in football words")
+	# The strand emblems: the real art with each strand's name, tinted by the club,
+	# never moving the words; and the screen still stands without the files.
+	# Loaded here, not named: the screen's script needs the autoloads to compile.
+	var sheet_script = load("res://scripts/ui/CultureSheet.gd")
+	var icon_px := float(sheet_script.ICON)
+	var words_x := {}
+	for st in Culture.STRANDS:
+		var id := str(st[0])
+		var path := "res://assets/ui/culture/%s.png" % id
+		var row: Node = sheet.find_child("Strand_" + id, true, false) if sheet != null else null
+		var icon: TextureRect = row.find_child("StrandIcon", true, false) if row != null else null
+		var tex: Texture2D = icon.texture if icon != null else null
+		_check(ResourceLoader.exists(path) and tex != null and tex.resource_path == path
+				and tex.get_width() >= int(icon_px) * 2 and tex.get_width() == tex.get_height(),
+				"The %s emblem is its own art, big enough for a sharp phone (%s)" % [id, tex.resource_path if tex != null else "missing"])
+		var img: Image = tex.get_image() if tex != null else null
+		_check(img != null and img.get_pixel(0, 0).a < 0.05 and _emblem_cover(img) > 0.12,
+				"The %s emblem is a shape on a clear background, not a blank or a block" % id)
+		var name_lbl: Control = _label_with(row, str(st[1]))
+		_check(icon != null and icon.is_visible_in_tree() and icon.size.is_equal_approx(Vector2(icon_px, icon_px))
+				and name_lbl != null and (name_lbl as Label).horizontal_alignment == HORIZONTAL_ALIGNMENT_CENTER
+				and absf(icon.get_global_rect().get_center().x - name_lbl.get_global_rect().get_center().x) < 1.0
+				and absf(name_lbl.get_global_rect().position.y - icon.get_global_rect().end.y) < 8.0,
+				"The %s emblem is drawn at its size, its name centred right under it" % id)
+		var words: Control = row.find_child("StrandWords", true, false) if row != null else null
+		words_x[id] = words.get_global_rect() if words != null else Rect2()
+	var tint: Color = sheet_script.emblem_tint("FRE")
+	_check(tint.s > 0.08 and tint.s < 0.5 and tint.v > 0.75, "Fremantle's emblems carry a light wash of purple (%s)" % tint.to_html(false))
+	var dogs: Color = sheet_script.emblem_tint("WBD")
+	var dees: Color = sheet_script.emblem_tint("MEL")
+	_check(dogs.s > 0.08 and dogs.h > 0.5 and dogs.h < 0.72, "The Bulldogs' emblems carry their blue (%s)" % dogs.to_html(false))
+	_check(dees.s > 0.08 and dees.h > 0.5 and dees.h < 0.72, "Melbourne's emblems carry the navy, not the red (%s)" % dees.to_html(false))
+	for red in ["ESS", "SYD", "STK"]:
+		var rt: Color = sheet_script.emblem_tint(red)
+		_check(rt.s < 0.08, "%s's emblems stay plain, so none reads as a warning (%s)" % [red, rt.to_html(false)])
+	var all_icons: Array = sheet.find_children("StrandIcon", "TextureRect", true, false) if sheet != null else []
+	_check(all_icons.size() == 3 and (all_icons[0] as TextureRect).modulate.is_equal_approx(tint), "Each strand has one emblem, in the club's wash")
 	ls.handle_back()
 	await _settle()
 	_check(ls.find_child("CultureSheet", true, false) == null, "Android Back closes the culture screen")
+	# Without the files: no emblem, the same words in the same place.
+	sheet_script.icon_dir = "res://assets/ui/no_such_folder"
+	why = await Tap.tap(ls.find_child("CultureOpen", true, false))
+	await _settle()
+	sheet = ls.find_child("CultureSheet", true, false)
+	_check(why == "" and sheet != null and sheet.find_child("StrandIcon", true, false) == null
+			and _screen_text(sheet).contains("A tight group"), "Without the emblem files the screen still says the strands (%s)" % why)
+	for st in Culture.STRANDS:
+		var row2: Node = sheet.find_child("Strand_" + str(st[0]), true, false) if sheet != null else null
+		var words2: Control = row2.find_child("StrandWords", true, false) if row2 != null else null
+		var was: Rect2 = words_x[str(st[0])]
+		_check(words2 != null and is_equal_approx(words2.get_global_rect().position.x, was.position.x)
+				and is_equal_approx(words2.get_global_rect().size.x, was.size.x),
+				"The %s emblem takes no width from the strand's words" % str(st[0]))
+	sheet_script.icon_dir = "res://assets/ui/culture"
+	ls.handle_back()
+	await _settle()
 	ls.queue_free()
 	await _settle()
+
+
+## The share of an emblem's pixels that are drawn.
+func _emblem_cover(img: Image) -> float:
+	var n := 0
+	for y in range(0, img.get_height(), 2):
+		for x in range(0, img.get_width(), 2):
+			if img.get_pixel(x, y).a > 0.5:
+				n += 1
+	return float(n) / float((img.get_width() / 2) * (img.get_height() / 2))
+
+
+func _label_with(under: Node, text: String) -> Control:
+	if under == null:
+		return null
+	for l in under.find_children("*", "Label", true, false):
+		if (l as Label).text == text:
+			return l
+	return null
 
 
 func _open() -> Control:
