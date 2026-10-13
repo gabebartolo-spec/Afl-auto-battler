@@ -72,7 +72,7 @@ static func strands(club: String) -> Array:
 		if words == "":
 			var latest := int(reasons[0]["latest"]) if not reasons.is_empty() else 0
 			words = Culture.quiet_words(latest, not reasons.is_empty())
-		out.append({"id": id, "label": label, "words": words, "reasons": reasons,
+		out.append({"id": id, "label": label, "t": t, "words": words, "reasons": reasons,
 				"recent": Culture.group_text(label, reasons[0]) if not reasons.is_empty() else ""})
 	return out
 
@@ -92,7 +92,7 @@ static func entry_row() -> Button:
 	h.set_anchors_preset(Control.PRESET_FULL_RECT)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var bar := ColorRect.new()
-	bar.color = _lead(club)
+	bar.color = _lift(_lead(club))
 	bar.custom_minimum_size = Vector2(3, 0)
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_child(bar)
@@ -150,9 +150,18 @@ static func _wash(root: Control, lead: Color, height: float, alpha: float) -> vo
 				PackedColorArray([top, top, none, none])))
 
 
+## A club colour lifted until it reads against the page at `ratio`.
+static func _lift(c: Color, ratio := 3.0) -> Color:
+	var n := 0
+	while UiKit.contrast(c, UiKit.BG) < ratio and n < 14:
+		c = c.lerp(UiKit.TEXT, 0.12)
+		n += 1
+	return c
+
+
 static func _rule(col: Color, h := 2) -> ColorRect:
 	var r := ColorRect.new()
-	r.color = col
+	r.color = _lift(col)
 	r.custom_minimum_size = Vector2(0, h)
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return r
@@ -191,6 +200,17 @@ static func _hero(club: String, size: int) -> HBoxContainer:
 	col.add_child(UiKit.lbl("Club culture", UiKit.NAME, UiKit.TEXT, true))
 	row.add_child(col)
 	return row
+
+
+## What the strand does now, and what moves it: two plain lines under its headline.
+static func _what_it_does(d: Dictionary, parent: Control, size := 0) -> void:
+	var fs := size if size > 0 else UiKit.SECONDARY
+	var effect := UiKit.lbl(Culture.effect_line(str(d["id"]), int(d["t"])), fs, UiKit.TEXT, true)
+	effect.name = "StrandEffect"
+	parent.add_child(effect)
+	var moves := UiKit.lbl(Culture.moves_line(str(d["id"])), fs, UiKit.TEXT)
+	moves.name = "StrandMoves"
+	parent.add_child(moves)
 
 
 ## Every strand's reasons, newest first, under its name in the club's ink.
@@ -280,6 +300,7 @@ static func _build_a(root: Control, club: String, data: Array, wide: bool, done:
 			var why := UiKit.lbl(str(d["recent"]), UiKit.BODY, UiKit.TEXT)
 			why.name = "StrandRecent"
 			col.add_child(why)
+		_what_it_does(d, col)
 		strands_box.add_child(col)
 	if wide:
 		page.add_child(strands_box)
@@ -323,10 +344,13 @@ static func _build_b(root: Control, club: String, data: Array, wide: bool, done:
 		name.custom_minimum_size.x = 104.0
 		name.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		row.add_child(name)
+		var cell := UiKit.vbox(4)
+		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var words := UiKit.heading(str(d["words"]), 30)
 		words.name = "StrandWords"
-		words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(words)
+		cell.add_child(words)
+		_what_it_does(d, cell)
+		row.add_child(cell)
 		statement.add_child(row)
 	# The dated list, newest first, each marked with the strand it touched.
 	var sc := UiKit.scroll(_dated_list(data, ink, lead))
@@ -358,8 +382,9 @@ static func _build_b(root: Control, club: String, data: Array, wide: bool, done:
 static func _dated_list(data: Array, ink: Color, lead: Color) -> VBoxContainer:
 	var items := []
 	for d in data:
-		for r in d["reasons"]:
-			items.append({"y": int(r["y1"]), "label": str(d["label"]), "text": Culture.group_text(str(d["label"]), r)})
+		# One row per event, in its own year (not a repeat folded into the newest).
+		for r in Culture.reasons(_gs().relations, _gs().my_club, str(d["id"])):
+			items.append({"y": int(r.get("y", 0)), "label": str(d["label"]), "text": Culture.event_text(str(d["label"]), r)})
 	var order := range(items.size())
 	order.sort_custom(func(a, b): return int(items[a]["y"]) > int(items[b]["y"]) \
 			or (int(items[a]["y"]) == int(items[b]["y"]) and a < b))
@@ -371,7 +396,7 @@ static func _dated_list(data: Array, ink: Color, lead: Color) -> VBoxContainer:
 		var it: Dictionary = items[i]
 		var row := UiKit.hbox(12)
 		var tick := ColorRect.new()
-		tick.color = lead
+		tick.color = _lift(lead)
 		tick.custom_minimum_size = Vector2(3, 0)
 		row.add_child(tick)
 		var yr := UiKit.lbl(str(it["y"]), UiKit.NAME, UiKit.TEXT, true)
@@ -399,20 +424,6 @@ static func _build_c(root: Control, club: String, data: Array, wide: bool, done:
 		var img := Image.load_from_file(ProjectSettings.globalize_path(PLATE))
 		if img != null:
 			tex = ImageTexture.create_from_image(img)
-	if tex != null:
-		var plate := TextureRect.new()
-		plate.name = "CulturePlate"
-		plate.texture = tex
-		plate.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		plate.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		root.add_child(plate)
-		plate.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var scrim := ColorRect.new()
-	scrim.color = Color(0.07, 0.065, 0.06, 0.80)
-	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(scrim)
-	scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_wash(root, lead, 300.0, 0.50)
 	var m := _margin(root, wide)
 	var page := UiKit.vbox(10)
@@ -421,7 +432,28 @@ static func _build_c(root: Control, club: String, data: Array, wide: bool, done:
 	top.add_child(_back(done))
 	page.add_child(top)
 	page.add_child(_hero(club, 30))
-	page.add_child(UiKit.spacer(18))
+	page.add_child(UiKit.spacer(12))
+	# The room as a picture of its own, framed, with the words on a solid panel below.
+	if tex != null:
+		var band := Control.new()
+		band.name = "CulturePlate"
+		band.custom_minimum_size = Vector2(0, 130 if not wide else 170)
+		band.clip_contents = true
+		band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var plate := TextureRect.new()
+		plate.texture = tex
+		plate.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		plate.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		band.add_child(plate)
+		# Taller than the band and pinned to its top: only the wall and the desk show, never the figures below.
+		plate.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+		plate.offset_bottom = 175.0
+		band.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN if wide else Control.SIZE_EXPAND_FILL
+		if wide:
+			band.custom_minimum_size.x = 640.0
+		page.add_child(band)
+		page.add_child(UiKit.spacer(4))
 	var col := UiKit.vbox(26)
 	col.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	if wide:
@@ -434,8 +466,13 @@ static func _build_c(root: Control, club: String, data: Array, wide: bool, done:
 		var words := UiKit.heading(str(d["words"]), 30)
 		words.name = "StrandWords"
 		s.add_child(words)
+		_what_it_does(d, s)
 		col.add_child(s)
-	page.add_child(col)
+	var solid := UiKit.panel(UiKit.PANEL, 16)
+	solid.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	solid.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN if wide else Control.SIZE_EXPAND_FILL
+	solid.add_child(UiKit.scroll(col))
+	page.add_child(solid)
 	# The reasons: a sheet that rises from the bottom.
 	var sheet := UiKit.panel(UiKit.PANEL, 14)
 	sheet.name = "CultureReasonsSheet"

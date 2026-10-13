@@ -49,6 +49,7 @@ func run() -> void:
 	_test_culture_headline()
 	_test_culture_order_and_tails()
 	_test_culture_sentences()
+	_test_culture_copy_is_true()
 	_test_captain_cards()
 	_test_group_words_are_sentence_case()
 	_test_captain_cards_in_play()
@@ -1522,6 +1523,49 @@ func _test_culture_order_and_tails() -> void:
 	_check(Culture.group_text("Togetherness", g[0]) == "Played finals in 2027." and Culture.group_text("Togetherness", g[2]) == "Premiers in 2025."
 			and Culture.group_text("Togetherness", g[1]) == "A run of four losses in round 10, 2026. It cost Togetherness.",
 			"A rise carries no tail (the page says it once); only a fall says it cost the strand")
+
+
+## The screen's lines say what the code does: nothing reads a strand to change play,
+## and each "what moves it" line matches the movers.
+func _test_culture_copy_is_true() -> void:
+	var files := []
+	var stack := ["res://scripts"]
+	while not stack.is_empty():
+		var d: String = stack.pop_back()
+		for sub in DirAccess.get_directories_at(d):
+			stack.append(d + "/" + sub)
+		for f in DirAccess.get_files_at(d):
+			if f.ends_with(".gd"):
+				files.append(d + "/" + f)
+	var readers := []
+	for f in files:
+		var text := FileAccess.get_file_as_string(f)
+		if text.contains("Culture.value(") or text.contains("Culture.words("):
+			readers.append(f.get_file())
+	readers.sort()
+	_check(readers == ["CultureSheet.gd", "GameState.gd"], "Only the screen and the news mover read a strand (%s)" % ", ".join(readers))
+	var gs := FileAccess.get_file_as_string("res://scripts/state/GameState.gd")
+	var at := gs.find("func _culture_move")
+	var body := gs.substr(at, gs.find("
+func ", at + 5) - at)
+	_check(gs.count("Culture.value(") == body.count("Culture.value("), "In GameState a strand is read only to make news")
+	for st in ["standards", "together", "ambition"]:
+		_check(Culture.effect_line(st, 50) == "No effect yet." and Culture.effect_line(st, -50) == "No effect yet.", "%s says it has no effect yet" % st)
+		_check(Culture.moves_line(st) != "", "%s says what moves it" % st)
+	var tg := Culture.moves_line("together")
+	for n in [Culture.FINALS_PLACES, Culture.BOTTOM_PLACES, Culture.WINNING_RUNS[0], Culture.WINNING_RUNS[1], Culture.LOSING_RUNS[0], Culture.LOSING_RUNS[1]]:
+		_check(tg.contains(str(n)), "Togetherness line names %d" % n)
+	var top_step := Culture.season_steps(Culture.FINALS_PLACES, 18, false, 0.0, 0.0)
+	var low_step := Culture.season_steps(18, 18, false, 0.0, 0.0)
+	_check(top_step.size() == 1 and top_step[0]["d"] > 0 and low_step[0]["d"] < 0, "Finals raise Togetherness, a bottom finish lowers it")
+	_check(Culture.run_step(0, 5)[1] > 0 and Culture.run_step(4, 0)[1] < 0, "Win runs raise it, loss runs lower it")
+	var older := Culture.season_steps(9, 18, false, 1.0, 0.0)
+	var younger := Culture.season_steps(9, 18, false, -1.0, 0.0)
+	_check(older.size() == 1 and older[0]["strand"] == "ambition" and older[0]["d"] > 0 and younger[0]["d"] < 0, "An older best 22 pushes Ambition towards now, a younger one towards later")
+	var tidy := Culture.season_steps(9, 18, false, 0.0, 2.5)
+	var loose := Culture.season_steps(9, 18, false, 0.0, -2.5)
+	_check(tidy[0]["strand"] == "standards" and tidy[0]["d"] > 0 and loose[0]["d"] < 0, "Discipline moves Standards the way the line says")
+	_check(Culture.event_text("Togetherness", {"w": "Round 10", "why": "A run of four losses", "d": -3}) == "Round 10: a run of four losses. Togetherness fell.", "An event reads as one line")
 
 
 func _test_culture_sentences() -> void:

@@ -14,7 +14,9 @@ extends RefCounted
 ## move in small steps; the reasons are facts about the club in football
 ## words, never a verdict on a player's character.
 ##
-## They have no effect yet: P2-5 decides what they touch, measured.
+## They have no effect yet: P2-5 decides what they touch, measured. The screen
+## says so (effect_line); when P2-5 gives a strand an effect, that line and its
+## test change with it.
 
 const STRANDS := [["standards", "Standards"], ["together", "Togetherness"], ["ambition", "Ambition"]]
 ## The most one moment moves a strand, either way.
@@ -231,6 +233,33 @@ static func _distinct_sorted(years: Array) -> Array:
 
 ## What a strand reads when no band is named: nothing yet, or which way its
 ## latest move went (so it never contradicts the reason below it).
+## What a strand does in the game right now, one plain line. Nothing reads it
+## yet (tests/test_story.gd checks no sim script does), so every strand says so.
+static func effect_line(_strand: String, _t: int) -> String:
+	return "No effect yet."
+
+
+## What moves a strand, from the same constants the movers use.
+static func moves_line(strand: String) -> String:
+	match strand:
+		"standards":
+			return "Moves at the end of each season: up when your list is well more disciplined than the league's, down when it is well less."
+		"together":
+			return "Rises with finals (top %s), a premiership, runs of %s and %s wins and a settled list. Falls with a bottom-%s finish, runs of %s and %s losses, many new faces and promises you break." % [
+					FINALS_PLACES, WINNING_RUNS[0], WINNING_RUNS[1], BOTTOM_PLACES, LOSING_RUNS[0], LOSING_RUNS[1]]
+		"ambition":
+			return "Moves at the end of each season with the age of your best 22: a year or more older than the league's average pushes it towards winning now, a year or more younger towards building for later."
+	return ""
+
+
+## One event as a line, the year shown beside it: "Round 10: a run of four losses. Togetherness fell."
+static func event_text(strand_label: String, r: Dictionary) -> String:
+	var why := str(r.get("why", "")).strip_edges().trim_suffix(".")
+	var w := str(r.get("w", ""))
+	var lead := (w + ": " + why.substr(0, 1).to_lower() + why.substr(1)) if w.begins_with("Round") else why
+	return "%s. %s %s." % [lead, strand_label, "rose" if int(r.get("d", 0)) > 0 else "fell"]
+
+
 static func quiet_words(latest: int, has_reasons: bool) -> String:
 	if not has_reasons:
 		return "Nothing stands out yet"
