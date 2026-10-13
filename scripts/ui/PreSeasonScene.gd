@@ -79,6 +79,8 @@ func _build() -> void:
 		cols.add_child(left)
 		var right := _blocks_section(first, true)
 		right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		right.add_child(UiKit.spacer(4))
+		right.add_child(_base_result())
 		cols.add_child(right)
 		page.add_child(cols)
 	else:
@@ -87,7 +89,7 @@ func _build() -> void:
 		else:
 			page.add_child(_season_plan_section())
 		page.add_child(_blocks_section(first, _wide()))
-	if stop == "trial":
+	if stop == "trial" and not _wide():
 		# At the time trial the base answers the blocks below it, not the list:
 		# it sits with them at the foot of the page, never pinned over the names.
 		page.add_child(_base_result())
@@ -185,7 +187,7 @@ func _season_plan_section() -> Control:
 		var sub := line.find_child("SeasonPlanSub", true, false) as Label
 		if sub != null:
 			# The plan's name is in the line above it; here, what the tap is for.
-			sub.text = "Tap to choose the plan. It can be changed until Round 1."
+			sub.text = "Tap to change it, any time before Round 1."
 			sub.add_theme_color_override("font_color", UiKit.TEXT)
 		if _wide():
 			# A PC: the row is as wide as its words, so its chevron sits beside
