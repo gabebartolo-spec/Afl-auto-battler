@@ -1712,36 +1712,54 @@ func _best_so_far() -> Control:
 	box.add_child(head)
 	# Your club first, then theirs, each under its own name, best rated first;
 	# the same number each side, two on a PC (height), three on a phone.
+	# Allegiance (director 2026-10-13): each side carries its club's colour as a
+	# bar down its left edge, its guernsey and its name; the club colour reaches
+	# the text (name, rating) only where it reads at 4.5:1 on the break, else
+	# those stay plain TEXT and the bar and guernsey carry the club.
 	for side in [_my_side, 1 - _my_side]:
 		var code := str(_res["home"] if side == 0 else _res["away"])
-		var sh := UiKit.hbox(8)
-		var club := UiKit.lbl(GameDB.club_name(code), UiKit.NAME, UiKit.TEXT, true)
+		var ink: Color = UiKit.score_colour(code, UiKit.BG)
+		var bar_col: Color = UiKit.club_vivid(code, UiKit.BG)
+		var wrap := UiKit.hbox(6)
+		wrap.name = "BestSide_%d" % side
+		var bar := ColorRect.new()
+		bar.name = "BestBar_%d" % side
+		bar.color = bar_col
+		bar.custom_minimum_size = Vector2(3, 0)
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		wrap.add_child(bar)
+		var side_box := UiKit.vbox(2 if _pc_break else 6)
+		side_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		wrap.add_child(side_box)
+		var sh := UiKit.hbox(6)
+		sh.add_child(UiKit.club_marker(code, 22.0))
+		var club := UiKit.ellipsis(GameDB.club_name(code), UiKit.NAME, ink, true)
 		club.name = "BestClub_%d" % side
-		club.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		sh.add_child(club)
-		var rh := UiKit.lbl("Rating", 14, UiKit.MUTED)
+		var rh := UiKit.lbl("Rating", UiKit.SECONDARY, UiKit.TEXT)
 		rh.custom_minimum_size.x = 56
 		rh.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		sh.add_child(rh)
-		box.add_child(sh)
+		side_box.add_child(sh)
 		for p in MatchNotes.standouts(_res, side, 2 if _pc_break else 3):
 			var row := UiKit.hbox(8)
 			row.name = "BestRow_%s" % str(p["id"])
 			var col := UiKit.vbox(0)
 			col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			col.add_child(UiKit.ellipsis(str(p["name"]), UiKit.BODY, UiKit.TEXT, true))
+			col.add_child(UiKit.ellipsis(str(p["name"]), UiKit.NAME, UiKit.TEXT, true))
 			# A PC column is narrow: two numbers fit on the line, a third ran
 			# off it ("6 rebound 5...", capture 2026-10-12).
 			var bits: PackedStringArray = str(p["line"]).split(", ")
 			var line := ", ".join(bits.slice(0, 2)) if _pc_break else str(p["line"])
-			col.add_child(UiKit.ellipsis(line, 14, UiKit.MUTED))
+			col.add_child(UiKit.ellipsis(line, UiKit.SECONDARY, UiKit.TEXT))
 			row.add_child(col)
-			var r := UiKit.line(MatchNotes.rating_text(float(p["rating"])), 20, UiKit.TEXT, true)
+			var r := UiKit.line(MatchNotes.rating_text(float(p["rating"])), 20, ink, true)
 			r.name = "StandoutRating"
 			r.custom_minimum_size.x = 56
 			r.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 			row.add_child(r)
-			box.add_child(row)
+			side_box.add_child(row)
+		box.add_child(wrap)
 	if not _pc_break:
 		box.add_child(all)
 	return box

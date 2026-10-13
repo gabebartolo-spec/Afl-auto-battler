@@ -939,6 +939,26 @@ func _best_so_far(sz: Vector2i) -> void:
 	# pushed under the pinned Start button.
 	_check(block.find_child("BestClub_%d" % me, true, false) != null and block.find_child("BestClub_%d" % (1 - me), true, false) != null
 			and found == (4 if sz.x >= 900 else 6), "Best so far has a heading per club and the same number each (%s: %d rows)" % [tag, found])
+	# Allegiance: each side has its club-colour bar; its name and ratings are in
+	# the club's readable colour (4.5:1 on the break) or plain text, never a
+	# club colour that fails (Carlton, Collingwood on dark).
+	var ally_bad := []
+	for side in [me, 1 - me]:
+		var code := str(res["home"] if side == 0 else res["away"])
+		var bar: Node = block.find_child("BestBar_%d" % side, true, false)
+		var nm: Label = block.find_child("BestClub_%d" % side, true, false)
+		if bar == null or nm == null:
+			ally_bad.append("side %d missing bar/name" % side)
+			continue
+		if (bar as ColorRect).color != UiKit.club_vivid(code, UiKit.BG):
+			ally_bad.append("%s bar is not its club colour" % code)
+		var ink: Color = nm.get_theme_color("font_color")
+		if UiKit.contrast(ink, UiKit.BG) < 4.5:
+			ally_bad.append("%s name contrast %.1f" % [code, UiKit.contrast(ink, UiKit.BG)])
+		for rl in (bar.get_parent() as Node).find_children("StandoutRating", "Label", true, false):
+			if (rl as Label).get_theme_color("font_color") != ink:
+				ally_bad.append("%s rating colour differs from its name" % code)
+	_check(ally_bad.is_empty(), "Best so far carries each club's colour, readable (%s: %s)" % [tag, str(ally_bad)])
 	var plan_pick: Node = box.find_child("PlanPicker", true, false)
 	if sz.x < 900 and plan_pick != null:
 		_check((plan_pick as Control).global_position.y < (block as Control).global_position.y,
