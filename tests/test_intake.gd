@@ -708,7 +708,8 @@ func _test_custom_prospect() -> void:
 		cls_ovr.append_array(Prospects.generate_class(GameState.season_year, cs).map(func(x): return int(x["overall"])))
 	_check(int(ovr[0]) >= int(cls_ovr.min()) - 2 and int(ovr[-1]) <= int(cls_ovr.max()) + 2,
 			"Custom prospects stay inside a class's power band (%d-%d vs %d-%d)" % [ovr[0], ovr[-1], cls_ovr.min(), cls_ovr.max()])
-	_check(int(ovr[40]) >= 45, "Even a modest one is a usable role-player prospect (10th percentile OVR %d)" % ovr[40])
+	# Draft-night ratings run at DRAFT_NIGHT_SCALE of the old curve (director 2026-10-14), so a modest one starts in the high 30s.
+	_check(int(ovr[40]) >= 36, "Even a modest one is a usable role-player prospect (10th percentile OVR %d)" % ovr[40])
 	_check(stars > 8 and stars < 140 and gen < 20,
 			"A star is uncommon and a generational ceiling rare (%d of 400 at POT 85+, %d at 92+)" % [stars, gen])
 

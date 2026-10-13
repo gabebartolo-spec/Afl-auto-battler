@@ -70,18 +70,7 @@ func _status() -> Control:
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	var f: Dictionary = _season.finals
 	if bool(f.get("done", false)):
-		var prem := str(f.get("premier", ""))
-		var h := UiKit.hbox(14)
-		h.alignment = BoxContainer.ALIGNMENT_CENTER
-		h.add_child(HonoursArt.view("premiership_cup", 96.0, prem, 0, ""))
-		var t := UiKit.vbox(2)
-		t.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		t.add_child(UiKit.line("Premiers", UiKit.SMALL, UiKit.MUTED))
-		var who := UiKit.figure(GameDB.club_short(prem), UiKit.RATING, UiKit.score_colour(prem))
-		who.name = "FinalsPremier"
-		t.add_child(who)
-		h.add_child(t)
-		v.add_child(h)
+		v.add_child(_premiers(str(f.get("premier", ""))))
 	var top: Array = f.get("top", [])
 	var words := ""
 	var done := bool(f.get("done", false))
@@ -107,6 +96,124 @@ func _status() -> Control:
 	return v
 
 
+## The premiers, as the occasion it is (director, 2026-10-14: the cup big, in
+## the winner's colours): the cup standing in the premier's colour under a
+## soft light, the club's name in the scoreboard face. The cup stays silver;
+## the colour is the room it stands in.
+const HERO_CUP_NARROW := 150.0
+const HERO_CUP_WIDE := 132.0
+## The cup over the Grand Final on a phone, before it is decided.
+const STAGE_CUP := 120.0
+
+
+func _premiers(prem: String) -> Control:
+	var wide := UiKit.view_width(self) >= WIDE
+	var p := PanelContainer.new()
+	p.name = "FinalsHero"
+	p.add_theme_stylebox_override("panel", UiKit.style(Color(0, 0, 0, 0), 0, UiKit.RADIUS))
+	p.clip_contents = true
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var wash := Wash.new()
+	wash.name = "FinalsWash"
+	wash.colour = ClubDuel._banner(UiKit.club_ink(prem))
+	p.add_child(wash)
+	var m := MarginContainer.new()
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for e in ["left", "right", "top", "bottom"]:
+		m.add_theme_constant_override("margin_" + e, 14)
+	p.add_child(m)
+	var row: BoxContainer = UiKit.hbox(20) if wide else UiKit.vbox(6)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	m.add_child(row)
+	var cup := _cup(HERO_CUP_WIDE if wide else HERO_CUP_NARROW)
+	cup.name = "FinalsHeroCup"
+	cup.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	row.add_child(cup)
+	var t := UiKit.vbox(0)
+	t.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var said := UiKit.line("Premiers", UiKit.BODY, Color.WHITE)
+	ClubDuel.on_colour(said)
+	var who := UiKit.figure(GameDB.club_name(prem) if wide else GameDB.club_short(prem), UiKit.HERO, Color.WHITE)
+	who.name = "FinalsPremier"
+	ClubDuel.on_colour(who)
+	if not wide:
+		said.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		who.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		who.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	t.add_child(said)
+	t.add_child(who)
+	row.add_child(t)
+	return p
+
+
+## The cup art's own shadow runs to the picture's edge, which shows as a box
+## on a colour: here it fades out before the edge. The cup itself is untouched.
+const CUP_SHADER := """
+shader_type canvas_item;
+void fragment() {
+	vec4 c = texture(TEXTURE, UV);
+	float shadow = 1.0 - step(0.012, max(c.r, max(c.g, c.b)));
+	float keep = smoothstep(0.0, 0.2, min(UV.x, 1.0 - UV.x)) * smoothstep(0.0, 0.05, 1.0 - UV.y);
+	c.a *= mix(1.0, keep, shadow);
+	COLOR = c * COLOR;
+}
+"""
+static var _cup_mat: ShaderMaterial
+
+
+## The premiership cup `height` tall, silver as drawn (never tinted).
+func _cup(height: float) -> Control:
+	var cup := HonoursArt.view("premiership_cup", height, "", 0, "Premiership cup")
+	var art := cup.find_child("Art_premiership_cup", true, false) as TextureRect
+	if art == null and cup.get_child_count() > 0:
+		art = cup.get_child(0) as TextureRect
+	if art != null:
+		if _cup_mat == null:
+			_cup_mat = ShaderMaterial.new()
+			var sh := Shader.new()
+			sh.code = CUP_SHADER
+			_cup_mat.shader = sh
+		art.material = _cup_mat
+	return cup
+
+
+## The premier's colour as the room the cup stands in: full at the head,
+## deeper toward the foot, a soft light where the cup is.
+class Wash extends Control:
+	var colour := Color.BLACK
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		resized.connect(queue_redraw)
+
+	func _draw() -> void:
+		var top := colour.darkened(0.2)
+		var foot := colour.darkened(0.68)
+		draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), size, Vector2(0, size.y)]),
+				PackedColorArray([top, top, foot, foot]))
+		var gs := maxf(size.y * 1.7, 260.0)
+		draw_texture_rect(ClubDuel._glow_tex(), Rect2(Vector2(size.x / 2.0 - gs / 2.0, -gs * 0.3), Vector2(gs, gs)), false)
+		draw_rect(Rect2(Vector2.ZERO, size), Color(1, 1, 1, 0.10), false, 1.0)
+
+
+## The cup the two Grand Finalists play for, over their match on a phone:
+## between both clubs' colours once both are known, on the page until then.
+func _stage_cup() -> Control:
+	var cup := _cup(STAGE_CUP)
+	cup.name = "FinalsCup"
+	var c := CenterContainer.new()
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.add_child(cup)
+	var home := _slot("W_PF1")
+	var away := _slot("W_PF2")
+	if home == "" or away == "":
+		return c
+	var band := ClubDuel.band(home, away, c, 10, 0.35)
+	band.name = "FinalsCupBand"
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return band
+
+
 ## Where each result goes: [from tag, to tag, "W" winner / "L" loser].
 const ROUTES := [
 	["WC1", "EF2", "W"], ["WC2", "EF1", "W"], ["QF1", "PF1", "W"], ["QF1", "SF1", "L"],
@@ -114,7 +221,7 @@ const ROUTES := [
 	["SF1", "PF1", "W"], ["SF2", "PF2", "W"], ["PF1", "GF", "W"], ["PF2", "GF", "W"],
 ]
 const GF_H := 92.0
-const CUP_H := 110.0
+const CUP_H := 130.0
 
 
 ## Every stage side by side, wildcard to the Grand Final, centred on the
@@ -149,7 +256,7 @@ class BracketCanvas extends Control:
 				_nodes[str(m[0])] = n
 				add_child(n)
 		if not bool(_fb._season.finals.get("done", false)):
-			var cup := HonoursArt.view("premiership_cup", FinalsBracket.CUP_H, "", 0, "")
+			var cup := _fb._cup(FinalsBracket.CUP_H)
 			cup.name = "FinalsCup"
 			add_child(cup)
 			_nodes["_cup"] = cup
@@ -236,6 +343,8 @@ func _narrow() -> Control:
 		_build.call_deferred())
 	v.add_child(UiKit.strip(pick))
 	v.add_child(UiKit.lbl(str(WEEKS[shown - 1][0]), UiKit.NAME, UiKit.TEXT, true))
+	if shown == WEEKS.size() and not bool(_season.finals.get("done", false)):
+		v.add_child(_stage_cup())
 	for m in WEEKS[shown - 1][2]:
 		var n := _node(shown, m)
 		n.size_flags_horizontal = Control.SIZE_EXPAND_FILL

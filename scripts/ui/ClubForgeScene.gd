@@ -378,9 +378,27 @@ func _on_save() -> void:
 	_build()
 
 
-func _heading(text: String) -> Control:
-	var v := UiKit.vbox(0)
+## A section heading with a 2 px rule above it (director, 2026-10-13,
+## readability: sections feel distinct). Forging a club, the rule is the club's
+## own most vivid colour that shows on the page; a player, or a colour that
+## would read as BAD or the primary action, gets a quiet TEXT rule.
+func _heading(text: String, club := false) -> Control:
+	var v := UiKit.vbox(4)
 	v.add_child(UiKit.spacer(10))
+	var rule := ColorRect.new()
+	rule.name = "SectionRule"
+	rule.custom_minimum_size = Vector2(0, 2)
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rule.color = Color(UiKit.TEXT, 0.4)
+	if club and _club is Dictionary and _club.has("kit"):
+		var best := 0.0
+		for c in _kit_colours():
+			var col: Color = c
+			var warm := col.h < 0.09 or col.h > 0.96
+			if not warm and col.s > best and col.s > 0.3 and UiKit.contrast(col, UiKit.BG) >= 3.0:
+				best = col.s
+				rule.color = col
+	v.add_child(rule)
 	v.add_child(UiKit.lbl(text, UiKit.H2, UiKit.TEXT, true))
 	return v
 
@@ -496,7 +514,7 @@ const PART_LABEL := {"body": "Main colour", "pattern": "Pattern colour", "trim":
 
 
 func _club_home(body: VBoxContainer) -> void:
-	body.add_child(_heading("Your club"))
+	body.add_child(_heading("Your club", true))
 	var saved := GameState.forge_club()
 	if saved.is_empty():
 		var none := UiKit.lbl("Make a club from a real football place: its name, its ground, its colours and its guernsey. It joins a new career as an extra club and drafts its list in the League Draft like everyone else.",
@@ -559,7 +577,7 @@ func _default_club() -> Dictionary:
 
 
 func _club_form(body: VBoxContainer) -> void:
-	body.add_child(_heading("Home"))
+	body.add_child(_heading("Home", true))
 	var home := GridContainer.new()
 	home.name = "ForgeHome"
 	home.columns = 1 if UiKit.view_width(self) < 520.0 else 3
@@ -607,18 +625,18 @@ func _club_form(body: VBoxContainer) -> void:
 			_refresh_preview())
 		home.add_child(ground)
 
-	body.add_child(_heading("Name"))
+	body.add_child(_heading("Name", true))
 	body.add_child(_field("ForgeClubName", "name", "Club name", ClubForge.NAME_MAX))
 	body.add_child(_field("ForgeClubNickname", "short", "Nickname, like the Magpies", ClubForge.SHORT_MAX))
 	body.add_child(_field("ForgeClubCode", "code", "Abbreviation, like COL", 4))
 
 	_one_colour_each()
-	body.add_child(_heading("Guernsey"))
+	body.add_child(_heading("Guernsey", true))
 	_kit_box = UiKit.vbox(6)
 	_kit_box.name = "ForgeKit"
 	body.add_child(_kit_box)
 	_rebuild_kit()
-	body.add_child(_heading("Colours"))
+	body.add_child(_heading("Colours", true))
 	_colour_box = UiKit.vbox(8)
 	_colour_box.name = "ForgeColours"
 	body.add_child(_colour_box)
