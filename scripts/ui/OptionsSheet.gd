@@ -65,6 +65,10 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 				"on" if GameState.fullscreen() else "off",
 				"Fullscreen fills the screen with no border; Window opens maximised. Alt+Enter switches.",
 				func(k): GameState.set_fullscreen(k == "on"))
+	if not ScreenLayout.is_desktop():
+		_row(v, "Screen", "SettingsOrientation", ScreenLayout.ORIENTATIONS, GameState.screen_orientation(),
+				"Follow the phone turns with it. Portrait or Landscape holds that way; in a browser that goes fullscreen, and an iPhone's Safari cannot hold it.",
+				func(k): GameState.set_screen_orientation(k, true))
 	_row(v, "Tutorials", "SettingsTutorials", [["on", "On"], ["off", "Off"]],
 			"on" if GameState.tutorials_on() else "off",
 			"A short note the first time you open each screen. Off stops them opening by themselves; notes you've already read don't come back.",

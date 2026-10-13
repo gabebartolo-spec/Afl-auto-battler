@@ -51,6 +51,7 @@ var _form := ""   # "", "player" or "club"
 var _problem: Label
 var _scroll: ScrollContainer
 var _scroll_form := ""
+var _built_width := 0.0
 
 
 ## The looks the figures don't draw yet stay off the form until they do.
@@ -65,8 +66,14 @@ func _ready() -> void:
 	_root = UiKit.vbox(10)
 	margin.add_child(_root)
 	_spec = GameState.forge_player()
-	get_viewport().size_changed.connect(_build)
+	get_viewport().size_changed.connect(_on_resize)
 	_build()
+
+
+func _on_resize() -> void:
+	# A phone keyboard shrinks the height only; rebuilding would drop the field.
+	if not UiKit.keyboard_resize(self, _built_width):
+		_build()
 
 
 ## Back closes the form first, then leaves the Forge.
@@ -84,6 +91,7 @@ func _build() -> void:
 	if not is_inside_tree():
 		return
 	# A pick rebuilds the form; keep the thumb where it was on the same form.
+	_built_width = UiKit.view_width(self)
 	var keep := UiKit.scroll_place(_scroll) if is_instance_valid(_scroll) and _scroll_form == _form else 0
 	UiKit.clear(_root)
 	_root.add_child(UiKit.top_bar("Club Forge", true, null, func(): return handle_back()))

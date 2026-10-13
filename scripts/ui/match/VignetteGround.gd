@@ -214,13 +214,7 @@ static func _markings(tri: Tris, cam: Cam) -> void:
 		_line(tri, cam, [Vector2(-0.5 * GOAL_GAP, gy), Vector2(-0.5 * GOAL_GAP, sq),
 				Vector2(0.5 * GOAL_GAP, sq), Vector2(0.5 * GOAL_GAP, gy)], false)              # goal square
 		# The 50 m arc, from the middle of the goal line, inside the boundary.
-		var arc := []
-		for i in range(181):
-			var a := PI * float(i) / 180.0
-			var p := Vector2(cos(a) * ARC, gy - sin(a) * ARC * end)
-			if pow(p.x / A, 2.0) + pow(p.y / L, 2.0) < 1.0:
-				arc.append(p)
-		_line(tri, cam, arc, false)
+		_line(tri, cam, _arc(gy, end), false)
 	var h := CENTRE_SQUARE * 0.5
 	_line(tri, cam, [Vector2(-h, -h), Vector2(h, -h), Vector2(h, h), Vector2(-h, h)], true)
 	_line(tri, cam, _ellipse_ring(CIRCLE_R, CIRCLE_R, 0.0, 0.0, 48), true)
@@ -231,6 +225,19 @@ static func _markings(tri: Tris, cam: Cam) -> void:
 ## A painted line through oval points, 10 cm wide on the ground: each piece as wide on
 ## screen as that width really looks from the camera, and never thinner than a pixel
 ## (fainter instead).
+static func _arc(gy: float, end: float) -> Array:
+	var key := ["arc", end]
+	if not _geometry.has(key):
+		var arc := []
+		for i in range(181):
+			var a := PI * float(i) / 180.0
+			var p := Vector2(cos(a) * ARC, gy - sin(a) * ARC * end)
+			if pow(p.x / A, 2.0) + pow(p.y / L, 2.0) < 1.0:
+				arc.append(p)
+		_geometry[key] = arc
+	return _geometry[key]
+
+
 static func _line(tri: Tris, cam: Cam, pts: Array, closed: bool) -> void:
 	var n := pts.size()
 	var segs := n if closed else n - 1
@@ -398,7 +405,17 @@ const STAND_TILE := 35.0          # metres of stand per copy of the seats textur
 
 
 ## Columns round the stand ring at even steps along it: [angle, metres along].
+static var _ring_cache := {}
+
 static func _ring_columns(ax: float, ay: float, step: float) -> Array:
+	# The same ring every frame (constants only): worked out once.
+	var key := Vector3(ax, ay, step)
+	if not _ring_cache.has(key):
+		_ring_cache[key] = _ring_columns_made(ax, ay, step)
+	return _ring_cache[key]
+
+
+static func _ring_columns_made(ax: float, ay: float, step: float) -> Array:
 	var fine := 900
 	var s := 0.0
 	var prev := Vector2(ax, 0.0)
@@ -462,9 +479,18 @@ static func _wall(tri: Tris, cam: Cam, a0: float, a1: float, o0: float, o1: floa
 	var ay := L + FENCE + 2.0
 	var p0 := Vector2(cos(a0) * (ax + o0), sin(a0) * (ay + o0))
 	var p1 := Vector2(cos(a1) * (ax + o0), sin(a1) * (ay + o0))
-	var q0 := Vector2(cos(a0) * (ax + o1), sin(a0) * (ay + o1))
-	var q1 := Vector2(cos(a1) * (ax + o1), sin(a1) * (ay + o1))
-	var s := [cam.oval(p0, h0), cam.oval(p1, h0), cam.oval(q1, h1), cam.oval(q0, h1)]
+	var s: Array
+	if o0 == o1:
+		# A flat band (the usual one): the same two ground points at both heights.
+		var l0 := cam.local(cam.to_scene * p0)
+		var l1 := cam.local(cam.to_scene * p1)
+		if l0.y < NEAR or l1.y < NEAR:
+			return
+		s = [cam.screen(l0, h0), cam.screen(l1, h0), cam.screen(l1, h1), cam.screen(l0, h1)]
+	else:
+		var q0 := Vector2(cos(a0) * (ax + o1), sin(a0) * (ay + o1))
+		var q1 := Vector2(cos(a1) * (ax + o1), sin(a1) * (ay + o1))
+		s = [cam.oval(p0, h0), cam.oval(p1, h0), cam.oval(q1, h1), cam.oval(q0, h1)]
 	for v in s:
 		if v.z <= 0.0:
 			return
@@ -658,7 +684,17 @@ static func _tower_spots() -> Array:
 
 
 ## Oval points round an ellipse centred at (ox, oy).
+static var _geometry := {}
+
 static func _ellipse_ring(ax: float, ay: float, ox: float, oy: float, n: int) -> Array:
+	# Fixed points of the oval, the same every frame: made once, read-only for callers.
+	var key := [ax, ay, ox, oy, n]
+	if not _geometry.has(key):
+		_geometry[key] = _ellipse_ring_made(ax, ay, ox, oy, n)
+	return _geometry[key]
+
+
+static func _ellipse_ring_made(ax: float, ay: float, ox: float, oy: float, n: int) -> Array:
 	var out := []
 	for i in range(n):
 		var a := TAU * float(i) / n
@@ -668,6 +704,13 @@ static func _ellipse_ring(ax: float, ay: float, ox: float, oy: float, n: int) ->
 
 ## The slice of the oval between y0 and y1 (a mown stripe).
 static func _band(y0: float, y1: float) -> Array:
+	var key := ["band", y0, y1]
+	if not _geometry.has(key):
+		_geometry[key] = _band_made(y0, y1)
+	return _geometry[key]
+
+
+static func _band_made(y0: float, y1: float) -> Array:
 	var left := []
 	var right := []
 	var steps := 6
