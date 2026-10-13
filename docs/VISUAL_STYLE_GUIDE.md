@@ -55,7 +55,16 @@ Light mode is maintained, not designed for. It uses dedicated pairs, never inver
   else on the rest. Selection is never a fill and never the club colour, so a chosen option can
   never be mistaken for the thing to do next.
 - **State:** GOOD and BAD only when the game is telling the truth about a state that changed.
-- **Everything else:** TEXT, MUTED, PANEL. Surfaces carry no colour.
+- **Allegiance and sections (director, 2026-10-13; design bible, second pillar):** wherever a
+  player or a club appears, his side is obvious at a glance: the club colour as a rule, a bar, a
+  tint or the heading's ink, with the guernsey marker beside it for clubs whose colour is too dark
+  for the page. Sections are set apart by weight, size and club colour, not by spacing alone. A
+  screen whose text is all one colour and one weight fails review. A club colour that fails
+  contrast is never used as ink, and a red club's colour is never placed where it could be read
+  as BAD or as the primary action.
+- **Bold:** headings, names and the one fact per block the coach should not miss. MUTED is for
+  what he can safely skip, never for something he decides on.
+- **Everything else:** TEXT, MUTED, PANEL.
 
 ### 2.3 Type
 

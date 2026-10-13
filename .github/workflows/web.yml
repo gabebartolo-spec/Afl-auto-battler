@@ -1,0 +1,95 @@
+name: Web build
+
+# Builds the browser version for itch.io: the single-threaded ("no threads")
+# Web export, so it runs on itch without SharedArrayBuffer or special headers.
+# Start it by hand against any branch, or it runs on every push to main:
+#
+#   gh workflow run web.yml --ref <branch>
+#   gh run download <run-id> -n aussie-rules-dynasties-web
+#
+# The artifact downloads as a zip with index.html at its root: that zip is
+# exactly what itch's "HTML" project type wants (docs/ITCH_UPLOAD.md).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
+
+      - name: Download Godot ${{ env.GODOT_VERSION }}
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          name="Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          curl -fsSL --retry 3 -o godot.zip \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${name}.zip" \
+          || curl -fsSL --retry 3 -o godot.zip \
+            "https://downloads.godotengine.org/?version=${GODOT_VERSION}&flavor=stable&slug=linux.x86_64.zip&platform=linux.64"
+          unzip -q godot.zip && rm godot.zip
+          mv "${name}" godot && chmod +x godot
+
+      # Only the one template the Web preset needs, out of the ~1 GB bundle.
+      - name: Cache the web export template
+        id: tpl-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/godot/export_templates
+          key: godot-web-template-${{ env.GODOT_VERSION }}
+
+      - name: Download the web export template
+        if: steps.tpl-cache.outputs.cache-hit != 'true'
+        run: |
+          dest="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$dest" "$RUNNER_TEMP/tpz" && cd "$RUNNER_TEMP/tpz"
+          curl -fsSL --retry 3 -o templates.tpz \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz" \
+          || curl -fsSL --retry 3 -o templates.tpz \
+            "https://downloads.godotengine.org/?version=${GODOT_VERSION}&flavor=stable&slug=export_templates.tpz&platform=templates"
+          unzip -q -j templates.tpz 'templates/web_nothreads_release.zip' 'templates/web_nothreads_debug.zip' 'templates/version.txt' -d "$dest"
+          ls -la "$dest"
+
+      - name: Import and export the Web build
+        run: |
+          git rev-parse --short HEAD > build_info.txt
+          mkdir -p build/web
+          "$HOME/godot/godot" --headless --import || true
+          "$HOME/godot/godot" --headless --export-release Web "$PWD/build/web/index.html"
+          test -f build/web/index.html
+          ls -la build/web
+
+      - name: Size report
+        run: |
+          echo "### Web build size" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          ls -lS build/web | awk '{print $5, $9}' >> "$GITHUB_STEP_SUMMARY"
+          (cd build/web && zip -q -9 -r ../web.zip . && ls -l ../web.zip | awk '{print "zip", $5}') >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aussie-rules-dynasties-web
+          path: build/web/
+          if-no-files-found: error
+          retention-days: 14

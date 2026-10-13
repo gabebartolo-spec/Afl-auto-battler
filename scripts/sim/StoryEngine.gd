@@ -32,6 +32,8 @@ const DIVERSITY_MAX := 2
 const SEASON_WEEKS := 30
 const NEVER := -99999
 const TIERS := ["beat", "start", "one_off"]
+## A result line may name players from a ranked list: {best3}, {worst2}.
+const RANKED_TOKEN := "\\{(best|worst)([1-9])\\}"
 
 
 static func week_abs(year: int, week: int) -> int:
@@ -345,6 +347,42 @@ static func effect_d(e: Dictionary, facts: Dictionary) -> int:
 
 static func fill(s: String, facts: Dictionary) -> String:
 	return s.format(facts) if s.contains("{") else s
+
+
+## Names from a ranked list of players, in a card's result line: {best3} is
+## the three at the top, {worst2} the two at the bottom (never the same player
+## as one of the best). `rows` are {"name": String} already best first, so the
+## caller decides what "best" means (a time trial ranks running fitness).
+## Without enough names a token says "nobody" rather than leave braces.
+static func fill_ranked(s: String, rows: Array) -> String:
+	if not s.contains("{"):
+		return s
+	var re := RegEx.create_from_string(RANKED_TOKEN)
+	var best_n := 0
+	for m in re.search_all(s):
+		if m.get_string(1) == "best":
+			best_n = maxi(best_n, int(m.get_string(2)))
+	var out := s
+	for m in re.search_all(s):
+		var n := int(m.get_string(2))
+		var picked: Array
+		if m.get_string(1) == "best":
+			picked = rows.slice(0, n)
+		else:
+			picked = rows.slice(maxi(best_n, rows.size() - n), rows.size())
+			picked.reverse()
+		var names: Array = picked.map(func(r): return str(r["name"]))
+		out = out.replace(m.get_string(), name_list(names))
+	return out
+
+
+## "A", "A and B", "A, B and C".
+static func name_list(names: Array) -> String:
+	if names.is_empty():
+		return "nobody"
+	if names.size() == 1:
+		return str(names[0])
+	return "%s and %s" % [", ".join(PackedStringArray(names.slice(0, names.size() - 1))), str(names[names.size() - 1])]
 
 
 ## What a choice does, in a coach's words, from its effects.
