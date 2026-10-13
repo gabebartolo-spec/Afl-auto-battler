@@ -33,12 +33,15 @@ func _run() -> void:
 	var scale := 0.5
 	var film := ""
 	var fps := 12.0
+	var height := 0
 	var clubs := ["COL", "CAR"]
 	var a := OS.get_cmdline_user_args()
 	for i in range(a.size() - 1):
 		match str(a[i]):
 			"--out": out = str(a[i + 1])
 			"--width": width = int(a[i + 1])
+			# --height N: a fixed window height (default 2.2 x the width, a tall phone); 720 with --width 1280 is a PC.
+			"--height": height = int(a[i + 1])
 			"--scale": scale = float(a[i + 1])
 			"--film": film = str(a[i + 1])
 			# --fps N: film frames a second (default 12). Review clips at 30: a TV camera's pan
@@ -52,7 +55,7 @@ func _run() -> void:
 	await process_frame
 	var db = root.get_node("GameDB")
 	var w := width
-	var h := int(round(width * 2.2))       # a tall phone in portrait
+	var h := height if height > 0 else int(round(width * 2.2))       # a tall phone in portrait
 	root.size = Vector2i(w, h)
 	DisplayServer.window_set_size(Vector2i(w, h))
 	# A real small forward for the crumb and the pocket snap, a key forward for the rest.
@@ -76,7 +79,7 @@ func _run() -> void:
 		ev["behinds"] = [8, 11]
 		var vig = load("res://scripts/ui/match/BroadcastVignette.gd").new()
 		root.add_child(vig)
-		vig.size = Vector2(w, h)
+		vig.size = root.get_visible_rect().size   # canvas units: the window is scaled (project stretch), not 1:1
 		vig.setup(kind, ev, {}, {"home": clubs[0], "away": clubs[1]})
 		vig.set_process(false)
 		var beats: Array = BEATS[kind]

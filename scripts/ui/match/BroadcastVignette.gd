@@ -16,7 +16,7 @@ const GOAL_LINE := "goal_line"
 const BOUNDARY_SNAP := "boundary_snap"
 
 const DURATIONS := {
-	SPECCY_FRONT: 2.5,    # (round 15: the mark at 1.5 s, then the picture holds on it)
+	SPECCY_FRONT: 2.2,    # the mark at 1.5 s, the freeze on the grab at 1.66 s, then it holds half a second
 	SPECCY_SIDE: 3.6,
 	SPECCY_DEFENSIVE: 3.7,
 	AFTER_SIREN: 5.4,
@@ -820,15 +820,17 @@ func _draw_speccy_front() -> void:
 	if target == Vector2.INF:
 		return
 	var u := SF_CATCH - t
-	if u > 0.42:
+	if u > 0.55:
 		return                                   # still above the shot
 	var at: Vector2 = m + fwd * (float(_sf_brace(SF_CATCH)[2]) + SF_BEHIND)
 	var s1 := _ground.project(at)
 	var h1 := (s1.y - target.y) / s1.z
 	# (Pass c: a steep, quickening drop - 9 m/s at his hands - in shot for a quarter of a second.)
 	# (Pass d: it quickens into his hands, 7 m/s at the top of the shot to 11 at the catch.)
-	var p: Vector2 = at + right * ((target.x - s1.x) / s1.z + 0.12 * u) - fwd * 4.0 * u
-	var s := _ground.project(p, h1 + 11.0 * u - 12.0 * u * u)
+	# (Pass e: slower and nearer the pack's plane, 4.5 m/s at his hands, so it is in the shot for the half second
+	# before the grab and the eye follows it in; it was 11 m/s from above the stand.)
+	var p: Vector2 = at + right * ((target.x - s1.x) / s1.z + 0.12 * u) - fwd * 1.2 * u
+	var s := _ground.project(p, h1 + 4.5 * u + 4.9 * u * u)
 	if s.z > 0.0:
 		# End over end, slowly, arriving on the frame it is held on (one ball, one colour, all the way).
 		VignetteBall.draw(self, Vector2(s.x, s.y), 0.28 * s.z, 0.0, false, posmod(SF_HELD - int(ceil(u * 14.0)), VignetteBall.FRAMES))
