@@ -469,6 +469,9 @@ func _change_ends() -> void:
 ## blue at the Bulldogs), the away kit's own pattern colour is the base instead
 ## (West Coast in gold), if that is farther again.
 static func kits_for(home: String, away: String) -> Array:
+	if GameDB.is_side(home) or GameDB.is_side(away):
+		dress_sides(GameDB.side_base(home))
+		dress_sides(GameDB.side_base(away))
 	var h: Dictionary = GameDB.club_guernsey(home)
 	var a: Dictionary = GameDB.club_guernsey(away)
 	var hb: Color = h.get("base", Color.WHITE)
@@ -490,6 +493,18 @@ static func kits_for(home: String, away: String) -> Array:
 				a["pattern"] = ab
 			a["clash"] = true
 	return [h, a]
+
+
+## An intra-club match: the side in the clash strip wears exactly what the
+## oval gives that club as an away side against a home side in its own colours
+## (kits_for of the club against itself), so no colour is invented here. The
+## side in the home strip wears the club's kit. Harmless to call again.
+static func dress_sides(base: String) -> void:
+	var codes: Array = GameDB.side_codes(base)
+	if not GameDB.is_side(str(codes[1])) or (GameDB.clubs[codes[1]] as Dictionary).has("kit"):
+		return
+	GameDB.set_side_kit(str(codes[0]), GameDB.club_guernsey(base))
+	GameDB.set_side_kit(str(codes[1]), kits_for(base, base)[1])
 
 
 ## +1 when the home side kicks to the right of the screen, -1 when it kicks
@@ -777,7 +792,7 @@ const PRESS_NO_HUE := Color(0.02, 0.03, 0.07)
 ## mix, kept in range.
 static func press_zone_colour(code: String) -> Color:
 	var cols: Array = GameDB.club_colours(code)
-	var slot := int(PRESS_INK_SLOT.get(code, 0))
+	var slot := int(PRESS_INK_SLOT.get(GameDB.side_base(code), 0))
 	if slot < 0:
 		return PRESS_NO_HUE
 	var pick: Color = cols[slot]

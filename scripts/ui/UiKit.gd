@@ -451,6 +451,12 @@ static func club_ink_second(code: String, surface := AUTO_COLOUR) -> Color:
 
 
 static func _ink(code: String, which: int, surface) -> Color:
+	# A side of an intra-club match has its club's inks; the side in the clash
+	# strip leads with the club's second, so each side has its own colour.
+	if GameDB.is_side(code):
+		if GameDB.side_is_clash(code):
+			which = 1 - which
+		code = GameDB.side_base(code)
 	if CLUB_INKS.has(code) and _appearance == "dark" and surface == AUTO_COLOUR:
 		return Color(str((CLUB_INKS[code] as Array)[which]))
 	if surface == AUTO_COLOUR:
@@ -1284,7 +1290,7 @@ static func club_marker(code: String, size := 22.0) -> Control:
 		trim = g["pattern2"]
 	# The old flag's footprint (size less its 2 px of frame), so lists of clubs
 	# - the ladder above all - keep their row heights.
-	return GuernseyCrest.make(g["base"], g["pattern"], trim, str(g["design"]), code, size - 2.0)
+	return GuernseyCrest.make(g["base"], g["pattern"], trim, str(g["design"]), GameDB.side_base(code), size - 2.0)
 
 
 ## The same guernsey from colours alone (Club Forge shows a club before it
