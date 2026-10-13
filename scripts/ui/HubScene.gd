@@ -1476,6 +1476,13 @@ func _my_result(v: VBoxContainer, res: Dictionary) -> void:
 		hl.name = "MyHeadline"
 		hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(hl)
+	# The quarter that turned a comeback win or a lost lead, and who did it.
+	var turned := ComebackTelling.turn_line(res, me)
+	if turned != "":
+		var tl := UiKit.lbl(turned, UiKit.BODY, UiKit.MUTED)
+		tl.name = "MyTurn"
+		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(tl)
 	var best := MatchNotes.standouts(res, me, 1)
 	if not best.is_empty():
 		var bl := UiKit.ellipsis("Best: %s %s  ·  %s" % [str(best[0]["name"]),

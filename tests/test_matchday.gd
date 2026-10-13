@@ -34,6 +34,7 @@ func run() -> void:
 	_test_club_markers()
 	_test_palette_snapshot()
 	_test_headlines()
+	_test_comeback_telling()
 	print("Matchday tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -599,3 +600,105 @@ func _test_headlines() -> void:
 	et["score"] = [int(et["score"][0]) + 7, int(et["score"][1]) + 1]
 	_check(Headlines.for_match(et, 0) == "", "Without a complete score history it claims no comeback")
 
+
+
+## A result as the break or the final shows it: quarter goals and behinds (home first) and a
+## scoring log of goals ([quarter, minute, side, 1 for a goal, player, set shot]).
+func _story(q: Array, goals_log: Array) -> Dictionary:
+	var qg := []
+	var qb := []
+	for x in q:
+		qg.append([int(x[0]), int(x[1])])
+		qb.append([int(x[2]), int(x[3])])
+	var log := []
+	for i in range(goals_log.size()):
+		log.append([1, i, int(goals_log[i]), 1, "", 0])
+	return {"q_goals": qg, "q_behinds": qb, "scoring": log}
+
+
+## Comebacks told better (director, 2026-10-14): every line true to the scores, nothing when
+## there is nothing to say, and the sim untouched.
+func _test_comeback_telling() -> void:
+	# Quarter rows are [home goals, away goals, home behinds, away behinds].
+	var turned := _story([[0, 3, 0, 0], [4, 1, 0, 0], [2, 0, 0, 0]], [])
+	_check(ComebackTelling.break_line(turned, 0) == "You lead by 12, after trailing by 18 at quarter time.",
+			"Ahead after trailing by three goals: said (%s)" % ComebackTelling.break_line(turned, 0))
+	_check(ComebackTelling.break_line(turned, 1) == "You trail by 12, after leading by 18 at quarter time.",
+			"The other side is told the same fact the other way (%s)" % ComebackTelling.break_line(turned, 1))
+	var level_q := [[3, 3, 0, 0], [3, 3, 0, 0], [2, 0, 0, 0]]
+	var run_but := _story(level_q, [0, 0, 1, 1, 1, 1])
+	_check(ComebackTelling.break_line(run_but, 0) == "You lead by 12, but they have kicked the last four goals.",
+			"Ahead, with the other side on a run (%s)" % ComebackTelling.break_line(run_but, 0))
+	var behind_q := [[3, 3, 0, 0], [3, 3, 0, 0], [0, 2, 0, 0]]
+	_check(ComebackTelling.break_line(_story(behind_q, [0, 0, 1, 1, 1, 1]), 0) == "You trail by 12, and they have kicked the last four goals.",
+			"Behind, with them still running")
+	_check(ComebackTelling.break_line(_story(behind_q, [1, 1, 0, 0, 0, 0]), 0) == "You trail by 12, but you have kicked the last four goals.",
+			"Behind, but on a run of your own")
+	_check(ComebackTelling.break_line(_story(level_q, [1, 1, 0, 0, 0, 0]), 0) == "You lead by 12, and you have kicked the last four goals.",
+			"Ahead and still running")
+	var eaten := _story([[3, 0, 0, 0], [2, 0, 0, 0], [0, 3, 0, 0]], [])
+	_check(ComebackTelling.break_line(eaten, 0) == "You lead by 12, down from 30 at half time.",
+			"A lead worn down since half time (%s)" % ComebackTelling.break_line(eaten, 0))
+	var cut := _story([[0, 3, 0, 0], [0, 2, 0, 0], [3, 0, 0, 0]], [])
+	_check(ComebackTelling.break_line(cut, 0) == "You trail by 12, back from 30 down at half time.",
+			"A deficit cut since half time (%s)" % ComebackTelling.break_line(cut, 0))
+	# Nothing to say: an ordinary game, level scores, a blowout with a short run.
+	var plain := _story([[2, 2, 1, 1], [2, 3, 0, 0], [3, 2, 1, 0]], [0, 1, 0, 1, 0, 1, 1, 0])
+	_check(ComebackTelling.break_line(plain, 0) == "", "An ordinary game has no line (%s)" % ComebackTelling.break_line(plain, 0))
+	_check(ComebackTelling.break_line(_story([[2, 2, 0, 0], [2, 2, 0, 0], [2, 2, 0, 0]], [0, 1]), 0) == "", "Level scores: nothing to say")
+	var rout := _story([[6, 1, 0, 0], [6, 1, 0, 0], [6, 1, 0, 0]], [1, 0, 0, 0])
+	_check(ComebackTelling.break_line(rout, 0) == "", "A decided game with a short run: nothing")
+	_check(ComebackTelling.break_line(_story(rout["q_goals"].map(func(x): return [x[0], x[1], 0, 0]), [1, 0, 0, 0, 0, 0, 0]), 0)
+			== "You lead by 90, and you have kicked the last six goals.", "Six in a row is said even in a blowout")
+	_check(ComebackTelling.break_line({}, 0) == "", "No quarters, no line")
+
+	# Seeded matches (SYD v CAR 175, MEL v FRE 188, SYD v CAR 3). me = home.
+	var cases := {175: "win", 188: "loss", 3: "none"}
+	for seed in cases:
+		var pr: Array = ["MEL", "FRE"] if seed == 188 else ["SYD", "CAR"]
+		var home := Squad.new(pr[0], GameDB.club_list(pr[0]), true, pr[0])
+		var away := Squad.new(pr[1], GameDB.club_list(pr[1]), false, pr[1])
+		home.ai_plans = true
+		away.ai_plans = true
+		var sim := MatchSim.new(home, away, int(seed))
+		for q in range(3):
+			sim.run_quarter()
+		var mid := sim.result()
+		var mid_copy := mid.duplicate(true)
+		var bl := ComebackTelling.break_line(mid, 0)
+		_check(mid == mid_copy, "Reading the break leaves the result as it was (seed %d)" % seed)
+		sim.run_quarter()
+		var res := sim.result()
+		var line := ComebackTelling.turn_line(res, 0)
+		var won: bool = int(res["score"][0]) > int(res["score"][1])
+		if str(cases[seed]) == "none":
+			_check(line == "", "An ordinary game names no turn (seed %d: %s)" % [seed, line])
+			continue
+		_check(line.begins_with("Turned in the third: "), "Seed %d turned in the third (%s)" % [seed, line])
+		_check(won == (str(cases[seed]) == "win"), "Seed %d is the %s it was found as" % [seed, cases[seed]])
+		# The player named is on the side that won the quarter, and his figures are the quarter's own.
+		var side := 0 if won else 1
+		var tq := ComebackTelling.turning_quarter(res, 0)
+		_check(int(tq["side"]) == side and int(tq["q"]) == 3, "The turn is the third quarter, won by the %s" % ("winner" if won else "side that came back"))
+		var named := ""
+		for p in res["roster"][side]:
+			if line.contains(GameDB.player_display_name_by_id(str(p["id"]), str(p["name"]))):
+				named = str(p["id"])
+		_check(named != "", "The player named is on the side that turned it (%s)" % line)
+		if named != "":
+			var snaps: Array = res["quarter_teams"]
+			var a: Dictionary = (snaps[2]["players"] as Dictionary).get(named, {})
+			var b: Dictionary = (snaps[1]["players"] as Dictionary).get(named, {})
+			var disp := int(float(a.get("disposals", 0.0)) - float(b.get("disposals", 0.0)))
+			var goals := int(float(a.get("goals", 0.0)) - float(b.get("goals", 0.0)))
+			if line.contains("disposals"):
+				_check(line.contains("%d disposals" % disp), "Disposals named are the quarter's (%s, %d)" % [line, disp])
+			if goals > 0:
+				_check(line.contains("%d." % goals), "Goals named are the quarter's (%s, %d)" % [line, goals])
+		for l in [bl, line]:
+			var low := str(l).to_lower()
+			for w in ADVICE + ENGINE:
+				_check(not low.contains(w), "No advice or engine words in '%s' (%s)" % [l, w])
+	# A turn needs the quarters to add up and the bar from Headlines.
+	var fake := _hl("GEE", "MEL", [[10, 20], [6, 22], [30, 6], [20, 10]])
+	_check(ComebackTelling.turn_line(fake, 0) == "", "No quarter goals, no turn claimed")
