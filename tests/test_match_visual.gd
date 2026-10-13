@@ -1414,8 +1414,8 @@ func _test_press_shape(res: Dictionary) -> void:
 	# (30/255) and keep the club's hue, whatever the club (navy and brown included).
 	var turf: Color = pvs.PRESS_TURF
 	var pa := float(pvs.PRESS_ZONE_ALPHA)
-	# Director, 2026-10-13: "right colour, about half as strong" - 0.2, not 0.4.
-	_check(is_equal_approx(pa, 0.2), "The press tint is laid at half the first strength (0.2)")
+	# Director, 2026-10-13: "right colour, about half as strong" (0.4 -> 0.3: 0.2 lost the hue).
+	_check(is_equal_approx(pa, 0.3), "The press tint is laid at 0.3, lighter than the first 0.4 and not so light the club colour is lost")
 	var tint_ok := true
 	var tint_note := ""
 	for code in ["FRE", "MEL", "WBD", "STK", "CAR", "HAW"]:

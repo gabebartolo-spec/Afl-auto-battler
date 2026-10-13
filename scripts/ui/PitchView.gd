@@ -584,11 +584,13 @@ func _draw() -> void:
 ## (director, 2026-10-13: the first 0.12 moved a channel by 8-11 of 255 and
 ## read as a darker turf stripe), so it was a 40% mix of the colour; the
 ## director then judged that too heavy ("right colour, about half as strong"),
-## so the same colour is laid at half that, 0.2, and the mowing stripes show
-## through.
-const PRESS_ZONE_ALPHA := 0.2
+## so the grass and its mowing stripes now show through. Half (0.2) was tried
+## and lost the colours: through the green only the strength is halved, the hue
+## goes slate (Fremantle), teal (Bulldogs, Melbourne, Carlton) and olive (St
+## Kilda, Hawthorn). 0.3 is the least that still reads as each club's colour.
+const PRESS_ZONE_ALPHA := 0.3
 ## The strength the colour is worked out at (what the club colour would be at
-## a 40% mix); PRESS_ZONE_ALPHA then halves the effect without changing the hue.
+## a 40% mix), so the colour is the same hue and the strength the one above.
 const PRESS_COLOUR_ALPHA := 0.4
 const PRESS_FADE_SECS := 0.9
 var _zone_fade := [0.0, 0.0]
