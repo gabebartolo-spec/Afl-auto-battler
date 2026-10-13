@@ -984,8 +984,9 @@ func _show_coach_box() -> void:
 ## where each column ends follows what is in it this break (a loose defender
 ## of theirs, a second ruck), so the tallest column is as short as it can be
 ## and nothing scrolls on a 720-unit screen. A call keeps its words under it.
-func _balance_break_columns(cols: Array) -> void:
-	await get_tree().process_frame
+func _balance_break_columns(cols: Array, again := false) -> void:
+	if not again:
+		await get_tree().process_frame
 	if not is_instance_valid(cols[0]):
 		return
 	# Calls in reading order: a call starts a unit; its notes go with it.
@@ -1008,7 +1009,8 @@ func _balance_break_columns(cols: Array) -> void:
 	# is too tall for the screen (both loose men, a tag card, your tally), pack
 	# by height instead: the tallest call goes to the shortest column, and each
 	# column still lists its calls in reading order.
-	await get_tree().process_frame
+	if not again:
+		await get_tree().process_frame
 	if not is_instance_valid(cols[0]):
 		return
 	var sc: ScrollContainer = null
@@ -1087,8 +1089,7 @@ func _balance_break_columns(cols: Array) -> void:
 	# Best so far shows three a side on a PC, as on a phone, while the break
 	# still fits 720 high; when even the best deal overflows, the third of each
 	# side goes (the older two-a-side break) and the calls are dealt again.
-	await get_tree().process_frame
-	if not is_instance_valid(cols[0]) or _coach_overlay == null or not is_instance_valid(_coach_overlay):
+	if _coach_overlay == null or not is_instance_valid(_coach_overlay):
 		return
 	if (sc.get_child(0) as Control).get_combined_minimum_size().y > sc.size.y - 8.0:
 		var dropped := false
@@ -1098,8 +1099,7 @@ func _balance_break_columns(cols: Array) -> void:
 				(r as Node).queue_free()
 				dropped = true
 		if dropped:
-			await get_tree().process_frame
-			_balance_break_columns(cols)
+			_balance_break_columns(cols, true)
 			return
 		# Still too tall: the gap above Rotations is the first thing to give.
 		var gap: Node = _coach_overlay.find_child("RotationsGap", true, false)
