@@ -129,8 +129,8 @@ func _on_names() -> void:
 func _build() -> void:
 	_wide = ScreenLayout.wide_view(UiKit.view_width(self), 0.0, 760.0, false)
 	_built_width = UiKit.view_width(self)
-	var list_y := _list_scroll.scroll_vertical if is_instance_valid(_list_scroll) else 0
-	var detail_y := _detail_scroll.scroll_vertical if is_instance_valid(_detail_scroll) else 0
+	var list_y := UiKit.scroll_place(_list_scroll) if is_instance_valid(_list_scroll) else 0
+	var detail_y := UiKit.scroll_place(_detail_scroll) if is_instance_valid(_detail_scroll) else 0
 	UiKit.clear(_root)
 	_list_scroll = null
 	_detail_scroll = null
@@ -152,14 +152,8 @@ func _build() -> void:
 		_root.add_child(_detail_panel())
 	else:
 		_root.add_child(_list_panel())
-	_restore_scroll.call_deferred(list_y, detail_y)
-
-
-func _restore_scroll(list_y: int, detail_y: int) -> void:
-	if is_instance_valid(_list_scroll):
-		_list_scroll.scroll_vertical = list_y
-	if is_instance_valid(_detail_scroll):
-		_detail_scroll.scroll_vertical = detail_y
+	UiKit.restore_scroll(_list_scroll, list_y)
+	UiKit.restore_scroll(_detail_scroll, detail_y)
 
 
 func _summary() -> Control:

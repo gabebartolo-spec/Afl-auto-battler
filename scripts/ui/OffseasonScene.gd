@@ -53,7 +53,7 @@ func _ready() -> void:
 
 func _build() -> void:
 	if is_instance_valid(_scroll_box):
-		_scroll_positions[_scroll_tab] = _scroll_box.scroll_vertical
+		_scroll_positions[_scroll_tab] = UiKit.scroll_place(_scroll_box)
 	UiKit.clear(_root)
 	_root.add_child(UiKit.top_bar("Off-season", true))
 	var head := UiKit.panel(UiKit.PANEL, 10, 8)
@@ -95,13 +95,7 @@ func _build() -> void:
 			_trade(body)
 		"budget":
 			_budget(body)
-	_restore_scroll(_scroll_box, int(_scroll_positions.get(_tab, 0)))
-
-
-func _restore_scroll(scroll: ScrollContainer, offset: int) -> void:
-	await get_tree().process_frame
-	if is_instance_valid(scroll):
-		scroll.scroll_vertical = offset
+	UiKit.restore_scroll(_scroll_box, int(_scroll_positions.get(_tab, 0)))
 
 
 func _budget(body: VBoxContainer) -> void:

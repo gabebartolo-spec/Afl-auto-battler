@@ -135,7 +135,7 @@ func _reflow() -> void:
 		var search_focus := is_instance_valid(_search_field) and _search_field.has_focus()
 		var caret := _search_field.caret_column if search_focus else 0
 		_build_layout()
-		_restore_scrolls.call_deferred(scrolls)
+		_restore_scrolls(scrolls)
 		if search_focus and is_instance_valid(_search_field):
 			_search_field.grab_focus()
 			_search_field.caret_column = caret
@@ -180,7 +180,7 @@ func _apply_margins() -> void:
 func _scroll_positions() -> Array:
 	var values := []
 	for sc in [_board_scroll, _history_scroll, _mine_scroll, _order_scroll]:
-		values.append(sc.scroll_vertical if is_instance_valid(sc) else 0)
+		values.append(UiKit.scroll_place(sc) if is_instance_valid(sc) else 0)
 	return values
 
 
@@ -188,7 +188,7 @@ func _restore_scrolls(values: Array) -> void:
 	var scrolls := [_board_scroll, _history_scroll, _mine_scroll, _order_scroll]
 	for i in range(scrolls.size()):
 		if is_instance_valid(scrolls[i]):
-			scrolls[i].scroll_vertical = int(values[i])
+			UiKit.restore_scroll(scrolls[i], int(values[i]))
 
 
 # ---------------------------------------------------------------------------
