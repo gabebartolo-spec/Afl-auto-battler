@@ -364,7 +364,7 @@ func _overlays() -> void:
 	await _overlay_case("stats: first-visit intro", "stats", func(s): s.call("_show_intro"))
 	await _overlay_case("selection: team report", "selection", func(s): s.call("_show_report", "MEL"))
 	await _overlay_case("selection: synergies", "selection", func(s): s.call("_show_synergies"))
-	await _selection_week_page_case()
+	await _overlay_case("selection: This week sheet", "selection", func(s): s.call("_open_week"))
 	await _overlay_case("selection: player profile", "selection", func(s): s.call("_open_profile", pid))
 	await _overlay_case("offseason: talks", "offseason", func(s): s.call("_open_talks", pid))
 	await _overlay_case("season review: awards program", "season_review", func(s): s.call("_open_awards_program"),
@@ -739,30 +739,3 @@ func _new_career_flow() -> void:
 		var ok4: bool = why4 == "" and _continue_shows_old_career(current_scene) and _saved_club() == "COL"
 		_check(ok4, "then the title still offers Continue for the old career (%s: %s)" % [way, why4])
 		_table.append("new career: back to the title | %s | %s" % [way, "ok" if ok4 else "FAIL %s" % why4])
-
-
-## A phone's second page of Team selection ("This week"): every way of going
-## back returns to the first page, and the next Back leaves (director,
-## 2026-10-13: Android Back from the week returns to the side).
-func _selection_week_page_case() -> void:
-	for way in ["mouse_back", "android", "escape"]:
-		_fresh_career()
-		var size_before := root.size
-		root.size = Vector2i(390, 844)
-		await _open("selection")
-		var scene := current_scene
-		await _settle(4)
-		var depth: int = (_router.stack as Array).size()
-		scene.set("_page", "week")
-		scene.call("_build")
-		await _settle(4)
-		_check(scene.find_child("WeekPage", true, false) != null, "selection: This week opens (%s)" % way)
-		await _leave(way, null)
-		await _settle(8)
-		_check(_router.current() == "selection" and current_scene == scene and (_router.stack as Array).size() == depth
-				and scene.find_child("SidePage", true, false) != null and scene.find_child("WeekPage", true, false) == null,
-				"selection: Back by %s from This week returns to The side (%s)" % [way, _router.current()])
-		await _leave(way, null)
-		await _settle(10)
-		_check(_router.current() == "hub", "selection: the next Back by %s leaves for the hub (%s)" % [way, _router.current()])
-		root.size = size_before

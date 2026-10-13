@@ -5,7 +5,7 @@ extends SceneTree
 ## --picked: one player tapped, waiting for the second tap. --opp: the oval
 ## flipped to this week's opponent. --guide: the synergy guide with Complete.
 ## --report: the assistant's report. --rounds N: play N rounds first.
-## --oval: (old) scrolled down to the oval. --club CODE, --page side|week (phone).
+## --oval: (old) scrolled down to the oval. --club CODE; --weeksheet opens the week over the phone's side page.
 ## Writes <out>_sheet.png.
 
 var W := 1280
@@ -42,7 +42,7 @@ func _run() -> void:
 			picked = true
 		if str(a[i]) == "--oval":
 			oval = true
-		if str(a[i]) in ["--opp", "--guide", "--report"]:
+		if str(a[i]) in ["--opp", "--guide", "--report", "--weeksheet"]:
 			mode = str(a[i]).trim_prefix("--")
 	await process_frame
 	var state = root.get_node("GameState")
@@ -83,6 +83,8 @@ func _run() -> void:
 			ui.call("_build")
 		"guide":
 			ui.call("_show_synergies")
+		"weeksheet":
+			ui.call("_open_week")
 		"report":
 			ui.call("_show_report", str(state.my_next_opponent().get("code", "")))
 	for i in range(8):

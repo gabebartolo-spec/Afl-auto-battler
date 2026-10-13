@@ -391,20 +391,23 @@ func _selection_pages_tests() -> void:
 		# --- phone 390x844 ---
 		root.size = Vector2i(390, 844)
 		var ui := await _open(false)
-		var tab_side: Button = ui.find_child("SelectionPage_side", true, false)
-		var tab_week: Button = ui.find_child("SelectionPage_week", true, false)
-		_check(tab_side != null and tab_week != null and tab_side.size.y >= 44 and tab_week.size.y >= 44
-				and tab_side.size.x >= 100 and tab_week.size.x >= 100,
-				"Phone: The side and This week are two thumb-sized tabs (%s)" % tag)
-		_check(ui.find_child("SidePage", true, false) != null and ui.find_child("WeekPage", true, false) == null,
-				"Phone: the side is the first page, the week is a tap away (%s)" % tag)
+		_check(ui.find_child("SelectionPage_side", true, false) == null and ui.find_child("SelectionPage_week", true, false) == null
+				and ui.find_child("SidePage", true, false) != null and ui.find_child("WeekPage", true, false) == null
+				and ui.find_child("WeekSheet", true, false) == null,
+				"Phone: one page, no tabs; the week is not on it until the row is tapped (%s)" % tag)
+		var row: Button = ui.find_child("WeekRow", true, false)
+		_check(row != null and row.size.y >= 44 and row.text.begins_with("This week ") and row.text.ends_with("›"),
+				"Phone: a thumb-sized This week row sits under the bench (%s)" % tag)
+		var row_ink: Color = row.get_theme_color("font_color") if row != null else Color.BLACK
+		var uk2 = load("res://scripts/ui/UiKit.gd")
+		_check(row != null and uk2.contrast(row_ink, uk2.BG) >= 4.5, "Phone: the row is in readable club ink (%s)" % tag)
 		_check(_no_scroll(ui.find_child("SelectionScroll", true, false)),
-				"Phone: the side page does not scroll for a 23-man side (%s)" % tag)
+				"Phone: the page does not scroll for a 23-man side (%s)" % tag)
 		_check(ui.find_child("NotSelectedScroll", true, false) != null,
 				"Phone: the not-picked list scrolls inside its own area (%s)" % tag)
 		_check(ui.find_children("Spot_*", "Button", true, false).size() == 18
 				and ui.find_children("BenchSpot_*", "Button", true, false).size() == 5,
-				"Phone: the 18 and the bench are all on the first page (%s)" % tag)
+				"Phone: the 18 and the bench are all on the page (%s)" % tag)
 		var phone_hint: Label = ui.find_child("BuilderHint", true, false)
 		_check(phone_hint != null and phone_hint.text.contains("Tap a player, then another (or drag one onto another) to swap them.")
 				and not phone_hint.text.contains("Click"), "Phone: the help line says Tap, not Click (%s)" % tag)
@@ -412,6 +415,8 @@ func _selection_pages_tests() -> void:
 		var save: Button = ui.find_child("SaveBest23", true, false)
 		_check(inter != null and save != null and _gap_x(inter.get_child(0), save) < 48.0 and save.size.y >= 44,
 				"Phone: Save as my Best 23 sits beside the interchange it saves (%s)" % tag)
+		var list_h := (ui.find_child("NotSelectedScroll", true, false) as Control).size.y
+		_check(list_h >= 70.0, "Phone: the not-picked list keeps at least %d px (%s)" % [int(list_h), tag])
 		# A real tap swaps two players.
 		var side0: Dictionary = _state.current_side()
 		var centre := str(side0["MID"][0])
@@ -426,12 +431,11 @@ func _selection_pages_tests() -> void:
 		_check(ui.find_child("BuilderHint", true, false) != null
 				and str(ui.find_child("BuilderHint", true, false).text).contains("swap"),
 				"Phone: the swap is said under the interchange (%s)" % tag)
-		# The week is a tap away and carries the swap.
-		var wk: String = await Tap.tap(ui.find_child("SelectionPage_week", true, false))
+		# The week opens over the side from the row and carries the swap.
+		var wk: String = await Tap.tap(ui.find_child("WeekRow", true, false))
 		await _settle()
-		_check(wk == "" and ui.find_child("WeekPage", true, false) != null and ui.find_child("SidePage", true, false) == null,
-				"Phone: one tap opens This week (%s %s)" % [tag, wk])
-		_check(_no_scroll(ui.find_child("WeekScroll", true, false)), "Phone: This week does not scroll (%s)" % tag)
+		_check(wk == "" and ui.find_child("WeekSheet", true, false) != null and ui.find_child("WeekPage", true, false) == null,
+				"Phone: a real tap on the row opens the week over the side (%s %s)" % [tag, wk])
 		var sl: Label = ui.find_child("SynergyLine", true, false)
 		_check(sl != null and sl.text == _synergy_words(), "Phone: the synergies follow the swap (%s)" % tag)
 		var rules: Button = ui.find_child("SynergyRules", true, false)
@@ -443,24 +447,22 @@ func _selection_pages_tests() -> void:
 				"Phone: the assistant's report sits right under This week (%s)" % tag)
 		var why3: String = await Tap.tap(rules)
 		await _settle()
-		_check(why3 == "" and ui.find_child("SynergyGuide", true, false) != null,
-				"Phone: a real tap on Synergies opens the rules (%s %s)" % [tag, why3])
-		_check(ui.call("handle_back") == true and ui.find_child("WeekPage", true, false) != null,
-				"Phone: Back closes the rules and stays on the week (%s)" % tag)
+		_check(why3 == "" and ui.find_child("SynergyGuide", true, false) != null and ui.find_child("WeekSheet", true, false) != null,
+				"Phone: a real tap on Synergies opens the rules over the week, which stays (%s %s)" % [tag, why3])
+		var back_ok: bool = ui.call("handle_back") == true
 		await _settle()
-		_check(ui.find_child("SynergyGuide", true, false) == null, "Phone: the rules are closed (%s)" % tag)
-		# Back from the week returns to the side; from the side it leaves.
-		_check(ui.call("handle_back") == true, "Phone: Back from This week is handled (%s)" % tag)
+		_check(back_ok and ui.find_child("SynergyGuide", true, false) == null, "Phone: Back closes the rules first (%s)" % tag)
+		_check(ui.find_child("WeekSheet", true, false) != null, "Phone: the week is still open under the rules (%s)" % tag)
+		# Close by a real tap, then reopen and close by Back.
+		var why5: String = await Tap.tap(ui.find_child("WeekClose", true, false))
 		await _settle()
-		_check(ui.find_child("SidePage", true, false) != null and ui.find_child("WeekPage", true, false) == null
-				and ui.call("handle_back") == false,
-				"Phone: Back goes to the side, and from the side leaves selection (%s)" % tag)
-		await Tap.tap(ui.find_child("SelectionPage_week", true, false))
+		_check(why5 == "" and ui.find_child("WeekSheet", true, false) == null, "Phone: a real tap on Close shuts the week (%s %s)" % [tag, why5])
+		await Tap.tap(ui.find_child("WeekRow", true, false))
 		await _settle()
-		var arrow: String = await Tap.tap(ui.find_child("TopBarBack", true, false))
+		_check(ui.call("handle_back") == true, "Phone: Back closes the week sheet (%s)" % tag)
 		await _settle()
-		_check(arrow == "" and ui.find_child("SidePage", true, false) != null,
-				"Phone: the bar's arrow also goes from the week to the side (%s)" % tag)
+		_check(ui.find_child("WeekSheet", true, false) == null and ui.call("handle_back") == false,
+				"Phone: the week is closed, and Back from the side leaves selection (%s)" % tag)
 		ui.queue_free()
 		await _settle()
 		# --- PC: both in view, no toggle, no scroll ---

@@ -22,7 +22,7 @@ var _sheet: Control             # a player's profile, open over the list
 var _undo := {}            # the side before the last Auto-pick, for Undo
 var _view := "mine"        # "mine" or "opp": the oval shows them, read-only
 var _line_cache := {}      # the other clubs' lines, built once a visit
-var _page := "side"        # on a phone: "side" or "week"
+var _week_overlay: Control      # a phone: the week, open over the side
 var _wide := false
 
 
@@ -80,21 +80,7 @@ func _build() -> void:
 			_build()
 			return
 		_apply_strategy(str(strategies[idx][0])))
-	var bar := UiKit.top_bar("Team selection", true, pick, _bar_back)
-	if not _wide:
-		# On a phone the two pages are the title: where you are is underlined.
-		var title := bar.get_child(1)
-		var tabs := UiKit.segmented("SelectionPage", [["side", "The side"], ["week", "This week"]], _page,
-				func(k):
-					_page = k
-					_build())
-		for b in tabs.get_children():
-			(b as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		bar.remove_child(title)
-		title.queue_free()
-		bar.add_child(tabs)
-		bar.move_child(tabs, 1)
+	var bar := UiKit.top_bar("Team selection", true, pick)
 	_root.add_child(bar)
 	var auto := GameState.my_selection().is_empty()
 	# A side named before the wings existed: split its midfield once.
@@ -110,8 +96,6 @@ func _build() -> void:
 		right.size_flags_horizontal = Control.SIZE_FILL
 		right.custom_minimum_size.x = clampf(UiKit.view_width(self) * 0.4, WEEK_W_MIN, WEEK_W_MAX)
 		cols.add_child(right)
-	elif _page == "week":
-		_root.add_child(_scroller(_week_page(), "WeekScroll"))
 	else:
 		_root.add_child(_scroller(_side_page(auto), "SelectionScroll"))
 	UiKit.restore_places(_root, places)
@@ -124,15 +108,6 @@ func _scroller(page: Control, node_name: String) -> ScrollContainer:
 	sc.name = node_name
 	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	return sc
-
-
-## Android Back and the bar's arrow: from the week back to the side first.
-func _bar_back() -> bool:
-	if not _wide and _page == "week":
-		_page = "side"
-		_build()
-		return true
-	return false
 
 
 ## The side: the oval you can look at theirs on, your 18 and the bench, and
@@ -169,6 +144,15 @@ func _side_page(auto: bool) -> Control:
 		_fill_actions(actions)
 		builder.interchange_actions = actions
 		builder.hint_extra = "Picked for you each week until you move someone." if auto else ""
+		if not _wide and not nxt.is_empty():
+			# A phone: the week is one tap away, in the club's ink, under the bench.
+			var row := UiKit.text_action("This week %s %s ›" % ["v" if str(nxt["venue"]) == "home" else "at",
+					GameDB.club_name(str(nxt["code"]))], UiKit.NAME)
+			row.name = "WeekRow"
+			row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			row.add_theme_color_override("font_color", UiKit.club_ink(GameState.my_club))
+			row.pressed.connect(_open_week)
+			builder.after_bench = row
 		page.add_child(builder)
 		builder.setup(GameState.current_side(), _wide)
 	builder.inspect.connect(_open_profile)
@@ -182,6 +166,29 @@ func _side_page(auto: bool) -> Control:
 			hint.add_theme_color_override("font_color", UiKit.GOOD)
 		_refresh_facts())
 	return page
+
+
+## A phone: the week opens as a sheet over the side. Synergies and the report
+## open over it and give it back on Close.
+func _open_week() -> void:
+	_close_week()
+	var box := UiKit.modal_box(self, 560.0, 0.0)
+	_week_overlay = box["overlay"]
+	_week_overlay.name = "WeekSheet"
+	var v: VBoxContainer = box["body"]
+	v.add_theme_constant_override("separation", 10)
+	_fill_week(v)
+	var close := UiKit.btn("Close", UiKit.NAME, true)
+	close.name = "WeekClose"
+	close.custom_minimum_size = Vector2(0, 48)
+	close.pressed.connect(_close_week)
+	box["footer"].add_child(close)
+
+
+func _close_week() -> void:
+	if _week_overlay != null and is_instance_valid(_week_overlay):
+		_week_overlay.queue_free()
+	_week_overlay = null
 
 
 ## Save as my Best 23 and Undo, beside the interchange they act on.
@@ -431,6 +438,7 @@ func _complete_button(key: String) -> Control:
 			GameState.set_selection(fresh["side"])
 			_notice = str(fresh["note"])
 		_close_synergies()
+		_close_week()
 		_build())
 	v.add_child(b)
 	if str(r["problem"]) != "":
@@ -477,8 +485,8 @@ func _close_profile() -> void:
 	_sheet = null
 
 
-## Android Back closes a profile or the synergy guide, then goes from the
-## week to the side, then leaves.
+## Android Back closes a profile or the synergy guide, then the week sheet
+## (a phone), then leaves.
 func handle_back() -> bool:
 	if _sheet != null and is_instance_valid(_sheet):
 		_close_profile()
@@ -486,7 +494,10 @@ func handle_back() -> bool:
 	if _synergy_overlay != null and is_instance_valid(_synergy_overlay):
 		_close_synergies()
 		return true
-	return _bar_back()
+	if _week_overlay != null and is_instance_valid(_week_overlay):
+		_close_week()
+		return true
+	return false
 
 
 ## The club's readable ink on the dark page (4.5:1 or better, UiKit.club_ink):
