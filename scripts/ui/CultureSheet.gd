@@ -184,6 +184,7 @@ static func _hero(club: String, size: int) -> HBoxContainer:
 	row.add_child(UiKit.club_marker(club, 48.0))
 	var col := UiKit.vbox(0)
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var name := UiKit.heading(_short(club), size)
 	name.name = "CultureClub"
 	col.add_child(name)
@@ -305,8 +306,11 @@ static func _build_b(root: Control, club: String, data: Array, wide: bool, done:
 	top.add_child(_back(done))
 	var mark := UiKit.hbox(8)
 	mark.alignment = BoxContainer.ALIGNMENT_BEGIN
+	mark.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mark.add_child(UiKit.club_marker(club, 32.0))
-	mark.add_child(UiKit.lbl("%s culture" % _short(club), UiKit.NAME, UiKit.TEXT, true))
+	var mark_name := UiKit.lbl("%s culture" % _short(club), UiKit.NAME, UiKit.TEXT, true)
+	mark_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mark.add_child(mark_name)
 	top.add_child(mark)
 	page.add_child(top)
 	page.add_child(UiKit.spacer(14))
