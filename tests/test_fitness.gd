@@ -3,6 +3,8 @@ extends RefCounted
 ## late change do to it, the stamps a match reads, AI plans by phase, and the
 ## save. Every season here is seeded.
 
+const Tap := preload("res://tests/tap.gd")
+
 var failures: Array[String] = []
 var checks := 0
 
@@ -17,6 +19,8 @@ func run() -> void:
 	_test_stamps()
 	_test_match_effect()
 	_test_career()
+	_test_words()
+	await _test_screens()
 	GameState.fitness_ai_by_phase = false
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
@@ -193,8 +197,8 @@ func _test_career() -> void:
 	GameState.fitness_ai_by_phase = false
 	GameState.start_season("GEE", GameDB.club_list("GEE"))
 	GameState.advance()
-	_check(FileAccess.get_file_as_string("res://scripts/state/GameState.gd").contains("var fitness_ai_by_phase := false"),
-			"AI clubs stay Steady by default until the plan screen lands")
+	_check(FileAccess.get_file_as_string("res://scripts/state/GameState.gd").contains("var fitness_ai_by_phase := true"),
+			"AI clubs run the plan their phase calls for by default, now the plan screen is in")
 	var stamped := false
 	for code in GameState.season.lists:
 		for p in GameState.season.lists[code]:
@@ -254,3 +258,149 @@ func _test_career() -> void:
 	_check(GameState.prepare_interactive_match() and before.has("cond_cap")
 			and GameState.pending_sim != null,
 			"The match you coach live carries your conditioning, like every simulated one")
+
+
+func _test_words() -> void:
+	_check(Conditioning.status_words(_rec("steady"), 5) == "Steady, no peak planned"
+			and Conditioning.status_words(_rec("develop"), 5).begins_with("Managing loads"),
+			"Steady and Develop say what they are, with no peak to wait for")
+	_check(Conditioning.status_words(_rec("peak"), 0) == "Building, peak due in September",
+			"A September peak, in the pre-season: Building, peak due in September")
+	_check(Conditioning.status_words(_rec("peak", -4), 0) == "Building, peak due in August",
+			"A department that lands early says so: the peak is due in August")
+	_check(Conditioning.status_words(_rec("peak"), 20) == "Coming into form, peak due in September"
+			and Conditioning.status_words(_rec("peak"), 26) == "Peaking now"
+			and Conditioning.status_words(_rec("peak", -6), 26) == "Peak is behind you",
+			"The words follow the season: building, coming into form, peaking, behind you")
+	_check(Conditioning.status_words(_rec("fast"), 0).contains("April")
+			and Conditioning.status_words(_rec("fast"), 10) == "Peak is behind you",
+			"A fast start is due in April and behind you by winter")
+	var clean := true
+	for plan in Conditioning.PLANS:
+		for offset in [-8, -3, 0, 3, 8]:
+			for w in range(Conditioning.LAST_WEEK + 1):
+				var line := Conditioning.status_words(_rec(plan, offset), w)
+				for ch in "0123456789%":
+					clean = clean and not line.contains(ch)
+	for plan in Conditioning.PLANS:
+		clean = clean and not str(Conditioning.PLAN_EFFECT[plan]).contains("%")
+	_check(clean, "No number or percentage anywhere in the words")
+	_check(Conditioning.month_of_week(0) == "March" and Conditioning.month_of_week(13) == "June"
+			and Conditioning.month_of_week(20) == "August" and Conditioning.month_of_week(26) == "September",
+			"Weeks are months: the first rounds are March, the finals September")
+	var kept := Conditioning.revise(_rec("peak"), 13, "peak")
+	_check(kept == _rec("peak"), "Keeping your plan at a revision point restarts nothing")
+	var back := Conditioning.revise(Conditioning.revise(_rec("peak"), 13, "develop"), 13, "peak")
+	_check(back == _rec("peak"), "Changing your mind back in the same week costs nothing")
+	_check(Conditioning.next_revision_name(0, 10) == "the bye" and Conditioning.next_revision_name(10, 10) == "round 14"
+			and Conditioning.next_revision_name(13, 10) == "the last month"
+			and Conditioning.next_revision_name(20, 10) == "",
+			"The plan screen says when the next chance to change comes")
+	_check(Conditioning.late_cost("peak", 0, 10) == "" and Conditioning.late_cost("steady", 13, 10) == ""
+			and Conditioning.late_cost("peak", 13, 10).contains("less time")
+			and Conditioning.late_cost("fast", 13, 10).contains("Too late")
+			and Conditioning.late_cost("develop", 13, 10).contains("extra room"),
+			"A late change says what it costs; an early one costs nothing")
+
+
+## The plan on its screens, with a finger's taps: the line on the hub and
+## Training, the sheet, picking a plan, Confirm, and the lock between revision
+## points.
+func _test_screens() -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	tree.root.size = Vector2i(390, 844)
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.set_setting("seen_weekly_loop_intro", true)
+	GameState.set_setting("seen_training_intro", true)
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var hub: Control = load("res://scenes/HubScene.tscn").instantiate()
+	tree.root.add_child(hub)
+	await _frames(tree, 6)
+	var line := hub.find_child("SeasonPlanLine", true, false) as Button
+	var words := hub.find_child("SeasonPlanWords", true, false) as Label
+	_check(line != null and words != null and words.text == "Steady, no peak planned",
+			"The hub says where the legs are at in words")
+	_check(line != null and (hub.find_child("SeasonPlanSub", true, false) as Label).text.contains("set it before round 1"),
+			"In the pre-season the hub line says the plan is yours to set")
+	_check(await _tap(line, "the season plan line"), "A finger's tap on the line opens the plan")
+	await _frames(tree, 4)
+	var sheet := hub.find_child("SeasonPlanSheet", true, false)
+	_check(sheet != null and sheet.find_child("SeasonLineChart", true, false) != null
+			and sheet.find_child("SeasonPlans", true, false).get_child_count() == 4,
+			"The sheet shows the season line and all four plans")
+	var confirm := sheet.find_child("SeasonPlanConfirm", true, false) as Button if sheet != null else null
+	_check(confirm != null and confirm.disabled, "Confirm waits until you pick a different plan")
+	var peak := sheet.find_child("Plan_peak", true, false) as Button if sheet != null else null
+	_check(await _tap(peak, "Peak for September"), "A finger's tap picks Peak for September")
+	await _frames(tree, 3)
+	confirm = sheet.find_child("SeasonPlanConfirm", true, false) as Button
+	var shown := sheet.find_child("SeasonPlanSheetWords", true, false) as Label
+	_check(confirm != null and not confirm.disabled and GameState.fitness_plan("GEE") == "steady"
+			and shown != null and shown.text.begins_with("Building, peak due in"),
+			"The choice shows its season line before it is confirmed; nothing is saved yet")
+	_check(await _tap(confirm, "Confirm"), "A finger's tap confirms the plan")
+	await _frames(tree, 3)
+	_check(GameState.fitness_plan("GEE") == "peak", "Confirm sets your season plan")
+	var close := sheet.find_child("SeasonPlanClose", true, false) as Button
+	_check(await _tap(close, "Close"), "A finger's tap closes the sheet")
+	await _frames(tree, 4)
+	words = hub.find_child("SeasonPlanWords", true, false) as Label
+	_check(hub.find_child("SeasonPlanSheet", true, false) == null
+			and words != null and words.text.begins_with("Building, peak due in"),
+			"Back on the hub the line has the new plan")
+	hub.queue_free()
+	await _frames(tree, 2)
+
+	# Between revision points: on view, locked, with when the next chance is.
+	GameState.advance()
+	var week := GameState.fitness_week()
+	var bye := GameState.fitness_bye_week("GEE")
+	_check(not GameState.can_revise_fitness() and week > 0 and week != bye,
+			"Round 2 is not a revision point")
+	var host := Control.new()
+	tree.root.add_child(host)
+	var locked := SeasonPlanSheet.open(host)
+	await _frames(tree, 4)
+	_check(locked.find_child("Plan_steady", true, false) == null
+			and locked.find_child("SeasonPlanConfirm", true, false) == null
+			and locked.find_child("PlanRow_develop", true, false) != null,
+			"Locked, the plans stay on view but nothing can be picked")
+	var note := locked.find_child("SeasonPlanNote", true, false) as Label
+	_check(note != null and note.text.contains("You can change it again at"),
+			"Locked, the sheet says when the next chance comes")
+	host.queue_free()
+	await _frames(tree, 2)
+
+	# Training carries the same line, and its tap opens the same sheet.
+	var training: Control = load("res://scenes/TrainingScene.tscn").instantiate()
+	tree.root.add_child(training)
+	await _frames(tree, 6)
+	var tline := training.find_child("SeasonPlanLine", true, false) as Button
+	_check(tline != null and (training.find_child("SeasonPlanWords", true, false) as Label).text.begins_with("Building"),
+			"Training says the same, in the same words")
+	_check(await _tap(tline, "the season plan line on Training"), "A finger's tap opens the plan from Training")
+	await _frames(tree, 4)
+	_check(training.find_child("SeasonPlanSheet", true, false) != null, "Training opens the plan sheet")
+	var backed: bool = training.call("handle_back")
+	var gone := training.find_child("SeasonPlanSheet", true, false)
+	_check(backed and (gone == null or gone.is_queued_for_deletion()),
+			"Back closes the plan sheet before leaving Training")
+	training.queue_free()
+	await _frames(tree, 2)
+
+
+func _frames(tree: SceneTree, n: int) -> void:
+	for i in range(n):
+		await tree.process_frame
+
+
+## A finger's tap on a control (tests/tap.gd), checked.
+func _tap(b: Control, what: String) -> bool:
+	var why: String = await Tap.tap(b)
+	if why != "":
+		_check(false, "A finger's tap reaches %s (%s)" % [what, why])
+		if is_instance_valid(b) and b is BaseButton:
+			(b as BaseButton).emit_signal("pressed")
+	return why == ""

@@ -1,0 +1,2 @@
+fitness +29
+back_nav +20
