@@ -156,10 +156,30 @@ func _build() -> void:
 	UiKit.restore_scroll(_detail_scroll, detail_y)
 
 
+## The training gear beside the week's news (director, 2026-10-14): a tackle
+## bag, a stack of cones and a stopwatch, in the club's wash. This tall on a
+## phone and on a wide screen.
+const HERO_NARROW := 72.0
+const HERO_WIDE := 96.0
+
+
 func _summary() -> Control:
 	var panel := UiKit.panel(UiKit.PANEL, 10, 8)
 	var v := UiKit.vbox(3)
-	panel.add_child(v)
+	# Decoration: it stands on the panel's foot at the right and takes no tap.
+	# Without the picture the news has the whole width, as before.
+	var hero := UiArt.view("training_set", HERO_WIDE if _wide else HERO_NARROW, CultureSheet.emblem_tint(GameState.my_club))
+	if hero == null:
+		panel.add_child(v)
+	else:
+		hero.name = "TrainingHero"
+		hero.size_flags_vertical = Control.SIZE_SHRINK_END
+		var h := UiKit.hbox(12)
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(v)
+		h.add_child(hero)
+		panel.add_child(h)
 	var report: Dictionary = GameState.last_training_report
 	if int(report.get("count", 0)) > 0:
 		v.add_child(UiKit.lbl(str(report.get("label", "Last game")), 15, UiKit.EMPH, true))
