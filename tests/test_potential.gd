@@ -25,6 +25,7 @@ func run() -> void:
 	_test_growth_is_capped()
 	_test_training_discount()
 	_test_draftee_potential()
+	_test_youth_pace()
 	_test_save_and_backfill()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
@@ -191,6 +192,49 @@ func _test_training_discount() -> void:
 	var cheap := GameState.train_cost(mine, "disposal")
 	var full := GameState.train_cost(normal, "disposal")
 	_check(cheap > 0 and cheap < full, "Training cost reflects POT (%d vs %d)" % [cheap, full])
+
+
+## Three off-seasons of a young class at the old pace (1.0) and the shipped pace:
+## the kids come on slower (director 2026-10-13), the best of them still get
+## there, and nobody past 24 is touched.
+func _three_seasons(class_players: Array) -> Array:
+	var ovr: Array = []
+	for p in class_players:
+		var c: Dictionary = p.duplicate(true)
+		for y in range(3):
+			Prospects.age_player(c, 2028 + y)
+		ovr.append(float(c["overall"]))
+	ovr.sort()
+	return ovr
+
+
+func _test_youth_pace() -> void:
+	var cls: Array = Prospects.generate_class(2027) + Prospects.generate_class(2028) + Prospects.generate_class(2029)
+	var step := Potential.YOUTH_STEP_PACE
+	var gap := Potential.YOUTH_GAP_PACE
+	Potential.YOUTH_STEP_PACE = 1.0
+	Potential.YOUTH_GAP_PACE = 1.0
+	var old := _three_seasons(cls)
+	var old_vets := _age_once(_real("Connor Rozee"))["overall"]
+	Potential.YOUTH_STEP_PACE = step
+	Potential.YOUTH_GAP_PACE = gap
+	var now := _three_seasons(cls)
+	var mean := func(a: Array) -> float:
+		var t := 0.0
+		for x in a:
+			t += float(x)
+		return t / maxf(1.0, float(a.size()))
+	var q := func(a: Array, f: float) -> float:
+		return float(a[int(f * float(a.size() - 1))])
+	_check(step < 1.0 and gap < 1.0, "The youth pace is slower than the old pace")
+	_check(mean.call(now) <= mean.call(old) - 1.5,
+			"A drafted class is at least 1.5 OVR lower after three seasons (%.1f v %.1f)" % [mean.call(now), mean.call(old)])
+	_check(q.call(now, 0.9) >= q.call(old, 0.9) - 4.0,
+			"The best tenth still gets there (90th percentile %.1f v %.1f)" % [q.call(now, 0.9), q.call(old, 0.9)])
+	_check(q.call(now, 0.9) - q.call(now, 0.5) >= q.call(old, 0.9) - q.call(old, 0.5) - 1.0,
+			"The spread between a star and a typical pick is kept")
+	_check(int(old_vets) == int(_age_once(_real("Connor Rozee"))["overall"]),
+			"A rehab-year star is not slowed by the youth pace")
 
 
 func _test_draftee_potential() -> void:
