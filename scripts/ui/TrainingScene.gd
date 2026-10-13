@@ -11,6 +11,7 @@ const LONG_PRESS_SECONDS := 0.45
 
 var _role := ""
 var _query := ""
+var _built_width := 0.0
 var _selected := ""
 var _showing_detail := false
 var _notice := ""
@@ -50,7 +51,7 @@ func _ready() -> void:
 	_root = UiKit.vbox(8)
 	margin.add_child(_root)
 	get_viewport().size_changed.connect(func():
-		if is_inside_tree():
+		if is_inside_tree() and not UiKit.keyboard_resize(self, _built_width):
 			_build())
 	_build()
 	if GameState.intro_due("training"):
@@ -127,6 +128,7 @@ func _on_names() -> void:
 
 func _build() -> void:
 	_wide = UiKit.view_width(self) >= 760.0
+	_built_width = UiKit.view_width(self)
 	var list_y := _list_scroll.scroll_vertical if is_instance_valid(_list_scroll) else 0
 	var detail_y := _detail_scroll.scroll_vertical if is_instance_valid(_detail_scroll) else 0
 	UiKit.clear(_root)

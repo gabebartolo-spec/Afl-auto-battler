@@ -42,6 +42,7 @@ var _wide := false
 var _short := false
 var _layout_key := ""
 var _resize_queued := false
+var _built_width := 0.0
 var _last_batch_start := 0
 
 var _margin: MarginContainer
@@ -125,6 +126,10 @@ func _reflow() -> void:
 	if not is_inside_tree():
 		return
 	_apply_margins()
+	# The phone keyboard shrinks the window's height only: leave the screen
+	# (and the focused search field) alone until it goes away.
+	if UiKit.keyboard_resize(self, _built_width):
+		return
 	if _layout_signature() != _layout_key:
 		var scrolls := _scroll_positions()
 		var search_focus := is_instance_valid(_search_field) and _search_field.has_focus()
@@ -154,6 +159,7 @@ func _build_layout() -> void:
 	_wide = area.x >= 760.0 and area.x > area.y
 	_short = area.y < 680.0
 	_layout_key = _layout_signature()
+	_built_width = UiKit.view_width(self)
 	_apply_margins()
 	_root.add_theme_constant_override("separation", 6 if _short else 10)
 	if _phase == "club":
