@@ -49,7 +49,7 @@ var rings := {}
 var _caption := {}             # {tok, text, left, goal, turnover, side}
 var _poss_side := -1           # who had the ball at the last possession event
 var _restarted := true         # the next possession comes from a restart
-var _shake := 0.0              # seconds of turnover shake left
+var _shake := 0.0              # seconds of goal shake left
 var shake_share := SHAKE_SHARE # the shake's size (captures compare strengths)
 var _last_actor := -1
 const CAPTION_GOAL := 1.8
@@ -58,11 +58,15 @@ const CAPTION_TOUCH := 1.0
 ## it (ROADMAP §1.11: a clear turnover cue; tackles where the ball is kept or
 ## held in are not turnovers and carry no label).
 const CAPTION_TURNOVER := 1.1
-## The turnover's shake: short, gone in under a third of a second. Its size is a
-## share of the oval's height, so it reads the same on a phone and a PC (the canvas
-## is scaled from a 1280 base: a fixed 3 units was about one real pixel on a phone).
-const SHAKE_TIME := 0.3
-const SHAKE_SHARE := 0.025  # director, 2026-10-10: B of three strengths
+## The goal's shake, the only one in the game: short, gone in under a fifth of a
+## second. Its size is a share of the oval's height, so it reads the same on a phone
+## and a PC. Director, 2026-10-13: "reduce screenshake" - about 40% of the old size
+## (0.025), 60% of the old time (0.3), never more than the share below as a hard cap
+## (about 4 px on a phone), and a new goal restarts the shake, it never adds to it.
+## This is the one place to change its strength.
+const SHAKE_TIME := 0.18
+const SHAKE_SHARE := 0.01
+const SHAKE_MAX_PX := 4.0   # and never more than this, on any screen
 ## What restarts play: whoever wins the ball after one of these has not turned
 ## it over.
 const RESTARTS := ["goal", "behind", "quarter", "ballup", "throwin", "free", "fifty",
@@ -283,6 +287,8 @@ func _name_the_scorer(ev: Dictionary) -> void:
 		return
 	_caption = {"tok": tok, "text": str(director.tokens[tok].get("surname", "")),
 			"left": CAPTION_GOAL, "goal": true}
+	if GameState.screen_shake_on() and not Feel.reduced:
+		_shake = SHAKE_TIME
 
 
 ## The ball changed hands in open play: "Turnover" over the player who won it.
@@ -324,13 +330,22 @@ func _cue_turnover(ev: Dictionary) -> void:
 		return
 	_caption = {"tok": tok, "text": "Turnover", "left": CAPTION_TURNOVER, "goal": false,
 			"turnover": true, "side": side}
-	if GameState.screen_shake_on() and not Feel.reduced:
-		_shake = SHAKE_TIME
 
 
-## Whether the oval is shaking for a turnover right now.
+## Whether the oval is shaking for a goal right now.
 func shaking() -> bool:
 	return _shake > 0.0
+
+
+## The shake as an offset in pixels now: never longer than the share of the oval's
+## height, whatever the screen size; zero with the shake off.
+func shake_offset() -> Vector2:
+	if _shake <= 0.0 or not GameState.screen_shake_on() or Feel.reduced:
+		return Vector2.ZERO
+	var k := _shake / SHAKE_TIME
+	var t := SHAKE_TIME - _shake
+	var amp := minf(pitch_rect().size.y * shake_share, SHAKE_MAX_PX)
+	return (Vector2(sin(t * 83.0), cos(t * 61.0)) * amp * k).limit_length(amp)
 
 
 ## A ringed player of yours who gets the ball is named for a moment. A goal's
@@ -473,12 +488,8 @@ func _stripe(c: Vector2, a: float, b: float, x0: float, x1: float) -> PackedVect
 # ---------------------------------------------------------------------------
 func _draw() -> void:
 	if _shake > 0.0:
-		# Fades out as it ends; two frequencies so it isn't a single sway.
-		# Timed by the shake itself, not the wall clock, so a recording shows it as played.
-		var k := _shake / SHAKE_TIME
-		var t := SHAKE_TIME - _shake
-		var amp := pitch_rect().size.y * shake_share * k
-		draw_set_transform(Vector2(sin(t * 83.0), cos(t * 61.0)) * amp)
+		# Fades out as it ends; timed by the shake itself so a recording shows it as played.
+		draw_set_transform(shake_offset())
 	var r := pitch_rect()
 	if r.size.x < 8.0 or r.size.y < 8.0:
 		return

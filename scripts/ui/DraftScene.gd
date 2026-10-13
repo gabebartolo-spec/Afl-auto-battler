@@ -130,7 +130,7 @@ func _reflow() -> void:
 		var search_focus := is_instance_valid(_search_field) and _search_field.has_focus()
 		var caret := _search_field.caret_column if search_focus else 0
 		_build_layout()
-		_restore_scrolls.call_deferred(scrolls)
+		_restore_scrolls(scrolls)
 		if search_focus and is_instance_valid(_search_field):
 			_search_field.grab_focus()
 			_search_field.caret_column = caret
@@ -144,14 +144,14 @@ func _usable_size() -> Vector2:
 
 func _layout_signature() -> String:
 	var area := _usable_size()
-	return "%s/%s/%d" % [area.x >= 760.0 and area.x > area.y,
+	return "%s/%s/%d" % [ScreenLayout.wide_view(area.x, area.y, 760.0),
 			area.y < 680.0, _grid_columns()]
 
 
 func _build_layout() -> void:
 	_club_backdrop()
 	var area := _usable_size()
-	_wide = area.x >= 760.0 and area.x > area.y
+	_wide = ScreenLayout.wide_view(area.x, area.y, 760.0)
 	_short = area.y < 680.0
 	_layout_key = _layout_signature()
 	_apply_margins()
@@ -174,7 +174,7 @@ func _apply_margins() -> void:
 func _scroll_positions() -> Array:
 	var values := []
 	for sc in [_board_scroll, _history_scroll, _mine_scroll, _order_scroll]:
-		values.append(sc.scroll_vertical if is_instance_valid(sc) else 0)
+		values.append(UiKit.scroll_place(sc) if is_instance_valid(sc) else 0)
 	return values
 
 
@@ -182,7 +182,7 @@ func _restore_scrolls(values: Array) -> void:
 	var scrolls := [_board_scroll, _history_scroll, _mine_scroll, _order_scroll]
 	for i in range(scrolls.size()):
 		if is_instance_valid(scrolls[i]):
-			scrolls[i].scroll_vertical = int(values[i])
+			UiKit.restore_scroll(scrolls[i], int(values[i]))
 
 
 # ---------------------------------------------------------------------------
