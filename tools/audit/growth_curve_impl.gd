@@ -7,6 +7,8 @@ extends RefCounted
 ##     tag    pre (the real 2026 lists), start (list after the intake draft, ages as of that season)
 ##   LEAGUE|seed|tag|year|players|mean OVR (all)|mean best-23 over clubs
 ##   BAND|seed|year|pick band|players|OVR at pick|OVR 3 seasons on|still listed (generated classes)
+##   MED|seed|year|league median OVR of the best-22 players over clubs (season end)
+##   COH|seed|draft year|year|pick|OVR at pick|age|OVR now|MED (every drafted player still listed, season end)
 ##   USER|seed|year|wins|games   (the autopilot user club, for AI v coach)
 ## Args after the impl name: seeds (comma list) club seasons arms (comma list of step:gap, the
 ## Potential.YOUTH_STEP_PACE / YOUTH_GAP_PACE to try; default the shipped values). Careers run in turn.
@@ -103,9 +105,23 @@ func _note(p: Dictionary, pick: int, national: bool, year: int) -> void:
 
 func _track(lists: Dictionary, year: int) -> void:
 	var by_id := {}
+	var best22: Array = []
 	for code in lists:
+		var ovs: Array = []
 		for p in lists[code]:
 			by_id[str(p["id"])] = p
+			ovs.append(float(p["overall"]))
+		ovs.sort()
+		ovs.reverse()
+		best22.append_array(ovs.slice(0, 22))
+	best22.sort()
+	var thr: float = best22[best22.size() / 2] if not best22.is_empty() else 0.0
+	print("MED|%d|%d|%.1f" % [seed_n, year, thr])
+	for e in cohort:
+		var q = by_id.get(str(e["id"]))
+		if q != null:
+			print("COH|%d|%d|%d|%d|%d|%d|%d|%.1f" % [seed_n, int(e["year"]), year, int(e["pick"]), int(e["ovr0"]),
+					int(float(q.get("age", 0.0))), int(q["overall"]), thr])
 	var bands := {}
 	for e in cohort:
 		if year - int(e["year"]) != 3:
