@@ -734,11 +734,11 @@ func _captain_card_ui_tests() -> void:
 		var b: Button = hub.find_child("Event_%d" % i, true, false)
 		if b == null or b.size.y < 47.5:
 			tall = false
-		if hub.find_child("EventNote_%d" % i, true, false) != null:
+		if hub.find_child("EventNote_0_%d" % i, true, false) != null or hub.find_child("EventGain_0_%d" % i, true, false) != null or hub.find_child("EventCost_0_%d" % i, true, false) != null:
 			notes += 1
 	_check(tall, "Every choice on a captain's card is a thumb-sized tap (48 px)")
 	_check(notes == (card["options"] as Array).size(), "Every choice says what it does, under its button (%d lines)" % notes)
-	var rule: Label = hub.find_child("EventNote_2", true, false)
+	var rule: Label = hub.find_child("EventNote_0_2", true, false)
 	_check(rule != null and rule.text.contains("would listen to") and not rule.text.to_lower().contains("settle"),
 			"The choice left to the captain says what happens now, without the rule")
 	var see: Button = hub.find_child("EventRule_2", true, false)

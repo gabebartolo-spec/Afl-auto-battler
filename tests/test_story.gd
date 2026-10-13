@@ -29,6 +29,7 @@ func run() -> void:
 	_test_validator_catches()
 	_test_folded_sizes()
 	_test_hints_in_words()
+	_test_choice_stakes_are_stated()
 	_test_trust_rules()
 	_test_engine_rules()
 	_test_arcs()
@@ -164,6 +165,186 @@ func _test_hints_in_words() -> void:
 	var heavy := GameState.story_card("training_extra_session")
 	_check(str(heavy["options"][0]["detail"]).contains("development") and str(heavy["options"][0]["detail"]).contains("Heavy legs"),
 			"The heavy session's hint names both sides of it (%s)" % heavy["options"][0]["detail"])
+
+
+## Copy truth for the lines under a choice: every mechanical effect of every
+## choice appears in them, a gain on the Gain line and a cost on the Cost line,
+## gains first; and no line names an effect the choice lacks. What each effect
+## is worth to the coach is read straight off the effects here, apart from the
+## engine's own wording, so the lines cannot drift from what the choice does.
+const GAIN_WORDS := {
+	"morale": "(?i)morale", "xp": "development", "board": "(?i)board confidence", "trust": "trusts you (a lot |a little )?more",
+	"fresh": "legs", "promise_win": "Win and", "extend_early": "signs on", "captaincy_swap": "takes the armband",
+}
+const COST_WORDS := {
+	"morale": "(?i)morale", "board": "(?i)board confidence", "trust": "trusts you (a lot |a little )?less",
+	"rest": "misses", "heavy_legs": "Heavy legs", "sore": "breaks down", "expects_game": "expects a game",
+	"start_backing": "expects to be picked", "back_kid": "is promised", "promise_win": "Lose and", "extend_early": "Locked in", "captaincy_swap": "mid-season",
+}
+const SAMPLE_FACTS := {"sore_odds": "about 1 in 6", "run_games": 3, "early_price": "$1m", "more_seasons": "two more seasons"}
+
+
+## [gains, costs]: the kinds of effect a choice really has (a flag, a note or an
+## explanation moves nothing the coach feels and is in neither).
+func _stakes_in(effects: Array) -> Array:
+	var gains := []
+	var costs := []
+	for e in effects:
+		var op := str(e.get("op", ""))
+		var d := int(e.get("d", 0))
+		if op == "delegate":
+			for side in ["held", "failed"]:
+				var inner := _stakes_in(e.get(side, []))
+				for k in inner[0]:
+					if not gains.has(k):
+						gains.append(k)
+				for k in inner[1]:
+					if not costs.has(k):
+						costs.append(k)
+			continue
+		if op == "captaincy_swap":
+			gains.append(op)
+			costs.append_array([op, "morale", "trust"])
+			continue
+		if op in ["morale", "board", "trust"]:
+			if d > 0 and not gains.has(op):
+				gains.append(op)
+			elif d < 0 and not costs.has(op):
+				costs.append(op)
+		elif op in ["xp", "fresh", "promise_win", "extend_early"] and not gains.has(op):
+			gains.append(op)
+		if op in ["rest", "heavy_legs", "sore", "expects_game", "start_backing", "back_kid", "promise_win", "extend_early"] and not costs.has(op):
+			costs.append(op)
+	return [gains, costs]
+
+
+## What is wrong with these lines for these effects ([] when they are true).
+func _stakes_problems(effects: Array, lines: PackedStringArray) -> Array:
+	var problems := []
+	var want := _stakes_in(effects)
+	var gain_line := ""
+	var cost_line := ""
+	var order := []
+	for l in lines:
+		if l.begins_with("Gain: "):
+			gain_line = l
+			order.append("gain")
+		elif l.begins_with("Cost: "):
+			cost_line = l
+			order.append("cost")
+		elif l.begins_with("As it stands the group"):
+			pass
+		else:
+			problems.append("a line without its marker (%s)" % l)
+	if order == ["cost", "gain"]:
+		problems.append("costs before gains")
+	for side in 2:
+		var table: Dictionary = GAIN_WORDS if side == 0 else COST_WORDS
+		var line := gain_line if side == 0 else cost_line
+		var label := "gain" if side == 0 else "cost"
+		for kind in table:
+			var named := RegEx.create_from_string(str(table[kind])).search(line) != null
+			var has: bool = (want[side] as Array).has(kind)
+			if named and not has and not (kind == "board" and (want[side] as Array).has("promise_win")):
+				problems.append("%s line names %s which the effects do not contain" % [label, kind])
+			if has and not named:
+				problems.append("%s line leaves out %s" % [label, kind])
+	for l in lines:
+		if l.contains("{") or l.contains("}") or RegEx.create_from_string("[+-][0-9]|XP").search(l) != null:
+			problems.append("leaves a brace or a coefficient in the words")
+	if (want[0] as Array).is_empty() and (want[1] as Array).is_empty() and not lines.is_empty():
+		problems.append("states something where the choice does nothing")
+	return problems
+
+
+func _test_choice_stakes_are_stated() -> void:
+	_start()
+	var p: Dictionary = GameState.my_list[4]
+	var bad := []
+	var mechanical := 0
+	var shown := 0
+	var choices := 0
+	var both := 0
+	var nothing := []
+	for t in StoryDeck.all():
+		var card := GameState.story_card(str(t["id"]), p if str(t["subject"].get("kind", "")) == "player" else {})
+		for o in card["options"]:
+			choices += 1
+			var effects: Array = o["effects"]
+			var lines := StoryEngine.stakes_lines(effects, card["facts"])
+			var want := _stakes_in(effects)
+			if not (want[0] as Array).is_empty() or not (want[1] as Array).is_empty():
+				mechanical += 1
+			else:
+				nothing.append("%s/%s" % [t["id"], o["key"]])
+			if not lines.is_empty():
+				shown += 1
+			if lines.size() == 2:
+				both += 1
+			for problem in _stakes_problems(effects, lines):
+				bad.append("%s/%s %s (%s)" % [t["id"], o["key"], problem, " ".join(lines)])
+	_check(bad.is_empty(), "Every effect of every choice is in its lines, gains and costs, and no line names one it lacks: %s" % " | ".join(PackedStringArray(bad.slice(0, 8))))
+	_check(mechanical >= 100 and shown == mechanical and both >= 20, "A line under every choice that does something, none under the rest (%d of %d choices, %d with a gain and a cost)" % [shown, choices, both])
+	print("Choices that do nothing mechanical (%d): %s" % [nothing.size(), ", ".join(PackedStringArray(nothing))])
+	# The check itself must bite: a missing line, a gain or cost on the wrong line, a false one and a leftover brace are caught.
+	var heavy := [{"op": "heavy_legs", "who": "all"}, {"op": "xp", "d": 6}]
+	var good := PackedStringArray(["Gain: Some extra development for everyone.", "Cost: Heavy legs on game day, and more soft-tissue risk."])
+	_check(_stakes_problems(heavy, good).is_empty(), "The check passes the true lines for a gain and a cost")
+	_check(not _stakes_problems(heavy, PackedStringArray([good[1]])).is_empty(), "The check catches a gain left out")
+	_check(not _stakes_problems(heavy, PackedStringArray([good[0]])).is_empty(), "The check catches a cost left out")
+	_check(not _stakes_problems(heavy, PackedStringArray(["Gain: Heavy legs on game day.", "Cost: Some extra development."])).is_empty(), "The check catches a gain and a cost on the wrong lines")
+	_check(not _stakes_problems([{"op": "morale", "d": -5}], PackedStringArray([])).is_empty(), "The check catches a morale drop with no line")
+	_check(not _stakes_problems([{"op": "morale", "d": 5}], PackedStringArray(["Gain: His morale goes up.", "Cost: He misses this week's game."])).is_empty(), "The check catches a cost the effects lack")
+	_check(not _stakes_problems([{"op": "sore"}], PackedStringArray(["Cost: He breaks down: {sore_odds} chance."])).is_empty(), "The check catches an unfilled brace")
+	_check(not _stakes_problems([{"op": "flag"}], PackedStringArray(["Gain: His morale goes up."])).is_empty(), "The check catches a line on a choice that does nothing")
+	_check(not _stakes_problems(heavy, PackedStringArray([good[1], good[0]])).is_empty(), "The check catches costs before gains")
+	# Every effect line names the thing that moves; no mood word stands in for it.
+	var vague := RegEx.create_from_string("(?i)\\b(lift|lifts|flat|stings|sours|thrilled|a bit off|likes it|won't like)\\b")
+	var nouns := {"morale": "orale", "xp": "development", "board": "Board confidence", "trust": "trusts you", "rest": "game",
+			"sore": "sore", "fresh": "legs", "heavy_legs": "legs", "expects_game": "game", "start_backing": "games",
+			"promise_win": "board confidence", "extend_early": "a season"}
+	var unnamed := []
+	for t in StoryDeck.all():
+		for c in t["choices"]:
+			for e in c.get("effects", []):
+				var op := str(e.get("op", ""))
+				if not nouns.has(op):
+					continue
+				var w := StoryEngine.describe({"effects": [e]}, SAMPLE_FACTS)
+				if w == "" or not w.contains(str(nouns[op])) or vague.search(w) != null:
+					unnamed.append("%s/%s %s: %s" % [t["id"], c["key"], op, w])
+	_check(unnamed.is_empty(), "Every effect line names the thing that moves, with no vague mood word: %s" % " | ".join(PackedStringArray(unnamed.slice(0, 6))))
+	# No card line, the captain's "leave it to him" lines included (standing either way), uses a mood word for an effect.
+	var vague_lines := []
+	for t in StoryDeck.all():
+		for c in t["choices"]:
+			for holds in [true, false]:
+				var f := SAMPLE_FACTS.duplicate()
+				f["delegate_holds"] = holds
+				f["name"] = "Sam"
+				f["vice_name"] = "Joe"
+				f["kid_name"] = "Kid"
+				var txt := " ".join(StoryEngine.stakes_lines(c.get("effects", []), f))
+				if vague.search(txt) != null or txt.contains("{"):
+					vague_lines.append("%s/%s: %s" % [t["id"], c["key"], txt])
+	_check(vague_lines.is_empty(), "No card line uses lift or flat or a brace, delegate lines included: %s" % " | ".join(PackedStringArray(vague_lines.slice(0, 4))))
+	# The lines read the effects and change none.
+	var before := JSON.stringify(heavy)
+	StoryEngine.stakes_lines(heavy, {})
+	_check(JSON.stringify(heavy) == before, "Wording the stakes leaves the effects as they were")
+	# No card repeats under its heading what the lines under its buttons say.
+	var repeats := []
+	for t in StoryDeck.all():
+		var st := str(t.get("stakes", ""))
+		if st == "":
+			continue
+		var all_lines := ""
+		for c in t["choices"]:
+			all_lines += " ".join(StoryEngine.stakes_lines(c.get("effects", []), SAMPLE_FACTS))
+		for kw in ["breaks down", "heavy legs", "expects a game", "promise breaks", "lose and"]:
+			if st.to_lower().contains(kw) and all_lines.to_lower().contains(kw):
+				repeats.append("%s (%s)" % [t["id"], kw])
+	_check(repeats.is_empty(), "A card's own stakes line never repeats the lines under its choices: %s" % " | ".join(PackedStringArray(repeats)))
 
 
 # --- Trust ---------------------------------------------------------------------
@@ -483,8 +664,8 @@ func _test_trust_in_play() -> void:
 	GameState.week_event = GameState.story_card("media_in_the_papers", p)
 	var hint := str(GameState.week_event["options"][1]["detail"])
 	var out := GameState.resolve_week_event(1)
-	_check(hint.contains("His trust in you rises"), "The choice says what it does to his trust (%s)" % hint)
-	_check(Trust.value(GameState.relations, key) == 10 and out.contains("His trust in you rose"),
+	_check(hint.contains("He trusts you"), "The choice says what it does to his trust (%s)" % hint)
+	_check(Trust.value(GameState.relations, key) == 10 and out.contains("He trusts you more"),
 			"Backing him in the papers: his trust rises, and the result says so (%s)" % out)
 	_check(str(Trust.reasons(GameState.relations, key)[0]["why"]) == "You backed him when he was in the papers",
 			"The reason is kept in plain words")
@@ -513,7 +694,7 @@ func _test_trust_in_play() -> void:
 	Trust.change(GameState.relations, Trust.player_key(str(fan["id"])), 15, "t", 2027, "Round 1")
 	fan["morale"] = 30
 	var card := GameState.story_card("selection_unhappy", fan)
-	_check(str(card["options"][0]["detail"]).contains("It means more coming from you"),
+	_check(str(card["options"][0]["detail"]).contains("counts for more because he trusts you"),
 			"A talk with a player who trusts you says it lands harder")
 	GameState.week_event = card
 	GameState.resolve_week_event(0)
@@ -1055,8 +1236,8 @@ func _test_captain_cards() -> void:
 
 func _test_group_words_are_sentence_case() -> void:
 	var words := StoryEngine._morale_words(-3, "all") + " " + StoryEngine._morale_words(-8, "others") + " " + StoryEngine._morale_words(-3, "side")
-	_check(words.contains("The whole list is a little flat about it.") and words.contains("The rest of the group takes it hard.")
-			and words.contains("The side is a little flat about it."), "A group's mood line is in sentence case (%s)" % words)
+	_check(words.contains("Morale down a little across the whole list.") and words.contains("Morale down in the rest of the group.")
+			and words.contains("Morale down a little across the side."), "A group's mood line is in sentence case and names morale (%s)" % words)
 
 
 ## The paths a normal career rarely walks: a captain who can't settle a dispute, a stale
