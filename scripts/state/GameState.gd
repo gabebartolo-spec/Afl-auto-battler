@@ -868,10 +868,28 @@ const CAREER_VERSION := 2
 func _migrate_player_clubs() -> void:
 	if season == null:
 		return
+	# A run you promised was stamped with the club field he had then; it moves
+	# with him, or his "With us" line would drop it (Backing.memory_bits).
+	for code in season.lists:
+		for p in season.lists[code]:
+			if p is Dictionary:
+				_restamp_backed(p, str(code))
 	_rehome_players(season.lists)
 	for p in my_list:
 		if p is Dictionary and my_club != "":
+			_restamp_backed(p, my_club)
 			p["club"] = my_club
+
+
+## Runs made at the club field he carried before the migration now read as made
+## at `club`, where he is listed. Runs made at any other club stay as they are.
+func _restamp_backed(p: Dictionary, club: String) -> void:
+	var old := str(p.get("club", ""))
+	if old == club or not (p.get("backed") is Array):
+		return
+	for e in p["backed"]:
+		if e is Dictionary and str(e.get("club", "")) == old:
+			e["club"] = club
 
 
 ## A save from before career records: every player gets his dataset career

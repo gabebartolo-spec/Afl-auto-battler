@@ -931,6 +931,12 @@ func _test_player_club_follows_list() -> void:
 			p["club"] = "GEE" if code != "GEE" else "COL"
 	counts = _club_field_counts(GameState.season.lists)
 	_check(int(counts[1]) == 0, "The test save really has players on another club's field")
+	# A run promised before the fix was stamped with that old club field.
+	var backed_p: Dictionary = GameState.my_list[0]
+	Backing.start(backed_p, GameState.season_year, 1, 5)
+	(backed_p["backed"] as Array)[0]["state"] = "done"
+	(backed_p["backed"] as Array)[0]["played"] = 3
+	var backed_id := str(backed_p["id"])
 	_check(GameState.save_career(), "The re-draft career saves")
 	var state: Dictionary = CareerSave.read(GameState.save_path)
 	_check(int(state.get("career_version", 0)) == 2, "A new save is format 2")
@@ -945,6 +951,16 @@ func _test_player_club_follows_list() -> void:
 	_check(_ladder_sig() == ladder, "The ladder is the same")
 	_check(GameState.my_list.map(func(p): return int(p["overall"])) == overalls, "The same ratings")
 	_check(GameState.my_list.all(func(p): return str(p["club"]) == "COL"), "Your players are COL after the load")
+	var kept: Array = []
+	for p in GameState.my_list:
+		if str(p["id"]) == backed_id:
+			kept = Backing.memory_bits(p)
+	_check(kept.size() == 1, "A run promised before the fix still shows in his With us line after the load")
+	GameState.save_career()
+	GameState.load_career()
+	for p in GameState.my_list:
+		if str(p["id"]) == backed_id:
+			_check(Backing.memory_bits(p) == kept, "A second load leaves the run as it was")
 	# A format 2 save is left as it is.
 	GameState.season.lists["COL"][0]["club"] = "GEE"
 	_check(GameState.save_career(), "The migrated career saves again")
