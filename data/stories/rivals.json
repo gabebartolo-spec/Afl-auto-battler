@@ -135,5 +135,87 @@
 				"result": "You tell the group to ignore it."
 			}
 		]
+	},
+	{
+		"id": "gf_the_opponent",
+		"category": "rivals",
+		"phase": [
+			"finals"
+		],
+		"subject": {
+			"kind": "club"
+		},
+		"when": {
+			"finals_week": 5
+		},
+		"priority": true,
+		"weight": 2,
+		"cooldown": 0,
+		"title": [
+			"{opp} in the Grand Final"
+		],
+		"text": [
+			{
+				"when": {
+					"gf_run_min": 3
+				},
+				"text": "{opp} again, for the {gf_run_word} year running. Nobody knows you better."
+			},
+			{
+				"when": {
+					"gf_again": "won"
+				},
+				"text": "{opp} again. They've had twelve months to think about last year's Grand Final."
+			},
+			{
+				"when": {
+					"gf_again": "lost"
+				},
+				"text": "{opp} again. A year of watching that replay, and now a second go at them."
+			},
+			{
+				"when": {
+					"rival": true
+				},
+				"text": "{opp}. Of all the clubs, it had to be them. Your supporters won't sleep this week."
+			},
+			"{opp}. Whatever happened in the home-and-away counts for nothing now."
+		],
+		"choices": [
+			{
+				"key": "them",
+				"label": "Make it about them",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 10,
+						"who": "side"
+					},
+					{
+						"op": "slow_start",
+						"who": "side",
+						"chance": 20
+					}
+				],
+				"result": "Their names go up on the whiteboard all week. The players want them badly."
+			},
+			{
+				"key": "us",
+				"label": "Make it about us",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 4,
+						"who": "side"
+					},
+					{
+						"op": "morale",
+						"d": 2,
+						"who": "side"
+					}
+				],
+				"result": "Not one word about {opp} until Thursday's match plan."
+			}
+		]
 	}
 ]

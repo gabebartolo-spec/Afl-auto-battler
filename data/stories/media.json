@@ -450,5 +450,60 @@
 			"board": -4,
 			"text": "You say nothing. The board wanted an answer."
 		}
+	},
+	{
+		"id": "gf_week",
+		"category": "media",
+		"phase": [
+			"finals"
+		],
+		"subject": {
+			"kind": "club"
+		},
+		"when": {
+			"finals_week": 5
+		},
+		"priority": true,
+		"weight": 1,
+		"cooldown": 60,
+		"title": [
+			"Grand Final week"
+		],
+		"text": [
+			"The Brownlow on Monday, media day, the parade on Friday. Somewhere in there, you have to train."
+		],
+		"choices": [
+			{
+				"key": "all",
+				"label": "Do all of it",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 6,
+						"who": "all"
+					},
+					{
+						"op": "heavy_legs",
+						"who": "side"
+					}
+				],
+				"result": "The players soak up every minute, and they're tired by Friday."
+			},
+			{
+				"key": "min",
+				"label": "The bare minimum",
+				"effects": [
+					{
+						"op": "fresh",
+						"who": "side"
+					},
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "In and out of the parade, no Brownlow. The sponsors grumble to the board."
+			}
+		]
 	}
 ]

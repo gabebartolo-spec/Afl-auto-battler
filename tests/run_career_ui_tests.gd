@@ -1625,6 +1625,7 @@ func _run() -> void:
 
 	await _test_season_awards()
 	await _test_back_arrow_taps()
+	await _test_finals_card_taps()
 	_test_type_roles()
 	await _test_names_fit()
 	_state.delete_saved_career()
@@ -1654,6 +1655,81 @@ func _test_back_arrow_taps() -> void:
 			why = await Tap.tap(b)
 			await _settle()
 		_check(_router.current() == "hub", "Tapping back on %s gets you out (%s)" % [key, why if why != "" else "ok"])
+
+
+## The finals cards on a phone: a club on its week off (no match, so no Play match) is shown the
+## week-off card and a finger on "Rest them" answers it; in the semi week the same card has a third
+## choice, and a finger on it answers it too; a Grand Final card with the rule under "See the rule".
+func _test_finals_card_taps() -> void:
+	_state.reset()
+	_state.career_seed = 4401
+	_state.replay_seed = 4401
+	_state.start_season("FRE", _db.club_list("FRE"))
+	var sea: Season = _state.season
+	var codes: Array = sea.ladder.keys()
+	codes.sort()
+	codes.erase("FRE")
+	codes.insert(0, "FRE")
+	for i in range(codes.size()):
+		var row: Dictionary = sea.ladder[codes[i]]
+		row["w"] = 20 - i
+		row["l"] = 4 + i
+		row["d"] = 0
+		row["p"] = 24
+		row["pf"] = 2400 - i * 20
+		row["pa"] = 2000
+	sea.round_index = sea.fixture.size()
+	sea.recalc_ladder()
+	sea.start_finals()
+	_state._next_week_event()
+	root.size = Vector2i(390, 844)
+	_router.stack = ["main"]
+	_router.go("hub")
+	await _settle()
+	var card: Control = current_scene.find_child("WeekEvent", true, false)
+	var ids := _state.week_events.map(func(c): return str(c["tid"]))
+	_check(card != null and ids == ["finals_week_off"], "A club on its week off sees the week-off card on the hub (%s)" % str(ids))
+	var rest: Button = card.find_child("Event_0", true, false) if card != null else null
+	_check(card != null and card.find_child("Event_2", true, false) == null, "Week one of the finals: two choices, no semi to watch")
+	var tap_why: String = await Tap.tap(rest) if rest != null else "missing"
+	await _settle()
+	var all_fresh := true
+	for q in _state.my_list:
+		all_fresh = all_fresh and bool(q.get("fresh", false))
+	_check(tap_why == "" and bool(_state.week_events[0].get("resolved", false)) and all_fresh,
+			"A finger on Rest them answers the week-off card and the whole list is fresh (%s)" % tap_why)
+	# The semi week: the same card with a third choice.
+	sea.finals["week"] = 3
+	sea.finals["weeks"] = [[], []]
+	sea.finals["slots"] = {"W_QF1": "FRE"}
+	_state._next_week_event()
+	_router.go("hub")
+	await _settle()
+	card = current_scene.find_child("WeekEvent", true, false)
+	var semi: Button = card.find_child("Event_2", true, false) if card != null else null
+	_check(semi != null and semi.text.contains("Watch the semi together"), "The semi week's card has a third choice: Watch the semi together")
+	var semi_why: String = await Tap.tap(semi) if semi != null else "missing"
+	await _settle()
+	_check(semi_why == "" and bool(_state.week_events[0].get("resolved", false)), "A finger on it answers the card (%s)" % semi_why)
+	# A captain card in the Grand Final: the rule is one tap away.
+	sea.finals["week"] = 5
+	sea.finals["weeks"] = [[], [], [], []]
+	sea.finals["slots"] = {"W_PF1": "FRE", "W_PF2": "ESS"}
+	var cap: Dictionary = {}
+	for q in _state.my_list:
+		if Captaincy.role_of(_state.captaincy_record("FRE"), str(q["id"])) == "captain":
+			cap = q
+	_state.week_events = [_state.story_card("finals_second_chance", cap)]
+	_router.go("hub")
+	await _settle()
+	card = current_scene.find_child("WeekEvent", true, false)
+	var rule_btn: Control = null
+	if card != null:
+		for n in card.find_children("*", "Button", true, false):
+			if (n as Button).text.contains("See the rule"):
+				rule_btn = n
+	_check(rule_btn != null, "A card that leaves it to the captain offers See the rule")
+	_state.week_events = []
 
 
 func _test_season_awards() -> void:
