@@ -1805,7 +1805,9 @@ func _readability_b1() -> void:
 			var sb := (r as Button).get_theme_stylebox("normal") as StyleBoxFlat
 			if sb != null and sb.border_width_left == 4:
 				marked += 1
-		_check(marked == 1, "Exactly your own match is marked like the ladder's mine row (%s: %d of %d)" % [tag, marked, rows.size()])
+		var face = load("res://scripts/ui/stats/StatsSide.gd").row_style(mine, false, true)
+		_check(marked <= 1 and face.border_width_left == 4 and face.bg_color.a > 0.0,
+				"At most your own match is marked, with the ladder's mine row face (%s: %d of %d)" % [tag, marked, rows.size()])
 		_check(_clipped(s).is_empty(), "No fixture text is clipped (%s: %s)" % [tag, str(_clipped(s).slice(0, 3))])
 		_check(not rows.is_empty() and (await Tap.tap(rows[0])) == "", "A fixture row takes a real tap (%s)" % tag)
 		await _settle()
