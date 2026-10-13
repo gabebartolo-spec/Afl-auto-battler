@@ -116,8 +116,16 @@ static func find(first: String, last: String, dob: String) -> Dictionary:
 ## (code, or ""), "note" (the words in brackets, "" if none)}.
 static func ties(p: Dictionary) -> Array:
 	var out: Array = []
-	if bool(p.get("generated", false)) or not GameState.show_real_names:
-		return out
+	# Sourced ties name real people, so only with real names on; a generated
+	# family (FamilyTies) is fictional either way and follows the display names.
+	if not bool(p.get("generated", false)) and GameState.show_real_names:
+		out = _sourced_ties(p)
+	out.append_array(_generated_ties(p))
+	return out
+
+
+static func _sourced_ties(p: Dictionary) -> Array:
+	var out: Array = []
 	_load()
 	var mine := find(str(p.get("first", "")), str(p.get("last", "")), str(p.get("dob", "")))
 	var my_club := str(mine.get("club", ""))
@@ -167,3 +175,79 @@ static func line(p: Dictionary) -> String:
 		var n := note_text(t)
 		bits.append("%s %s%s" % [t["phrase"], t["name"], " (%s)" % n if n != "" else ""])
 	return " · ".join(bits)
+
+
+# ---------------------------------------------------------------------------
+# Generated families: p["family"] on the draftee, and the other side found by
+# scanning (nothing is stored on the older man).
+# ---------------------------------------------------------------------------
+const REVERSE_PHRASE := {"brother": "Brother of", "son of": "Father of"}
+
+
+## Every player held in the game right now, each as {"p", "club", "prospect"}
+## (a prospect is in a draft pool and on no list yet).
+static func _everyone() -> Array:
+	var out: Array = []
+	var groups: Array = [GameState.my_list, GameState.free_agents]
+	for code in GameState.league_lists:
+		groups.append(GameState.league_lists[code])
+	if GameState.season != null:
+		for code in GameState.season.lists:
+			groups.append(GameState.season.lists[code])
+	var seen := {}
+	for arr in groups:
+		for q in arr:
+			if q is Dictionary and not seen.has(str(q.get("id", ""))):
+				seen[str(q.get("id", ""))] = true
+				out.append({"p": q, "club": str(q.get("club", "")), "prospect": false})
+	for arr in [GameState.draftee_pool, GameDB.late_draftees]:
+		for q in arr:
+			if q is Dictionary and not seen.has(str(q.get("id", ""))):
+				seen[str(q.get("id", ""))] = true
+				out.append({"p": q, "club": "", "prospect": true})
+	return out
+
+
+static func _generated_ties(p: Dictionary) -> Array:
+	var out: Array = []
+	var id := str(p.get("id", ""))
+	var everyone := _everyone()
+	var by_id := {}
+	for e in everyone:
+		by_id[str(e["p"].get("id", ""))] = e
+	var mine: Dictionary = by_id.get(id, {})
+	var my_club := "" if mine.is_empty() or bool(mine["prospect"]) else str(mine["club"])
+	for f in p.get("family", []):
+		var oid := str(f.get("id", ""))
+		var o: Dictionary = by_id.get(oid, {})
+		var tie := {"phrase": PHRASE[str(f["relation"])], "found": not o.is_empty(),
+				"player": o.get("p", {}), "club": "", "note": "",
+				"name": GameDB.player_display_name_by_id(oid, "a former player")}
+		if o.is_empty():
+			# Retired: kept by name only.
+			if str(f.get("club", "")) != "":
+				tie["club"] = str(f["club"])
+				tie["former"] = true
+		else:
+			_place(tie, o, my_club)
+		out.append(tie)
+	if id == "":
+		return out
+	for e in everyone:
+		for f in e["p"].get("family", []):
+			if str(f.get("id", "")) == id and REVERSE_PHRASE.has(str(f["relation"])):
+				var tie := {"phrase": REVERSE_PHRASE[str(f["relation"])], "found": true, "player": e["p"],
+						"club": "", "note": "", "name": GameDB.player_display_name(e["p"])}
+				_place(tie, e, my_club)
+				out.append(tie)
+	return out
+
+
+static func _place(tie: Dictionary, o: Dictionary, my_club: String) -> void:
+	if bool(o["prospect"]):
+		tie["note"] = "%d draft prospect" % int(o["p"].get("draft_year", 2026))
+	else:
+		tie["club"] = str(o["club"])
+		if my_club != "" and my_club == tie["club"]:
+			tie["club"] = ""
+			tie["note"] = "teammate"

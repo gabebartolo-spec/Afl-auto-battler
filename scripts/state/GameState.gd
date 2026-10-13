@@ -1261,8 +1261,20 @@ func _first_class(year: int) -> Array:
 	_first_class_seed = career_seed
 	var generated := Prospects.generate_class(year, career_seed)
 	class_tiers[str(year)] = Prospects.class_tier(career_seed, year)
+	FamilyTies.assign(generated, year, career_seed, FamilyTies.listed_entries(GameDB.players, 0.0))
 	GameDB.register_draftees(generated)
 	return Prospects.age_pool(generated, year, {})
+
+
+## Generated family ties for a new class (bio only; see FamilyTies): relatives
+## come from everyone listed now and from the retired.
+func _assign_family_ties(cls: Array, year: int) -> void:
+	var everyone: Array = []
+	for code in league_lists:
+		everyone.append_array(league_lists[code])
+	var entries := FamilyTies.listed_entries(everyone, float(year - season_year))
+	entries.append_array(FamilyTies.retired_entries(departed_names, year))
+	FamilyTies.assign(cls, year, career_seed, entries)
 
 
 ## The seed for a new draft or season: the clock, or with `replay_seed` set,
@@ -1568,6 +1580,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	# 17-year-olds are also a year older in the season they arrive.
 	var generated := Prospects.generate_class(next_year, career_seed)
 	class_tiers[str(next_year)] = Prospects.class_tier(career_seed, next_year)
+	_assign_family_ties(generated, next_year)
 	GameDB.register_draftees(generated)
 	for p in generated:
 		draftee_pool.append(p)
@@ -7880,7 +7893,12 @@ func _retirees_to_coaching(retired: Array, listed: Dictionary) -> void:
 func _career_over(p: Dictionary) -> void:
 	var gone_id := str(p.get("id", ""))
 	if gone_id != "" and not departed_names.has(gone_id):
-		departed_names[gone_id] = CareerFacts.name_card(p)
+		var card := CareerFacts.name_card(p)
+		# What a later generated son needs of him: his age, the year and his club.
+		card["age"] = float(p.get("age", 0.0))
+		card["year"] = season_year
+		card["club"] = str(p.get("club", ""))
+		departed_names[gone_id] = card
 	if coaches.is_empty():
 		return
 	var pid := str(p.get("id", ""))
