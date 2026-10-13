@@ -23,8 +23,15 @@ func _ready() -> void:
 	add_child(margin)
 	_root = UiKit.vbox(10)
 	margin.add_child(_root)
-	get_viewport().size_changed.connect(_build)
+	get_viewport().size_changed.connect(_on_resize)
 	_build()
+
+
+func _on_resize() -> void:
+	# A resize rebuilds the page: the player keeps their place on it.
+	var places := UiKit.scroll_places(_root)
+	_build()
+	UiKit.restore_places(_root, places)
 
 
 func _build() -> void:

@@ -194,6 +194,7 @@ static func hbox(sep := 8) -> HBoxContainer:
 ## own rail is 8 units).
 const SCROLL_RAIL := 20       # the touch area, in units
 const SCROLL_THUMB := 6       # the line you see inside it
+const SCROLL_THUMB_HOT := 10  # the same line, fatter, under the pointer or held
 const SCROLL_THUMB_MIN := 48  # never shorter than a fingertip
 
 static func scroll(child: Control) -> ScrollContainer:
@@ -206,7 +207,108 @@ static func scroll(child: Control) -> ScrollContainer:
 	style_scrollbar(s.get_v_scroll_bar())
 	child.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	s.add_child(child)
+	_let_drags_through(s)
 	return s
+
+
+## A swipe that starts on a button must scroll the page, not stop at the button:
+## every button inside a scrolling page lets the drag reach the page (a tap
+## still presses it). Buttons are set as they arrive, so a row built later is
+## covered too. (My list rows were plain buttons and swallowed the swipe.)
+static func _let_drags_through(s: ScrollContainer) -> void:
+	var pass_on := func(n: Node) -> void:
+		if n is BaseButton and is_instance_valid(s) and s.is_ancestor_of(n) 				and (n as Control).mouse_filter == Control.MOUSE_FILTER_STOP:
+			(n as Control).mouse_filter = Control.MOUSE_FILTER_PASS
+	s.tree_entered.connect(func() -> void:
+		var tree := s.get_tree()
+		if not tree.node_added.is_connected(pass_on):
+			tree.node_added.connect(pass_on)
+		_pass_buttons(s))
+	s.tree_exiting.connect(func() -> void:
+		var tree := s.get_tree()
+		if tree != null and tree.node_added.is_connected(pass_on):
+			tree.node_added.disconnect(pass_on))
+
+
+static func _pass_buttons(node: Node) -> void:
+	for c in node.get_children():
+		if c is BaseButton and (c as Control).mouse_filter == Control.MOUSE_FILTER_STOP:
+			(c as Control).mouse_filter = Control.MOUSE_FILTER_PASS
+		_pass_buttons(c)
+
+
+## Where the player is on a scrolled page, for a screen that rebuilds itself
+## (a move, a resize) and puts them back. Ask this, never scroll_vertical, when
+## you are about to rebuild: a page still waiting to be put back reports the
+## place it was asked to hold, so a second rebuild before the first has settled
+## (a browser reports its size more than once) cannot read 0 and send the
+## player to the top of the page.
+static func scroll_place(sc: ScrollContainer) -> int:
+	if sc == null or not is_instance_valid(sc):
+		return 0
+	return int(sc.get_meta("scroll_place", sc.scroll_vertical))
+
+
+## Put a rebuilt page back at `value` once it is laid out and tall enough,
+## holding the place until then. The player's own scroll (wheel, drag, bar) ends
+## the hold.
+static func restore_scroll(sc: ScrollContainer, value: int) -> void:
+	if sc == null or not is_instance_valid(sc):
+		return
+	if value <= 0:
+		sc.remove_meta("scroll_place")
+		return
+	sc.set_meta("scroll_place", value)
+	var bar := sc.get_v_scroll_bar()
+	var release := func(ev: InputEvent) -> void:
+		if is_instance_valid(sc) and (ev is InputEventMouseButton or ev is InputEventScreenTouch or ev is InputEventScreenDrag):
+			sc.remove_meta("scroll_place")
+	sc.gui_input.connect(release)
+	bar.gui_input.connect(release)
+	var loop := Engine.get_main_loop() as SceneTree
+	var held := 0
+	for i in range(90):
+		if not is_instance_valid(sc) or not sc.has_meta("scroll_place"):
+			return
+		sc.scroll_vertical = value
+		# Laid out (the bar knows its page) and at the place: hold it a few
+		# frames more, as the rows above settle, then let go.
+		if bar.page > 0.0 and sc.scroll_vertical >= value:
+			held += 1
+			if held >= 4:
+				break
+		else:
+			held = 0
+		await loop.process_frame
+	if is_instance_valid(sc):
+		sc.remove_meta("scroll_place")
+
+
+## Every page that scrolls up and down under `root`, in order, with where the
+## player is on it; give the list back to restore_places after a rebuild.
+static func scroll_places(root: Node) -> Array:
+	var places := []
+	for sc in _vertical_scrolls(root):
+		places.append(scroll_place(sc))
+	return places
+
+
+static func restore_places(root: Node, places: Array) -> void:
+	var scrolls := _vertical_scrolls(root)
+	for i in range(mini(scrolls.size(), places.size())):
+		restore_scroll(scrolls[i], int(places[i]))
+
+
+static func _vertical_scrolls(node: Node) -> Array:
+	var out := []
+	# clear() keeps the row under the pointer a frame longer, hidden: not a page.
+	if str(node.name).begins_with("Leaving_"):
+		return out
+	if node is ScrollContainer and (node as ScrollContainer).vertical_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED:
+		out.append(node)
+	for c in node.get_children():
+		out.append_array(_vertical_scrolls(c))
+	return out
 
 
 ## A slim thumb in a wide touch area, flat like everything else: no track, the
@@ -218,16 +320,16 @@ static func style_scrollbar(bar: ScrollBar) -> void:
 	track.content_margin_left = SCROLL_RAIL
 	bar.add_theme_stylebox_override("scroll", track)
 	bar.add_theme_stylebox_override("grabber", _thumb(Color(MUTED, 0.55)))
-	bar.add_theme_stylebox_override("grabber_highlight", _thumb(Color(MUTED, 0.85)))
-	bar.add_theme_stylebox_override("grabber_pressed", _thumb(TEXT))
+	bar.add_theme_stylebox_override("grabber_highlight", _thumb(Color(MUTED, 0.85), SCROLL_THUMB_HOT))
+	bar.add_theme_stylebox_override("grabber_pressed", _thumb(TEXT, SCROLL_THUMB_HOT))
 
 
-static func _thumb(colour: Color) -> StyleBoxFlat:
+static func _thumb(colour: Color, width := SCROLL_THUMB) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = colour
-	sb.set_corner_radius_all(SCROLL_THUMB / 2)
+	sb.set_corner_radius_all(width / 2)
 	# The thumb hugs the right edge; the rest of the rail is touch area.
-	sb.expand_margin_left = -(SCROLL_RAIL - SCROLL_THUMB)
+	sb.expand_margin_left = -(SCROLL_RAIL - width)
 	sb.content_margin_top = SCROLL_THUMB_MIN / 2.0
 	sb.content_margin_bottom = SCROLL_THUMB_MIN / 2.0
 	return sb
