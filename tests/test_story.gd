@@ -47,6 +47,7 @@ func run() -> void:
 	_test_captain_cards_in_play()
 	_test_captain_from_the_start()
 	_test_time_trial_names()
+	_test_vacancy_is_filled()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	GameState.stories_on = true
@@ -1033,7 +1034,7 @@ func _test_captaincy() -> void:
 				"Confirming an edit never saves a leader who has gone")
 		_run_on(1)
 		_check(Captaincy.ids(GameState.captaincy_record("GEE"), "captain").is_empty(),
-				"A captain who has left your list leaves the captaincy open")
+				"A spot the coach emptied stays empty, even when the man he had named has since left")
 
 	# A rival's captain: neutral facts for anyone, scandal or form only for an invented one.
 	GameState.reset()
@@ -1485,3 +1486,128 @@ func _test_time_trial_names() -> void:
 				and int(_effect(run, "morale")["d"]) == -3 and str(_effect(run, "morale")["who"]) == "all",
 				"The effects are unchanged: morale -3 and 5 development for everyone")
 	GameState.show_real_names = names_before
+
+
+## Director 2026-10-12: when your captain retires or leaves, a vice-captain steps up by
+## the same rule as the AI clubs, with a note to the coach; a spot the coach emptied
+## himself stays empty.
+func _vacancy_career() -> Dictionary:
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var rec := GameState.captaincy_record("GEE")
+	var cap := {}
+	for p in GameState.my_list:
+		if Captaincy.role_of(rec, str(p["id"])) == "captain":
+			cap = p
+	return cap
+
+
+func _remove_from_my_list(id: String) -> Dictionary:
+	for i in range(GameState.my_list.size()):
+		if str(GameState.my_list[i]["id"]) == id:
+			var gone: Dictionary = GameState.my_list[i]
+			GameState.my_list.remove_at(i)
+			return gone
+	return {}
+
+
+func _test_vacancy_is_filled() -> void:
+	# Retirement: he is gone from every list. The best-rated vice takes over, with a note.
+	var cap := _vacancy_career()
+	var rec := GameState.captaincy_record("GEE")
+	var vices := Captaincy.ids(rec, "vice")
+	var best_vice := ""
+	for p in GameState.my_list:
+		if vices.has(str(p["id"])) and (best_vice == "" or Leadership.of(p) > Leadership.of(GameState.list_player(best_vice))):
+			best_vice = str(p["id"])
+	_check(not cap.is_empty() and best_vice != "", "Geelong has a captain and a vice-captain to start from")
+	var news_before := GameState.news.size()
+	_remove_from_my_list(str(cap["id"]))
+	_run_on(1)
+	var now := GameState.captaincy_record("GEE")
+	_check(Captaincy.ids(now, "captain") == [best_vice], "A retired captain is replaced by the best-rated vice-captain")
+	var noted := false
+	for i in range(GameState.news.size() - news_before):
+		if str(GameState.news[i]["text"]).begins_with("Your captain has left the club, so"):
+			noted = true
+	_check(noted, "The coach gets a short note when the vice takes over")
+	_check(not Captaincy.ids(now).has(str(cap["id"])), "The man who left is not in the record")
+
+	# Traded away: he is on a rival's list, not ours. Same result.
+	cap = _vacancy_career()
+	rec = GameState.captaincy_record("GEE")
+	var gone := _remove_from_my_list(str(cap["id"]))
+	for code in GameState.season.lists:
+		if str(code) != "GEE":
+			gone["club"] = str(code)
+			(GameState.season.lists[code] as Array).append(gone)
+			break
+	_run_on(1)
+	now = GameState.captaincy_record("GEE")
+	_check(Captaincy.ids(now, "captain").size() == 1 and Captaincy.ids(now, "captain")[0] != str(cap["id"]),
+			"A captain traded away is replaced the same way")
+
+	# No vice-captains left: the highest Leadership on the list takes over, by the rule.
+	cap = _vacancy_career()
+	GameState.set_captaincy([{"id": str(cap["id"]), "role": "captain"}])
+	_remove_from_my_list(str(cap["id"]))
+	_run_on(1)
+	now = GameState.captaincy_record("GEE")
+	var by_rule := Captaincy.by_rule(GameState.my_list)
+	_check(Captaincy.ids(now, "captain") == [str(by_rule[0]["id"])], "With no vice-captain left, the rule picks (the highest Leadership)")
+
+	# A spot the coach emptied himself stays empty, whoever leaves.
+	cap = _vacancy_career()
+	GameState.set_captaincy([])
+	_run_on(2)
+	_check(Captaincy.ids(GameState.captaincy_record("GEE")).is_empty(), "A spot the coach emptied stays empty")
+	_remove_from_my_list(str(cap["id"]))
+	_run_on(2)
+	_check(Captaincy.ids(GameState.captaincy_record("GEE")).is_empty(), "...even after a player leaves: there was no captain to lose")
+
+	# A coach who named only a captain gets only a captain back, not a full group of three.
+	cap = _vacancy_career()
+	GameState.set_captaincy([{"id": str(cap["id"]), "role": "captain"}])
+	_remove_from_my_list(str(cap["id"]))
+	_run_on(1)
+	now = GameState.captaincy_record("GEE")
+	_check(Captaincy.ids(now).size() == 1 and Captaincy.ids(now, "captain").size() == 1,
+			"A captain named alone is replaced by one captain, with no vice-captains added")
+	_check(Captaincy.ids(now, "vice").is_empty(), "...the vice-captain spots the coach left empty stay empty")
+	var alone := JSON.stringify(GameState.captaincy)
+	_check(GameState.save_career() and GameState.load_career() and JSON.stringify(GameState.captaincy) == alone,
+			"...across a reload")
+	_run_on(2)
+	_check(Captaincy.ids(GameState.captaincy_record("GEE"), "vice").is_empty() and Captaincy.ids(GameState.captaincy_record("GEE")).size() == 1,
+			"...and on the rounds that follow")
+	var alone_note := false
+	for item in GameState.news:
+		if str(item["kind"]) == "captaincy" and str(item["text"]).begins_with("Your captain has left the club, so"):
+			alone_note = true
+	_check(alone_note, "...and the coach still gets the note")
+
+	# A retired captain is told as retired; before Round 1 the note is dated to the off-season.
+	cap = _vacancy_career()
+	GameState.intake_summary = {"retired": [{"id": str(cap["id"])}]}
+	_remove_from_my_list(str(cap["id"]))
+	GameState._captaincy_refresh()
+	var top: Dictionary = GameState.news[0]
+	_check(str(top["kind"]) == "captaincy" and str(top["text"]).begins_with("Your captain has retired, so ")
+			and str(top["text"]).contains(" takes over as captain. You can change it on the Captaincy page."),
+			"A captain who retired is told so: 'has retired', not 'has left the club'")
+	_check(str(top["when"]) == "Off-season", "A step-up before Round 1 is dated to the off-season, not Round 1")
+	var log: Array = GameState.captaincy_record("GEE")["log"]
+	_check(str(log[log.size() - 1]["w"]) == "Pre-season", "...and the captaincy page dates it Pre-season")
+	GameState.intake_summary = {}
+
+	# The save: the new captain and the empty spot both survive a reload.
+	cap = _vacancy_career()
+	_remove_from_my_list(str(cap["id"]))
+	_run_on(1)
+	var after_vacancy := JSON.stringify(GameState.captaincy)
+	_check(GameState.save_career() and GameState.load_career() and JSON.stringify(GameState.captaincy) == after_vacancy,
+			"A vice who stepped up survives a reload")
+	_run_on(2)
+	_check(Captaincy.ids(GameState.captaincy_record("GEE"), "captain").size() == 1, "...and nothing changes on the rounds that follow")

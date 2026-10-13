@@ -5273,7 +5273,7 @@ var _phase_cache := {}
 
 ## A club's list as the game sees it (TeamRating): its match-day side today on the
 ## OVR scale, the same list in three seasons, and its phase, with the line a
-## screen shows ("Contender · rated 78, heading to 81").
+## screen shows ("Contender. Team rating 78. On this list, 81 in three years.").
 func team_outlook(club: String) -> Dictionary:
 	if season == null or not season.lists.has(club):
 		return {}
@@ -7039,8 +7039,10 @@ const MAX_NEWS := 120
 const NEWS_MIN_OVR := 72
 
 
-func add_news(kind: String, text: String) -> void:
-	var when := "Off-season" if offseason_year == season_year or season == null else last_label
+func add_news(kind: String, text: String, when_label: String = "") -> void:
+	var when := when_label
+	if when == "":
+		when = "Off-season" if offseason_year == season_year or season == null else last_label
 	news.push_front({"year": season_year, "when": when, "kind": kind, "text": text})
 	if news.size() > MAX_NEWS:
 		news.resize(MAX_NEWS)
@@ -8490,9 +8492,11 @@ func _captain_name(id: String, roster: Array) -> String:
 ## Every club has a record: the 2026 record for real lists, the rule for a club
 ## without one. Your own club is named the same way when its record is first made
 ## (director 2026-10-12: in a redraft or custom career it starts with a captain
-## named by the rule, and you can change him on the Captaincy page). After that
-## nobody is added for you: a captain who leaves, or one you took off, leaves the
-## spot open. A save from before this ("seeded" missing) is named once, by the
+## named by the rule, and you can change him on the Captaincy page). When your
+## captain retires or leaves, the best-rated vice-captain steps up by the same rule
+## as a rival's (the highest Leadership if none is left), with a note to the coach
+## (director 2026-10-12). A spot the coach emptied himself stays empty: nobody is
+## added for him. A save from before this ("seeded" missing) is named once, by the
 ## rule, at the first round after it loads, unless it already has leaders.
 func _captaincy_refresh() -> void:
 	if season == null:
@@ -8504,6 +8508,8 @@ func _captaincy_refresh() -> void:
 		if fresh_rec:
 			rec = Captaincy.fresh(season_year)
 			rec["slots"] = Captaincy.from_record(str(code), roster)
+		var had_captain := not Captaincy.ids(rec, "captain").is_empty()
+		var lost_captain: String = str(Captaincy.ids(rec, "captain")[0]) if had_captain else ""
 		Captaincy.prune(rec, roster)
 		if str(code) != my_club:
 			var made := Captaincy.fill(rec, roster)
@@ -8514,6 +8520,32 @@ func _captaincy_refresh() -> void:
 		elif not bool(rec.get("seeded", false)) and Captaincy.slots(rec).is_empty():
 			# Your club, the first time: named by the rule. No news.
 			Captaincy.fill(rec, roster)
+		elif had_captain and Captaincy.ids(rec, "captain").is_empty():
+			# Your captain has retired or left: the next in line steps up. A spot you emptied
+			# yourself has no captain to lose, so it never comes here.
+			var stepped := ""
+			if Captaincy.slots(rec).is_empty():
+				# He was the only leader the coach had named: one captain by the rule, and
+				# no vice-captains the coach never had.
+				var pick := Captaincy.by_rule(roster)
+				if not pick.is_empty():
+					stepped = str(pick[0]["id"])
+					rec["slots"] = [{"id": stepped, "role": "captain"}]
+			else:
+				stepped = Captaincy.fill(rec, roster)
+			if stepped != "":
+				rec["since"] = season_year
+				var mid := captaincy_mid_season()
+				var retired := false
+				for r in intake_summary.get("retired", []):
+					if str((r as Dictionary).get("id", "")) == lost_captain:
+						retired = true
+				var note := "Your captain has %s, so %s takes over as captain. You can change it on the Captaincy page." % [
+						"retired" if retired else "left the club", _captain_name(stepped, roster)]
+				# Before Round 1 it is the off-season, as the feed calls it; the page says Pre-season.
+				Captaincy.add_log(rec, season_year,
+						last_label if mid else ("Off-season" if offseason_year == season_year else "Pre-season"), note)
+				add_news("captaincy", note, last_label if mid else "Off-season")
 		rec["seeded"] = true
 		captaincy[code] = rec
 
