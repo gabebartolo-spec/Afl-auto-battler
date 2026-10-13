@@ -1012,7 +1012,9 @@ func _balance_break_columns(cols: Array) -> void:
 	while up != null and sc == null:
 		sc = up as ScrollContainer
 		up = up.get_parent()
-	if sc == null or (sc.get_child(0) as Control).get_combined_minimum_size().y <= sc.size.y + 1.0:
+	# Tight counts too: under 8 px to spare, the next line or a longer name
+	# would tip it over, so look for the shorter deal.
+	if sc == null or (sc.get_child(0) as Control).get_combined_minimum_size().y <= sc.size.y - 8.0:
 		return
 	var order := range(n_units)
 	order.sort_custom(func(a, b): return float(h[a]) > float(h[b]))
@@ -1693,11 +1695,14 @@ func _show_break_stats(players_first := false) -> void:
 ## Best so far, on the break: the three best of each side by match rating so
 ## far (yours first), each with his rating and the numbers that stand out, as
 ## full time's best players read; "All player stats" opens the full table.
-const BEST_ROW_GAP_PC := 8
+# A PC break is tight (the fullest one, GWS with both loose men, has 8 px to
+# spare and Best so far may be at most ~213 px tall), so the rows sit 4 px apart
+# there; a phone scrolls and has room for more.
+const BEST_ROW_GAP_PC := 4
 
 
 func _best_so_far() -> Control:
-	var box := UiKit.vbox(6)
+	var box := UiKit.vbox(4 if _pc_break else 6)
 	box.name = "BestSoFar"
 	box.set_meta("break_unit", true)
 	var head := UiKit.hbox(8)
@@ -1706,7 +1711,7 @@ func _best_so_far() -> Control:
 	head.add_child(title)
 	var all := UiKit.btn("All player stats", UiKit.BODY)
 	all.name = "BestSoFarAll"
-	all.custom_minimum_size = Vector2(0, 32 if _pc_break else 44)
+	all.custom_minimum_size = Vector2(0, 24 if _pc_break else 44)
 	all.pressed.connect(func(): _show_break_stats(true))
 	# On a PC the way to the table sits in the heading row (shorter block: the
 	# fullest break still fits 1280x720); a phone has it under the list.
@@ -1719,7 +1724,8 @@ func _best_so_far() -> Control:
 	# guernsey, name, rating) where it reads; see UiKit.club_heading.
 	for side in [_my_side, 1 - _my_side]:
 		var code := str(_res["home"] if side == 0 else _res["away"])
-		var side_box := UiKit.vbox(BEST_ROW_GAP_PC if _pc_break else 6)
+		var side_box := UiKit.vbox(4 if _pc_break else 6)
+		var rows_box := UiKit.vbox(BEST_ROW_GAP_PC if _pc_break else 8)
 		# The column heading is a label he can skip: quiet, lighter than the
 		# figures under it.
 		var rh := UiKit.lbl("Rating", UiKit.SECONDARY, UiKit.MUTED)
@@ -1748,16 +1754,14 @@ func _best_so_far() -> Control:
 			r.custom_minimum_size.x = 56
 			r.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 			row.add_child(r)
-			side_box.add_child(row)
+			rows_box.add_child(row)
+		side_box.add_child(rows_box)
 		var wrap := UiKit.club_section_body(code, side_box)
 		wrap.name = "BestSide_%d" % side
 		side_box.name = "BestSideBox_%d" % side
 		box.add_child(wrap)
 	if not _pc_break:
 		box.add_child(all)
-	else:
-		# Air before the next call below (6 px between units, 10 here).
-		box.add_child(UiKit.spacer(4))
 	return box
 
 
