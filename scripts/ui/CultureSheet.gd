@@ -176,10 +176,16 @@ static func _icon(id: String, club: String) -> TextureRect:
 	return t
 
 
-## A light wash of the club's colour over the grey emblem. A red club's stays
-## plain (its _ink is TEXT), so an emblem never reads as a warning.
+## A light wash of the club's colour over the grey emblem, so the three carry
+## the club: its hand-picked ink (UiKit.club_ink: the Bulldogs' blue), or its
+## second ink when the first is red (Melbourne's navy), because a red emblem
+## beside the words could read as a warning. A club with no ink but red and
+## white stays plain.
 static func emblem_tint(club: String) -> Color:
-	return Color.WHITE.lerp(_ink(club), ICON_TINT)
+	var ink := UiKit.club_name_colour(UiKit.club_ink(club))
+	if ink == UiKit.TEXT:
+		ink = UiKit.club_name_colour(UiKit.club_ink_second(club))
+	return Color.WHITE.lerp(ink, ICON_TINT)
 
 
 ## What moves the strand: one plain line under its headline. (What it does in

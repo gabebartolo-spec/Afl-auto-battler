@@ -828,6 +828,10 @@ func _culture_ui_tests() -> void:
 		words_x[id] = words.get_global_rect() if words != null else Rect2()
 	var tint: Color = sheet_script.emblem_tint("FRE")
 	_check(tint.s > 0.08 and tint.s < 0.5 and tint.v > 0.75, "Fremantle's emblems carry a light wash of purple (%s)" % tint.to_html(false))
+	var dogs: Color = sheet_script.emblem_tint("WBD")
+	var dees: Color = sheet_script.emblem_tint("MEL")
+	_check(dogs.s > 0.08 and dogs.h > 0.5 and dogs.h < 0.72, "The Bulldogs' emblems carry their blue (%s)" % dogs.to_html(false))
+	_check(dees.s > 0.08 and dees.h > 0.5 and dees.h < 0.72, "Melbourne's emblems carry the navy, not the red (%s)" % dees.to_html(false))
 	for red in ["ESS", "SYD", "STK"]:
 		var rt: Color = sheet_script.emblem_tint(red)
 		_check(rt.s < 0.08, "%s's emblems stay plain, so none reads as a warning (%s)" % [red, rt.to_html(false)])
