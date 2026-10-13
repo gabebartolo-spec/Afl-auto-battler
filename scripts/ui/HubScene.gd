@@ -12,6 +12,7 @@ var _results_overlay: Control
 var _media_overlay: Control
 var _talk_overlay: Control
 var _news_overlay: Control
+var _rule_overlay: Control
 var _sim_confirm: Control
 var _quick_sim: Control
 var _onboarding_overlay: Control
@@ -407,7 +408,7 @@ func _event_card(index: int) -> Control:
 			var o: Dictionary = opts[i]
 			var b := UiKit.btn(str(o.get("label", "")), 14, false)
 			b.name = "Event_%d" % i
-			b.custom_minimum_size = Vector2(0, 44)
+			b.custom_minimum_size = Vector2(0, 48)
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			b.pressed.connect(func():
 				GameState.resolve_card(index, i)
@@ -417,7 +418,8 @@ func _event_card(index: int) -> Control:
 			# mechanical shows nothing under it). Same text, same weight on
 			# every choice.
 			var lines := StoryEngine.stakes_lines(o.get("effects", []), e.get("facts", {}))
-			if lines.is_empty():
+			var rule_text := str(o.get("rule", ""))
+			if lines.is_empty() and rule_text == "":
 				row.add_child(b)
 				continue
 			var col := UiKit.vbox(3)
@@ -425,13 +427,46 @@ func _event_card(index: int) -> Control:
 			col.add_child(b)
 			for line in lines:
 				var cl := UiKit.lbl(line, UiKit.SECONDARY, UiKit.TEXT)
-				cl.name = "Event%s_%d_%d" % ["Gain" if line.begins_with(StoryEngine.GAIN_MARK) else "Cost", index, i]
+				var kind := "Gain" if line.begins_with(StoryEngine.GAIN_MARK) else ("Cost" if line.begins_with(StoryEngine.COST_MARK) else "Note")
+				cl.name = "Event%s_%d_%d" % [kind, index, i]
 				cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				col.add_child(cl)
+			# The exact rule behind a line is one deliberate tap away.
+			if rule_text != "":
+				var more := UiKit.text_action("See the rule", UiKit.SMALL)
+				more.name = "EventRule_%d" % i
+				more.alignment = HORIZONTAL_ALIGNMENT_LEFT
+				more.pressed.connect(func(): _show_rule(rule_text))
+				col.add_child(more)
 			row.add_child(col)
 	else:
 		v.add_child(UiKit.lbl(str(e.get("outcome", "")), 13, UiKit.GOOD))
 	return card
+
+
+## The exact rule behind a choice's line, looked up on purpose.
+func _show_rule(text: String) -> void:
+	if _rule_overlay != null and is_instance_valid(_rule_overlay):
+		return
+	var box := UiKit.modal_box(self, 460.0)
+	_rule_overlay = box["overlay"]
+	_rule_overlay.name = "RuleSheet"
+	var v: VBoxContainer = box["body"]
+	var l := UiKit.lbl(text, 15, UiKit.TEXT)
+	l.name = "RuleText"
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(l)
+	var ok := UiKit.btn("Close", UiKit.NAME, true)
+	ok.name = "RuleClose"
+	ok.custom_minimum_size = Vector2(0, 48)
+	ok.pressed.connect(_close_rule)
+	(box["footer"] as VBoxContainer).add_child(ok)
+
+
+func _close_rule() -> void:
+	if _rule_overlay != null and is_instance_valid(_rule_overlay):
+		_rule_overlay.queue_free()
+	_rule_overlay = null
 
 
 func _sacked_card() -> Control:
@@ -614,6 +649,11 @@ func _week_section(season: Season) -> Control:
 			nl.name = "OwnNote_%d" % i
 			nv.add_child(nl)
 	if not season.is_season_over():
+		# Where the legs are at, one tap from the season line and the plan.
+		var plan_line := SeasonPlanSheet.line(self, func(): _build())
+		if plan_line != null:
+			nv.add_child(UiKit.spacer(4))
+			nv.add_child(plan_line)
 		for i in range(GameState.week_events.size()):
 			nv.add_child(UiKit.spacer(4))
 			var ev := _event_card(i)
@@ -1166,6 +1206,11 @@ func _close_finals() -> void:
 func handle_back() -> bool:
 	if _pre_match != null:
 		return true     # the side is on its way out
+	var plan_sheet := get_node_or_null("SeasonPlanSheet")
+	if plan_sheet != null and is_instance_valid(plan_sheet) and not plan_sheet.is_queued_for_deletion():
+		plan_sheet.queue_free()
+		_build()
+		return true
 	if _finals_overlay != null and is_instance_valid(_finals_overlay):
 		_close_finals()
 		return true
@@ -1181,6 +1226,9 @@ func handle_back() -> bool:
 		return true
 	if _sim_confirm != null and is_instance_valid(_sim_confirm):
 		_close_sim_confirm()
+		return true
+	if _rule_overlay != null and is_instance_valid(_rule_overlay):
+		_close_rule()
 		return true
 	if _news_overlay != null and is_instance_valid(_news_overlay):
 		_news_overlay.queue_free()

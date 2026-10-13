@@ -260,6 +260,7 @@ static func build(deck: Array, t: Dictionary, subj: Dictionary, club: Dictionary
 	for c in t["choices"]:
 		var detail := " ".join(PackedStringArray([describe(c, facts), fill(str(c.get("note", "")), facts)])).strip_edges()
 		options.append({"key": str(c["key"]), "label": fill(str(c["label"]), facts), "detail": detail,
+				"rule": fill(str(c.get("rule", "")), facts),
 				"effects": (c.get("effects", []) as Array).duplicate(true), "result": fill(str(c.get("result", "")), facts)})
 	var card := {"key": str(t["id"]), "tid": str(t["id"]), "story": true, "category": str(t["category"]),
 			"default": int(t.get("default", -1)), "week": w, "facts": facts,
@@ -268,6 +269,8 @@ static func build(deck: Array, t: Dictionary, subj: Dictionary, club: Dictionary
 			"options": options}
 	if str(t.get("stakes", "")) != "":
 		card["stakes"] = fill(str(t["stakes"]), facts)
+	if bool(t.get("choice_notes", false)):
+		card["choice_notes"] = true
 	if player:
 		card["player_id"] = str(subj["id"])
 	if str(t.get("arc", "")) != "":
@@ -411,13 +414,16 @@ const COST_MARK := "Cost: "
 static func stakes_lines(effects: Array, facts: Dictionary) -> PackedStringArray:
 	var gains: PackedStringArray = []
 	var costs: PackedStringArray = []
+	var notes: PackedStringArray = []
 	for e in effects:
 		for part in _effect_parts(e, facts):
 			var s := fill(str(part[1]), facts)
-			var into: PackedStringArray = gains if str(part[0]) == "gain" else costs
+			var into: PackedStringArray = notes if str(part[0]) == "note" else (gains if str(part[0]) == "gain" else costs)
 			if not into.has(s):
 				into.append(s)
 	var out: PackedStringArray = []
+	if not notes.is_empty():
+		out.append(" ".join(notes))
 	if not gains.is_empty():
 		out.append(GAIN_MARK + " ".join(gains))
 	if not costs.is_empty():
@@ -431,6 +437,17 @@ static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
 	var op := str(e.get("op", ""))
 	var d := effect_d(e, facts)
 	match op:
+		"delegate":
+			# Left to the captain: where the group stands now, then what each
+			# outcome does, each under its own gain or cost.
+			var parts: Array = [["note", _standing_words(facts)]]
+			for pair in [["held", "If the group listens, "], ["failed", "If it doesn't, "]]:
+				for ne in e.get(pair[0], []):
+					for np in _effect_parts(ne, facts):
+						parts.append([np[0], pair[1] + _lower_first(str(np[1]))])
+			return parts
+		"captaincy_swap":
+			return [["gain", SWAP_GAIN], ["cost", SWAP_COST]]
 		"promise_win":
 			return [["gain", PROMISE_WIN_GAIN], ["cost", PROMISE_WIN_COST]]
 		"extend_early":
@@ -441,7 +458,7 @@ static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
 			kind = "gain" if d > 0 else ("cost" if d < 0 else "")
 		"xp", "fresh":
 			kind = "gain"
-		"rest", "sore", "heavy_legs", "expects_game", "start_backing":
+		"rest", "sore", "heavy_legs", "expects_game", "start_backing", "back_kid":
 			kind = "cost"
 	var s := _effect_words(e, facts)
 	if kind == "" or s == "":
@@ -449,6 +466,8 @@ static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
 	return [[kind, s]]
 
 
+const SWAP_GAIN := "{vice_name} takes the armband; {name} stays in the leadership group."
+const SWAP_COST := "Taking it off {name} mid-season costs him morale and trust, and uses your one change this season."
 const PROMISE_WIN_GAIN := "Win and board confidence goes up."
 const PROMISE_WIN_COST := "Lose and board confidence goes down."
 const EXTEND_GAIN := "He signs on for {more_seasons}."
@@ -496,7 +515,42 @@ static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
 			return "%s %s" % [PROMISE_WIN_GAIN, PROMISE_WIN_COST]
 		"explain":
 			return "{kpi_or_need} Nothing is promised."
+		"delegate":
+			return _delegate_words(e, facts)
+		"back_kid":
+			return "{kid_name} is promised the next {run_games} games; leave him out fit and the promise breaks."
+		"captaincy_swap":
+			return "%s %s" % [SWAP_GAIN, SWAP_COST]
 	return ""
+
+
+## Left to the captain: what happens if the group listens and what if it doesn't,
+## worded from the choice's own held / failed effects, and which way it stands now.
+static func _standing_words(facts: Dictionary) -> String:
+	if bool(facts.get("delegate_holds", false)):
+		return "As it stands the group would listen to {name}."
+	return "As it stands the group wouldn't listen to {name}."
+
+
+static func _delegate_words(e: Dictionary, facts: Dictionary) -> String:
+	var held := _lower_first(_outcome_words(e.get("held", []), facts))
+	var failed := _lower_first(_outcome_words(e.get("failed", []), facts))
+	if bool(facts.get("delegate_holds", false)):
+		return "As it stands the group would listen to {name}: %s If they didn't, %s" % [held, failed]
+	return "As it stands the group wouldn't listen to {name}: %s If they did, %s" % [failed, held]
+
+
+static func _outcome_words(effects: Array, facts: Dictionary) -> String:
+	var out: PackedStringArray = []
+	for ne in effects:
+		var w := _effect_words(ne, facts)
+		if w != "":
+			out.append(w)
+	return " ".join(out) if not out.is_empty() else "nothing changes."
+
+
+static func _lower_first(s: String) -> String:
+	return s.substr(0, 1).to_lower() + s.substr(1)
 
 
 ## Every phrase names the thing that moves (morale, trust, board confidence),
