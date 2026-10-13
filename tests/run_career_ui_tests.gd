@@ -1687,7 +1687,7 @@ func _test_finals_card_taps() -> void:
 	_router.go("hub")
 	await _settle()
 	var card: Control = current_scene.find_child("WeekEvent", true, false)
-	var ids := _state.week_events.map(func(c): return str(c["tid"]))
+	var ids: Array = _state.week_events.map(func(c): return str(c["tid"]))
 	_check(card != null and ids == ["finals_week_off"], "A club on its week off sees the week-off card on the hub (%s)" % str(ids))
 	var rest: Button = card.find_child("Event_0", true, false) if card != null else null
 	_check(card != null and card.find_child("Event_2", true, false) == null, "Week one of the finals: two choices, no semi to watch")
