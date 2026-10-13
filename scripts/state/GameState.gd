@@ -59,6 +59,10 @@ var season_stats := {}
 var season_stats_from := 0
 var club_plan := "balanced"      # your standing game plan, from the first bounce
 var form_log := {}               # your player id -> his last three Player Ratings
+## A story card's role trial: {id, role, left, home, auto, before, wrote}, or {}.
+## One player plays his second position for `left` more of your games (see
+## start_role_trial); optional in a save, absent means no trial.
+var role_trial := {}
 var season_team := {}            # club -> {"games": n, stat: season total}
 var season_awards := {}          # the finished season's awards
 ## This season's Rising Star nominations, one a home-and-away round:
@@ -589,6 +593,7 @@ func save_career() -> bool:
 		"season_stats_from": season_stats_from,
 		"club_plan": club_plan,
 		"form_log": form_log,
+		"role_trial": role_trial,
 		"season_team": season_team,
 		"season_awards": season_awards,
 		"rising_star_noms": rising_star_noms,
@@ -735,6 +740,7 @@ func load_career() -> bool:
 	if not CLUB_PLANS.has(club_plan):
 		club_plan = "balanced"
 	form_log = state.get("form_log", {})
+	role_trial = state.get("role_trial", {}) if state.get("role_trial") is Dictionary else {}
 	season_team = state.get("season_team", {})
 	if not state.has("season_stats"):
 		# ...and so do the clubs' new statistics (TEAM_BOOK_KEYS).
@@ -1121,6 +1127,7 @@ func reset() -> void:
 	season_stats_from = 0
 	club_plan = "balanced"
 	form_log = {}
+	role_trial = {}
 	season_team = {}
 	season_awards = {}
 	rising_star_noms = {"from": 1, "rounds": []}
@@ -1570,6 +1577,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	season_stats = {}
 	season_stats_from = 0
 	form_log = {}
+	role_trial = {}
 	season_team = {}
 	season_awards = {}
 	rising_star_noms = {"from": 1, "rounds": []}
@@ -6132,6 +6140,7 @@ func my_selection() -> Dictionary:
 		return {}
 	var sel: Dictionary = (season.selections.get(my_club, {}) as Dictionary).duplicate(true)
 	sel.erase("DUAL_RUCK")
+	sel.erase("TRIAL")   # a role trial's note, not a side you named
 	return sel
 
 
@@ -6143,7 +6152,130 @@ func set_selection(selection: Dictionary) -> void:
 	var keep := selection.duplicate(true)
 	keep["DUAL_RUCK"] = user_dual_ruck
 	season.selections[my_club] = keep
+	_trial_after_coach_pick(keep)
 	mark_dirty()
+
+
+# ---------------------------------------------------------------------------
+# Role trial (a story card: "Try him in a new role")
+# ---------------------------------------------------------------------------
+const TRIAL_LINES := ["RUCK", "MID", "WING", "DEF", "FWD"]
+
+
+## Signature of a selection without the dual-ruck call, to tell whether the
+## coach has touched it since the trial wrote it.
+static func _sel_sig(sel: Dictionary) -> String:
+	var c := sel.duplicate(true)
+	c.erase("DUAL_RUCK")
+	c.erase("TRIAL")
+	return JSON.stringify(c, "", true)
+
+
+## The line a selection names him in (WING is a midfield line), or "".
+static func _line_of(sel: Dictionary, id: String) -> String:
+	for line in TRIAL_LINES:
+		if (sel.get(line, []) as Array).has(id):
+			return line
+	return ""
+
+
+## The coach puts him in his second position for `games` of your matches. With
+## the auto-pick, the pick itself plays him there (a TRIAL note on the club's
+## selection, which Ratings.select_side reads); with a side you named, he is
+## moved into that line (swapping with the last man there if it is full) and
+## the old side is remembered. Your own pick afterwards always wins
+## (_trial_after_coach_pick). Returns what to tell the coach, "" if he has no
+## second position or is not on the ground.
+func start_role_trial(p: Dictionary, games: int) -> String:
+	var role2 := ClubStories.trial_role(p)
+	if role2 == "" or season == null:
+		return ""
+	var id := str(p["id"])
+	if not role_trial.is_empty():
+		_end_role_trial(true)
+	var home := str(p.get("role", ""))
+	var stored: Dictionary = (season.selections.get(my_club, {}) as Dictionary).duplicate(true)
+	var sel := my_selection()
+	var trial := {"id": id, "role": role2, "left": games, "home": home, "auto": sel.is_empty(),
+			"before": sel.duplicate(true), "wrote": ""}
+	if sel.is_empty():
+		stored["TRIAL"] = {id: role2}
+		season.selections[my_club] = stored
+	else:
+		var line := _line_of(sel, id)
+		if line == "":
+			return ""
+		var target := role2
+		if line != target and not (line == "WING" and target == "MID"):
+			var cap := 5 if target == "MID" else (1 if target == "RUCK" else 6)
+			if target == "MID":
+				cap -= (sel.get("WING", []) as Array).size()
+			var from: Array = sel[line]
+			var at := from.find(id)
+			var into: Array = sel.get(target, [])
+			if into.size() < cap:
+				from.remove_at(at)
+				into.append(id)
+			else:
+				var other = into[into.size() - 1]
+				into[into.size() - 1] = id
+				from[at] = other
+			sel[line] = from
+			sel[target] = into
+			stored = sel.duplicate(true)
+			stored["DUAL_RUCK"] = user_dual_ruck
+			season.selections[my_club] = stored
+			trial["wrote"] = _sel_sig(stored)
+	role_trial = trial
+	mark_dirty()
+	return "%s plays as a %s for the next %s games." % [GameDB.player_display_name(p),
+			CoachPathway.position_word({"pos": role2}), MatchNotes.count_word(games)]
+
+
+## One of your matches played: count the trial down, and end it at zero.
+func _tick_role_trial() -> void:
+	if role_trial.is_empty():
+		return
+	if list_player(str(role_trial.get("id", ""))).is_empty():
+		role_trial = {}
+		return
+	role_trial["left"] = int(role_trial.get("left", 0)) - 1
+	if int(role_trial["left"]) <= 0:
+		_end_role_trial(true)
+
+
+## He goes back to his usual role. If the side is still exactly as the trial
+## left it, your old side comes back too; if you have changed anything, your
+## side stays as you made it.
+func _end_role_trial(restore: bool) -> void:
+	if role_trial.is_empty():
+		return
+	if season != null:
+		var stored: Dictionary = (season.selections.get(my_club, {}) as Dictionary).duplicate(true)
+		if bool(role_trial.get("auto", false)):
+			if stored.has("TRIAL"):
+				stored.erase("TRIAL")
+				season.selections[my_club] = stored
+		elif restore and str(role_trial.get("wrote", "")) != "" 				and _sel_sig(stored) == str(role_trial["wrote"]):
+			var back: Dictionary = (role_trial.get("before", {}) as Dictionary).duplicate(true)
+			back["DUAL_RUCK"] = user_dual_ruck
+			season.selections[my_club] = back
+	role_trial = {}
+	mark_dirty()
+
+
+## You picked a side yourself: if it puts him anywhere but the trial line, the
+## trial is over (your pick wins); if it keeps him there, the trial runs on but
+## the side is yours, so nothing is put back at the end.
+func _trial_after_coach_pick(sel: Dictionary) -> void:
+	if role_trial.is_empty():
+		return
+	var line := _line_of(sel, str(role_trial.get("id", "")))
+	var want := str(role_trial.get("role", ""))
+	if bool(role_trial.get("auto", false)) or line == "" or not (line == want or (line == "WING" and want == "MID")):
+		role_trial = {}
+	else:
+		role_trial["wrote"] = ""
 
 
 ## Dual ruck (ARD-M5-001, director 2026-10-06): your second ruck takes the
@@ -7249,6 +7381,8 @@ func _board_after_round(results: Array) -> void:
 		p.erase("sore")
 		p.erase("heavy_legs")
 		p.erase("fresh")
+	if not res.is_empty():
+		_tick_role_trial()
 	if res.is_empty() or board.is_empty():
 		return
 	var side := 0 if str(res["home"]) == my_club else 1

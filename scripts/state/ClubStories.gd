@@ -81,10 +81,13 @@ static func _winning_run(gs) -> int:
 
 static func player_facts(gs) -> Array:
 	var selected := {}
+	var starting := {}
 	var side: Dictionary = gs.current_side()
 	for k in side:
 		for id in side[k]:
 			selected[str(id)] = true
+			if k != "BENCH":
+				starting[str(id)] = true
 	var info: Dictionary = gs.talk_info(selected)
 	var fit := []
 	for p in gs.my_list:
@@ -98,7 +101,9 @@ static func player_facts(gs) -> Array:
 	var out := []
 	for p in gs.my_list:
 		var id := str(p["id"])
-		out.append(player_fact(gs, p, selected.has(id), info.get(id, {}), int(rank.get(id, 99)), cap_room))
+		var f := player_fact(gs, p, selected.has(id), info.get(id, {}), int(rank.get(id, 99)), cap_room)
+		f["starting"] = starting.has(id)
+		out.append(f)
 	return out
 
 
@@ -118,11 +123,20 @@ static func player_fact(gs, p: Dictionary, selected: bool, i: Dictionary, fit_ra
 	var t := Trust.value(gs.relations, Trust.player_key(id))
 	var ovr := int(p.get("overall", 0))
 	var pot := int(p.get("potential", ovr))
+	var recent: Array = (gs.form_log.get(id, {}) as Dictionary).get("last", [])
+	var form := 0
+	for x in recent:
+		form += int(x)
+	form = int(round(float(form) / float(recent.size()))) if not recent.is_empty() else 0
 	return {"id": id, "name": name, "first": name.split(" ")[0], "age": float(p.get("age", 25.0)),
 			"games": gs.games_played(p), "fit": fit, "selected": selected, "overall": ovr, "potential": pot,
 			"pot_gap": pot - ovr, "contract_years": int(p.get("contract_years", 2)), "morale": ClubLife.morale(p),
 			"trust": t, "trust_band": Trust.band(t),
 			"discipline": int((p.get("attr", {}) as Dictionary).get("discipline", 50)),
+			# Recent form: his last games' Player Rating, averaged (the form the
+			# game already keeps and shows); form_games counts them (0 to 3).
+			"form": form, "form_games": recent.size(), "has_role2": trial_role(p) != "",
+			"starting": false,   # player_facts sets it from the side
 			"backed": Backing.is_active(p), "fit_rank": fit_rank, "talk_case": case, "kpi": kpi,
 			"kpi_or_need": kpi if kpi != "" else need_line,
 			"explain_label": "Talk him through his season" if kpi != "" else "Tell him what he has to show",
@@ -196,6 +210,15 @@ static func running_fitness(gs) -> Array:
 	return rows
 
 
+## The position a role trial would try him in: his second position, or one he
+## has learned, that is not the one he is listed at. "" when he has none.
+static func trial_role(p: Dictionary) -> String:
+	for r in Ratings.second_positions(p):
+		if str(r) != "" and str(r) != str(p.get("role", "")):
+			return str(r)
+	return ""
+
+
 static func _targets(gs, e: Dictionary, p: Dictionary) -> Array:
 	match str(e.get("who", "subject")):
 		"subject":
@@ -237,6 +260,8 @@ static func _apply(gs, e: Dictionary, p: Dictionary, facts: Dictionary, applied:
 					d, StoryEngine.fill(str(e.get("why", "")), facts), int(gs.season_year), when)
 		"rest":
 			p["rested"] = true
+		"role_trial":
+			return gs.start_role_trial(p, int(e.get("weeks", 3)))
 		"sore":
 			if int(p.get("injury_weeks", 0)) > 0:
 				return "%s has since been ruled out anyway." % name

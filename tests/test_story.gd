@@ -34,6 +34,9 @@ func run() -> void:
 	_test_arcs()
 	_test_finals_and_big_weeks()
 	_test_private_cards()
+	_test_papers_cards_are_football()
+	_test_role_trial()
+	_test_role_trial_save()
 	_test_ten_seasons()
 	_test_trust_in_play()
 	_test_stories_never_move_the_dice()
@@ -361,8 +364,8 @@ func _test_private_cards() -> void:
 	_start()
 	var private := StoryDeck.all().filter(func(t): return bool(t.get("private", false)))
 	_check(not StoryDeck.by_id(StoryDeck.all(), "media_in_the_papers").is_empty()
-			and bool(StoryDeck.by_id(StoryDeck.all(), "media_in_the_papers").get("private", false)),
-			"The papers card is marked private")
+			and not bool(StoryDeck.by_id(StoryDeck.all(), "media_in_the_papers").get("private", false)),
+			"The papers card is about his football, so it is not private")
 	var ctx := ClubStories.context(GameState)
 	var leaks := []
 	var reachable := 0
@@ -472,7 +475,7 @@ func _test_trust_in_play() -> void:
 	_check(hint.contains("His trust in you rises"), "The choice says what it does to his trust (%s)" % hint)
 	_check(Trust.value(GameState.relations, key) == 10 and out.contains("His trust in you rose"),
 			"Backing him in the papers: his trust rises, and the result says so (%s)" % out)
-	_check(str(Trust.reasons(GameState.relations, key)[0]["why"]) == "You backed him when he was in the papers",
+	_check(str(Trust.reasons(GameState.relations, key)[0]["why"]) == "You kept him in when the papers wanted him out",
 			"The reason is kept in plain words")
 	# A promise broken after the match costs trust, with its reason.
 	var sulk: Dictionary = GameState.my_list[25]
@@ -601,6 +604,211 @@ func _test_old_save() -> void:
 	_check(tid_ok, "The old card is redrawn from the deck (%s)" % str(GameState.week_events.map(func(c): return c.get("key", ""))))
 	GameState.advance()
 	_check(GameState.season.round_index >= 1, "...and the season plays on")
+
+
+# --- The papers arc as football (2026-10-13) --------------------------------------
+
+## A starter with a second position, fit, not on the bench.
+func _trial_candidate() -> Dictionary:
+	var ids := {}
+	var side: Dictionary = GameState.current_side()
+	for k in side:
+		if k != "BENCH":
+			for id in side[k]:
+				ids[str(id)] = true
+	for p in GameState.my_list:
+		if ids.has(str(p["id"])) and int(p.get("injury_weeks", 0)) <= 0 and ClubStories.trial_role(p) != "":
+			return p
+	return {}
+
+
+func _test_papers_cards_are_football() -> void:
+	_start()
+	GameState.show_real_names = true
+	_run_on(4)
+	var ctx := ClubStories.context(GameState)
+	var real_named := 0
+	for f in ctx["players"]:
+		if bool(f["real_named"]):
+			real_named += 1
+	_check(real_named > 10, "The test list is shown under real names (%d)" % real_named)
+	for id in ["media_in_the_papers", "media_papers_again", "media_papers_fronts_group"]:
+		var t := StoryDeck.by_id(StoryDeck.all(), id)
+		_check(not bool(t.get("private", false)), "%s is not private" % id)
+		var st := StoryEngine.new_state()
+		var needs: Dictionary = t.get("needs", {})
+		if not needs.is_empty():
+			for f in ctx["players"]:
+				var pid := str(f["id"])
+				st["flags"][pid] = {str(needs["flag"]): 100 - int(needs.get("after", 1))}
+				st["arcs"][str(t["arc"]) + "|" + pid] = {"state": "open", "until": 200}
+		var who := StoryEngine.eligible_subject(t, ctx, st, 100, RandomNumberGenerator.new())
+		_check(not who.is_empty() and bool(who["real_named"]),
+				"%s can come up for a player shown under his real name" % id)
+		if id == "media_in_the_papers" and not who.is_empty():
+			# The one asked about has the poorest recent form among the fit players picked.
+			var lowest := 9999
+			for f in ctx["players"]:
+				if bool(f["fit"]) and bool(f["selected"]) and int(f["form_games"]) >= 3:
+					lowest = mini(lowest, int(f["form"]))
+			_check(int(who["form"]) == lowest and int(who["form_games"]) >= 3,
+					"The papers go after the poorest recent form (%d, lowest %d)" % [int(who["form"]), lowest])
+		if id == "media_papers_again" and not who.is_empty():
+			_check(bool(who["has_role2"]) and bool(who["starting"]),
+					"The role card only picks a starter who has a second position")
+	# No second position, no role card.
+	var none := ClubStories.player_fact(GameState, {"id": "x", "role": "MID", "role2": "", "overall": 60}, true, {}, 1, 0)
+	_check(not bool(none["has_role2"]), "A player with no second position is not offered the role card")
+	# The cards' own effects.
+	var down := _choice("media_papers_again", "down")
+	_check(int(_effect(down, "role_trial").get("weeks", 0)) == 3 and not _effect(down, "morale").is_empty()
+			and not _effect(down, "board").is_empty() and not _effect(down, "trust").is_empty(),
+			"Trying him in a new role is a real three-game trial, with the sheet's other effects")
+	_check(_effect(_choice("media_papers_fronts_group", "front"), "board").is_empty()
+			and not _effect(_choice("media_papers_fronts_group", "private"), "trust").is_empty(),
+			"Fronting the group has no board effect; keeping it private earns a little trust")
+	GameState.show_real_names = false
+
+
+func _line_in(sel: Dictionary, id: String) -> String:
+	for k in ["RUCK", "MID", "WING", "DEF", "FWD", "BENCH"]:
+		if (sel.get(k, []) as Array).has(id):
+			return k
+	return ""
+
+
+func _role_on_ground(id: String) -> String:
+	for g in GameState.my_squad().ground:
+		if str(g["id"]) == id:
+			return str(g["role"])
+	return ""
+
+
+## The trial puts him in his second position for exactly the games on the card,
+## then lets him go; your own side always wins.
+func _test_role_trial() -> void:
+	_start()
+	var p := _trial_candidate()
+	_check(not p.is_empty(), "A starter with a second position exists on the test list")
+	if p.is_empty():
+		return
+	var id := str(p["id"])
+	var role2 := ClubStories.trial_role(p)
+	# Auto-pick: he plays his second position for three games, then goes back.
+	var said := GameState.start_role_trial(p, 3)
+	_check(said.contains("plays as a") and said.contains("three games"), "The trial says where and for how long: %s" % said)
+	_check(GameState.my_selection().is_empty() and (GameState.season.selections[GameState.my_club] as Dictionary).has("TRIAL"),
+			"Under the auto-pick the trial rides with the selection, and the side is still the auto-pick")
+	_check(_role_on_ground(id) == role2, "The auto-pick plays him in %s" % role2)
+	var left: Array = []
+	for r in range(3):
+		left.append(int(GameState.role_trial.get("left", -1)))
+		GameState.advance()
+	_check(left == [3, 2, 1] and GameState.role_trial.is_empty(),
+			"The trial runs exactly three games, then it is over (%s)" % str(left))
+	_check(not (GameState.season.selections[GameState.my_club] as Dictionary).has("TRIAL"),
+			"...and nothing is left on the selection")
+	_check(_role_on_ground(id) != role2 or str(GameState.list_player(id)["role"]) == role2,
+			"...and he is back in his usual role")
+	# Your own pick wins, auto case: any side you save ends it.
+	_start()
+	p = _trial_candidate()
+	id = str(p["id"])
+	role2 = ClubStories.trial_role(p)
+	GameState.start_role_trial(p, 3)
+	var side: Dictionary = GameState.current_side()
+	var line := _line_in(side, id)
+	_check(line == role2 or (line == "WING" and role2 == "MID"), "The team sheet shows him in %s (%s)" % [role2, line])
+	GameState.set_selection(side)
+	_check(GameState.role_trial.is_empty(), "Saving your own side ends the trial")
+	_check(_line_in(GameState.my_selection(), id) == line, "...and he stays where your side puts him")
+	# A named side: he is moved into the line, and everything is put back if you never touch it.
+	_start()
+	GameState.set_selection(GameState.current_side())
+	p = _trial_candidate()
+	id = str(p["id"])
+	role2 = ClubStories.trial_role(p)
+	var before := JSON.stringify(GameState.my_selection(), "", true)
+	GameState.start_role_trial(p, 2)
+	var moved := _line_in(GameState.my_selection(), id)
+	_check(moved == role2 or (moved == "WING" and role2 == "MID"), "A named side moves him into %s (%s)" % [role2, moved])
+	_check(_role_on_ground(id) == role2, "...and the match side has him there")
+	GameState.advance()
+	GameState.advance()
+	_check(GameState.role_trial.is_empty() and JSON.stringify(GameState.my_selection(), "", true) == before,
+			"Two games later he and the old side are back as they were")
+	# Named side, you move him yourself mid-trial: your side stays as you made it.
+	_start()
+	GameState.set_selection(GameState.current_side())
+	p = _trial_candidate()
+	id = str(p["id"])
+	GameState.start_role_trial(p, 3)
+	var mine: Dictionary = GameState.my_selection()
+	for k in ["RUCK", "MID", "WING", "DEF", "FWD"]:
+		mine[k] = (mine[k] as Array).filter(func(x): return str(x) != id)
+	(mine["BENCH"] as Array).append(id)
+	GameState.set_selection(mine)
+	_check(GameState.role_trial.is_empty(), "Moving him yourself ends the trial")
+	var mine_json := JSON.stringify(GameState.my_selection(), "", true)
+	GameState.advance()
+	GameState.advance()
+	GameState.advance()
+	_check(JSON.stringify(GameState.my_selection(), "", true) == mine_json, "Your side is never rewritten after you picked it")
+	# A player with no second position gets no trial and no change.
+	_start()
+	var plain: Dictionary = GameState.my_list[0].duplicate()
+	plain["role2"] = ""
+	plain["learned"] = []
+	plain["unicorn"] = false
+	if ClubStories.trial_role(plain) == "":
+		_check(GameState.start_role_trial(plain, 3) == "" and GameState.role_trial.is_empty(),
+				"No second position, no trial")
+
+
+## Save in the middle of a trial and reload: the same trial, the same games.
+func _test_role_trial_save() -> void:
+	for named in [false, true]:
+		GameState.reset()
+		GameState.career_seed = SUITE_SEED
+		GameState.replay_seed = SUITE_SEED
+		GameState.start_season("GEE", GameDB.club_list("GEE"))
+		_run_on(2)
+		if named:
+			GameState.set_selection(GameState.current_side())
+		var p := _trial_candidate()
+		if p.is_empty():
+			_check(false, "A trial candidate exists for the save test")
+			continue
+		GameState.start_role_trial(p, 3)
+		GameState.advance()
+		_check(GameState.save_career(), "Mid-trial save (%s)" % ("named" if named else "auto"))
+		var trial_before := JSON.stringify(GameState.role_trial, "", true)
+		var sel_before := JSON.stringify(GameState.season.selections[GameState.my_club], "", true)
+		var straight := _trial_run(4, str(p["id"]))
+		_check(GameState.load_career(), "Mid-trial load")
+		_check(JSON.stringify(GameState.role_trial, "", true) == trial_before and GameState.role_trial.size() > 0,
+				"The trial survives a reload (%s)" % trial_before)
+		_check(JSON.stringify(GameState.season.selections[GameState.my_club], "", true) == sel_before,
+				"...and so does the side it wrote")
+		var reloaded := _trial_run(4, str(p["id"]))
+		_check(straight == reloaded, "Reload and carry on equals playing straight through\n%s\n%s" % [
+				",".join(straight), ",".join(reloaded)])
+		_check(GameState.role_trial.is_empty(), "...and the trial has ended")
+	# An older save has no trial key at all.
+	GameState.save_career()
+	var state := CareerSave.read(GameState.save_path)
+	state.erase("role_trial")
+	CareerSave.write(state, GameState._save_meta(), GameState.save_path)
+	_check(GameState.load_career() and GameState.role_trial.is_empty(), "A save without the trial key loads with none")
+
+
+func _trial_run(rounds: int, id: String) -> PackedStringArray:
+	var out: PackedStringArray = []
+	for r in range(rounds):
+		out.append("%d/%s/%s" % [int(GameState.role_trial.get("left", 0)), _role_on_ground(id),
+				str(GameState.last_match.get("score", []))])
+		GameState.advance()
+	return out
 
 
 # --- Leadership (P2-1) --------------------------------------------------------

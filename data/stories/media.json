@@ -1,7 +1,6 @@
 [
 	{
 		"id": "media_in_the_papers",
-		"private": true,
 		"category": "media",
 		"cooldown": 40,
 		"subject_cooldown": 30,
@@ -10,15 +9,15 @@
 			"where": {
 				"fit": true,
 				"selected": true,
-				"discipline_max": 40
+				"form_games_min": 3
 			},
-			"pick": "lowest:discipline"
+			"pick": "lowest:form"
 		},
 		"title": [
-			"{name} is in the papers"
+			"The papers want {name} dropped"
 		],
 		"text": [
-			"An off-field incident has made the back page. The board is watching how you handle it."
+			"Gary Haddon has {name} on the back page after a poor few weeks and says he should make way. The board is watching what you do."
 		],
 		"unanswered": {
 			"board": -4,
@@ -27,7 +26,7 @@
 		"choices": [
 			{
 				"key": "suspend",
-				"label": "Stand him down for a week",
+				"label": "Rest him this week",
 				"effects": [
 					{
 						"op": "rest"
@@ -39,18 +38,18 @@
 					{
 						"op": "trust",
 						"d": -6,
-						"why": "You stood him down over the papers story"
+						"why": "You dropped him after the papers pushed"
 					},
 					{
 						"op": "board",
 						"d": 4
 					}
 				],
-				"result": "{name} is stood down for a week. The board approves."
+				"result": "{name} sits out this week."
 			},
 			{
 				"key": "back",
-				"label": "Back your player",
+				"label": "Keep him in",
 				"effects": [
 					{
 						"op": "morale",
@@ -59,7 +58,7 @@
 					{
 						"op": "trust",
 						"d": 10,
-						"why": "You backed him when he was in the papers"
+						"why": "You kept him in when the papers wanted him out"
 					},
 					{
 						"op": "board",
@@ -70,7 +69,7 @@
 						"name": "backed_in_papers"
 					}
 				],
-				"result": "You back {name}. The board is not impressed."
+				"result": "{name} stays in the side."
 			}
 		],
 		"arc": "papers",
@@ -328,10 +327,10 @@
 			"pick": "random"
 		},
 		"title": [
-			"{name} wants to speak to the group"
+			"{name} wants to front the group"
 		],
 		"text": [
-			"You backed him through the papers story. He wants to front his teammates about it."
+			"You kept {name} in when the papers wanted him out. He asks to take the group through what he is working on."
 		],
 		"choices": [
 			{
@@ -347,13 +346,9 @@
 						"op": "trust",
 						"d": 4,
 						"why": "You let him front the group"
-					},
-					{
-						"op": "board",
-						"d": 2
 					}
 				],
-				"result": "{name} speaks to the group. It goes well."
+				"result": "{name} takes the group through what he is working on."
 			},
 			{
 				"key": "private",
@@ -362,9 +357,14 @@
 					{
 						"op": "morale",
 						"d": 2
+					},
+					{
+						"op": "trust",
+						"d": 2,
+						"why": "You kept it between you two"
 					}
 				],
-				"result": "It stays between you and {name}."
+				"result": "You talk it through with {name} alone."
 			}
 		],
 		"arc": "papers",
@@ -375,8 +375,7 @@
 			"within": 15
 		},
 		"cooldown": 0,
-		"subject_cooldown": 0,
-		"private": true
+		"subject_cooldown": 0
 	},
 	{
 		"id": "media_papers_again",
@@ -385,55 +384,58 @@
 			"kind": "player",
 			"where": {
 				"fit": true,
-				"discipline_max": 45
+				"starting": true,
+				"has_role2": true,
+				"form_games_min": 3
 			},
-			"pick": "random"
+			"pick": "lowest:form"
 		},
 		"title": [
-			"{name} is back in the papers"
+			"They say {name} is in the wrong spot"
 		],
 		"text": [
-			"Second time this year. Gary Haddon wants to know if you still back him."
+			"A former player on the radio says {name} should move to another role. He wants to know if you will."
 		],
 		"choices": [
 			{
 				"key": "stand",
-				"label": "Stand by him again",
+				"label": "Leave him where he is",
 				"effects": [
 					{
 						"op": "trust",
 						"d": 6,
-						"why": "You stood by him a second time"
+						"why": "You left him in his role"
 					},
 					{
 						"op": "board",
 						"d": -6
 					}
 				],
-				"result": "You back {name} again. The board is furious."
+				"result": "{name} stays in his role."
 			},
 			{
 				"key": "down",
-				"label": "Stand him down this time",
+				"label": "Try him in a new role",
 				"effects": [
 					{
-						"op": "rest"
-					},
-					{
-						"op": "trust",
-						"d": -10,
-						"why": "You stood him down the second time"
-					},
-					{
-						"op": "board",
-						"d": 5
+						"op": "role_trial",
+						"weeks": 3
 					},
 					{
 						"op": "morale",
 						"d": -8
+					},
+					{
+						"op": "trust",
+						"d": -10,
+						"why": "You moved him after the criticism"
+					},
+					{
+						"op": "board",
+						"d": 5
 					}
 				],
-				"result": "{name} is stood down."
+				"result": "You try {name} somewhere new."
 			}
 		],
 		"arc": "papers",
@@ -445,7 +447,6 @@
 		},
 		"cooldown": 0,
 		"subject_cooldown": 0,
-		"private": true,
 		"unanswered": {
 			"board": -4,
 			"text": "You say nothing. The board wanted an answer."

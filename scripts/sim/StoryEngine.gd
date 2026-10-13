@@ -389,10 +389,18 @@ static func name_list(names: Array) -> String:
 static func describe(c: Dictionary, facts: Dictionary) -> String:
 	var out: PackedStringArray = []
 	for e in c.get("effects", []):
-		var s := _effect_words(e, facts)
+		var s := _trial_words(e) if str(e.get("op", "")) == "role_trial" else _effect_words(e, facts)
 		if s != "":
 			out.append(fill(s, facts))
 	return " ".join(out)
+
+
+## A role trial: where he plays and for how long (its own line so the effect
+## wording stays in _effect_words).
+static func _trial_words(e: Dictionary) -> String:
+	var n := int(e.get("weeks", 3))
+	var word: String = ["one", "two", "three", "four", "five", "six"][clampi(n, 1, 6) - 1]
+	return "He plays his second position for the next %s %s." % [word, "game" if n == 1 else "games"]
 
 
 static func _effect_words(e: Dictionary, facts: Dictionary) -> String:

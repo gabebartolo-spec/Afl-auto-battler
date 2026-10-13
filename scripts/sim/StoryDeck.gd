@@ -31,13 +31,17 @@ const OPS := {
 	"morale": false, "xp": false, "board": false, "trust": true, "rest": true, "sore": true,
 	"fresh": false, "heavy_legs": false, "expects_game": true, "start_backing": true,
 	"extend_early": true, "promise_win": false, "flag": false, "explain": true, "talk_note": true,
+	"role_trial": true,
 }
+## A role trial lasts this many of your games at most ("weeks" on the effect).
+const TRIAL_GAMES_MAX := 6
 
 ## Facts a player card can test and print (GameState._story_player_facts).
 const PLAYER_FACTS := ["name", "first", "age", "games", "fit", "selected", "overall", "potential",
 		"pot_gap", "contract_years", "morale", "trust", "trust_band", "discipline", "backed",
 		"fit_rank", "talk_case", "kpi", "kpi_or_need", "explain_label", "talk_text", "sore_odds",
-		"ask", "early_price", "more_seasons", "extension_ok", "job", "real_named"]
+		"ask", "early_price", "more_seasons", "extension_ok", "job", "real_named",
+		"form", "form_games", "has_role2", "starting"]
 ## Facts about the club and the week (GameState._story_club_facts).
 const CLUB_FACTS := ["club", "opp", "round", "year", "losing_run", "winning_run", "ladder",
 		"board", "fit_count", "run_games", "finals_week"]
@@ -213,6 +217,10 @@ static func _check_effect(where: String, e, player: bool) -> Array:
 		errs.append("%s: a trust change needs its reason" % where)
 	if op == "trust":
 		errs.append_array(_check_text(where, str(e.get("why", "")), player))
+	if op == "role_trial":
+		var wk := int(e.get("weeks", 0))
+		if wk < 1 or wk > TRIAL_GAMES_MAX:
+			errs.append("%s: a role trial of %d games is outside 1..%d" % [where, wk, TRIAL_GAMES_MAX])
 	if op == "flag" and str(e.get("name", "")) == "":
 		errs.append("%s: a flag needs a name" % where)
 	return errs
