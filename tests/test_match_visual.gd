@@ -47,6 +47,10 @@ func run() -> void:
 	_test_centre_setups(res)
 	_test_farewell()
 	_test_match_ground()
+	_test_discs_apart()
+	_test_clash_kit()
+	_test_bench_strip()
+	_test_ends_change_at_restart(res)
 	GameState.replay_seed = 0
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -1609,3 +1613,237 @@ func _test_match_ground() -> void:
 	VignetteGround.use_match({"home": "GEE", "away": "COL", "venue": "MCG"})
 	_check(VignetteGround.venue == "MCG", "A final at the MCG draws the MCG (the Grand Final)")
 	VignetteGround.venue = ""
+
+
+## Discs that would overlap are drawn apart (director, 2026-10-14): on a phone
+## and on a PC no two drawn centres are closer than a disc's diameter, the
+## players stay where the match has them, a disc never jumps from one frame to
+## the next, and a held ball is drawn at its holder's disc.
+func _test_discs_apart() -> void:
+	var res := _sim(31, "FRE", "MEL").run()
+	res["home"] = "FRE"
+	res["away"] = "MEL"
+	res["label"] = "Round 1"
+	for view in [[Vector2(370, 490), true, "phone"], [Vector2(760, 590), false, "PC"]]:
+		var pv := PitchView.new()
+		pv.size = view[0]
+		pv.camera_enabled = view[1]
+		pv.setup(res)
+		pv.set_speed(4.0)
+		pv.play()
+		var closest := INF
+		var real_closest := INF
+		var moved_engine := 0
+		var worst_nudge_m := 0.0
+		var ball_off := 0.0
+		var guard := 0
+		while pv.playing and guard < 60000:
+			guard += 1
+			pv._process(1.0 / 30.0)
+			var before := []
+			for t in pv.director.tokens:
+				before.append(t["pos"])
+			var drawn := pv.disc_positions()
+			var tr := pv.token_radius()
+			for i in range(pv.director.tokens.size()):
+				if pv.director.tokens[i]["pos"] != before[i]:
+					moved_engine += 1
+				var real: Vector2 = pv._w2s(before[i])
+				worst_nudge_m = maxf(worst_nudge_m, drawn[i].distance_to(real) / pv._scale())
+				for j in range(i + 1, drawn.size()):
+					closest = minf(closest, drawn[i].distance_to(drawn[j]) / (2.0 * tr))
+					real_closest = minf(real_closest, real.distance_to(pv._w2s(before[j])) / (2.0 * tr))
+			var holder := int(pv.director.ball.get("holder", -1))
+			if str(pv.director.ball.get("mode", "")) == "held" and holder >= 0:
+				ball_off = maxf(ball_off, pv.ball_point().distance_to(drawn[holder]) / pv._scale())
+		_check(not pv.playing and closest >= 0.97,
+				"%s: no two discs are drawn closer than a diameter (closest %.2f of one; the players themselves get to %.2f)" % [
+				str(view[2]), closest, real_closest])
+		_check(moved_engine == 0, "%s: drawing the discs apart moves no player" % str(view[2]))
+		_check(ball_off <= 1.0, "%s: a held ball is drawn at its holder's disc (%.2f m off)" % [str(view[2]), ball_off])
+		_check(worst_nudge_m < 12.0, "%s: no disc is drawn far from its player (%.1f m at most)" % [str(view[2]), worst_nudge_m])
+		print("  discs apart, %s: closest %.2f diameters (players %.2f), biggest nudge %.1f m" % [
+				str(view[2]), closest, real_closest, worst_nudge_m])
+		pv.free()
+	# Frame to frame: two players standing still on one spot are drawn the same
+	# way every frame (no jitter, no swapping sides).
+	var pv2 := PitchView.new()
+	pv2.size = Vector2(370, 490)
+	pv2.setup(res)
+	var first := pv2.disc_positions().duplicate()
+	var settled := PackedVector2Array()
+	var drift := 0.0
+	for k in range(40):
+		var now := pv2.disc_positions().duplicate()
+		if k >= 20:
+			if settled.is_empty():
+				settled = now
+			for i in range(now.size()):
+				drift = maxf(drift, now[i].distance_to(settled[i]))
+	_check(drift < 0.5, "Discs at rest are drawn in the same place every frame (%.2f px of drift)" % drift)
+	var sides_kept := true
+	for i in range(first.size()):
+		for j in range(i + 1, first.size()):
+			if first[i].distance_to(first[j]) < 40.0 and (first[j] - first[i]).dot(settled[j] - settled[i]) < 0.0:
+				sides_kept = false
+	_check(sides_kept, "Two discs drawn apart keep their sides of each other")
+	pv2.free()
+
+
+## Two sides whose discs look alike: the away side wears its second colour, the
+## club's own hand-picked clash colour (UiKit.club_ink_second). Fremantle v
+## Melbourne is one; the Bulldogs v St Kilda is not.
+func _test_clash_kit() -> void:
+	var fm: Array = PitchView.kits_for("FRE", "MEL")
+	_check(bool(fm[1].get("clash", false)) and (fm[1]["base"] as Color).is_equal_approx(UiKit.club_ink_second("MEL")),
+			"Melbourne wear their second colour at Fremantle: the two dark discs read apart")
+	_check(fm[0] == GameDB.club_guernsey("FRE"), "The home side always wears its own kit")
+	_check(UiKit.colour_distance(fm[0]["base"], fm[1]["base"]) >= PitchView.DISC_CLASH,
+			"After the swap the two bases are no longer alike")
+	_check(UiKit.colour_distance(fm[1]["base"], fm[1]["pattern"]) >= PitchView.DISC_CLASH,
+			"The away design still shows on its second colour")
+	var ws: Array = PitchView.kits_for("WBD", "STK")
+	_check(not ws[1].has("clash") and ws[1] == GameDB.club_guernsey("STK") and ws[0] == GameDB.club_guernsey("WBD"),
+			"The Bulldogs and St Kilda do not clash: both wear their own kit")
+	var alike := []
+	for h in GameDB.CLUB_ORDER:
+		for a in GameDB.CLUB_ORDER:
+			if h == a:
+				continue
+			var k: Array = PitchView.kits_for(str(h), str(a))
+			if UiKit.colour_distance(k[0]["base"], k[1]["base"]) < PitchView.DISC_CLASH and bool(k[1].get("clash", false)):
+				alike.append("%s v %s" % [h, a])
+	_check(alike.is_empty(), "No swap leaves the two sides alike (%s)" % ", ".join(alike))
+	var pv := PitchView.new()
+	pv.size = Vector2(370, 490)
+	var res := _sim(31, "FRE", "MEL").run()
+	res["home"] = "FRE"
+	res["away"] = "MEL"
+	pv.setup(res)
+	_check(pv.clash, "The view knows the away side is in its clash colour")
+	pv.free()
+
+
+## The bench strip: five a side, inside the view, and an interchange swaps the
+## man coming on for the man going off, when the oval shows it.
+func _test_bench_strip() -> void:
+	var res := _sim(31, "FRE", "MEL").run()
+	res["home"] = "FRE"
+	res["away"] = "MEL"
+	_check((res["bench"] as Array).size() == 2 and (res["bench"][0] as Array).size() == 5
+			and (res["bench"][1] as Array).size() == 5, "A match says who started on each bench: five a side")
+	for view in [[Vector2(370, 490), true, "phone"], [Vector2(900, 590), false, "PC"]]:
+		var pv := PitchView.new()
+		pv.size = view[0]
+		pv.camera_enabled = view[1]
+		pv.setup(res)
+		var spots := pv.bench_spots(pv.token_radius())
+		var per := [0, 0]
+		var inside := true
+		for sp in spots:
+			per[int(sp["side"])] += 1
+			var p: Vector2 = sp["pos"]
+			var r: float = sp["r"]
+			if p.x - r < 0.0 or p.y - r < 0.0 or p.x + r > pv.size.x or p.y + r > pv.size.y:
+				inside = false
+		_check(per == [5, 5] and inside, "%s: five bench discs a side, all inside the view (%s)" % [str(view[2]), str(per)])
+		if str(view[2]) == "PC":
+			_check(bool(spots[0]["column"]), "PC: the bench runs down the sides of the ground, using the width")
+			var a := MatchMotion.HALF_LEN * pv._scale()
+			var clear := true
+			for sp in spots:
+				if absf((sp["pos"] as Vector2).x - pv.size.x * 0.5) < a + float(sp["r"]):
+					clear = false
+			_check(clear, "PC: no bench disc sits on the ground")
+		else:
+			_check(not bool(spots[0]["column"]), "Phone: the bench runs along the bottom of the view")
+			var ground_bottom: float = pv.size.y * 0.5 + MatchMotion.HALF_WID * pv.pitch_rect().size.x / (2.0 * MatchMotion.HALF_LEN) * 1.5
+			_check((spots[0]["pos"] as Vector2).y - float(spots[0]["r"]) > ground_bottom,
+					"Phone: the bench sits below the oval at its closest zoom, in the stand's band")
+		pv.free()
+	# Rotations: at every interchange the bench stays five, the man on leaves it
+	# and the man off joins it, and nobody is on the ground and the bench at once.
+	var pv3 := PitchView.new()
+	pv3.size = Vector2(370, 490)
+	var wrong := []
+	var subs := [0]
+	pv3.event_played.connect(func(ev):
+		if str(ev.get("kind", "")) != "sub":
+			return
+		subs[0] += 1
+		var side := int(ev["side"])
+		var nums := []
+		for b in pv3.director.bench[side]:
+			nums.append(int(b["num"]))
+		var on_ground := []
+		for t in pv3.director.tokens:
+			if int(t["side"]) == side:
+				on_ground.append(int(t["num"]))
+		var both := nums.filter(func(n): return on_ground.has(n))
+		if nums.size() != 5 or nums.has(int(ev["num"])) or not nums.has(int(ev["off_num"])) or not both.is_empty():
+			wrong.append("event %d" % pv3.current_index()))
+	pv3.setup(res)
+	var opening := []
+	for b in pv3.director.bench[0]:
+		opening.append(int(b["num"]))
+	pv3.set_speed(8.0)
+	pv3.play()
+	var guard := 0
+	while pv3.playing and guard < 200000:
+		guard += 1
+		pv3._process(1.0 / 30.0)
+	var closing := []
+	for b in pv3.director.bench[0]:
+		closing.append(int(b["num"]))
+	_check(subs[0] > 0 and wrong.is_empty(), "Every interchange swaps one man on the bench strip (%d interchanges; wrong at %s)" % [
+			subs[0], ", ".join(wrong.slice(0, 5))])
+	_check(opening != closing, "The bench changes as the match rotates")
+	pv3.free()
+	var old := res.duplicate()
+	old.erase("bench")
+	var pv4 := PitchView.new()
+	pv4.size = Vector2(370, 490)
+	pv4.setup(old)
+	_check(pv4.bench_spots(pv4.token_radius()).is_empty(), "An old result with no bench shows no strip, and plays")
+	pv4.free()
+
+
+## The sides change ends when the next quarter restarts, not at the siren, and
+## never after the last one; the match itself is the same watched or not.
+func _test_ends_change_at_restart(res: Dictionary) -> void:
+	var pv := PitchView.new()
+	pv.size = Vector2(370, 490)
+	var at_siren := []
+	var changes := []
+	pv.ends_changed.connect(func(p): changes.append(p))
+	pv.event_played.connect(func(ev):
+		if str(ev.get("kind", "")) == "quarter":
+			at_siren.append([int(ev.get("q", 0)), pv.period]))
+	var copy: Array = (res["events"] as Array).duplicate(true)
+	pv.setup(res)
+	pv.set_speed(8.0)
+	pv.play()
+	var guard := 0
+	while pv.playing and guard < 200000:
+		guard += 1
+		pv._process(1.0 / 30.0)
+		pv.disc_positions()
+	var held := true
+	for row in at_siren:
+		if int(row[1]) != int(row[0]):
+			held = false
+	_check(at_siren.size() >= 3 and held, "At each siren the ground still shows the quarter just played (%s)" % str(at_siren))
+	_check(changes == [2, 3, 4] and pv.period == 4, "Ends change three times, at each restart, and not after the final siren (%s)" % str(changes))
+	_check(res["events"] == copy, "Watching the match, with every disc laid out, changes nothing in it")
+	var again := _result(42)
+	_check(again["score"] == res["score"] and again["goals"] == res["goals"] and again["behinds"] == res["behinds"]
+			and (again["events"] as Array).size() == (res["events"] as Array).size(),
+			"The same seed gives the same score and the same match after one has been watched")
+	# Skipped, not watched: the same ends.
+	var pv2 := PitchView.new()
+	pv2.size = Vector2(370, 490)
+	pv2.setup(res)
+	pv2.skip_to_end()
+	_check(pv2.period == 4, "A skipped match ends at the fourth quarter's ends (%d)" % pv2.period)
+	pv.free()
+	pv2.free()

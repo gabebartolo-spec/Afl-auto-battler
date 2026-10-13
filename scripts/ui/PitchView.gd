@@ -11,6 +11,8 @@ extends Control
 
 signal event_played(ev: Dictionary)
 signal finished
+## The sides have changed ends: `period` is the one now being played.
+signal ends_changed(period: int)
 
 const GOAL_LINE_M := 85.0
 const ASPECT := 1.28            # oval length : width, close to a real AFL ground
@@ -40,6 +42,10 @@ var _drawn_zoom := -1.0
 ## Counts periods of play: every break (quarter time, half time, three
 ## quarter time, and the extra-time breaks) is a change of ends.
 var period := 1
+## A break has been played and the sides have not yet changed ends: they swap when
+## the next period restarts (the players walking to the centre), not at the siren,
+## when the clock still shows the quarter just ended. Never after the last siren.
+var _flip_pending := false
 ## Your people on the oval. `rings` are the players of yours with a call on them
 ## or a run promised (MatchRings): a thin ring on their token. A name goes over
 ## whoever has just kicked a goal, and over one of the ringed players when he has
@@ -83,6 +89,29 @@ var _trail: Array = []
 ## Each side's home kit (GameDB.club_guernsey): the token wears the club's
 ## design, not just its colours, so the two sides read apart at a glance.
 var _kits: Array = [{}, {}]
+## True when the two home kits looked alike on a disc and the away side wears its
+## second colour (kits_for).
+var clash := false
+## Two disc bases this close (UiKit.colour_distance, the measure the club inks
+## use) are alike on the turf. A little wider than UiKit.INK_CLASH (25): a disc is
+## an 18 px dot on green, where two dark bases merge sooner than two names side by
+## side do (Fremantle's purple and Melbourne's navy are 26.6 apart and read as one
+## side in a pack: audit frame fre_mel_phone 005).
+const DISC_CLASH := 30.0
+## Discs that would overlap are drawn apart, so both numbers show. Drawing only:
+## the players stay where the match has them. NUDGE_GAP is the least distance
+## between two drawn centres, in disc diameters; each frame the nudge eases back
+## by NUDGE_EASE and is pushed out again only as far as it must be, starting from
+## where the discs were drawn last, so a pair keeps its sides and does not jitter.
+const NUDGE_GAP := 1.0
+const NUDGE_EASE := 0.85
+const NUDGE_PASSES := 24
+var _nudge := PackedVector2Array()
+var _disc := PackedVector2Array()   # where each token is drawn, in pixels
+## The bench: each side's five as small discs, along the bottom of the view (the
+## stand's dark band on a phone) or down the sides of the ground when the window
+## is wider than the oval (a PC). BENCH_SHARE is a bench disc's size in token radii.
+const BENCH_SHARE := 0.85
 ## The stand beyond the fence and the turf's edge in shadow, so the oval sits
 ## in a ground rather than floating on black (audit §8 Phase 3.2).
 const STAND_COLOUR := Color(0.125, 0.11, 0.095)
@@ -128,7 +157,11 @@ func setup(p_result: Dictionary) -> void:
 	events = (p_result.get("events", []) as Array).duplicate()
 	home_code = str(p_result.get("home", ""))
 	away_code = str(p_result.get("away", ""))
-	_kits = [GameDB.club_guernsey(home_code), GameDB.club_guernsey(away_code)]
+	_kits = kits_for(home_code, away_code)
+	clash = bool((_kits[1] as Dictionary).get("clash", false))
+	_nudge = PackedVector2Array()
+	_disc = PackedVector2Array()
+	_flip_pending = false
 	_trail = []
 	mini_figures = GameState.match_figures_on()
 	_looks = {}
@@ -232,6 +265,9 @@ func _process(delta: float) -> void:
 		if playing and director.idle():
 			playing = false
 			finished.emit()
+		if _flip_pending and director.mode != "break":
+			# The next period is setting up: now the sides change ends.
+			_change_ends()
 		_follow_ball()
 	_name_the_ball_carrier()
 	_age_caption(delta)
@@ -389,11 +425,51 @@ func _follow_ball() -> void:
 		_trail.pop_front()
 
 
-## Every break the match screen plays is a change of ends.
+## Every break the match screen plays is a change of ends, made when play
+## restarts: the siren only marks it as owed. Play that follows a break (seen
+## here when events are skipped, not watched) makes the change if the restart
+## has not; the final siren never does.
 func _track_quarter(ev: Dictionary) -> void:
-	if str(ev.get("kind", "")) == "quarter":
-		period += 1
-		queue_redraw()
+	var kind := str(ev.get("kind", ""))
+	if kind == "quarter":
+		if _flip_pending:
+			_change_ends()
+		_flip_pending = true
+	elif _flip_pending and not ["final", "sub", "moment", "injury"].has(kind):
+		_change_ends()
+
+
+func _change_ends() -> void:
+	_flip_pending = false
+	period += 1
+	# The picture mirrors, and so does each disc's nudge.
+	for i in range(_nudge.size()):
+		_nudge[i] = Vector2(-_nudge[i].x, _nudge[i].y)
+	ends_changed.emit(period)
+	queue_redraw()
+
+
+## The two kits the discs wear. The home side wears its own. The away side does
+## too unless its base colour looks like the home side's on a disc (DISC_CLASH),
+## when it wears its second hand-picked colour (UiKit.club_ink_second, the same
+## clash colour its name takes on the break and the stats), if that is farther
+## from the home base: the rule of UiKit.club_ink_pair, asked of the discs.
+static func kits_for(home: String, away: String) -> Array:
+	var h: Dictionary = GameDB.club_guernsey(home)
+	var a: Dictionary = GameDB.club_guernsey(away)
+	var hb: Color = h.get("base", Color.WHITE)
+	var ab: Color = a.get("base", Color.WHITE)
+	if UiKit.colour_distance(hb, ab) < DISC_CLASH:
+		var second := UiKit.club_ink_second(away)
+		if UiKit.colour_distance(hb, second) > UiKit.colour_distance(hb, ab):
+			a = a.duplicate()
+			a["base"] = second
+			# The design must still show on the new base.
+			var pat: Color = a.get("pattern", Color.DIM_GRAY)
+			if UiKit.colour_distance(pat, second) < DISC_CLASH:
+				a["pattern"] = ab
+			a["clash"] = true
+	return [h, a]
 
 
 ## +1 when the home side kicks to the right of the screen, -1 when it kicks
@@ -557,7 +633,9 @@ func _draw() -> void:
 	VignetteWeather.draw_air(self, r, now, weather)
 	if weather == VignetteWeather.WINDY:
 		VignetteWeather.draw_wind_flat(self, r, now)
-	var tr := maxf(TOKEN_MIN, minf(r.size.x, r.size.y) * 0.5 * 0.030 * sqrt(_zoom))
+	var tr := token_radius()
+	_layout_discs(tr)
+	_draw_bench(tr)
 	_draw_tokens(0, tr)
 	_draw_tokens(1, tr)
 	_draw_rings(tr)
@@ -568,7 +646,7 @@ func _draw() -> void:
 	# Actor highlight
 	var act := director.actor
 	if act >= 0 and act < director.tokens.size():
-		var p := _w2s(director.tokens[act]["pos"])
+		var p := _disc_at(act)
 		draw_arc(p, tr * 1.9, 0, TAU, 28, Color(1, 1, 0.55, 0.95), 2.0, antialias)
 
 	_draw_ball(tr, s)
@@ -708,7 +786,7 @@ func _draw_rings(tr: float) -> void:
 	for t in director.tokens:
 		if float(t["down"]) > 0.0 or not rings.has(str(t.get("pid", ""))):
 			continue
-		var p := _w2s(t["pos"])
+		var p := _disc_at(int(t["id"]))
 		if p.x < -tr * 3.0 or p.y < -tr * 3.0 or p.x > size.x + tr * 3.0 or p.y > size.y + tr * 3.0:
 			continue
 		draw_arc(p, tr * 1.5, 0, TAU, 28, Color(RING_COLOUR, 0.9), 1.6, antialias)
@@ -745,7 +823,7 @@ func _draw_role_labels(tr: float) -> void:
 		if text == "":
 			continue
 		var width := UiKit.BOLD.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		var p := _w2s(t["pos"])
+		var p := _disc_at(int(id))
 		if p.x < -width or p.y < 0.0 or p.x > size.x + width or p.y > size.y + float(fs) * 2.0:
 			continue
 		var origin := p + Vector2(-width * 0.5, tr * 1.25 + float(fs))
@@ -789,7 +867,7 @@ func _draw_caption(tr: float) -> void:
 	# A turnover is a cue, not a name: a size up, so it reads at a glance.
 	var fs := clampi(int(tr * (2.1 if turnover else 1.6)), 15 if turnover else 11, 20 if turnover else 15)
 	var width := UiKit.BOLD.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	var p := _w2s(director.tokens[tok]["pos"])
+	var p := _disc_at(tok)
 	var origin := p + Vector2(-width * 0.5, -tr * 2.4)
 	origin.x = clampf(origin.x, 4.0, maxf(4.0, size.x - width - 4.0))
 	origin.y = maxf(origin.y, float(fs) + 2.0)
@@ -818,7 +896,7 @@ func _draw_ball(tr: float, s: float) -> void:
 			var k := float(i) / float(_trail.size() - 1)
 			draw_line(_w2s(_trail[i - 1]), _w2s(_trail[i]), Color(0.98, 0.93, 0.75, 0.55 * k),
 					maxf(1.0, tr * 0.22 * k), antialias)
-	var ground := _w2s(director.ball["pos"])
+	var ground := ball_point()
 	var h := float(director.ball["h"])
 	# Shadow on the turf, the ball lifted by its height: a kick visibly climbs
 	# and drops, a handball stays flat.
@@ -833,6 +911,154 @@ func _draw_ball(tr: float, s: float) -> void:
 			Color(0.25, 0.12, 0.08), 1.0, antialias)
 
 
+## The radius a player's disc is drawn at, in pixels.
+func token_radius() -> float:
+	var r := pitch_rect()
+	return maxf(TOKEN_MIN, minf(r.size.x, r.size.y) * 0.5 * 0.030 * sqrt(_zoom))
+
+
+## Where token `id` is drawn: his place on the ground, nudged clear of a disc
+## he would overlap (_layout_discs).
+func _disc_at(id: int) -> Vector2:
+	if id >= 0 and id < _disc.size():
+		return _disc[id]
+	return _w2s(director.tokens[id]["pos"])
+
+
+## Work out where every disc is drawn this frame. Two discs closer than a
+## diameter are moved apart along the line between them, half each, until none
+## overlap; the move is kept from frame to frame and eases away once the players
+## part. The match's own positions are never touched.
+func _layout_discs(tr: float) -> void:
+	var n := director.tokens.size()
+	if _nudge.size() != n:
+		_nudge.resize(n)
+		_nudge.fill(Vector2.ZERO)
+	var real := PackedVector2Array()
+	real.resize(n)
+	var pos := PackedVector2Array()
+	pos.resize(n)
+	for i in range(n):
+		real[i] = _w2s(director.tokens[i]["pos"])
+		_nudge[i] *= NUDGE_EASE
+		pos[i] = real[i] + _nudge[i]
+	var want := tr * 2.0 * NUDGE_GAP
+	for pass_no in range(NUDGE_PASSES):
+		var moved := false
+		for i in range(n):
+			for j in range(i + 1, n):
+				var d := pos[j] - pos[i]
+				if absf(d.x) >= want or absf(d.y) >= want:
+					continue
+				var dist := d.length()
+				if dist >= want:
+					continue
+				# Two on the very same spot part along a line of their own, the
+				# same one every frame.
+				var dir := d / dist if dist > 0.01 else Vector2.RIGHT.rotated(float(i * 7 + j))
+				var push := (want - dist) * 0.5 + 0.02
+				pos[i] -= dir * push
+				pos[j] += dir * push
+				moved = true
+		if not moved:
+			break
+	for i in range(n):
+		_nudge[i] = pos[i] - real[i]
+	_disc = pos
+
+
+## Where the discs are drawn now, for tests and the capture tool: a layout
+## step exactly as a drawn frame makes it.
+func disc_positions() -> PackedVector2Array:
+	_layout_discs(token_radius())
+	return _disc
+
+
+## The bench as it is drawn: [{side, num, pid, pos, r, column}], five a side while
+## the match says who they are (an old result without its bench shows none). The
+## home side's are on the left, the away side's on the right, whichever end they
+## kick to. Down the sides of the ground when the view is wider than the oval,
+## otherwise along the bottom of the view.
+func bench_spots(tr: float) -> Array:
+	var out := []
+	if director == null or director.bench.size() < 2:
+		return out
+	var br := maxf(7.0, tr * BENCH_SHARE)
+	var s := _scale()
+	var fence := maxf(3.0, 2.0 * s)
+	var side_band := size.x * 0.5 - MatchMotion.HALF_LEN * s - fence
+	var column := side_band >= br * 2.0 + 10.0
+	var step := br * 2.0 + 4.0
+	for side in range(2):
+		var list: Array = director.bench[side]
+		for i in range(list.size()):
+			var p: Vector2
+			if column:
+				var x := side_band * 0.5 if side == 0 else size.x - side_band * 0.5
+				p = Vector2(x, size.y * 0.5 + (float(i) - float(list.size() - 1) * 0.5) * step)
+			else:
+				var x2 := 6.0 + br + float(i) * step
+				p = Vector2(x2 if side == 0 else size.x - x2, size.y - br - 5.0)
+			out.append({"side": side, "num": int(list[i]["num"]), "pid": str(list[i].get("pid", "")),
+					"pos": p, "r": br, "column": column})
+	return out
+
+
+func _draw_bench(tr: float) -> void:
+	var spots := bench_spots(tr)
+	if spots.is_empty():
+		return
+	var br: float = spots[0]["r"]
+	var fs := int(clampf(br * 1.1, 9.0, 13.0))
+	var word := "Bench"
+	var ww := UiKit.BOLD.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+	if not bool(spots[0]["column"]):
+		# Along the bottom: a dark band, so the discs read over whatever is under them.
+		draw_rect(Rect2(0.0, size.y - br * 2.0 - 10.0, size.x, br * 2.0 + 10.0), Color(STAND_COLOUR, 0.82))
+		draw_string(UiKit.BOLD, Vector2((size.x - ww) * 0.5, size.y - br - 1.0), word,
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(RING_COLOUR, 0.6))
+	else:
+		for side in range(2):
+			var top := INF
+			var x := 0.0
+			for sp in spots:
+				if int(sp["side"]) == side:
+					top = minf(top, (sp["pos"] as Vector2).y)
+					x = (sp["pos"] as Vector2).x
+			if top < INF:
+				draw_string(UiKit.BOLD, Vector2(x - ww * 0.5, top - br - 6.0), word,
+						HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(RING_COLOUR, 0.6))
+	for sp in spots:
+		_draw_disc(sp["pos"], br, _kits[int(sp["side"])], str(sp["num"]), fs)
+
+
+## One disc: the kit, a dark edge, and the number in white with a full dark edge
+## (eight directions) so it reads on a white stripe as well as on navy.
+func _draw_disc(p: Vector2, r: float, kit: Dictionary, label: String, fs: int) -> void:
+	draw_circle(p + Vector2(0, r * 0.22), r, Color(0, 0, 0, 0.28))
+	_draw_kit(p, r, kit)
+	draw_circle(p, r, Color(0, 0, 0, 0.45), false, 1.2, antialias)
+	if label == "":
+		return
+	var font := UiKit.BOLD
+	var w := font.get_string_size(label, HORIZONTAL_ALIGNMENT_CENTER, -1, fs).x
+	var origin := p + Vector2(-w * 0.5, fs * 0.36)
+	for off in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1),
+			Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+		draw_string(font, origin + off, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.85))
+	draw_string(font, origin, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1))
+
+
+## Where the ball is drawn on the turf, in pixels: in a player's hands it goes
+## where his disc is drawn.
+func ball_point() -> Vector2:
+	var ground := _w2s(director.ball.get("pos", Vector2.ZERO))
+	var holder := int(director.ball.get("holder", -1))
+	if str(director.ball.get("mode", "")) == "held" and holder >= 0 and holder < _nudge.size():
+		ground += _nudge[holder]
+	return ground
+
+
 ## A side's tokens: a disc in the club's home kit (its base colour and its
 ## design in the pattern colour), the number on it in white with a dark edge
 ## so it reads on any kit, dropped when the disc is under 18 px.
@@ -844,7 +1070,7 @@ func _draw_tokens(side: int, tr: float) -> void:
 	for t in director.tokens:
 		if int(t["side"]) != side:
 			continue
-		var p := _w2s(t["pos"])
+		var p := _disc_at(int(t["id"]))
 		if p.x < -tr * 3.0 or p.y < -tr * 3.0 or p.x > size.x + tr * 3.0 or p.y > size.y + tr * 3.0:
 			continue
 		if float(t["down"]) > 0.0:
@@ -891,7 +1117,7 @@ func _figure_slots(tr: float) -> Array:
 	for j in range(mini(FIGURES_NEAR_BALL, order.size())):
 		var i: int = order[j][1]
 		var t: Dictionary = director.tokens[i]
-		var p := _w2s(t["pos"])
+		var p := _disc_at(i)
 		if p.x < -tr * 4.0 or p.y < -tr * 4.0 or p.x > size.x + tr * 4.0 or p.y > size.y + tr * 4.0:
 			continue
 		var vel: Vector2 = t.get("vel", Vector2.ZERO)
@@ -1023,6 +1249,8 @@ func debug_snapshot() -> Dictionary:
 	for t in director.tokens:
 		screen.append(_w2s(t["pos"]))
 	snap["screen"] = screen
+	snap["drawn"] = _disc
+	snap["bench"] = director.bench
 	snap["ball_screen"] = _w2s(director.ball.get("pos", Vector2.ZERO))
 	return snap
 
