@@ -1255,7 +1255,7 @@ static func turning_points(res: Dictionary, my_side: int, skip_kicker := "") -> 
 				took = ev
 			was_ahead = ahead
 		if not took.is_empty() and int(took.get("q", 1)) >= 2 and int(took.get("q", 1)) <= 4 \
-				and str(took.get("name", "")) != "" and str(took.get("player_id", "")) != skip_kicker:
+				and str(took.get("name", "")) != "" and (skip_kicker == "" or str(took.get("player_id", "")) != skip_kicker):
 			out.append("%s's %s %s put %s in front for good." % [str(took["name"]), str(took["kind"]),
 					_when(took), GameDB.club_name(codes[winner])])
 	var overall := {}
