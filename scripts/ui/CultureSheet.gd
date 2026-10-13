@@ -228,10 +228,13 @@ static func _build(root: Control, club: String, data: Array, wide: bool, done: C
 		name.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		if icon != null:
 			# The emblem sits over the name, in the name's own column, so the
-			# words keep the width and the place they have without it.
+			# words keep the width and the place they have without it. The name is
+			# centred under it (director, 2026-10-14: "centre the text beneath the
+			# emblem so it doesnt look odd"): one centre line for the two.
 			var tag := UiKit.vbox(4)
 			tag.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-			icon.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			tag.add_child(icon)
 			tag.add_child(name)
 			row.add_child(tag)

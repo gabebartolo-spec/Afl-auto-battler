@@ -822,8 +822,10 @@ func _culture_ui_tests() -> void:
 				"The %s emblem is a shape on a clear background, not a blank or a block" % id)
 		var name_lbl: Control = _label_with(row, str(st[1]))
 		_check(icon != null and icon.is_visible_in_tree() and icon.size.is_equal_approx(Vector2(icon_px, icon_px))
-				and name_lbl != null and icon.get_global_rect().grow(24.0).has_point(name_lbl.get_global_rect().position),
-				"The %s emblem is drawn at its size, next to the strand's name" % id)
+				and name_lbl != null and (name_lbl as Label).horizontal_alignment == HORIZONTAL_ALIGNMENT_CENTER
+				and absf(icon.get_global_rect().get_center().x - name_lbl.get_global_rect().get_center().x) < 1.0
+				and absf(name_lbl.get_global_rect().position.y - icon.get_global_rect().end.y) < 8.0,
+				"The %s emblem is drawn at its size, its name centred right under it" % id)
 		var words: Control = row.find_child("StrandWords", true, false) if row != null else null
 		words_x[id] = words.get_global_rect() if words != null else Rect2()
 	var tint: Color = sheet_script.emblem_tint("FRE")
