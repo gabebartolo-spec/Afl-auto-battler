@@ -17,11 +17,12 @@
 			"The papers want {name} dropped"
 		],
 		"text": [
-			"Gary Haddon has {name} on the back page after a poor few weeks and says he should make way. The board is watching what you do."
+			"Gary Haddon has {name} on the back page after a poor few weeks and says he should make way."
 		],
 		"unanswered": {
-			"board": -4,
-			"text": "You say nothing. The board wanted an answer."
+			"trust": -2,
+			"why": "You said nothing when the papers went after him",
+			"text": "You say nothing. {first} reads the back page on his own."
 		},
 		"choices": [
 			{
@@ -39,10 +40,6 @@
 						"op": "trust",
 						"d": -6,
 						"why": "You dropped him after the papers pushed"
-					},
-					{
-						"op": "board",
-						"d": 4
 					}
 				],
 				"result": "{name} sits out this week."
@@ -59,10 +56,6 @@
 						"op": "trust",
 						"d": 10,
 						"why": "You kept him in when the papers wanted him out"
-					},
-					{
-						"op": "board",
-						"d": -4
 					},
 					{
 						"op": "flag",

@@ -875,6 +875,18 @@ func _test_papers_cards_are_football() -> void:
 	# The cards' own effects.
 	# Each effect follows from the story (director, 2026-10-14): he asked about the move,
 	# so trying it earns his trust and refusing costs it; nothing about the board or his mood.
+	# The dropped card: no board in it either (director, 2026-10-14); resting him costs trust and morale,
+	# keeping him in earns trust, silence costs trust.
+	var rest := _choice("media_in_the_papers", "suspend")
+	var keep := _choice("media_in_the_papers", "back")
+	var drop := StoryDeck.by_id(StoryDeck.all(), "media_in_the_papers")
+	_check(_effect(rest, "board").is_empty() and _effect(keep, "board").is_empty()
+			and int(_effect(rest, "trust").get("d", 0)) < 0 and int(_effect(rest, "morale").get("d", 0)) < 0
+			and int(_effect(keep, "trust").get("d", 0)) > 0 and not str(drop["text"][0]).contains("board"),
+			"The dropped card has no board effect or board line: resting him costs trust and morale, keeping him earns trust")
+	_check(int((drop["unanswered"] as Dictionary).get("trust", 0)) < 0 and int((drop["unanswered"] as Dictionary).get("board", 0)) == 0,
+			"Silence on the dropped card costs his trust, not the board's confidence")
+	_check(_effect(keep, "flag").get("name", "") == "backed_in_papers", "Keeping him in still opens the follow-up")
 	var down := _choice("media_papers_again", "down")
 	var stand := _choice("media_papers_again", "stand")
 	_check(int(_effect(down, "role_trial").get("weeks", 0)) == 3 and int(_effect(down, "trust").get("d", 0)) > 0
