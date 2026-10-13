@@ -40,11 +40,14 @@ const DEFAULTS := {
 	"trial_best": 5,
 	"trial_worst": 3,
 	"trial_noise": 6.0,
+	"heavy_week_injury": 0.008,
+	"soft_tissue_kinds": ["hamstring", "calf", "groin", "quad"],
+	"ai_old_age": 28.0,
 	"default_blocks": [["solid", "running"], ["solid", "skills"], ["solid", "skills"]],
 	"ai_blocks": {
-		"contending": [["solid", "running"], ["solid", "running"], ["solid", "skills"]],
-		"building": [["solid", "running"], ["solid", "skills"], ["solid", "skills"]],
-		"rebuilding": [["solid", "skills"], ["solid", "skills"], ["solid", "running"]],
+		"contending": [["heavy", "running"], ["solid", "running"], ["solid", "skills"]],
+		"building": [["solid", "running"], ["heavy", "skills"], ["solid", "skills"]],
+		"rebuilding": [["heavy", "skills"], ["solid", "skills"], ["solid", "running"]],
 	},
 }
 
@@ -138,11 +141,18 @@ static func default_blocks() -> Array:
 	return _blocks(tune("default_blocks"))
 
 
-## What an AI club runs, from where it is in its cycle (TradeValue.phase):
-## contenders lean to running, rebuilders to skills, the rest spread it.
-static func ai_blocks(phase: String) -> Array:
+## What an AI club runs, from its own situation: where it is in its cycle
+## (TradeValue.phase) sets the focus and where it pushes, and an older list
+## (`best22_age` at or over ai_old_age) does not push at all: its Heavy blocks
+## are Solid. The same loads, by the same rules and risks, as the coach's.
+static func ai_blocks(phase: String, best22_age := 0.0) -> Array:
 	var table: Dictionary = tune("ai_blocks")
-	return _blocks(table.get(phase, table.get("building", [])))
+	var out := _blocks(table.get(phase, table.get("building", [])))
+	if best22_age >= float(tune("ai_old_age")):
+		for b in out:
+			if str(b[0]) == "heavy":
+				b[0] = "solid"
+	return out
 
 
 ## A fresh pre-season for `year`: `club_blocks` is club code -> its blocks.
@@ -150,7 +160,8 @@ static func new_state(year: int, club_blocks: Dictionary) -> Dictionary:
 	var clubs := {}
 	for code in club_blocks:
 		clubs[str(code)] = {"blocks": _blocks(club_blocks[code]), "run": 0.0}
-	return {"year": year, "week": 0, "clubs": clubs, "trial": {}, "trial_seen": false, "done": false}
+	return {"year": year, "week": 0, "clubs": clubs, "trial": {}, "trial_seen": false, "done": false,
+			"injuries": []}
 
 
 ## A week's work in one area ("running" or "skills") under a block's load and
@@ -196,6 +207,31 @@ static func round_one_flag(blocks: Array) -> String:
 		"light":
 			return "fresh"
 	return ""
+
+
+static func injury_seed(career_seed: int, year: int, club: String, id: String, week: int) -> int:
+	return hash(["preseason", "injury", career_seed, year, club, id, week])
+
+
+## A Heavy training week's risk for one player: {} or {"weeks", "kind"}, a
+## soft-tissue injury of the game's usual lengths (Injuries.SEVERITY). His
+## durability moves the chance as it moves a match injury. The roll is his
+## own for that week (injury_seed), so a reload replays it and nobody else's
+## dice move. Light and Solid weeks carry no risk.
+static func training_injury(p: Dictionary, load: String, career_seed: int, year: int,
+		club: String, week: int) -> Dictionary:
+	var base := float(tune("heavy_week_injury")) if load == "heavy" else 0.0
+	if base <= 0.0 or int(p.get("injury_weeks", 0)) > 0:
+		return {}
+	var dur := float((p.get("attr", {}) as Dictionary).get("durability", 50))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = injury_seed(career_seed, year, club, str(p["id"]), week)
+	if rng.randf() >= base * clampf(1.5 - dur / 100.0, 0.5, 1.3):
+		return {}
+	var kinds: Array = tune("soft_tissue_kinds")
+	if kinds.is_empty():
+		return {}
+	return {"weeks": Injuries._severity(rng), "kind": str(kinds[rng.randi_range(0, kinds.size() - 1)])}
 
 
 static func trial_seed(career_seed: int, year: int, club: String, id: String) -> int:
@@ -271,8 +307,8 @@ static func cost_line(load: String, _focus: String, i: int) -> String:
 			return "Half the running and half the skills work of a Solid block."
 		"heavy":
 			if is_last_block(i):
-				return "Sore legs and more soft-tissue risk in Round 1."
-			return "Heavy legs on the track these weeks, gone by Round 1."
+				return "A risk of soft-tissue injuries in these weeks, and sore legs in Round 1."
+			return "A risk of soft-tissue injuries in these weeks."
 	return ""
 
 

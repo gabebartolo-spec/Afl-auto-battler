@@ -371,12 +371,21 @@ func _trial_section() -> Control:
 	for i in range(best.size()):
 		v.add_child(_runner(str(best[i]), "%d" % (i + 1), "TrialBest_%d" % i))
 	var worst: Array = trial.get("worst", [])
-	if worst.is_empty():
-		return v   # a list too short for a tail: no heading over no names
-	v.add_child(UiKit.spacer(6))
-	v.add_child(_section_head("Last three home" if worst.size() == 3 else "Last home"))
-	for i in range(worst.size()):
-		v.add_child(_runner(str(worst[i]), "", "TrialWorst_%d" % i))
+	if not worst.is_empty():   # a list too short for a tail: no heading over no names
+		v.add_child(UiKit.spacer(6))
+		v.add_child(_section_head("Last three home" if worst.size() == 3 else "Last home"))
+		for i in range(worst.size()):
+			v.add_child(_runner(str(worst[i]), "", "TrialWorst_%d" % i))
+	# Who a Heavy block cost, in the game's usual injury words.
+	var hurt: Array = GameState.preseason_injury_lines(1, GameState.preseason_week())
+	if not hurt.is_empty():
+		v.add_child(UiKit.spacer(6))
+		v.add_child(_section_head("Hurt in training"))
+		for i in range(hurt.size()):
+			var l := UiKit.lbl(str(hurt[i]), UiKit.BODY, UiKit.BAD)
+			l.name = "TrialHurt_%d" % i
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(l)
 	return v
 
 

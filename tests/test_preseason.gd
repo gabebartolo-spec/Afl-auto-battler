@@ -23,6 +23,7 @@ func run() -> void:
 	_test_own_dice()
 	_test_sim_to_round_one()
 	_test_ai_parity()
+	_test_training_injuries()
 	_test_old_saves()
 	await _test_screens()
 	PreSeason.reload()
@@ -73,6 +74,9 @@ func _sig() -> String:
 		var rec: Dictionary = GameState.conditioning.get(code, {})
 		parts.append("%s[%s|%s]%s" % [str(code), Conditioning.plan_at(rec, 0),
 				Conditioning.base_of(rec), ",".join(rows)])
+	for inj in GameState.preseason_injuries():
+		parts.append("hurt:%s/%s/%d/%d/%s" % [str(inj["club"]), str(inj["id"]), int(inj["week"]),
+				int(inj["weeks"]), str(inj["kind"])])
 	return str(hash("\n".join(parts)))
 
 
@@ -176,10 +180,11 @@ func _test_words() -> void:
 	_check(clean, "Every load and focus says what it gains in a coach's words: no sums, no engine terms, the block's weeks not said again, and a cost only when there is one")
 	_check(said["heavy|running|2"] != said["heavy|running|0"]
 			and said["heavy|running|2"].contains("Round 1")
-			and said["heavy|running|0"].contains("gone by Round 1")
+			and said["heavy|running|0"].contains("risk of soft-tissue injuries in these weeks")
+			and not said["heavy|running|0"].contains("Round 1")
 			and said["light|skills|2"] != said["light|skills|0"]
 			and said["light|skills|2"].contains("Round 1"),
-			"A heavy or light last block says what it does to Round 1; an earlier one says it is gone by then")
+			"A Heavy block says its risk of soft-tissue injuries; a heavy or light last block also says what it does to Round 1")
 	_check(said["solid|running|0"] != said["solid|skills|0"]
 			and said["solid|running|0"].contains("fitness base")
 			and said["solid|skills|0"].contains("develop")
@@ -286,8 +291,9 @@ func _test_flow() -> void:
 	var by_phase := true
 	for code in GameState.season.clubs:
 		if str(code) != CLUB:
-			by_phase = by_phase and GameState.preseason_blocks(str(code)) == PreSeason.ai_blocks(GameState._club_phase(str(code)))
-	_check(by_phase, "Every AI club runs the blocks its phase calls for")
+			by_phase = by_phase and GameState.preseason_blocks(str(code)) == PreSeason.ai_blocks(
+					GameState._club_phase(str(code)), GameState._best22_age(str(code)))
+	_check(by_phase, "Every AI club runs the blocks its own situation calls for: its phase, and its age")
 	var before := {}
 	var ceilings := {}
 	for p in GameState.my_list:
@@ -414,6 +420,9 @@ func _run_preseason(reload_at := -1) -> String:
 
 func _test_determinism() -> void:
 	PreSeason.reload()
+	# A size big enough that the Heavy block here is sure to hurt someone, so
+	# the injuries are part of what must replay.
+	PreSeason.data()["heavy_week_injury"] = 0.1
 	var a := _run_preseason()
 	var trial_a := GameState.preseason_trial().duplicate(true)
 	_play(3)
@@ -421,6 +430,8 @@ func _test_determinism() -> void:
 	var b := _run_preseason()
 	_check(a == b and GameState.preseason_trial() == trial_a,
 			"The same seed and the same choices give the same pre-season")
+	_check(GameState.preseason_injuries().size() > 0,
+			"...training injuries among it (%d across the league)" % GameState.preseason_injuries().size())
 	_play(3)
 	_check(_sig() == a_season, "...and the same three rounds after it")
 	# Saved and loaded in the middle of block 1 (after week 2) and of block 2
@@ -451,6 +462,7 @@ func _test_determinism() -> void:
 	GameState.load_career()
 	_check(not GameState.preseason_active() and GameState.preseason_stop() == "" and GameState.preseason_week() == 8,
 			"Loaded after week 8, the pre-season is not run again")
+	PreSeason.reload()
 
 
 ## The pre-season's draws are its own: with it on or off, the season's seed,
@@ -472,6 +484,7 @@ func _test_own_dice() -> void:
 	data["skills_week_xp"] = 0
 	data["base_thin_below"] = 0.0
 	data["base_strong_from"] = 99.0
+	data["heavy_week_injury"] = 0.0
 	_career()
 	GameState.preseason_sim_to_round1()
 	_play(2)
@@ -568,7 +581,15 @@ func _test_ai_parity() -> void:
 			SUITE_SEED, off_mean, on_mean, open_mean, off_inj, on_inj, off_inj_r1, on_inj_r1,
 			int(counts["thin"]), int(counts["sound"]), int(counts["strong"]), mine, theirs, most])
 	_check(is_equal_approx(open_mean, off_mean), "The league is rated the same when a pre-season opens as when none does")
-	_check(on_inj == off_inj, "Training injures nobody: the league has the same injury list at Round 1 either way (%d, %d)" % [off_inj, on_inj])
+	var soft: Array = PreSeason.tune("soft_tissue_kinds")
+	var fair := true
+	for inj in GameState.preseason_injuries():
+		var blocks: Array = GameState.preseason_blocks(str(inj["club"]))
+		fair = fair and soft.has(str(inj["kind"])) \
+				and str(blocks[PreSeason.block_of_week(int(inj["week"]))][0]) == "heavy"
+	_check(off_inj == 0 and fair and on_inj <= GameState.preseason_injuries().size(),
+			"Only a Heavy week hurts anyone, at any club, and only with a soft-tissue injury (%d hurt in training, %d still out at Round 1)" % [
+			GameState.preseason_injuries().size(), on_inj])
 	_check(on_mean >= off_mean and on_mean - off_mean < 1.0 and most <= GameState.SEASON_TRAIN_GAIN + 2,
 			"A pre-season lifts the league's mean rating by under a point (%.2f to %.2f), nobody by more than the season limit" % [off_mean, on_mean])
 	_check(theirs > 0.0 and absf(mine - theirs) < 0.5,
@@ -576,6 +597,105 @@ func _test_ai_parity() -> void:
 	_check(int(counts["sound"]) > 0 and int(counts["strong"]) > 0,
 			"AI clubs take different bases into the season by phase (thin %d, sound %d, strong %d)" % [
 			int(counts["thin"]), int(counts["sound"]), int(counts["strong"])])
+
+
+## A Heavy week is a gamble: each fit player's own roll for a soft-tissue
+## injury, at every club alike, on the pre-season's own dice.
+func _test_training_injuries() -> void:
+	PreSeason.reload()
+	var soft: Array = PreSeason.tune("soft_tissue_kinds")
+	var p := {"id": "x1", "attr": {"durability": 50}}
+	var data := PreSeason.data()
+	_check(float(PreSeason.tune("heavy_week_injury")) > 0.0 and float(PreSeason.tune("heavy_week_injury")) < Injuries.BASE_CHANCE,
+			"A Heavy week's risk is a size in the data, smaller than a match's")
+	data["heavy_week_injury"] = 1.0
+	var inj := PreSeason.training_injury(p, "heavy", 7, 2027, CLUB, 2)
+	_check(not inj.is_empty() and soft.has(str(inj["kind"])) and int(inj["weeks"]) >= 1
+			and inj == PreSeason.training_injury(p, "heavy", 7, 2027, CLUB, 2),
+			"A training injury is a soft-tissue injury of the usual lengths, and the same roll on a replay")
+	_check(PreSeason.training_injury(p, "solid", 7, 2027, CLUB, 2).is_empty()
+			and PreSeason.training_injury(p, "light", 7, 2027, CLUB, 2).is_empty()
+			and PreSeason.training_injury({"id": "x1", "injury_weeks": 2}, "heavy", 7, 2027, CLUB, 2).is_empty(),
+			"Solid and Light weeks carry no risk, and a player already hurt is not hurt again")
+	var hits := [0, 0]
+	data["heavy_week_injury"] = 0.2
+	for i in range(400):
+		hits[0] += 0 if PreSeason.training_injury({"id": "s%d" % i, "attr": {"durability": 95}}, "heavy", 7, 2027, CLUB, 1).is_empty() else 1
+		hits[1] += 0 if PreSeason.training_injury({"id": "s%d" % i, "attr": {"durability": 30}}, "heavy", 7, 2027, CLUB, 1).is_empty() else 1
+	_check(hits[0] > 0 and hits[1] > hits[0] * 3 / 2,
+			"A durable player is hurt less often in training than a fragile one (%d against %d in 400)" % [hits[0], hits[1]])
+	var old := PreSeason.ai_blocks("contending", 30.0)
+	var young := PreSeason.ai_blocks("contending", 24.0)
+	var old_heavy := false
+	for b in old:
+		old_heavy = old_heavy or str(b[0]) == "heavy"
+	_check(not old_heavy and str(young[0][0]) == "heavy" and str(PreSeason.ai_blocks("building", 24.0)[1][0]) == "heavy"
+			and str(PreSeason.ai_blocks("rebuilding", 24.0)[0][0]) == "heavy",
+			"AI clubs push by their situation: contenders, middle clubs and rebuilders each have a Heavy block, an older list none")
+
+	# In a career, at a size big enough to be sure of some.
+	_career()
+	_set_blocks([["heavy", "skills"], ["solid", "skills"], ["solid", "skills"]])
+	var news_before := GameState.news.size()
+	GameState.preseason_step_week()
+	var mine := 0
+	var recorded := true
+	var ai_heavy := 0
+	var ai_solid := 0
+	for row in GameState.preseason_injuries():
+		var club := str(row["club"])
+		var who: Dictionary = {}
+		for q in GameState.season.lists[club]:
+			if str(q["id"]) == str(row["id"]):
+				who = q
+		recorded = recorded and not who.is_empty() and int(who.get("injury_weeks", 0)) == int(row["weeks"]) \
+				and str(who.get("injury_kind", "")) == str(row["kind"]) and soft.has(str(row["kind"])) and int(row["week"]) == 1
+		if club == CLUB:
+			mine += 1
+		elif str(GameState.preseason_blocks(club)[0][0]) == "heavy":
+			ai_heavy += 1
+		else:
+			ai_solid += 1
+	_check(mine > 0 and recorded, "A Heavy week hurts some of your players, each recorded on him as a match injury is (%d)" % mine)
+	_check(ai_heavy > 0 and ai_solid == 0,
+			"AI clubs on a Heavy block run the same risk, and clubs on Solid none (%d, %d)" % [ai_heavy, ai_solid])
+	var lines: Array = GameState.preseason_injury_lines()
+	var first: Dictionary = {}
+	for row in GameState.preseason_injuries():
+		if str(row["club"]) == CLUB and first.is_empty():
+			first = row
+	var hurt: Dictionary = GameState.list_player(str(first.get("id", "")))
+	_check(lines.size() == mine and str(lines[0]).contains(GameDB.player_display_name(hurt))
+			and str(lines[0]).contains(str(first["kind"])) and GameState.news.size() >= news_before + mine
+			and str(GameState.news[0]["text"]).contains("hurt in pre-season training")
+			and not Ratings.available(hurt),
+			"Each of yours is named in the usual injury words, is in the news, and is unavailable (%s)" % str(lines[0]))
+	var was := int(first["weeks"])
+	var xp_then := int(hurt.get("xp", 0))
+	GameState.preseason_step_week()
+	_check(int(hurt.get("injury_weeks", 0)) == was - 1 or (was == 1 and not hurt.has("injury_kind")),
+			"A week of the pre-season is a week of his recovery")
+	_check(was == 1 or int(hurt.get("xp", 0)) == xp_then, "While he is out he does no training")
+	GameState.preseason["trial_seen"] = true
+	GameState.preseason_sim_to_round1()
+	var late: Dictionary = {}
+	for row in GameState.preseason_injuries():
+		if int(row["week"]) + int(row["weeks"]) > PreSeason.weeks() + 1:
+			late = row
+	if not late.is_empty():
+		var out: Dictionary = {}
+		for q in GameState.season.lists[str(late["club"])]:
+			if str(q["id"]) == str(late["id"]):
+				out = q
+		_check(int(out.get("injury_weeks", 0)) > 0, "An injury longer than the weeks left keeps him out of Round 1")
+	else:
+		_check(true, "(no injury this seed ran past week 8)")
+	# Solid all the way: nobody of yours is hurt.
+	_career()
+	GameState.preseason_sim_to_round1()
+	_check(GameState.preseason_injury_lines().is_empty() and Injuries.injured(GameState.my_list).is_empty(),
+			"A pre-season without a Heavy block hurts none of your players")
+	PreSeason.reload()
 
 
 ## Write the current career as a save from before pre-seasons: no `preseason`
@@ -721,6 +841,8 @@ func _test_screens() -> void:
 	_career()
 	GameState.set_setting("seen_weekly_loop_intro", true)
 	GameState.set_setting("seen_training_intro", true)
+	# A risky size for this walk-through, so a Heavy block is sure to hurt someone.
+	PreSeason.data()["heavy_week_injury"] = 0.3
 	var scene: Control = await _open(tree)
 	_check(scene != null and scene.name == "PreSeasonScene" and Router.current() == "preseason",
 			"With a pre-season running, the game opens on the pre-season plan, not the hub")
@@ -767,8 +889,8 @@ func _test_screens() -> void:
 			"The outline moves to the load just picked")
 	_check(str(GameState.preseason_blocks()[0][0]) == "heavy"
 			and _label(scene, "BlockCost_0") == PreSeason.cost_line("heavy", "running", 0)
-			and _label(scene, "BlockCost_0").contains("gone by Round 1"),
-			"The block's cost line changes with the load: an early Heavy block is gone by Round 1")
+			and _label(scene, "BlockCost_0").contains("risk of soft-tissue injuries"),
+			"The block's cost line changes with the load: a Heavy block says its risk of soft-tissue injuries")
 	_check(await _tap(scene.find_child("Focus1_running", true, false), "Running for weeks 4 to 5"),
 			"A finger's tap sets the focus for weeks 4 to 5")
 	_check(str(GameState.preseason_blocks()[1][1]) == "running"
@@ -777,8 +899,8 @@ func _test_screens() -> void:
 			"The focus changes what the block gains, and the plan says the base it now builds")
 	_check(await _tap(scene.find_child("Load2_heavy", true, false), "Heavy for weeks 6 to 7"),
 			"A finger's tap sets a Heavy last block")
-	_check(_label(scene, "BlockCost_2").contains("Round 1") and not _label(scene, "BlockCost_2").contains("gone"),
-			"A Heavy last block says it costs heavy legs in Round 1")
+	_check(_label(scene, "BlockCost_2").contains("Round 1") and _label(scene, "BlockCost_2").contains("risk of soft-tissue injuries"),
+			"A Heavy last block says its risk and that it costs sore legs in Round 1")
 	# The season fitness plan opens from here, and Back closes it first.
 	_check(await _tap(scene.find_child("SeasonPlanLine", true, false), "the season fitness plan"),
 			"A finger's tap opens the season fitness plan from the pre-season")
@@ -796,7 +918,7 @@ func _test_screens() -> void:
 			and str(GameState.preseason_blocks()[0][0]) == "heavy",
 			"Back at the plan goes to the main menu and keeps the plan as set")
 	scene = await _open(tree)
-	_check(scene != null and scene.name == "PreSeasonScene" and _label(scene, "BlockCost_0").contains("gone by Round 1"),
+	_check(scene != null and scene.name == "PreSeasonScene" and _label(scene, "BlockCost_0").contains("risk of soft-tissue injuries"),
 			"Continuing returns to the plan with its choices")
 	var start := scene.find_child("PreSeasonGo", true, false) as Button
 	_check(start != null and start.text == "Start training"
@@ -816,6 +938,10 @@ func _test_screens() -> void:
 	var first: Dictionary = GameState.list_player(str(GameState.preseason_trial()["best"][0]))
 	_check(named and _label(scene, "TrialBest_0") == GameDB.player_display_name(first),
 			"The time trial names the first five and the last three home")
+	var hurt_lines: Array = GameState.preseason_injury_lines(1, 3)
+	_check(not hurt_lines.is_empty() and _label(scene, "TrialHurt_0") == str(hurt_lines[0])
+			and str(hurt_lines[0]).contains("(") and str(hurt_lines[0]).contains("week"),
+			"The time trial stop names who the Heavy block hurt, in the usual injury words (%s)" % str(hurt_lines.slice(0, 2)))
 	var pinned := scene.find_child("PreSeasonActions", true, false)
 	var base_at_trial := scene.find_child("PreSeasonBaseWord", true, false)
 	_check(pinned != null and base_at_trial != null and not pinned.is_ancestor_of(base_at_trial),
@@ -850,6 +976,7 @@ func _test_screens() -> void:
 	_check(heavy, "The Heavy last block set on the screen is in the legs at Round 1")
 
 	# Sim to Round 1, from the plan.
+	PreSeason.reload()
 	_career()
 	scene = await _open(tree)
 	_check(await _tap(scene.find_child("PreSeasonSim", true, false), "Sim to Round 1"),

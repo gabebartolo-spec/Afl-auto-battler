@@ -1,10 +1,34 @@
 {
 	"_about": "Pre-season sizes (PreSeason.gd, Conditioning.gd). Every number here is the director's balance call: small, conservative defaults, not verdicts. One line of explanation per tunable in _why.",
 	"weeks": 8,
-	"blocks": [[1, 3], [4, 5], [6, 7]],
-	"loads": ["light", "solid", "heavy"],
-	"focuses": ["running", "skills"],
-	"load_work": {"light": 0.5, "solid": 1.0, "heavy": 1.5},
+	"blocks": [
+		[
+			1,
+			3
+		],
+		[
+			4,
+			5
+		],
+		[
+			6,
+			7
+		]
+	],
+	"loads": [
+		"light",
+		"solid",
+		"heavy"
+	],
+	"focuses": [
+		"running",
+		"skills"
+	],
+	"load_work": {
+		"light": 0.5,
+		"solid": 1.0,
+		"heavy": 1.5
+	},
 	"focus_share": 1.0,
 	"other_share": 0.5,
 	"skills_week_xp": 8,
@@ -19,12 +43,72 @@
 	"trial_best": 5,
 	"trial_worst": 3,
 	"trial_noise": 6.0,
-	"default_blocks": [["solid", "running"], ["solid", "skills"], ["solid", "skills"]],
+	"default_blocks": [
+		[
+			"solid",
+			"running"
+		],
+		[
+			"solid",
+			"skills"
+		],
+		[
+			"solid",
+			"skills"
+		]
+	],
 	"ai_blocks": {
-		"contending": [["solid", "running"], ["solid", "running"], ["solid", "skills"]],
-		"building": [["solid", "running"], ["solid", "skills"], ["solid", "skills"]],
-		"rebuilding": [["solid", "skills"], ["solid", "skills"], ["solid", "running"]]
+		"contending": [
+			[
+				"heavy",
+				"running"
+			],
+			[
+				"solid",
+				"running"
+			],
+			[
+				"solid",
+				"skills"
+			]
+		],
+		"building": [
+			[
+				"solid",
+				"running"
+			],
+			[
+				"heavy",
+				"skills"
+			],
+			[
+				"solid",
+				"skills"
+			]
+		],
+		"rebuilding": [
+			[
+				"heavy",
+				"skills"
+			],
+			[
+				"solid",
+				"skills"
+			],
+			[
+				"solid",
+				"running"
+			]
+		]
 	},
+	"heavy_week_injury": 0.008,
+	"soft_tissue_kinds": [
+		"hamstring",
+		"calf",
+		"groin",
+		"quad"
+	],
+	"ai_old_age": 28.0,
 	"_why": {
 		"weeks": "Length of the pre-season. Week 8 is a quiet week with no training choice.",
 		"blocks": "First and last training week of each block.",
@@ -46,6 +130,9 @@
 		"trial_worst": "How many names it gives from the back.",
 		"trial_noise": "Spread of the day's form in the time trial, in durability points.",
 		"default_blocks": "The plan a coach's pre-season opens on: a sound base.",
-		"ai_blocks": "What an AI club runs, by where it is in its cycle (TradeValue.phase)."
+		"ai_blocks": "What an AI club runs, by where it is in its cycle (TradeValue.phase): contenders push the running early, middle clubs push skills in the middle block, rebuilders push skills early. An older list does the same at Solid (ai_old_age).",
+		"heavy_week_injury": "Chance a fit player of ordinary durability picks up a soft-tissue injury in one Heavy training week (a match is 0.042 for each player on the ground). Durability moves it as it moves a match injury. Light and Solid weeks carry none.",
+		"soft_tissue_kinds": "What a training injury can be: the soft-tissue kinds among the game's injuries.",
+		"ai_old_age": "An AI club whose best side averages this age or more never trains Heavy: its Heavy blocks are Solid."
 	}
 }

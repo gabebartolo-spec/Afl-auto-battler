@@ -67,7 +67,7 @@ Floor is the fewest checks the suite may run (`expected_checks.txt`; a suite rep
 | `pressure` | Pressure acts and the team Pressure Rating | 21 | 38 |
 | `workload` | Workload across the campaign | 32 | 8 |
 | `fitness` | Season conditioning: each plan's curve, the high-performance department, late changes, AI plans by phase, the save, the plan screens in words and real taps | 37 | 15 |
-| `preseason` | The pre-season: blocks, load and focus in words, the fitness base handed to the season plan, development inside the season limit, AI clubs by the same rules, its own dice, old saves, and the stops by real taps on a phone and a PC | 132 | - |
+| `preseason` | The pre-season: blocks, load and focus in words, the fitness base handed to the season plan, development inside the season limit, AI clubs by the same rules, its own dice, old saves, and the stops by real taps on a phone and a PC | 146 | - |
 | `match_visual` | The live match view is presentation only (PitchView, MatchDirector, MatchMotion) | 108 | 210 |
 | `league_balance` | Smoke checks for the balance harness in `tools/balance` | 23 | 223 |
 | `calibration` | The engine against real 2026 numbers (seeded matches) | 17 | 69 |

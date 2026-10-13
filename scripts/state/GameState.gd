@@ -2452,10 +2452,43 @@ func open_preseason() -> void:
 	var blocks := {}
 	for club in season.clubs:
 		blocks[str(club)] = PreSeason.default_blocks() if str(club) == my_club \
-				else PreSeason.ai_blocks(_club_phase(str(club)))
+				else PreSeason.ai_blocks(_club_phase(str(club)), _best22_age(str(club)))
 	preseason = PreSeason.new_state(season_year, blocks)
 	mark_dirty()
 	autosave()
+
+
+## The mean age of the side a club would pick (what _club_phase reads).
+func _best22_age(club: String) -> float:
+	var side := Ratings.select_22(season.lists[club])
+	var ages := 0.0
+	var n := 0
+	for q in (side["ground"] as Array) + (side["bench"] as Array):
+		ages += float(q.get("age", 25.0))
+		n += 1
+	return ages / float(maxi(1, n))
+
+
+## Training injuries so far this pre-season, every club: [{id, club, week,
+## weeks, kind}], in the order they happened.
+func preseason_injuries() -> Array:
+	return preseason.get("injuries", [])
+
+
+## Your players hurt in training in weeks `from`..`to`, in the game's usual
+## injury words: "Name (hamstring, 2 weeks)". The weeks are as they were
+## when it happened.
+func preseason_injury_lines(from := 1, to := 99) -> Array:
+	var out := []
+	for inj in preseason_injuries():
+		if str(inj.get("club", "")) != my_club or int(inj.get("week", 0)) < from or int(inj.get("week", 0)) > to:
+			continue
+		var p := list_player(str(inj["id"]))
+		if p.is_empty():
+			continue
+		out.append("%s (%s, %s)" % [GameDB.player_display_name(p), str(inj["kind"]),
+				_weeks_text(int(inj["weeks"]))])
+	return out
 
 
 ## A pre-season is running: opened this year, not finished, Round 1 unplayed.
@@ -2530,6 +2563,8 @@ func preseason_step_week() -> String:
 	var clubs: Dictionary = preseason.get("clubs", {})
 	for club in season.clubs:
 		if clubs.has(str(club)) and season.lists.has(club):
+			# A week passes for anyone already hurt, then the week is trained.
+			Injuries.tick(season.lists[club])
 			_preseason_train(str(club), clubs[str(club)], w)
 	preseason["week"] = w
 	mark_dirty()
@@ -2554,18 +2589,44 @@ func _preseason_train(club: String, entry: Dictionary, w: int) -> void:
 	var focus := str(blocks[i][1])
 	entry["run"] = float(entry.get("run", 0.0)) + PreSeason.work(load, focus, "running")
 	var xp := PreSeason.week_xp(load, focus)
-	if xp <= 0:
-		return
 	var list: Array = season.lists[club]
-	var staff: Dictionary = CoachEffects.staffs(coaches).get(club, {}) if not coaches.is_empty() else {}
+	if xp > 0:
+		var staff: Dictionary = CoachEffects.staffs(coaches).get(club, {}) if not coaches.is_empty() else {}
+		for p in list:
+			if int(p.get("injury_weeks", 0)) > 0:
+				continue
+			p["xp"] = int(p.get("xp", 0)) + _club_xp(club, p, xp, staff, false)
+			if club != my_club:
+				ai_spend_xp(p)
+		if club == my_club:
+			apply_train_plans()
+	_preseason_injuries(club, list, load, w)
+
+
+## A Heavy week's risk, every club alike: each fit player's own roll for a
+## soft-tissue injury (PreSeason.training_injury), recorded on him the way a
+## match injury is, in the pre-season's record, as a career fact, and (yours)
+## in the news.
+func _preseason_injuries(club: String, list: Array, load: String, w: int) -> void:
+	if load != "heavy":
+		return
+	var rows := []
 	for p in list:
-		if int(p.get("injury_weeks", 0)) > 0:
+		var inj := PreSeason.training_injury(p, load, career_seed, season_year, club, w)
+		if inj.is_empty():
 			continue
-		p["xp"] = int(p.get("xp", 0)) + _club_xp(club, p, xp, staff, false)
-		if club != my_club:
-			ai_spend_xp(p)
-	if club == my_club:
-		apply_train_plans()
+		p["injury_weeks"] = int(inj["weeks"])
+		p["injury_kind"] = str(inj["kind"])
+		rows.append({"id": str(p["id"]), "club": club, "week": w, "weeks": int(inj["weeks"]), "kind": str(inj["kind"])})
+		if club == my_club:
+			add_news("injury", "%s (%s, %s) was hurt in pre-season training." % [
+					GameDB.player_display_name(p), str(inj["kind"]), _weeks_text(int(inj["weeks"]))], "Pre-season")
+	if rows.is_empty():
+		return
+	if not (preseason.get("injuries") is Array):
+		preseason["injuries"] = []
+	(preseason["injuries"] as Array).append_array(rows)
+	_log_injuries(rows, "Pre-season")
 
 
 ## Week 8 is done: each club's running work becomes the base on its season
