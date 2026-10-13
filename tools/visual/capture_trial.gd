@@ -33,7 +33,7 @@ func _fresh(club: String, seed_: int) -> void:
 
 
 func _candidate(gs) -> Dictionary:
-	for f in ClubStories.player_facts(gs):
+	for f in load("res://scripts/state/ClubStories.gd").player_facts(gs):
 		if bool(f["starting"]) and bool(f["fit"]) and bool(f["has_role2"]):
 			return gs.list_player(str(f["id"]))
 	return {}
@@ -74,10 +74,10 @@ func _run() -> void:
 	await _frames(10)
 	# The selection screen mid-trial: two games left.
 	_fresh(club, seed_)
-	var p := _candidate(gs)
+	var p: Dictionary = _candidate(gs)
 	var id := str(p["id"])
-	var role2 := ClubStories.trial_role(p)
-	print("TRIAL ", gs.player_display_name(p) if gs.has_method("player_display_name") else p.get("name"), " home ", gs._line_of(gs.current_side(), id), " to ", role2)
+	var role2 = load("res://scripts/state/ClubStories.gd").trial_role(p)
+	print("TRIAL ", p.get("name"), " home ", gs._line_of(gs.current_side(), id), " to ", role2)
 	print(gs.start_role_trial(p, 3))
 	gs.advance()
 	print("TRIAL after one game: left ", gs.role_trial.get("left", "none"), " line ", gs._line_of(gs.current_side(), id))
@@ -103,11 +103,11 @@ func _run() -> void:
 		_fresh(club, seed_)
 		p = _candidate(gs)
 		id = str(p["id"])
-		role2 = ClubStories.trial_role(p)
+		role2 = load("res://scripts/state/ClubStories.gd").trial_role(p)
 		gs.start_role_trial(p, 3)
 		gs.advance()
 		gs.advance()
-		gs.pos_ratings[role2] = [0, 1] if pass_it else [9999, 1]
+		gs.pos_ratings[role2] = [70 * 40, 40] if pass_it else [125 * 40, 40]
 		gs.advance()
 		print("RESULT pass=", pass_it, " role now ", gs._line_of(gs.current_side(), id), " project ", gs.project_job(gs.list_player(id)),
 				" weeks ", (gs.list_player(id).get("project", {}) as Dictionary).get("weeks", 0), " plan ", gs.list_player(id).get("train_plan", ""))
