@@ -35,6 +35,7 @@ func run() -> void:
 	_test_apostrophe_names()
 	_test_career_facts()
 	_test_player_club_follows_list()
+	_test_card_names_never_blank()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	print("Save tests: %d checks, %d failures" % [checks, failures.size()])
@@ -998,3 +999,30 @@ func _club_field_counts(lists: Dictionary) -> Array:
 			if str(p.get("club", "")) == str(code):
 				agree += 1
 	return [total, agree]
+
+
+## A card must always show a name (hotfix 2026-10-13): generated draftees and
+## expansion players carry "last": "", and the team card read that blank.
+func _test_card_names_never_blank() -> void:
+	_new_season("MEL")
+	var blanks := 0
+	var total := 0
+	var pools: Array = [GameState.draftee_pool]
+	for code in GameState.season.lists:
+		pools.append(GameState.season.lists[code])
+	print("card names: lists=%d draftees=%d" % [GameState.season.lists.size(), GameState.draftee_pool.size()])
+	for pool in pools:
+		for p in pool:
+			total += 1
+			if GameDB.card_surname(p).strip_edges() == "":
+				blanks += 1
+			if str(p.get("last", "x")) == "":
+				print("card names: empty last -> ", p.get("id", ""), " shown as ", GameDB.card_surname(p))
+	print("card names: %d players, %d blank" % [total, blanks])
+	_check(total > 500, "card-name check saw every list and the draft class (%d)" % total)
+	_check(blanks == 0, "no player on any list or in the draft class has a blank card name (%d)" % blanks)
+	var draftee := {"id": "D1", "last": "", "first": "", "name": "Tom Hale", "generic_name": "Tom Hale", "real_name": ""}
+	_check(GameDB.card_surname(draftee) == "Hale", "a draftee with an empty surname shows the last word of his name")
+	var odd := {"last": "  ", "name": "Cal", "generic_name": "Cal"}
+	_check(GameDB.card_surname(odd) == "Cal", "a one-word name still shows")
+	_check(GameDB.card_surname({"last": "Gawn"}) == "Gawn", "a listed player keeps his surname")
