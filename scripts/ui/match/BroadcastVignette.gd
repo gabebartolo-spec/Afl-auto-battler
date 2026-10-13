@@ -860,7 +860,7 @@ func _draw_speccy_front() -> void:
 		_player(near, 0.0, other, "ready_turn", "front", int(t * 2.5) % 3, 0, SF_LOOK_A, false, "ruck")
 	else:
 		# Arriving late, one arm up for it (the contest strip), never both hands.
-		_player(near, 0.16 * sin(k2 * PI * 0.5), other, "tap_b", "front", clampi(int(k2 * 4.0), 0, 3), 0, SF_LOOK_A, false, "ruck")
+		_player(near, 0.16 * sin(k2 * PI * 0.5), other, "tap_b", "front", clampi(int(k2 * 4.0), 0, 3), 0, SF_LOOK_A, true, "ruck")
 	# The ball: kicked from behind the camera, it drops into the top of the frame and into his hands
 	# (over the last quarter of a second in shot), then stays between his palms.
 	var palms := _sf_palms(mk)
