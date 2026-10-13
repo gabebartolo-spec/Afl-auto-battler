@@ -553,9 +553,14 @@ static func match_factors(res: Dictionary, my_side: int) -> Array:
 	var t_me: Dictionary = team[my_side] if team.size() > my_side else {}
 	var t_op: Dictionary = team[opp] if team.size() > opp else {}
 
-	# The turning points first: the score that put the winners in front for
-	# good, a star lost to injury, a late miss in a close loss.
-	out.append_array(turning_points(res, my_side))
+	# The comeback first, when the break scores show one (ComebackTelling), then the
+	# turning points: the score that put the winners in front for good (not said again
+	# when the comeback sentence already names its kicker), a star lost to injury, a
+	# late miss in a close loss.
+	var turn := ComebackTelling.turn_facts(res, my_side)
+	if not turn.is_empty():
+		out.append(str(turn["text"]))
+	out.append_array(turning_points(res, my_side, str(turn.get("player", ""))))
 
 	# 1. The run that decided it: four or more goals in a row.
 	var run := _longest_run(res.get("events", []))
@@ -574,7 +579,9 @@ static func match_factors(res: Dictionary, my_side: int) -> Array:
 		if absi(m) > absi(best_m):
 			best_m = m
 			best_q = i
-	if best_q >= 0 and absi(best_m) >= 24 and (out.is_empty() or int(run["q"]) != best_q + 1):
+	var told_q: Array = turn.get("quarters", [])
+	if best_q >= 0 and absi(best_m) >= 24 and (out.is_empty() or int(run["q"]) != best_q + 1) \
+			and not told_q.has(best_q + 1):
 		var s := 0 if best_m > 0 else 1
 		out.append("%s won the %s quarter %d.%d to %d.%d." % [GameDB.club_name(codes[s]),
 				QUARTER_NAMES[best_q], int(qg[best_q][s]), int(qb[best_q][s]),
@@ -1229,7 +1236,7 @@ static func story_feed_line(mem: Dictionary, ev: Dictionary) -> String:
 ## level after the first quarter), a star who went off hurt before the last
 ## quarter, and your missed set shot late in a close loss. [] for a match
 ## that never turned.
-static func turning_points(res: Dictionary, my_side: int) -> Array:
+static func turning_points(res: Dictionary, my_side: int, skip_kicker := "") -> Array:
 	var out := []
 	var events: Array = res.get("events", [])
 	var codes := [str(res.get("home", "")), str(res.get("away", ""))]
@@ -1248,7 +1255,7 @@ static func turning_points(res: Dictionary, my_side: int) -> Array:
 				took = ev
 			was_ahead = ahead
 		if not took.is_empty() and int(took.get("q", 1)) >= 2 and int(took.get("q", 1)) <= 4 \
-				and str(took.get("name", "")) != "":
+				and str(took.get("name", "")) != "" and str(took.get("player_id", "")) != skip_kicker:
 			out.append("%s's %s %s put %s in front for good." % [str(took["name"]), str(took["kind"]),
 					_when(took), GameDB.club_name(codes[winner])])
 	var overall := {}

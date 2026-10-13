@@ -100,8 +100,10 @@ static func break_line(res: Dictionary, me: int) -> String:
 
 ## The quarter (1-4) that turned a comeback win or a lost lead, or {}. Same bar
 ## as Headlines: a win after trailing by COMEBACK at a break; a loss after
-## leading by LED at a break; and a later quarter won by TURN. Returns
-## {"q", "side"} with the side that won the turning quarter.
+## leading by LED at a break; and the quarter that took the lead for good won by TURN.
+## Returns {"q", "side"} with the side that won the turning quarter (the side that
+## turned it), plus "from"/"to": that side's deficit before and after the quarter
+## before it when that quarter cut the gap by TURN too (0 and 0 otherwise).
 static func turning_quarter(res: Dictionary, me: int) -> Dictionary:
 	var s: Array = res.get("score", [0, 0])
 	var margin := int(s[me]) - int(s[1 - me])
@@ -134,32 +136,86 @@ static func turning_quarter(res: Dictionary, me: int) -> Dictionary:
 	var qi := last_wrong + 1
 	var net := (int(qg[qi][me]) * 6 + int(qb[qi][me])) - (int(qg[qi][1 - me]) * 6 + int(qb[qi][1 - me]))
 	var turn_net := net if margin > 0 else -net
-	var turn_q := qi + 1
 	if turn_net < TURN:
 		return {}
-	return {"q": turn_q, "side": me if margin > 0 else 1 - me}
+	var out := {"q": qi + 1, "side": me if margin > 0 else 1 - me, "from": 0, "to": 0}
+	# Spread over two quarters: the quarter before also cut the winners' deficit by TURN.
+	if last_wrong >= 1:
+		var sign := 1 if margin > 0 else -1
+		var d_before := -int(leads[last_wrong - 1]) * sign
+		var d_after := -int(leads[last_wrong]) * sign
+		if d_before > 0 and d_after > 0 and d_before - d_after >= TURN:
+			out["from"] = d_before
+			out["to"] = d_after
+	return out
 
 
-## "Turned in the third: Jones, 3.1 and 9 clearances." Or "Turned in the third."
-## when nobody stood out; "" when there was no turn.
-static func turn_line(res: Dictionary, me: int) -> String:
+static func _quarter_word(q: int) -> String:
+	return ["first", "second", "third", "last"][clampi(q - 1, 0, 3)]
+
+
+## What the turn is told as, for the full-time lines: {"text", "quarters", "player"} or {}.
+## "Brisbane turned it in the third: Andrew Brayshaw had 9 touches in the quarter." or, when
+## two quarters did it, "Brisbane cut 37 to 9 in the third and ran over the top in the last:
+## Logan Morris kicked three in the quarter." It names the club that turned it, so a loss
+## does not read as if you did. The player is the go-ahead goal's kicker when he qualifies.
+static func turn_facts(res: Dictionary, me: int) -> Dictionary:
 	var t := turning_quarter(res, me)
 	if t.is_empty():
-		return ""
+		return {}
 	var q := int(t["q"])
-	var head := "Turned in the %s" % ORDINALS[q - 1]
-	var who := _turner(res, q, int(t["side"]))
-	return head + (": " + who if who != "" else "") + "."
+	var side := int(t["side"])
+	var code := str(res.get("home" if side == 0 else "away", ""))
+	var club := GameDB.club_name(code)
+	var who := _turner(res, q, side)
+	var quarters := [q]
+	var head := "%s turned it in the %s" % [club, _quarter_word(q)]
+	if int(t["from"]) > 0:
+		quarters = [q - 1, q]
+		head = "%s cut %d to %d in the %s and ran over the top in the %s" % [club, int(t["from"]),
+				int(t["to"]), _quarter_word(q - 1), _quarter_word(q)]
+	var text := head + (": " + str(who["text"]) if not who.is_empty() else "") + "."
+	return {"text": text, "quarters": quarters, "player": str(who.get("id", ""))}
 
 
-## The turning side's best player in quarter q, as "Name, 3.1 and 9 clearances".
-static func _turner(res: Dictionary, q: int, side: int) -> String:
+## The sentence alone, or "" (the hub's result card carries just this).
+static func turn_line(res: Dictionary, me: int) -> String:
+	return str(turn_facts(res, me).get("text", ""))
+
+
+## The go-ahead score's kicker: the goal or behind after which the eventual winner stayed in
+## front for good, as a player id ("" when there is none).
+static func go_ahead_id(res: Dictionary) -> String:
+	var score: Array = res.get("score", [0, 0])
+	if int(score[0]) == int(score[1]):
+		return ""
+	var winner := 0 if int(score[0]) > int(score[1]) else 1
+	var took := ""
+	var was_ahead := false
+	for ev in res.get("events", []):
+		var kind := str(ev.get("kind", ""))
+		if kind != "goal" and kind != "behind":
+			continue
+		var sc: Array = ev.get("score", [0, 0])
+		var ahead := int(sc[winner]) > int(sc[1 - winner])
+		if ahead and not was_ahead:
+			took = str(ev.get("player_id", ""))
+		was_ahead = ahead
+	return took
+
+
+## The turning side's player in quarter q: {"id", "text"} where text reads
+## "Logan Morris kicked three in the quarter" or "Andrew Brayshaw had 9 touches in the
+## quarter", or {} when nobody has a goal, 6 clearances or 9 disposals. The go-ahead
+## goal's kicker is preferred when he qualifies; otherwise the best by influence.
+static func _turner(res: Dictionary, q: int, side: int) -> Dictionary:
 	var snaps: Array = res.get("quarter_teams", [])
 	var roster: Array = res.get("roster", [[], []])
 	if snaps.size() < q or roster.size() <= side:
-		return ""
+		return {}
 	var now: Dictionary = (snaps[q - 1] as Dictionary).get("players", {})
 	var was: Dictionary = (snaps[q - 2] as Dictionary).get("players", {}) if q >= 2 else {}
+	var key := go_ahead_id(res)
 	var best_id := ""
 	var best_name := ""
 	var best_inf := 0.0
@@ -172,30 +228,31 @@ static func _turner(res: Dictionary, q: int, side: int) -> String:
 		for k in a:
 			d[k] = float(a[k]) - float(b.get(k, 0.0))
 		# Only a player with something to name: a goal, 6 clearances or 9 disposals.
-		if int(d.get("goals", 0.0)) < 1 and int(d.get("clearances", 0.0)) < 6 				and int(d.get("disposals", 0.0)) < 9:
+		if int(d.get("goals", 0.0)) < 1 and int(d.get("clearances", 0.0)) < 6 \
+				and int(d.get("disposals", 0.0)) < 9:
 			continue
-		var inf := CoachReport.influence(d)
+		var inf := CoachReport.influence(d) + (1000.0 if id == key else 0.0)
 		if inf > best_inf:
 			best_inf = inf
 			best_id = id
 			best_name = str(p.get("name", ""))
 			best_d = d
 	if best_id == "":
-		return ""
-	var name := GameDB.player_display_name_by_id(best_id, best_name)
+		return {}
+	var who := GameDB.player_display_name_by_id(best_id, best_name)
 	var g := int(best_d.get("goals", 0.0))
-	var bh := int(best_d.get("behinds", 0.0))
 	var cl := int(best_d.get("clearances", 0.0))
 	var disp := int(best_d.get("disposals", 0.0))
-	var other := ""
-	if cl >= 6:
-		other = "%d clearances" % cl
-	elif disp >= 9:
-		other = "%d disposals" % disp
-	if g > 0 and other == "":
-		return "%s kicked %d.%d" % [name, g, bh]
+	var bits := PackedStringArray()
 	if g > 0:
-		return "%s, %d.%d and %s" % [name, g, bh, other]
-	if other != "":
-		return "%s, %s" % [name, other]
-	return ""
+		bits.append("kicked a goal" if g == 1 else "kicked %s" % _count(g))
+	if cl >= 6:
+		bits.append("had %d clearances" % cl)
+	elif disp >= 9:
+		bits.append("had %d touches" % disp)
+	return {"id": best_id, "text": "%s %s in the quarter" % [who, " and ".join(bits)]}
+
+
+## Words up to nine, then digits.
+static func _count(n: int) -> String:
+	return MatchNotes.count_word(n) if n >= 1 and n <= 9 else str(n)
