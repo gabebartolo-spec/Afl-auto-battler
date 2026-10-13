@@ -34,6 +34,7 @@ func _ready() -> void:
 	if GameState.season == null:
 		Router.replace("main")
 		return
+	_warm_pre_match.call_deferred()
 
 	add_child(ClubBackdrop.new().setup(GameState.my_club).live())
 	var margin := MarginContainer.new()
@@ -991,6 +992,19 @@ func _regular_bye(season: Season) -> bool:
 ## The match you are about to play, or {} if you have none coming up
 ## (missed the finals, or already eliminated). Unified across the home and
 ## away season and the finals so the hub card and the buttons can share it.
+## While the hub sits idle, paint what the banner scene will need on its first frame
+## (the crowd), so Play match doesn't freeze for it. Looks the same; nothing is drawn.
+func _warm_pre_match() -> void:
+	await get_tree().create_timer(1.2).timeout
+	if not is_inside_tree() or not GameState.vignettes_on():
+		return
+	var m := _upcoming_match()
+	if m.is_empty():
+		return
+	var mine := GameState.my_club
+	PreMatchVignette.warm(mine, str(m["away"]) if str(m["home"]) == mine else str(m["home"]))
+
+
 func _upcoming_match() -> Dictionary:
 	var season: Season = GameState.season
 	if season == null or season.is_season_over():
