@@ -1495,6 +1495,17 @@ func _run() -> void:
 	_state.set_confirm_sim_round(false)
 	_router.go("hub")
 	await _settle()
+	# The line under each club on the hub says the same numbers the game holds (TeamRating).
+	var own_line: Label = current_scene.find_child("MyTeamOutlook", true, false)
+	var opp_line: Label = current_scene.find_child("OppTeamOutlook", true, false)
+	var own_o: Dictionary = _state.team_outlook(_state.my_club)
+	var opp_o: Dictionary = _state.team_outlook(str(_state.my_next_opponent().get("code", "")))
+	var rating_tail := "%s. Team rating %d. On this list, %d in three years."
+	_check(own_line != null and opp_line != null
+			and own_line.text == rating_tail % [own_o["category"], own_o["rating"], own_o["forecast"]]
+			and opp_line.text.ends_with(rating_tail % [opp_o["category"], opp_o["rating"], opp_o["forecast"]])
+			and own_line.autowrap_mode != TextServer.AUTOWRAP_OFF and opp_line.autowrap_mode != TextServer.AUTOWRAP_OFF,
+			"The hub's two rating lines read as the game's numbers and wrap rather than cut off (%s | %s)" % [own_line.text if own_line else "-", opp_line.text if opp_line else "-"])
 	var r_start: int = _state.season.round_index
 	var sim_btn: Button = current_scene.find_child("SimRound", true, false)
 	sim_btn.emit_signal("button_down")
