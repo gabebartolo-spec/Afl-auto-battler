@@ -62,6 +62,11 @@ func _ready() -> void:
 ## player detail back to the list, before leaving Training. Returning false
 ## lets the router take the scene back to whatever was viewed before.
 func handle_back() -> bool:
+	var plan_sheet := get_node_or_null("SeasonPlanSheet")
+	if plan_sheet != null and is_instance_valid(plan_sheet) and not plan_sheet.is_queued_for_deletion():
+		plan_sheet.queue_free()
+		_build()
+		return true
 	if is_instance_valid(_overlay):
 		_overlay.queue_free()
 		_overlay = null
@@ -173,6 +178,10 @@ func _summary() -> Control:
 			v.add_child(UiKit.lbl(reserves, UiKit.SECONDARY, UiKit.MUTED))
 	else:
 		v.add_child(UiKit.lbl("No game played yet. Players develop after every match.", UiKit.BODY, UiKit.EMPH, true))
+	# The season plan in words, one tap from the season line.
+	var plan_line := SeasonPlanSheet.line(self, func(): _build())
+	if plan_line != null:
+		v.add_child(plan_line)
 	var paused := 0
 	for p in GameState.my_list:
 		if GameState.plan_for(p) == "manual":
@@ -235,7 +244,7 @@ func _list_panel() -> Control:
 		_refresh_rows())
 	v.add_child(search)
 	if _bulk_selected.is_empty():
-		v.add_child(UiKit.lbl("Click and hold a player to select several." if ScreenLayout.is_desktop()
+		v.add_child(UiKit.lbl("Click and hold a player to select several." if not ScreenLayout.is_phone()
 				else "Long-press a player to select several.", 12, UiKit.MUTED))
 	else:
 		v.add_child(_bulk_panel())

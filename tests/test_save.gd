@@ -20,6 +20,8 @@ func run() -> void:
 	_test_reload_plays_like_straight()
 	_test_market_opens_fresh()
 	_test_second_offseason_after_reload()
+	_test_second_career_plays_like_first()
+	_test_reload_before_offseason()
 	_test_review_after_reload()
 	_test_training_survives()
 	_test_adjusted_players_survive()
@@ -32,6 +34,7 @@ func run() -> void:
 	_test_fictional_identity()
 	_test_apostrophe_names()
 	_test_career_facts()
+	_test_player_club_follows_list()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	print("Save tests: %d checks, %d failures" % [checks, failures.size()])
@@ -46,6 +49,9 @@ func _check(condition: bool, message: String) -> void:
 
 func _new_season(club := "GEE") -> void:
 	GameState.reset()
+	# reset() rolls a career seed from the clock; this season's timing draws
+	# (Conditioning) hang on it, so two "same" seasons must share one.
+	GameState.career_seed = SUITE_SEED
 	GameState.start_season(club, GameDB.club_list(club))
 
 
@@ -255,6 +261,111 @@ func _through_second_offseason() -> Dictionary:
 		lists.append("%s:%s" % [code, ",".join(ids)])
 	return {"year": GameState.season_year, "rounds": rounds, "lists": lists,
 			"offseason_log": str(GameState.offseason_log)}
+
+
+## A second career in one process plays exactly like the first from the same
+## seed, through season 2 round 3 (dev-sim, 2026-10-12: the second career's
+## draft class and lists differed because caches built mid-career in the
+## first were never cleared when a new career started, and the career seed
+## is pinned here because reset() draws one from the clock).
+func _test_second_career_plays_like_first() -> void:
+	var first := _career_trace()
+	# What a game that loaded a save mid-career leaves behind: the caches built
+	# from the players as they stand now, not as the 2026 data has them.
+	Prospects.forget_cache()
+	Prospects.generate_class(GameState.season_year, 7)
+	StoryDeck.all()
+	var second := _career_trace()
+	var bad := []
+	for k in first:
+		if str(first[k]) != str(second.get(k, "")):
+			bad.append(k)
+	_check(first.size() >= 11 and bad.is_empty(),
+			"A second career with the same seed plays season 1 to season 2 round 3 as the first did (%s)" % ", ".join(bad))
+
+
+## A career saved at the end of the season and loaded plays the off-season, the
+## intake draft and season 2 round 3 as one played straight through.
+func _test_reload_before_offseason() -> void:
+	_new_season("MEL")
+	while not GameState.season.is_season_over():
+		GameState.advance()
+	_check(GameState.save_career(), "(setup) the finished season saves")
+	var straight := _offseason_trace()
+	_check(GameState.load_career(), "(setup) the finished season loads")
+	var reloaded := _offseason_trace()
+	var bad := []
+	for k in straight:
+		if str(straight[k]) != str(reloaded.get(k, "")):
+			bad.append(k)
+	_check(straight.size() >= 10 and bad.is_empty(),
+			"Saved before the off-season and loaded, the market, draft class, lists and season 2 round 3 play the same (%s)" % ", ".join(bad))
+
+
+## One whole career from the seed: season 1, the off-season, season 2 round 3.
+func _career_trace() -> Dictionary:
+	GameState.reset()
+	# reset() draws a fresh career seed from the clock; pin it before the
+	# first draft class is made from it.
+	GameState.career_seed = 4242
+	GameState.start_season("MEL", GameDB.club_list("MEL"))
+	var rounds := []
+	while not GameState.season.is_season_over():
+		GameState.advance()
+		rounds.append(_round_sig(GameState.last_results))
+	var out := _offseason_trace()
+	out["s1_rounds"] = rounds
+	return out
+
+
+## From a finished season: the market as it opens, the draft class, the lists
+## after the intake, and the first three rounds of the next season.
+func _offseason_trace() -> Dictionary:
+	GameState.open_offseason()
+	var out := {"market": _market_sig()}
+	if GameState.begin_intake_draft():
+		var pool := []
+		for p in GameState.draftee_pool:
+			pool.append("%s:%s:%s" % [str(p.get("id", "")), str(p.get("overall", "")), str(p.get("potential", ""))])
+		out["draft_class"] = pool
+		var d: Draft = GameState.draft
+		var guard := 0
+		while not d.is_finished() and guard < 5000:
+			guard += 1
+			var c: Dictionary = d._best_ai_pick(d.current_club())
+			if c.is_empty() or not d._draft_pick(d.current_club(), c):
+				d._skip_current_pick()
+		GameState.finish_intake_draft()
+	else:
+		GameState.start_next_season()
+	var lists := []
+	for code in GameState.season.lists:
+		var ids := []
+		for p in GameState.season.lists[code]:
+			ids.append("%s:%s:%s" % [str(p.get("id", "")), str(p.get("overall", "")), str(p.get("potential", ""))])
+		lists.append("%s:%s" % [code, ",".join(ids)])
+	out["lists"] = lists
+	# Everything else the next round reads, so a mismatch names its source.
+	var players := []
+	for code in GameState.season.lists:
+		for q in GameState.season.lists[code]:
+			var row: Dictionary = (q as Dictionary).duplicate()
+			for k in CareerSave.SKIP_PLAYER_KEYS:
+				row.erase(k)
+			players.append(JSON.stringify(row, "", true))
+	out["players_full"] = hash(players)
+	out["coaches"] = hash(JSON.stringify(GameState.coaches, "", true))
+	out["season_team"] = hash(JSON.stringify(GameState.season_team, "", true))
+	out["form_log"] = hash(JSON.stringify(GameState.form_log, "", true))
+	out["fixture"] = hash(str(GameState.season.fixture))
+	out["offseason_log"] = str(GameState.offseason_log)
+	var rounds := []
+	for i in range(3):
+		GameState.advance()
+		rounds.append(_round_sig(GameState.last_results))
+	out["s2_rounds"] = rounds
+	out["ladder"] = _ladder_sig()
+	return out
 
 
 func _ten_rounds(save_after: int) -> Dictionary:
@@ -780,3 +891,110 @@ func _test_career_facts() -> void:
 	_check(GameState.save_career() and GameState.load_career()
 			and GameDB.player_display_name_by_id("g7_kid", "nobody") == "Tom Gone",
 			"His name comes back from a save")
+
+
+## A listed player's club is the list he is on. A league re-draft used to leave
+## 684 of 720 players on their 2026 club, so Develop's room and the coaches'
+## teaching read the wrong club. New careers set it at the start; a save from
+## before format 2 sets it once on load; a real-lists career already agrees.
+func _test_player_club_follows_list() -> void:
+	GameState.reset()
+	GameState.replay_seed = SUITE_SEED
+	GameState.begin_draft()
+	var draft: Draft = GameState.draft
+	draft.start_for_user("COL")
+	var guard := 0
+	while not draft.is_finished() and guard < 2000:
+		guard += 1
+		if draft.is_user_turn():
+			var choice := {}
+			for cand in draft.board("", "", "", "overall", true):
+				if draft.can_pick_player(cand):
+					choice = cand
+					break
+			if choice.is_empty() or not draft.pick(choice):
+				break
+		else:
+			draft.auto_until_user_turn()
+	_check(draft.is_finished(), "The re-draft runs to the end")
+	GameState.start_season("COL", draft.list())
+	var counts := _club_field_counts(GameState.season.lists)
+	_check(int(counts[0]) >= 700 and int(counts[1]) == int(counts[0]),
+			"After a re-draft every listed player's club is his list's club (%d of %d)" % [counts[1], counts[0]])
+	_check(GameState.my_list.all(func(p): return str(p["club"]) == "COL"), "Your players are all COL")
+	# A season carries on from it: someone traded in later takes his new club.
+	var ids := GameState.my_list.map(func(p): return str(p["id"]))
+	GameState.advance()
+	GameState.advance()
+	var ladder := _ladder_sig()
+	var overalls := GameState.my_list.map(func(p): return int(p["overall"]))
+	# A save written before format 2: every player still on a club that is not his list's.
+	for code in GameState.season.lists:
+		for p in GameState.season.lists[code]:
+			p["club"] = "GEE" if code != "GEE" else "COL"
+	counts = _club_field_counts(GameState.season.lists)
+	_check(int(counts[1]) == 0, "The test save really has players on another club's field")
+	# A run promised before the fix was stamped with that old club field.
+	var backed_p: Dictionary = GameState.my_list[0]
+	Backing.start(backed_p, GameState.season_year, 1, 5)
+	(backed_p["backed"] as Array)[0]["state"] = "done"
+	(backed_p["backed"] as Array)[0]["played"] = 3
+	var backed_id := str(backed_p["id"])
+	_check(GameState.save_career(), "The re-draft career saves")
+	var state: Dictionary = CareerSave.read(GameState.save_path)
+	_check(int(state.get("career_version", 0)) == 2, "A new save is format 2")
+	var meta: Dictionary = CareerSave.read_meta(GameState.save_path)
+	state["career_version"] = 1
+	CareerSave.write(state, meta, GameState.save_path)
+	_check(GameState.load_career(), "The pre-fix save loads")
+	counts = _club_field_counts(GameState.season.lists)
+	_check(int(counts[0]) >= 700 and int(counts[1]) == int(counts[0]),
+			"On load every player takes his list's club once (%d of %d)" % [counts[1], counts[0]])
+	_check(GameState.my_list.map(func(p): return str(p["id"])) == ids, "The same players, in the same order")
+	_check(_ladder_sig() == ladder, "The ladder is the same")
+	_check(GameState.my_list.map(func(p): return int(p["overall"])) == overalls, "The same ratings")
+	_check(GameState.my_list.all(func(p): return str(p["club"]) == "COL"), "Your players are COL after the load")
+	var kept: Array = []
+	for p in GameState.my_list:
+		if str(p["id"]) == backed_id:
+			kept = Backing.memory_bits(p)
+	_check(kept.size() == 1, "A run promised before the fix still shows in his With us line after the load")
+	GameState.save_career()
+	GameState.load_career()
+	for p in GameState.my_list:
+		if str(p["id"]) == backed_id:
+			_check(Backing.memory_bits(p) == kept, "A second load leaves the run as it was")
+	# A format 2 save is left as it is.
+	GameState.season.lists["COL"][0]["club"] = "GEE"
+	_check(GameState.save_career(), "The migrated career saves again")
+	_check(GameState.load_career() and str(GameState.season.lists["COL"][0]["club"]) == "GEE",
+			"A format 2 save is not migrated a second time")
+	# A real-lists career already agrees: the migration has nothing to change.
+	GameState.reset()
+	GameState.replay_seed = SUITE_SEED
+	GameState.begin_real_lists()
+	GameState.choose_real_club("GEE")
+	guard = 0
+	while not GameState.draft.is_finished() and guard < 400:
+		guard += 1
+		if GameState.draft.is_user_turn():
+			var board: Array = GameState.draft.board("", "", "", "overall", true)
+			if board.is_empty() or not GameState.draft.pick(board[0]):
+				break
+	_check(GameState.finish_intake_draft() and GameState.season != null, "A real-lists career starts")
+	counts = _club_field_counts(GameState.season.lists)
+	_check(int(counts[0]) >= 700 and int(counts[1]) == int(counts[0]),
+			"A real-lists career: every player's club is his list's club (%d of %d)" % [counts[1], counts[0]])
+	_check(GameState._rehome_players(GameState.season.lists) == 0, "The migration changes nothing in a real-lists career")
+
+
+## [players listed, players whose club field is his list's club]
+func _club_field_counts(lists: Dictionary) -> Array:
+	var total := 0
+	var agree := 0
+	for code in lists:
+		for p in lists[code]:
+			total += 1
+			if str(p.get("club", "")) == str(code):
+				agree += 1
+	return [total, agree]

@@ -50,7 +50,7 @@ func _build() -> void:
 	# A PC lays the staff out as cards across the screen, not one stretched
 	# column (director, 2026-10-10: no phone UI on a PC).
 	var w := UiKit.view_width(self)
-	var wide := ScreenLayout.is_desktop() and w >= 760.0 and w > UiKit.view_height(self) * 1.2
+	var wide := ScreenLayout.roomy(w, UiKit.view_height(self))
 	var grid: GridContainer = null
 	if wide:
 		grid = GridContainer.new()

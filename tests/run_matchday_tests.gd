@@ -40,6 +40,7 @@ func _run() -> void:
 	_state.replay_seed = 2026
 	for sz in [Vector2i(420, 860), Vector2i(360, 740)]:
 		await _phone_match(sz)
+	await _ground_fit()
 	_state.replay_seed = SUITE_SEED
 	await _plan_at_first_bounce()
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
@@ -113,6 +114,57 @@ func _plan_at_first_bounce() -> void:
 		_check(played == expect, "The first quarter is played on %s (engine: %s)" % [expect, played])
 		m.queue_free()
 		await _settle()
+
+
+func _ground_fit() -> void:
+	# The wide layout and the whole-ground camera follow the screen's shape, not
+	# the platform: the web build (is_desktop() false) gets them on a PC-sized
+	# window, and a phone-sized one keeps the close-up (director, 2026-10-12).
+	var sl = load("res://scripts/core/ScreenLayout.gd")
+	var db = root.get_node("GameDB")
+	sl.force_web = true
+	_check(sl.roomy(1280.0, 720.0) and sl.roomy(1920.0, 1080.0) and not sl.roomy(390.0, 844.0),
+			"Wide layouts follow the window's shape, on the web as on a desktop")
+	for sz in [Vector2i(1280, 720), Vector2i(1920, 1080), Vector2i(390, 844)]:
+		_state.reset()
+		_state.replay_seed = 2026
+		_state.start_season("COL", db.club_list("COL"))
+		root.size = sz
+		_state.prepare_interactive_match()
+		var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+		root.add_child(m)
+		await _settle()
+		var pitch = m.get("_pitch")
+		var wide: bool = sz.x > sz.y
+		_check(pitch.camera_enabled == not wide,
+				"The close-up camera is for the narrow window only, web or not (%dx%d: %s)" % [sz.x, sz.y, str(pitch.camera_enabled)])
+		if wide:
+			var panel: Control = m.get("_side_panel")
+			var ground: Rect2 = pitch.call("pitch_rect")
+			var gr := Rect2((pitch as Control).get_global_rect().position + ground.position, ground.size)
+			_check((pitch as Control).get_global_rect().encloses(gr) and (pitch as Control).get_global_rect().end.x <= panel.get_global_rect().position.x + 1.0,
+					"The whole ground sits inside the pitch, left of the side panel (%dx%d)" % [sz.x, sz.y])
+		m.queue_free()
+		await _settle()
+	sl.force_web = false
+	# A phone's browser (web_android / web_ios) is a phone: the close-up camera and
+	# its own layouts, wide window or not (a phone turned sideways), and "Tap".
+	sl.force_web_phone = true
+	_check(not sl.roomy(844.0, 390.0) and sl.tap_word() == "Tap" and not sl.is_desktop(),
+			"A phone's browser, even turned sideways (844x390), keeps the phone layouts and says Tap")
+	_state.reset()
+	_state.replay_seed = 2026
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = Vector2i(844, 390)
+	_state.prepare_interactive_match()
+	var side: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(side)
+	await _settle()
+	_check(side.get("_pitch").camera_enabled, "A phone sideways keeps the close-up camera")
+	side.queue_free()
+	await _settle()
+	sl.force_web_phone = false
+	_check(sl.tap_word() == "Click", "Click on a desktop or a PC browser")
 
 
 func _phone_match(sz: Vector2i) -> void:
@@ -234,7 +286,9 @@ func _phone_match(sz: Vector2i) -> void:
 	_check(facts != null and facts.get_child_count() <= 3,
 			"What happened in the quarter is three things at most (%s)" % tag)
 	var bt := _text(box)
-	_check(not bt.contains("pts") and not bt.contains("Expected points") and not bt.contains(" def ")
+	# "pts" as a word: a quarter's "4 intercepts so far" is football, not an engine number.
+	var pts_word := RegEx.create_from_string("\\bpts\\b")
+	_check(pts_word.search(bt) == null and not bt.contains("Expected points") and not bt.contains(" def ")
 			and not bt.contains("defeated"), "The break shows no engine numbers or result words (%s)" % tag)
 	_check(bt.contains("Tag on ") and box.find_child("CallsDid", true, false) != null,
 			"The break says what your calls did, your tag among them (%s)" % tag)
@@ -296,7 +350,7 @@ func _phone_match(sz: Vector2i) -> void:
 			_check(((qsim._own[myside] as Dictionary)["duels"] as Dictionary).has(fid),
 					"A match-up you change stays your call (%s)" % tag)
 			var btext := _text(box)
-			_check(not btext.contains("%") and not btext.contains("pts"), "The match-ups show no engine numbers (%s)" % tag)
+			_check(not btext.contains("%") and pts_word.search(btext) == null, "The match-ups show no engine numbers (%s)" % tag)
 	var small := []
 	for b in box.find_children("*", "Button", true, false):
 		if b.is_visible_in_tree() and b.size.y < 40:

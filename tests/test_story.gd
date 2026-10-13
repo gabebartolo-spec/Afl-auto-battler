@@ -45,6 +45,7 @@ func run() -> void:
 	_test_group_words_are_sentence_case()
 	_test_captain_cards_in_play()
 	_test_captain_from_the_start()
+	_test_time_trial_names()
 	_test_vacancy_is_filled()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
@@ -995,10 +996,23 @@ func _test_captain_cards() -> void:
 	if cap.is_empty():
 		return
 	var card := GameState.story_card("captain_selection_word", cap)
-	var leave_detail := str((card["options"] as Array)[1]["detail"])
-	_check(leave_detail.contains("Leadership %d" % Leadership.of(cap)) and leave_detail.contains("60 or more")
-			and leave_detail.contains("45 or more") and (leave_detail.contains("would settle it") or leave_detail.contains("wouldn't settle it")),
-			"The choice prints his Leadership, the rule, and what it means now (%s)" % leave_detail)
+	var leave_opt: Dictionary = (card["options"] as Array)[1]
+	var leave_detail := str(leave_opt["detail"])
+	var leave_rule := str(leave_opt["rule"])
+	var del_fx: Dictionary = {}
+	for ch in StoryDeck.by_id(StoryDeck.all(), "captain_selection_word")["choices"]:
+		if str(ch["key"]) == "leave":
+			del_fx = ch["effects"][0]
+	var held_words := StoryEngine.describe({"effects": del_fx["held"]}, card["facts"])
+	var failed_words := StoryEngine.describe({"effects": del_fx["failed"]}, card["facts"])
+	var stands: bool = bool(card["facts"]["delegate_holds"])
+	_check(leave_detail.contains(held_words.substr(1)) and leave_detail.contains(failed_words.substr(1))
+			and leave_detail.contains("would listen to" if stands else "wouldn't listen to")
+			and not leave_detail.to_lower().contains("settle") and not leave_detail.contains("Leadership"),
+			"The card line says what happens both ways, from the choice's own effects, and which way it stands (%s)" % leave_detail)
+	_check(leave_rule.contains("Leadership %d" % Leadership.of(cap)) and leave_rule.contains("%d or more" % StoryDeck.HOLDS_AT)
+			and leave_rule.contains("%d or more" % StoryDeck.HOLDS_WITH_TRUST) and not leave_rule.to_lower().contains("settle"),
+			"The rule one tap away prints his Leadership and the thresholds from the constants (%s)" % leave_rule)
 	_check(bool(card.get("choice_notes", false)), "A captain card shows what each choice does under its button")
 	var holds := StoryDeck.HOLDS_AT
 	for case in [[70, 0, true], [40, 80, false], [50, 40, true], [50, 0, false], [60, 0, true], [44, 90, false]]:
@@ -1075,7 +1089,7 @@ func _test_captain_cards_in_play() -> void:
 		var card := GameState.story_card(id, cap)
 		_check(not bool(card["facts"].get("delegate_holds", true)), "%s: with this captain it wouldn't hold" % id)
 		var detail := str(card["options"][int(leave_index[id])]["detail"])
-		_check(detail.contains("wouldn't settle it"), "%s: the choice says it wouldn't settle it (%s)" % [id, detail])
+		_check(detail.contains("wouldn't listen to"), "%s: the choice says the group wouldn't listen (%s)" % [id, detail])
 		var before := ClubLife.morale(GameState.my_list[0])
 		var out := ClubStories.apply_choice(GameState, card, int(leave_index[id]))
 		_check(out.contains(str(failed_copy[id])) and ClubLife.morale(GameState.my_list[0]) - before == int(delta[id]),
@@ -1222,6 +1236,75 @@ func _test_captain_from_the_start() -> void:
 	_run_on(1)
 	_check(not Captaincy.ids(GameState.captaincy_record("GEE"), "captain").is_empty(),
 			"An empty, never-seeded record from an earlier build is named once, by the rule")
+
+
+# --- A result that names players (the time trial) --------------------------------
+
+func _by_durability(a: Dictionary, b: Dictionary) -> bool:
+	var da := int(a["attr"]["durability"])
+	var db := int(b["attr"]["durability"])
+	return da > db or (da == db and str(a["id"]) < str(b["id"]))
+
+
+func _test_time_trial_names() -> void:
+	# The token rules, on a list we control.
+	var rows := []
+	for n in ["Ava", "Ben", "Cal", "Dan"]:
+		rows.append({"name": n})
+	_check(StoryEngine.fill_ranked("{best3} / {worst2}", rows) == "Ava, Ben and Cal / Dan",
+			"Best and worst never name the same player: %s" % StoryEngine.fill_ranked("{best3} / {worst2}", rows))
+	_check(StoryEngine.fill_ranked("{best1}", rows) == "Ava" and StoryEngine.fill_ranked("{worst2}", rows) == "Dan and Cal",
+			"One name stands alone; the worst come slowest first")
+	_check(StoryEngine.fill_ranked("{best2}", []) == "nobody" and StoryEngine.fill_ranked("plain", rows) == "plain",
+			"No list says nobody; a plain line is untouched")
+	var club_ok := {"subject": {"kind": "club"}, "title": ["t"],
+			"choices": [{"key": "a", "label": "A", "result": "Best: {best3}.", "effects": []},
+				{"key": "b", "label": "B", "effects": []}]}
+	_check(_bad(club_ok).is_empty(), "A club card's result may name players (%s)" % str(_bad(club_ok)))
+	var in_text := club_ok.duplicate(true)
+	in_text["text"] = ["Best: {best3}"]
+	_check(not _bad(in_text).is_empty(), "Names belong in a result, not the card's text")
+	var in_player := club_ok.duplicate(true)
+	in_player["subject"] = {"kind": "player"}
+	_check(not _bad(in_player).is_empty(), "A player card cannot name a ranked list")
+	var typo := club_ok.duplicate(true)
+	typo["choices"][0]["result"] = "Best: {bestx}."
+	_check(not _bad(typo).is_empty(), "A misspelt name token is refused")
+
+	# In play: Run it names the real fittest and slowest, by the rating the match
+	# uses for running fitness, once each, from the senior list.
+	var names_before: bool = GameState.show_real_names
+	for real in [false, true]:
+		_start()
+		GameState.show_real_names = real
+		var list: Array = GameState.my_list
+		var injured: Dictionary = list[0]
+		injured["injury_weeks"] = 3
+		var avail := list.filter(func(q): return int(q.get("injury_weeks", 0)) <= 0)
+		avail.sort_custom(_by_durability)
+		var morale_before := ClubLife.morale(avail[10])
+		var card := GameState.story_card("training_time_trial")
+		var want := "Best over the two k: %s. Off the pace: %s." % [
+				StoryEngine.name_list([avail[0], avail[1], avail[2]].map(func(q): return GameDB.player_display_name(q))),
+				StoryEngine.name_list([avail[-1], avail[-2]].map(func(q): return GameDB.player_display_name(q)))]
+		_check(not str(card["options"][0]["result"]).is_empty() and str(card["options"][0]["result"]).contains("{best3}"),
+				"The card keeps the names until it is answered (%s)" % str(card["options"][0]["result"]))
+		GameState.week_event = card
+		var out := GameState.resolve_week_event(0)
+		_check(out == "The time trial's done. " + want, "Run it names who is fit (real names %s): %s" % [str(real), out])
+		_check(not out.contains("{") and not out.contains(GameDB.player_display_name(injured)),
+				"No braces left, and the injured player did not run (%s)" % out)
+		var named := []
+		for q in list:
+			if out.contains(GameDB.player_display_name(q)):
+				named.append(str(q["id"]))
+		_check(named.size() == 5, "Exactly five distinct players are named (%d)" % named.size())
+		var run := _choice("training_time_trial", "run")
+		_check(ClubLife.morale(avail[10]) == clampi(morale_before - 3, 5, 100)
+				and int(_effect(run, "xp")["d"]) == 5 and str(_effect(run, "xp")["who"]) == "all"
+				and int(_effect(run, "morale")["d"]) == -3 and str(_effect(run, "morale")["who"]) == "all",
+				"The effects are unchanged: morale -3 and 5 development for everyone")
+	GameState.show_real_names = names_before
 
 
 ## Director 2026-10-12: when your captain retires or leaves, a vice-captain steps up by

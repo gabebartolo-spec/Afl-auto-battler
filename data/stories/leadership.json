@@ -319,7 +319,7 @@
 					}
 				],
 				"result": "",
-				"note": "Leadership {leadership}. He settles it if his Leadership is 60 or more, or 45 or more and he trusts you."
+				"rule": "The group listens to a captain with Leadership {holds_at} or more, or {holds_trust_at} or more if he trusts you. {name}: Leadership {leadership}."
 			},
 			{
 				"key": "coaches",
@@ -409,7 +409,7 @@
 					}
 				],
 				"result": "",
-				"note": "Leadership {leadership}. He settles it if his Leadership is 60 or more, or 45 or more and he trusts you."
+				"rule": "The group listens to a captain with Leadership {holds_at} or more, or {holds_trust_at} or more if he trusts you. {name}: Leadership {leadership}."
 			}
 		],
 		"cooldown": 25,
@@ -496,7 +496,7 @@
 					}
 				],
 				"result": "",
-				"note": "Leadership {leadership}. He settles it if his Leadership is 60 or more, or 45 or more and he trusts you."
+				"rule": "The group listens to a captain with Leadership {holds_at} or more, or {holds_trust_at} or more if he trusts you. {name}: Leadership {leadership}."
 			}
 		],
 		"cooldown": 40,

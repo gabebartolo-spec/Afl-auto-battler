@@ -32,6 +32,8 @@ const DIVERSITY_MAX := 2
 const SEASON_WEEKS := 30
 const NEVER := -99999
 const TIERS := ["beat", "start", "one_off"]
+## A result line may name players from a ranked list: {best3}, {worst2}.
+const RANKED_TOKEN := "\\{(best|worst)([1-9])\\}"
 
 
 static func week_abs(year: int, week: int) -> int:
@@ -258,6 +260,7 @@ static func build(deck: Array, t: Dictionary, subj: Dictionary, club: Dictionary
 	for c in t["choices"]:
 		var detail := " ".join(PackedStringArray([describe(c, facts), fill(str(c.get("note", "")), facts)])).strip_edges()
 		options.append({"key": str(c["key"]), "label": fill(str(c["label"]), facts), "detail": detail,
+				"rule": fill(str(c.get("rule", "")), facts),
 				"effects": (c.get("effects", []) as Array).duplicate(true), "result": fill(str(c.get("result", "")), facts)})
 	var card := {"key": str(t["id"]), "tid": str(t["id"]), "story": true, "category": str(t["category"]),
 			"default": int(t.get("default", -1)), "week": w, "facts": facts,
@@ -349,6 +352,42 @@ static func fill(s: String, facts: Dictionary) -> String:
 	return s.format(facts) if s.contains("{") else s
 
 
+## Names from a ranked list of players, in a card's result line: {best3} is
+## the three at the top, {worst2} the two at the bottom (never the same player
+## as one of the best). `rows` are {"name": String} already best first, so the
+## caller decides what "best" means (a time trial ranks running fitness).
+## Without enough names a token says "nobody" rather than leave braces.
+static func fill_ranked(s: String, rows: Array) -> String:
+	if not s.contains("{"):
+		return s
+	var re := RegEx.create_from_string(RANKED_TOKEN)
+	var best_n := 0
+	for m in re.search_all(s):
+		if m.get_string(1) == "best":
+			best_n = maxi(best_n, int(m.get_string(2)))
+	var out := s
+	for m in re.search_all(s):
+		var n := int(m.get_string(2))
+		var picked: Array
+		if m.get_string(1) == "best":
+			picked = rows.slice(0, n)
+		else:
+			picked = rows.slice(maxi(best_n, rows.size() - n), rows.size())
+			picked.reverse()
+		var names: Array = picked.map(func(r): return str(r["name"]))
+		out = out.replace(m.get_string(), name_list(names))
+	return out
+
+
+## "A", "A and B", "A, B and C".
+static func name_list(names: Array) -> String:
+	if names.is_empty():
+		return "nobody"
+	if names.size() == 1:
+		return str(names[0])
+	return "%s and %s" % [", ".join(PackedStringArray(names.slice(0, names.size() - 1))), str(names[names.size() - 1])]
+
+
 ## What a choice does, in a coach's words, from its effects.
 static func describe(c: Dictionary, facts: Dictionary) -> String:
 	var out: PackedStringArray = []
@@ -398,12 +437,35 @@ static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
 		"explain":
 			return "{kpi_or_need} Nothing is promised."
 		"delegate":
-			return "As it stands, {name} would settle it." if bool(facts.get("delegate_holds", false)) else "As it stands, {name} wouldn't settle it."
+			return _delegate_words(e, facts)
 		"back_kid":
 			return "{kid_name} is promised the next {run_games} games; leave him out fit and the promise breaks."
 		"captaincy_swap":
 			return "{vice_name} takes the armband; {name} stays in the leadership group. The Captaincy costs apply."
 	return ""
+
+
+## Left to the captain: what happens if the group listens and what if it doesn't,
+## worded from the choice's own held / failed effects, and which way it stands now.
+static func _delegate_words(e: Dictionary, facts: Dictionary) -> String:
+	var held := _lower_first(_outcome_words(e.get("held", []), facts))
+	var failed := _lower_first(_outcome_words(e.get("failed", []), facts))
+	if bool(facts.get("delegate_holds", false)):
+		return "As it stands the group would listen to {name}: %s If they didn't, %s" % [held, failed]
+	return "As it stands the group wouldn't listen to {name}: %s If they did, %s" % [failed, held]
+
+
+static func _outcome_words(effects: Array, facts: Dictionary) -> String:
+	var out: PackedStringArray = []
+	for ne in effects:
+		var w := _effect_words(ne, facts)
+		if w != "":
+			out.append(w)
+	return " ".join(out) if not out.is_empty() else "nothing changes."
+
+
+static func _lower_first(s: String) -> String:
+	return s.substr(0, 1).to_lower() + s.substr(1)
 
 
 static func _morale_words(d: int, who: String) -> String:

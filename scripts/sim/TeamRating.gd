@@ -62,7 +62,9 @@ static func category(phase: String) -> String:
 	return str(CATEGORY.get(phase, "Wildcard"))
 
 
-## "Contender · 78, 81 in three years": the category, the rating and where
-## the list is heading.
+## "Contender · rated 78, heading to 81": the category, the rating now and
+## where the list is heading over three years (team_rating_spec.md).
 static func line(phase: String, now: int, later: int) -> String:
-	return "%s · %d, %d in three years" % [category(phase), now, later]
+	if later == now:
+		return "%s · rated %d, holding" % [category(phase), now]
+	return "%s · rated %d, heading to %d" % [category(phase), now, later]
