@@ -650,11 +650,21 @@ func _week_section(season: Season) -> Control:
 		var their := GameState.club_form_info(opp)
 		# Named: under the poster an unnamed "4th on the ladder" read as yours.
 		# "Form:" like your own line below, so the two read as parallel facts.
-		var standing := UiKit.lbl("%s are %s on the ladder  ·  %s" % [
-				GameDB.club_short(opp), GameState.ordinal(GameState.club_position(opp)),
-				GameState.form_line(their)], UiKit.SECONDARY, UiKit.MUTED)
-		standing.name = "OppFormLine"
-		nv.add_child(standing)
+		# Before the opponent's first game the ladder and form say nothing yet:
+		# last year's finish instead (nothing at all in a first season).
+		var standing_text := ""
+		if str(their["last"]) == "":
+			var fin := GameState.last_finish_of(opp)
+			if fin > 0:
+				standing_text = "%s finished %s last year" % [GameDB.club_short(opp), GameState.ordinal(fin)]
+		else:
+			standing_text = "%s are %s on the ladder  ·  %s" % [
+					GameDB.club_short(opp), GameState.ordinal(GameState.club_position(opp)),
+					GameState.form_line(their)]
+		if standing_text != "":
+			var standing := UiKit.lbl(standing_text, UiKit.SECONDARY, UiKit.MUTED)
+			standing.name = "OppFormLine"
+			nv.add_child(standing)
 		# Their list: the club's guernsey and name, then its line (TeamRating).
 		var their_list := GameState.team_outlook(opp)
 		if not their_list.is_empty():

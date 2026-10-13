@@ -2747,6 +2747,26 @@ func club_form_info(code: String) -> Dictionary:
 			"last": "".join(res.slice(maxi(0, res.size() - ClubLife.FORM_WEIGHTS.size())))}
 
 
+## Where a club finished last season, 0 when there is nothing true to say. In
+## a career's first season that is the real final ladder before it (the real
+## 2026 ladder, data/ladder_2026.csv), but only for a real-lists career whose
+## club is a real one: a redrafted league, a Club Forge club and expansion
+## clubs have no real finish.
+func last_finish_of(code: String) -> int:
+	if _last_finish.has(code):
+		return int(_last_finish[code])
+	if not _last_finish.is_empty() or start_mode != "real" or season_year != GameDB.START_YEAR:
+		return 0
+	var mine := false
+	var theirs := 0
+	for r in GameDB.ladder_2026():
+		if str(r["club"]) == my_club:
+			mine = true
+		if str(r["club"]) == code:
+			theirs = int(r["pos"])
+	return theirs if mine else 0
+
+
 ## "Form: Good  ·  WWWWL" - or "Form: Steady  ·  no games yet". The word and
 ## the results say it; the internal -1..1 value stays internal.
 static func form_line(info: Dictionary, prefix := "Form") -> String:

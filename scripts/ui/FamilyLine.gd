@@ -37,7 +37,7 @@ static func make(p: Dictionary, host: Control) -> Control:
 		var note := PlayerRelations.note_text(t)
 		if note != "":
 			var col: Color = UiKit.MUTED
-			if str(t["club"]) != "" and note == GameDB.club_name(str(t["club"])):
+			if GameDB.clubs.has(str(t["club"])) and note == GameDB.club_name(str(t["club"])):
 				col = UiKit.club_vivid(str(t["club"]))
 			flow.add_child(_text("(" + note + ")", col, false))
 	return flow
