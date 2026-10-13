@@ -36,6 +36,15 @@ for age in range(18, 31):
             xs = [x[3] for x in coh[(a, r)] if x[2] == age]
             row.append("%.1f (%d)" % (sum(xs) / len(xs), len(xs)) if len(xs) >= 8 else "-")
     print(" | ".join(row))
+print("\nMean OVR by k = seasons since the draft (k=1 is the first season after the draft), listed drafted players")
+print("k | " + " | ".join("%s %s" % (a, r) for a in arms for r in ranges))
+for k in range(1, 8):
+    row = ["%d" % k]
+    for a in arms:
+        for r in ranges:
+            xs = [x[3] for x in coh[(a, r)] if x[1] - x[0] == k]
+            row.append("%.1f (%d)" % (sum(xs) / len(xs), len(xs)) if len(xs) >= 8 else "-")
+    print(" | ".join(row))
 print("\nSeasons after the draft to first reach the league median best-22 OVR; share who ever do within %d seasons" % MIN_FOLLOW)
 for a in arms:
     for r in ranges:

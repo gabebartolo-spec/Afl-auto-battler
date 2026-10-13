@@ -69,9 +69,9 @@ const AGE_STEP := [[20.0, 2.5, 6.0], [23.0, 1.0, 4.0], [27.0, 0.0, 2.0],
 const YOUTH_PACE_UNTIL := 24.0
 ## Multiplies the age-band step when it is a gain.
 ## (static var, not const, only so tools/audit/growth_curve_impl.gd can try arms in one run.)
-static var YOUTH_STEP_PACE := 1.0
+static var YOUTH_STEP_PACE := 0.7
 ## Multiplies the share of the gap to POT closed in one off-season.
-static var YOUTH_GAP_PACE := 1.0
+static var YOUTH_GAP_PACE := 0.7
 ## Past 30 a player comes back from an injury season less of the way: the
 ## rehab pull eases this much per year, never below REHAB_PULL_FLOOR of it.
 const REHAB_AGE_EASE := 0.12

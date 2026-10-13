@@ -215,7 +215,7 @@ func _test_youth_pace() -> void:
 	Potential.YOUTH_STEP_PACE = 1.0
 	Potential.YOUTH_GAP_PACE = 1.0
 	var old := _three_seasons(cls)
-	var old_vets := _age_once(_real("Connor Rozee"))["overall"]
+	var old_vets: int = int(_age_once(_real("Connor Rozee"))["overall"])
 	Potential.YOUTH_STEP_PACE = step
 	Potential.YOUTH_GAP_PACE = gap
 	var now := _three_seasons(cls)
