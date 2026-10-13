@@ -29,6 +29,7 @@ func run() -> void:
 	_test_validator_catches()
 	_test_folded_sizes()
 	_test_hints_in_words()
+	_test_choice_costs_are_stated()
 	_test_trust_rules()
 	_test_engine_rules()
 	_test_arcs()
@@ -159,6 +160,78 @@ func _test_hints_in_words() -> void:
 	var heavy := GameState.story_card("training_extra_session")
 	_check(str(heavy["options"][0]["detail"]).contains("development") and str(heavy["options"][0]["detail"]).contains("Heavy legs"),
 			"The heavy session's hint names both sides of it (%s)" % heavy["options"][0]["detail"])
+
+
+## Copy truth for the line under a choice: every choice that costs something
+## says so, and a line never names a cost the effects do not contain. The
+## costs are read straight off the effects here, apart from the engine's own
+## wording, so the line cannot drift from what the choice does.
+const COST_WORDS := {
+	"rest": "misses", "heavy_legs": "Heavy legs", "sore": "breaks down", "board": "board",
+	"trust": "trust", "expects_game": "expect a game", "start_backing": "the next ",
+	"promise_win": "Lose and", "extend_early": "Locked in",
+}
+
+
+func _costs_in(effects: Array) -> Array:
+	var kinds := []
+	for e in effects:
+		var op := str(e.get("op", ""))
+		var costly: bool = op in ["rest", "heavy_legs", "sore", "expects_game", "start_backing", "promise_win", "extend_early"] 				or (op in ["board", "trust"] and int(e.get("d", 0)) < 0)
+		if costly and not kinds.has(op):
+			kinds.append(op)
+	return kinds
+
+
+## What is wrong with this line for these effects ([] when it is true).
+func _cost_line_problems(effects: Array, line: String) -> Array:
+	var problems := []
+	var costs := _costs_in(effects)
+	for kind in COST_WORDS:
+		var named := line.contains(str(COST_WORDS[kind]))
+		if named and not costs.has(kind) and not (kind == "board" and costs.has("promise_win")):
+			problems.append("names %s which the effects do not contain" % kind)
+		if costs.has(kind) and not named:
+			problems.append("leaves out %s" % kind)
+	if costs.is_empty() and line != "":
+		problems.append("states a cost where there is none")
+	if line.contains("{") or line.contains("}") or RegEx.create_from_string("[+-][0-9]|XP|morale").search(line) != null:
+		problems.append("leaves a brace or a coefficient in the words")
+	return problems
+
+
+func _test_choice_costs_are_stated() -> void:
+	_start()
+	var p: Dictionary = GameState.my_list[4]
+	var bad := []
+	var costly := 0
+	var shown := 0
+	var choices := 0
+	for t in StoryDeck.all():
+		var card := GameState.story_card(str(t["id"]), p if str(t["subject"].get("kind", "")) == "player" else {})
+		for o in card["options"]:
+			choices += 1
+			var effects: Array = o["effects"]
+			var line := StoryEngine.cost_line(effects, card["facts"])
+			if not _costs_in(effects).is_empty():
+				costly += 1
+			if line != "":
+				shown += 1
+			for problem in _cost_line_problems(effects, line):
+				bad.append("%s/%s %s (%s)" % [t["id"], o["key"], problem, line])
+	_check(bad.is_empty(), "Every costly choice states its cost and no line states a cost it lacks: %s" % " | ".join(PackedStringArray(bad.slice(0, 8))))
+	_check(costly >= 40 and shown == costly, "A line under every costly choice, and none under the rest (%d of %d, %d choices)" % [shown, costly, choices])
+	# The check itself must bite: a missing line, a false one and a leftover brace are caught.
+	var heavy := [{"op": "heavy_legs", "who": "all"}]
+	_check(not _cost_line_problems(heavy, "").is_empty(), "The check catches a costly choice with no line")
+	_check(not _cost_line_problems(heavy, "Heavy legs on game day. The board won't like it.").is_empty(), "The check catches a line that names a cost the effects lack")
+	_check(not _cost_line_problems([{"op": "morale", "d": 5}], "He misses this week's game.").is_empty(), "The check catches a line on a choice that costs nothing")
+	_check(not _cost_line_problems([{"op": "sore"}], "He breaks down: {sore_odds} chance.").is_empty(), "The check catches an unfilled brace")
+	_check(_cost_line_problems([{"op": "morale", "d": 5}, {"op": "board", "d": 2}], "").is_empty(), "A lift costs nothing and shows no line")
+	# The line reads the effects and changes none.
+	var before := JSON.stringify(heavy)
+	StoryEngine.cost_line(heavy, {})
+	_check(JSON.stringify(heavy) == before, "Wording a cost leaves the effects as they were")
 
 
 # --- Trust ---------------------------------------------------------------------

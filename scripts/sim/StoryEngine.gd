@@ -395,6 +395,51 @@ static func describe(c: Dictionary, facts: Dictionary) -> String:
 	return " ".join(out)
 
 
+## What a choice costs, in a coach's words, from the very effects that will
+## apply, so the line cannot drift from the mechanic and a new card gets it
+## for free. Words only; a figure appears where the coach needs it to decide
+## (the odds of a breakdown, the price of an early deal, a run of games).
+## "" when the choice costs nothing. A cost that only happens if the coach
+## later breaks a promise or the dice fall wrong says so ("leave him out
+## fit and...", "chance he breaks down").
+static func cost_line(effects: Array, facts: Dictionary) -> String:
+	var out: PackedStringArray = []
+	var done := {}
+	for e in effects:
+		var op := str(e.get("op", ""))
+		var s := _cost_words(op, e, facts)
+		if s != "" and not done.has(s):
+			done[s] = true
+			out.append(fill(s, facts))
+	return " ".join(out)
+
+
+static func _cost_words(op: String, e: Dictionary, facts: Dictionary) -> String:
+	match op:
+		"rest":
+			return "He misses this week's game."
+		"heavy_legs":
+			var who := str(e.get("who", "subject"))
+			if who == "subject":
+				return "Heavy legs on game day."
+			return "Heavy legs across the %s on game day." % ("side" if who == "side" else "whole list")
+		"sore":
+			return "He plays sore: {sore_odds} chance he breaks down for weeks."
+		"board":
+			return _board_words(effect_d(e, facts)) if effect_d(e, facts) < 0 else ""
+		"trust":
+			return "His trust in you takes a hit." if effect_d(e, facts) < 0 else ""
+		"expects_game":
+			return "He'll expect a game this week; leave him out fit and it sours."
+		"start_backing":
+			return "He'll expect the next {run_games} games; leave him out fit and the promise breaks."
+		"promise_win":
+			return "Lose and the board makes you pay."
+		"extend_early":
+			return "Locked in at {early_price} a season, whatever he does next."
+	return ""
+
+
 static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
 	var d := effect_d(e, facts)
 	var who := str(e.get("who", "subject"))

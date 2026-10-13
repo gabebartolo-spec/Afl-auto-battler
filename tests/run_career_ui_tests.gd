@@ -751,6 +751,19 @@ func _run() -> void:
 				repeats += 1
 	_check(stakes_l != null and stakes_l.text.contains("promise breaks") and repeats == 0,
 			"The card puts the stakes in one line and leaves the choice to its buttons (%d repeats)" % repeats)
+	# The cost of each answer sits under its own button, worded from its effects:
+	# backing him names the promise, leaving him out names the missed game, and a
+	# finger on the costed button still answers the card.
+	var back_cost: Label = kid_card.find_child("EventCost_0_0", true, false) if kid_card != null else null
+	var rest_cost: Label = kid_card.find_child("EventCost_0_1", true, false) if kid_card != null else null
+	var rest_btn: Button = kid_card.find_child("Event_1", true, false) if kid_card != null else null
+	_check(back_cost != null and back_cost.text.contains("promise breaks") and rest_cost != null and rest_cost.text == "He misses this week's game."
+			and rest_btn != null and rest_cost.get_global_rect().position.y >= rest_btn.get_global_rect().end.y - 1.0,
+			"Each costed answer says its cost in a line under its own button (%s / %s)" % [back_cost.text if back_cost != null else "none", rest_cost.text if rest_cost != null else "none"])
+	var cost_tap: String = await Tap.tap(rest_btn) if rest_btn != null else "missing"
+	await _settle()
+	_check(cost_tap == "" and bool(_state.week_events[0].get("resolved", false)),
+			"A real tap on the answer that costs a game answers the card (%s)" % cost_tap)
 	_state.week_events = []
 	# His trust on the profile, at phone size: the words, and a finger on Why
 	# shows his reasons, newest first. A player you've had nothing to do with

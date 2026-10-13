@@ -390,7 +390,7 @@ func _event_card(index: int) -> Control:
 			sk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(sk)
 		var opts: Array = e.get("options", [])
-		var row: BoxContainer = UiKit.vbox(4) if _narrow() else UiKit.hbox(6)
+		var row: BoxContainer = UiKit.vbox(10) if _narrow() else UiKit.hbox(6)
 		v.add_child(row)
 		for i in range(opts.size()):
 			var o: Dictionary = opts[i]
@@ -401,7 +401,20 @@ func _event_card(index: int) -> Control:
 			b.pressed.connect(func():
 				GameState.resolve_card(index, i)
 				_build())
-			row.add_child(b)
+			# What this answer costs, worded from its own effects (a choice
+			# that costs nothing shows nothing under it).
+			var cost := StoryEngine.cost_line(o.get("effects", []), e.get("facts", {}))
+			if cost == "":
+				row.add_child(b)
+				continue
+			var col := UiKit.vbox(3)
+			col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			col.add_child(b)
+			var cl := UiKit.lbl(cost, UiKit.SMALL, UiKit.MUTED)
+			cl.name = "EventCost_%d_%d" % [index, i]
+			cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			col.add_child(cl)
+			row.add_child(col)
 	else:
 		v.add_child(UiKit.lbl(str(e.get("outcome", "")), 13, UiKit.GOOD))
 	return card
