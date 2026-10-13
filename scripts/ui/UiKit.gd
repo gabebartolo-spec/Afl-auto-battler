@@ -373,7 +373,7 @@ static func figure(text: String, fs := 30, color := AUTO_COLOUR) -> Label:
 ## headline fades up, a number counts to itself, a screen eases in. Never in
 ## a headless run (tests and tools), so what a check reads is final at once,
 ## and never with Reduced motion on (Settings): the one switch for every
-## moving thing, the turnover shake included.
+## moving thing, the goal shake included.
 static func motion_on() -> bool:
 	return (DisplayServer.get_name() != "headless" or Feel.test_motion) and not Feel.reduced
 
@@ -452,10 +452,13 @@ static func attention(c: CanvasItem, delay := 0.45) -> void:
 
 
 ## Living backgrounds (director, 2026-10-11): `apply(t)` is called with t going
-## 0 -> 1 over `secs` (eased out) at `hz` redraws a second, then never again.
-## A slow settle on arrival, not a loop: the screen draws nothing once it's
-## still (low_processor_mode). Without motion it is called once with 1.
-static func drift(n: CanvasItem, apply: Callable, secs := 12.0, hz := 6.0) -> void:
+## 0 -> 1 over `secs` (eased out), then never again. One continuous tween read
+## from the clock every frame, so it is smooth at any frame rate (the director,
+## 2026-10-13: "this light is jittery": it used to step six times a second from a
+## Timer, which showed as jumps). A slow settle on arrival, not a loop: the
+## screen draws nothing once it's still (low_processor_mode). Without motion it
+## is called once with 1. `hz` is no longer used.
+static func drift(n: CanvasItem, apply: Callable, secs := 12.0, _hz := 6.0) -> void:
 	if not motion_on():
 		apply.call(1.0)
 		return
@@ -464,19 +467,19 @@ static func drift(n: CanvasItem, apply: Callable, secs := 12.0, hz := 6.0) -> vo
 		if not is_instance_valid(n):
 			return
 		Feel.moved.append("drift")
-		var timer := Timer.new()
-		timer.name = "Drift"
-		timer.wait_time = 1.0 / hz
-		var ticks := [0]
-		var last := maxi(1, roundi(secs * hz))
-		timer.timeout.connect(func() -> void:
-			ticks[0] += 1
-			var k := clampf(float(ticks[0]) / float(last), 0.0, 1.0)
-			apply.call(1.0 - pow(1.0 - k, 3.0))
-			if k >= 1.0:
-				timer.queue_free())
-		n.add_child(timer)
-		timer.start())
+		var holder := Node.new()
+		holder.name = "Drift"
+		n.add_child(holder)
+		var tw := holder.create_tween()
+		tw.tween_method(func(e: float) -> void: apply.call(drift_at(e, secs)), 0.0, secs, secs)
+		tw.finished.connect(holder.queue_free))
+
+
+## The eased-out position of a drift `elapsed` seconds in: 0 -> 1, a pure
+## function of time, so frame rate cannot change it.
+static func drift_at(elapsed: float, secs: float) -> float:
+	var k := clampf(elapsed / maxf(0.001, secs), 0.0, 1.0)
+	return 1.0 - pow(1.0 - k, 3.0)
 
 
 ## Run `f` once `c` is on screen, `delay` seconds later.

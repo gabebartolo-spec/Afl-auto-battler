@@ -75,7 +75,7 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 			func(k): GameState.set_battery_saver(k == "on"))
 	_row(v, "Screen shake", "SettingsScreenShake", [["on", "On"], ["off", "Off"]],
 			"on" if GameState.screen_shake_on() else "off",
-			"A small shake of the oval when the ball is turned over. Off keeps the screen still; the Turnover label still shows.",
+			"A small, short shake of the oval when a goal is scored. Off keeps the screen still.",
 			func(k): GameState.set_screen_shake_on(k == "on"))
 	_row(v, "Reduced motion", "SettingsReducedMotion", [["off", "Off"], ["on", "On"]],
 			"on" if GameState.reduced_motion() else "off",
