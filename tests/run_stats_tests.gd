@@ -70,6 +70,7 @@ func _run() -> void:
 	await _trophies_early()
 	await _fixture_finals()
 	await _trophies()
+	await _readability_b1()
 	print("Stats tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
 
@@ -1628,7 +1629,7 @@ func _trophies() -> void:
 	entry["my_position"] = 1
 	entry["my_aa"] = [ids[2]]
 	entry["brownlow"] = [{"id": ids[0], "club": "COL", "votes": 31}]
-	for key in ["coleman", "rising_star", "coaches_award", "my_bf"]:
+	for key in ["coleman", "rising_star", "coaches_award", "my_bf", "norm_smith"]:
 		entry[key] = []
 	var old := {"year": year - 1, "my_club": "COL", "premier": "GEE", "runner_up": "COL", "my_position": 3,
 		"brownlow": [], "coleman": [{"id": "far_away", "club": "CAR", "goals": 70}], "rising_star": [],
@@ -1637,6 +1638,35 @@ func _trophies() -> void:
 		"brownlow": [{"id": ids[3], "club": "COL", "votes": 40}], "coleman": [], "rising_star": [],
 		"coaches_award": [], "my_bf": [], "my_record": "20-3-0", "my_finals": "GF1", "my_aa": []}
 	_state.honour_roll = [elsewhere, old, entry]
+	# The club's real history from the data file (a stand-in table here): a long
+	# list, so it has to wrap on a phone.
+	var hist_years := [1896, 1902, 1910, 1917, 1919, 1927, 1928, 1930, 1935, 1936, 1953, 1958, 1990, 2010, 2023]
+	ClubHistory.use({"COL": {"years": hist_years, "comps": {}, "also": {"Fitzroy": [1898, 1899]}, "none": false}})
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		s = await _open_trophies(sz)
+		var tag := "%dx%d" % [sz.x, sz.y]
+		var hist_title: Label = s.find_child("HistoryTitle", true, false)
+		var hist_list: Label = s.find_child("HistoryYears", true, false)
+		var yours: Label = s.find_child("YourPremierships", true, false)
+		_check(hist_title != null and hist_title.text == "Before you: 15 premierships"
+				and hist_list != null and hist_list.text == ", ".join(hist_years.map(func(y): return str(y))),
+				"The club's history reads from the file: a count, then every year (%s)" % tag)
+		var fz: Label = s.find_child("HistoryAsYears_Fitzroy", true, false)
+		var fzt: Label = s.find_child("HistoryAs_Fitzroy", true, false)
+		_check(fz != null and fz.text == "1898, 1899" and fzt != null and fzt.text == "Fitzroy: 2 premierships",
+				"Flags carried from a merged club read under its name, apart from the club's own (%s)" % tag)
+		_check(hist_list != null and hist_list.get_theme_color("font_color") == load("res://scripts/ui/UiKit.gd").MUTED
+				and hist_list.autowrap_mode != TextServer.AUTOWRAP_OFF and hist_list.get_combined_minimum_size().x < 380.0,
+				"The history is the quiet colour and wraps rather than widening the screen (%s)" % tag)
+		_check(hist_list != null and yours != null and hist_list.is_visible_in_tree()
+				and s.find_child("ClubHistory", true, false).get_index() < yours.get_index()
+				and yours.get_index() < s.find_child("ClubShelf", true, false).get_index(),
+				"History comes first, then 'Your premierships' with your own flags apart from it (%s)" % tag)
+		_check(yours != null and s.find_children("Club_premiership_*", "Button", true, false).size() == 1
+				and s.find_child("ClubHistory", true, false).find_child("Club_premiership_%d" % year, true, false) == null,
+				"Your flag is on the shelf, not among the history years (%s)" % tag)
+		s.queue_free()
+		await _settle()
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
 		s = await _open_trophies(sz)
 		var tag := "%dx%d" % [sz.x, sz.y]
@@ -1719,6 +1749,43 @@ func _trophies() -> void:
 			await _settle()
 		s.queue_free()
 		await _settle()
+	# The shipped file: the counts the public list gives, Fitzroy's apart on Brisbane's, Fremantle none.
+	ClubHistory.reload()
+	var real := {}
+	for code in ["COL", "ESS", "CAR", "RIC", "HAW", "MEL", "GEE", "SYD", "BRL", "NTH", "WCE", "WBD", "ADE", "STK", "PAD", "FRE", "GCS", "GWS"]:
+		real[code] = ClubHistory.before_career(code)
+	var brl_also: Dictionary = real["BRL"]["also"]
+	_check(real["COL"]["years"].size() == 16 and real["ESS"]["years"].size() == 16 and real["CAR"]["years"].size() == 16
+			and real["RIC"]["years"].size() == 13 and real["GEE"]["years"].size() == 10 and real["SYD"]["years"].size() == 5
+			and real["BRL"]["years"].size() == 6 and (brl_also.get("Fitzroy", []) as Array).size() == 8
+			and real["WBD"]["years"].size() == 2 and real["STK"]["years"].size() == 1 and real["PAD"]["years"].size() == 1,
+			"The shipped file gives each club its flags, Brisbane's own five and Fitzroy's eight apart")
+	_check(real["FRE"]["known"] and real["FRE"]["years"].is_empty() and real["GCS"]["known"] and real["GWS"]["years"].is_empty(),
+			"Fremantle, Gold Coast and GWS are on file as having none")
+	# History cases: nothing on file shows nothing; confirmed none says so; a new club has none.
+	ClubHistory.use({})
+	s = await _open_trophies(Vector2i(390, 844))
+	_check(s.find_child("ClubHistory", true, false) == null and s.find_child("YourPremierships", true, false) == null,
+			"A club the file does not cover shows no history row (nothing guessed)")
+	s.queue_free()
+	await _settle()
+	ClubHistory.use({"COL": {"years": [], "comps": {}, "none": true}})
+	s = await _open_trophies(Vector2i(390, 844))
+	var no_hist: Label = s.find_child("HistoryNone", true, false)
+	_check(no_hist != null and no_hist.text == "No premierships yet.", "A club confirmed to have none says so plainly")
+	s.queue_free()
+	await _settle()
+	_check(ClubHistory.before_career("TAS") == {"known": true, "years": [], "also": {}}
+			and ClubHistory.before_career("CANB") == {"known": true, "years": [], "also": {}},
+			"Tasmania and Canberra have no premierships before the career")
+	var forged: Dictionary = root.get_node("GameDB").clubs["COL"].duplicate()
+	forged["custom"] = true
+	root.get_node("GameDB").clubs["ZZZ"] = forged
+	ClubHistory.use({"ZZZ": {"years": [1999], "comps": {}, "none": false}})
+	_check(ClubHistory.before_career("ZZZ") == {"known": true, "years": [], "also": {}},
+			"A Club Forge club has none, whatever the file says")
+	root.get_node("GameDB").clubs.erase("ZZZ")
+	ClubHistory.use({"COL": {"years": hist_years, "comps": {}, "none": false}})
 	# The filter: the kinds won, one at a time; your seasons stay.
 	s = await _open_trophies(Vector2i(390, 844))
 	var opt: OptionButton = s.find_child("AwardFilter", true, false)
@@ -1741,6 +1808,9 @@ func _trophies() -> void:
 	_check(s.find_child("PlayerHonours", true, false) == null and s.find_child("Club_premiership_%d" % year, true, false) != null
 			and s.find_child("Club_minor_premiership_%d" % year, true, false) == null,
 			"Premierships shows the flags alone")
+	_check(s.find_child("ClubHistory", true, false) != null, "Premierships keeps the club's history with the flags")
+	await _pick_filter(s, 2)
+	_check(s.find_child("ClubHistory", true, false) == null, "Minor premierships leaves the history out")
 	await _pick_filter(s, 0)
 	_check(s.find_child("ClubHonours", true, false) != null and s.find_child("PlayerHonours", true, false) != null,
 			"All honours brings everything back")
@@ -1753,6 +1823,7 @@ func _trophies() -> void:
 	s = await _open_trophies(Vector2i(390, 844))
 	_check(s.find_child("Club_premiership_%d" % year, true, false) != null, "The premiership is still on the shelf after loading")
 	s.queue_free()
+	ClubHistory.reload()
 	await _settle()
 
 
@@ -1783,3 +1854,77 @@ func _check(ok: bool, what: String) -> void:
 	if not ok:
 		_failures.append(what)
 		push_error(what)
+
+
+## Readability roll-out, batch 1 (director, 2026-10-13: allegiance and sections
+## at a glance): the fixture marks your match like the ladder's mine row, the
+## clubs' names carry their colour, nothing is clipped, and the touched screens
+## still take a real tap.
+func _readability_b1() -> void:
+	var uk = load("res://scripts/ui/UiKit.gd")
+	var fix = load("res://scripts/ui/stats/StatsFixture.gd")
+	var mine: String = _state.my_club
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		var tag := "%dx%d" % [sz.x, sz.y]
+		fix.reset()
+		root.size = sz
+		load("res://scripts/ui/StatsHubScene.gd").current = "fixture"
+		var s: Control = load("res://scenes/StatsHubScene.tscn").instantiate()
+		root.add_child(s)
+		await _settle()
+		await Tap.tap(s.find_child("PrevRound", true, false))
+		await _settle()
+		var marked := 0
+		var rows := s.find_children("Match_*", "Button", true, false)
+		for r in rows:
+			var sb := (r as Button).get_theme_stylebox("normal") as StyleBoxFlat
+			if sb != null and sb.border_width_left == 4:
+				marked += 1
+		var face = load("res://scripts/ui/stats/StatsSide.gd").row_style(mine, false, true)
+		_check(marked <= 1 and face.border_width_left == 4 and face.bg_color.a > 0.0,
+				"At most your own match is marked, with the ladder's mine row face (%s: %d of %d)" % [tag, marked, rows.size()])
+		_check(_clipped(s).is_empty(), "No fixture text is clipped (%s: %s)" % [tag, str(_clipped(s).slice(0, 3))])
+		_check(not rows.is_empty() and (await Tap.tap(rows[0])) == "", "A fixture row takes a real tap (%s)" % tag)
+		await _settle()
+		_check(s.find_child("FixtureSheet", true, false) != null, "The tap opens the match (%s)" % tag)
+		await _close(s)
+		s = await _open_awards(sz)
+		_check(_clipped(s).is_empty(), "No awards text is clipped (%s: %s)" % [tag, str(_clipped(s).slice(0, 3))])
+		await _close(s)
+		s = await _open_trophies(sz)
+		_check(_clipped(s).is_empty(), "No trophy room text is clipped (%s: %s)" % [tag, str(_clipped(s).slice(0, 3))])
+		var head: Label = s.find_child("Title", true, false)
+		_check(head != null and head.get_theme_color("font_color") == load("res://scripts/ui/stats/StatsSide.gd").mine_ink(),
+				"A trophy room section heading carries your colour where it reads (%s)" % tag)
+		await _close(s)
+	# The season review and its awards night, by finger.
+	if _state.season != null and _state.season.is_season_over() and not _state.season_awards.is_empty():
+		_state.season_awards["presentation_seen"] = false
+		var rv: Control = load("res://scenes/SeasonReviewScene.tscn").instantiate()
+		root.add_child(rv)
+		await _settle()
+		var next: Button = rv.find_child("AwardsNext", true, false)
+		_check(next != null and (await Tap.tap(next)) == "", "Reveal results takes a real tap")
+		await _settle()
+		var skip: Button = rv.find_child("AwardsSkip", true, false)
+		_check(skip != null and (await Tap.tap(skip)) == "", "Skip to season review takes a real tap")
+		await _settle()
+		_check(rv.find_child("SeasonAwards", true, false) == null, "The awards night closes on Skip")
+		_check(_clipped(rv).is_empty(), "No season review text is clipped: %s" % str(_clipped(rv).slice(0, 3)))
+		rv.queue_free()
+		await _settle()
+	else:
+		for i in 4:
+			_check(true, "SKIP: the season is not over here, the review is captured instead")
+
+
+## Labels that are set on one line and wider than the room they have.
+func _clipped(root_node: Node) -> Array:
+	var out := []
+	for n in root_node.find_children("*", "Label", true, false):
+		var l := n as Label
+		if not l.is_visible_in_tree() or l.text == "" or l.autowrap_mode != TextServer.AUTOWRAP_OFF 				or l.text_overrun_behavior != TextServer.OVERRUN_NO_TRIMMING:
+			continue   # wrapped, or trimmed on purpose (a venue, a long name)
+		if l.size.x > 0.0 and not _label_fits(l):
+			out.append("%s \"%s\"" % [l.name, l.text.left(24)])
+	return out

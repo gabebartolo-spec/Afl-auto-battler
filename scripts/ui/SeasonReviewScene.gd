@@ -71,19 +71,20 @@ func _build() -> void:
 	champ.add_child(cv)
 	var premier := str(season.finals.get("premier", ""))
 	var runner := str(season.finals.get("runner_up", ""))
-	cv.add_child(UiKit.lbl("%d Premiers" % GameState.season_year, 14, UiKit.MUTED))
+	cv.add_child(UiKit.lbl("%d Premiers" % GameState.season_year, 14, UiKit.TEXT, true))
 	var champ_row := UiKit.hbox(10)
 	champ_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	cv.add_child(champ_row)
 	if premier != "":
-		champ_row.add_child(UiKit.club_badge(premier, 22, false, true))
+		var champ_badge := UiKit.club_badge(premier, 22, false, true)
+		StatsSide.badge(champ_badge, premier, true)   # the premiers in their own colour, bold
+		champ_row.add_child(champ_badge)
 	var mine_won: bool = premier == GameState.my_club
-	cv.add_child(UiKit.lbl("Grand Final: %s" % _gf_line(season), UiKit.BODY,
-			UiKit.TEXT if mine_won else UiKit.MUTED, true))
+	cv.add_child(UiKit.lbl("Grand Final: %s" % _gf_line(season), UiKit.BODY, UiKit.TEXT, true))
 	cv.add_child(UiKit.lbl("PREMIERSHIP!" if mine_won else
 			"%s take the flag. You finished %s." % [GameDB.club_name(premier),
-			_ordinal(GameState.my_position())], 13,
-			UiKit.GOOD if mine_won else UiKit.MUTED))
+			_ordinal(GameState.my_position())], UiKit.SMALL,
+			UiKit.GOOD if mine_won else UiKit.TEXT))
 
 	# --- your season --------------------------------------------------------
 	var narrow := _content_width() < 720.0
@@ -102,11 +103,22 @@ func _build() -> void:
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(left)
+	# Your season leads the review: your colour as a rule down its left (the
+	# ladder's "mine" mark), your club bold beside its guernsey, and the one
+	# headline fact, where you finished, big, bold and in your colour.
+	var lsb := (left.get_theme_stylebox("panel") as StyleBoxFlat).duplicate() as StyleBoxFlat
+	lsb.border_width_left = 4
+	lsb.border_color = UiKit.club_vivid(GameState.my_club)
+	lsb.corner_radius_top_left = 0
+	lsb.corner_radius_bottom_left = 0
+	left.add_theme_stylebox_override("panel", lsb)
 	var lv := UiKit.vbox(5)
 	left.add_child(lv)
-	lv.add_child(UiKit.club_badge(GameState.my_club, 20))
+	var mine_badge := UiKit.club_badge(GameState.my_club, 20)
+	StatsSide.badge(mine_badge, GameState.my_club, true)
+	lv.add_child(mine_badge)
 	lv.add_child(UiKit.lbl("Finished %s" % _ordinal(GameState.my_position()),
-			24, UiKit.EMPH, true))
+			24, StatsSide.mine_ink(), true))
 	lv.add_child(UiKit.lbl("%s   -   %d pts" % [GameState.my_record(),
 			int(GameState.my_ladder_row().get("pts", 0))], 14, UiKit.TEXT))
 	lv.add_child(UiKit.spacer(4))
@@ -135,7 +147,7 @@ func _build() -> void:
 	body.add_child(right)
 	var rv := UiKit.vbox(4)
 	right.add_child(rv)
-	rv.add_child(UiKit.lbl("Final Ladder", UiKit.NAME, UiKit.EMPH, true))
+	rv.add_child(UiKit.lbl("Final Ladder", UiKit.NAME, StatsSide.mine_ink(), true))
 	var ladder_w := _content_width() - 24.0 if narrow else (_content_width() * 0.5)
 	# At full height: the page scrolls, not the ladder inside it.
 	rv.add_child(UiKit.ladder_table(season.ladder_sorted(), GameState.my_club, ladder_w, 0, true))
@@ -169,17 +181,18 @@ func _build() -> void:
 		page.add_child(hp)
 		var hv := UiKit.vbox(5)
 		hp.add_child(hv)
-		hv.add_child(UiKit.lbl("History & records", UiKit.NAME, UiKit.EMPH, true))
+		hv.add_child(UiKit.lbl("History & records", UiKit.NAME, StatsSide.mine_ink(), true))
 		for line in history_lines:
 			hv.add_child(UiKit.lbl(str(line), UiKit.SECONDARY, UiKit.TEXT))
 		if not honours.is_empty():
 			hv.add_child(UiKit.spacer(4))
-			hv.add_child(UiKit.lbl("Recent premiers", 12, UiKit.MUTED, true))
+			hv.add_child(UiKit.lbl("Recent premiers", 12, UiKit.TEXT, true))
 			for h in honours:
 				var premier_code := str((h as Dictionary).get("premier", ""))
 				if premier_code != "":
 					hv.add_child(UiKit.lbl("%d  %s" % [int((h as Dictionary).get("year", 0)),
-							GameDB.club_name(premier_code)], 13, UiKit.TEXT))
+							GameDB.club_name(premier_code)], 13, StatsSide.ink(premier_code),
+							premier_code == GameState.my_club))
 
 	# --- club achievements ----------------------------------------------------
 	page.add_child(_achievements_panel())
@@ -350,7 +363,9 @@ func _awards_panel() -> Control:
 	panel.name = "AwardsPanel"
 	var v := UiKit.vbox(5)
 	panel.add_child(v)
-	v.add_child(UiKit.heading("%d awards" % int(aw.get("year", GameState.season_year)), 22))
+	var awards_head := UiKit.heading("%d awards" % int(aw.get("year", GameState.season_year)), 22)
+	awards_head.add_theme_color_override("font_color", StatsSide.mine_ink())
+	v.add_child(awards_head)
 	var replay := UiKit.btn("Replay awards", UiKit.BODY)
 	replay.name = "ReplayAwards"
 	replay.custom_minimum_size.y = 44
@@ -385,16 +400,21 @@ func _awards_panel() -> Control:
 	var rising: Array = aw.get("rising_star", [])
 	if not rising.is_empty():
 		v.add_child(_award_line("Rising Star", rising[0], "age %d" % int(rising[0]["age"]), false))
+	var norm_smith: Dictionary = aw.get("norm_smith", {})
+	if not norm_smith.is_empty():
+		var ns := _award_line("Norm Smith Medal", norm_smith, str(norm_smith.get("line", "")), true)
+		ns.name = "NormSmithMedal"
+		v.add_child(ns)
 	var mine: Array = (aw.get("best_and_fairest", {}) as Dictionary).get(GameState.my_club, [])
 	if not mine.is_empty():
 		var bf := []
 		for r in mine:
 			bf.append("%s (%d)" % [GameState.award_name(r), int(r["bf"])])
-		v.add_child(UiKit.lbl("%s best & fairest" % GameDB.club_name(GameState.my_club), UiKit.BODY, UiKit.EMPH, true))
+		v.add_child(UiKit.lbl("%s best & fairest" % GameDB.club_name(GameState.my_club), UiKit.BODY, StatsSide.mine_ink(), true))
 		v.add_child(_small(", ".join(bf)))
 	var aa: Array = aw.get("all_australian", [])
 	if not aa.is_empty():
-		v.add_child(UiKit.lbl("All-Australian team", UiKit.BODY, UiKit.EMPH, true))
+		v.add_child(UiKit.lbl("All-Australian team", UiKit.BODY, StatsSide.mine_ink(), true))
 		for slot in [["RUCK", "Ruck"], ["MID", "Midfield"], ["DEF", "Defence"], ["FWD", "Forwards"], ["BENCH", "Interchange"]]:
 			var names := []
 			for r in aa:
@@ -404,7 +424,7 @@ func _awards_panel() -> Control:
 			v.add_child(_small("%s: %s" % [str(slot[1]), ", ".join(names)]))
 	var rec := GameState.records
 	if not rec.is_empty():
-		v.add_child(UiKit.lbl("League records", UiKit.BODY, UiKit.EMPH, true))
+		v.add_child(UiKit.lbl("League records", UiKit.BODY, StatsSide.mine_ink(), true))
 		for row in [["most_goals", "Most goals in a season", "goals"],
 				["most_votes", "Most Brownlow votes", "votes"],
 				["highest_score", "Highest score", "pts"],
@@ -416,12 +436,14 @@ func _awards_panel() -> Control:
 					else "%s v %s" % [GameDB.club_short(str(r["club"])), GameDB.club_short(str(r.get("opp", "")))]
 			v.add_child(_small("%s: %d %s - %s, %d" % [str(row[1]), int(r["value"]), str(row[2]), who, int(r["year"])]))
 	if GameState.honour_roll.size() > 1:
-		v.add_child(UiKit.lbl("Honour roll", UiKit.BODY, UiKit.EMPH, true))
+		v.add_child(UiKit.lbl("Honour roll", UiKit.BODY, StatsSide.mine_ink(), true))
 		for h in GameState.honour_roll:
 			var b: Array = h.get("brownlow", [])
-			v.add_child(_small("%d  Premiers %s  ·  Brownlow %s  ·  you finished %s" % [int(h["year"]),
+			var ns_rows: Array = h.get("norm_smith", [])
+			var ns_part := "  ·  Norm Smith %s" % GameState.award_name(ns_rows[0]) if not ns_rows.is_empty() else ""
+			v.add_child(_small("%d  Premiers %s  ·  Brownlow %s%s  ·  you finished %s" % [int(h["year"]),
 					GameDB.club_short(str(h["premier"])),
-					GameState.award_name(b[0]) if not b.is_empty() else "-",
+					GameState.award_name(b[0]) if not b.is_empty() else "-", ns_part,
 					_ordinal(int(h.get("my_position", 0)))]))
 	var ceremony := UiKit.btn("Open awards program", UiKit.BODY, false)
 	ceremony.name = "AwardsProgram"
@@ -435,7 +457,7 @@ func _award_line(title: String, row: Dictionary, detail: String, big: bool) -> C
 	var mine := str(row["club"]) == GameState.my_club
 	var l := UiKit.lbl("%s: %s (%s), %s" % [title, GameState.award_name(row),
 			GameDB.club_name(str(row["club"])), detail], 16 if big else 14,
-			UiKit.TEXT, mine)
+			StatsSide.ink(str(row["club"])), mine)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
 
@@ -451,7 +473,9 @@ func _achievements_panel() -> Control:
 	panel.name = "AchievementsPanel"
 	var v := UiKit.vbox(5)
 	panel.add_child(v)
-	v.add_child(UiKit.heading("Club achievements", 22))
+	var ach_head := UiKit.heading("Club achievements", 22)
+	ach_head.add_theme_color_override("font_color", StatsSide.mine_ink())
+	v.add_child(ach_head)
 	if unlocked.is_empty():
 		v.add_child(_small("Nothing unlocked yet - every club's achievement is a piece of its history."))
 	for d in Achievements.DEFINITIONS:
@@ -462,7 +486,7 @@ func _achievements_panel() -> Control:
 		var mine := club == GameState.my_club
 		var l := UiKit.lbl("%s - %s, %d" % [GameDB.club_name(club), str(d["name"]),
 				int(unlocked[id].get("year", 0))], 15,
-				UiKit.TEXT, mine)
+				StatsSide.ink(club), mine)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l)
 		var note := _small(str(d["desc"]))
@@ -473,8 +497,11 @@ func _achievements_panel() -> Control:
 	return panel
 
 
-func _small(text: String) -> Label:
-	var l := UiKit.lbl(text, 12, UiKit.MUTED)
+## A fine line. With a club, in its colour where it reads (the quiet grey where
+## it does not), and bold when it is yours.
+func _small(text: String, club := "") -> Label:
+	var ink := StatsSide.ink(club) if club != "" else UiKit.MUTED
+	var l := UiKit.lbl(text, 12, UiKit.MUTED if ink == UiKit.TEXT else ink, club != "" and club == GameState.my_club)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
 
@@ -492,32 +519,32 @@ func _open_awards_program() -> void:
 	body.add_child(UiKit.lbl("Season honours — settled from the matches already played.", UiKit.SECONDARY, UiKit.MUTED, true))
 	var brownlow: Array = aw.get("brownlow", [])
 	if not brownlow.is_empty():
-		body.add_child(UiKit.section("Brownlow Medal"))
+		body.add_child(StatsSide.heading("Brownlow Medal"))
 		for i in range(mini(10, brownlow.size())):
 			var r: Dictionary = brownlow[i]
 			var status := " — ineligible" if not bool(r.get("brownlow_eligible", true)) else ""
 			body.add_child(_small("%d. %s (%s) — %d votes%s" % [
 					i + 1, GameState.award_name(r), GameDB.club_short(str(r["club"])),
-					int(r["votes"]), status]))
+					int(r["votes"]), status], str(r["club"])))
 	var rising: Array = aw.get("rising_star", [])
 	if not rising.is_empty():
-		body.add_child(UiKit.section("Rising Star"))
+		body.add_child(StatsSide.heading("Rising Star"))
 		body.add_child(_award_line("Winner", rising[0], "age %d" % int(rising[0]["age"]), true))
 	var coaches: Array = aw.get("coaches_award", [])
 	if not coaches.is_empty():
-		body.add_child(UiKit.section("Coaches Award"))
+		body.add_child(StatsSide.heading("Coaches Award"))
 		for i in range(mini(5, coaches.size())):
 			var r: Dictionary = coaches[i]
-			body.add_child(_small("%d. %s (%s) — %d votes" % [i + 1, GameState.award_name(r), GameDB.club_short(str(r["club"])), int(r["coaches"])]))
+			body.add_child(_small("%d. %s (%s) — %d votes" % [i + 1, GameState.award_name(r), GameDB.club_short(str(r["club"])), int(r["coaches"])], str(r["club"])))
 	var mine: Array = (aw.get("best_and_fairest", {}) as Dictionary).get(GameState.my_club, [])
 	if not mine.is_empty():
-		body.add_child(UiKit.section("%s best & fairest" % GameDB.club_name(GameState.my_club)))
+		body.add_child(StatsSide.heading("%s best & fairest" % GameDB.club_name(GameState.my_club)))
 		for i in range(mine.size()):
 			var r: Dictionary = mine[i]
 			body.add_child(_small("%d. %s — %d votes" % [i + 1, GameState.award_name(r), int(r["bf"])]))
 	var aa: Array = aw.get("all_australian", [])
 	if not aa.is_empty():
-		body.add_child(UiKit.section("All-Australian team"))
+		body.add_child(StatsSide.heading("All-Australian team"))
 		for slot in [["DEF","Defence"],["MID","Midfield"],["RUCK","Ruck"],["FWD","Forwards"],["BENCH","Interchange"]]:
 			var names := []
 			for r in aa:

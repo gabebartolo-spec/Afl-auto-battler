@@ -26,6 +26,7 @@ const PLAYER_HONOURS := [
 	["brownlow", "league_bnf_medal", "Brownlow Medal", "votes", "vote"],
 	["coleman", "leading_goalkicker_medal", "Coleman Medal", "goals", "goal"],
 	["rising_star", "rising_star", "Rising Star", "", ""],
+	["norm_smith", "norm_smith_medal", "Norm Smith Medal", "", ""],
 	["coaches_award", "coaches_award", "Coaches Award", "coaches", "vote"],
 	["my_bf", "club_bnf", "Best and fairest", "bf", "best and fairest vote"],
 ]
@@ -39,6 +40,7 @@ const AWARD_KINDS := [
 	["coleman", "Coleman Medal"],
 	["all_australian", "All-Australian"],
 	["rising_star", "Rising Star"],
+	["norm_smith", "Norm Smith Medal"],
 	["coaches_award", "Coaches Award"],
 	["my_bf", "Best and fairest"],
 ]
@@ -60,6 +62,10 @@ static func build(host: Control) -> Control:
 	var intro := _para("Your time at %s: %d %s, from %d." % [GameDB.club_name(club), count,
 			"season" if count == 1 else "seasons", first], UiKit.TEXT)
 	intro.name = "TrophiesTenure"
+	# The page's one headline fact, in your colour where it reads.
+	intro.add_theme_font_override("font", UiKit.BOLD)
+	intro.add_theme_font_size_override("font_size", UiKit.BODY)
+	intro.add_theme_color_override("font_color", StatsSide.mine_ink())
 	v.add_child(intro)
 	var kinds := kinds_won(seasons)
 	if not kinds.has(award_filter):
@@ -152,6 +158,13 @@ static func _club_honours(host: Control, seasons: Array) -> Control:
 				items.append({"kind": "premiership", "year": year, "entry": e})
 		if int(e.get("my_position", 0)) == 1 and award_filter != "premiership":
 			items.append({"kind": "minor_premiership", "year": year, "entry": e})
+	# The club's flags from before your time, kept quieter than your own.
+	var history := _history(club) if award_filter == "" or award_filter == "premiership" else null
+	if history != null:
+		v.add_child(history)
+		var mine := UiKit.lbl("Your premierships", UiKit.BODY, UiKit.club_name_colour(UiKit.club_ink(club)), true)
+		mine.name = "YourPremierships"
+		v.add_child(mine)
 	if flags == 0:
 		var none := _para("No premierships yet.")
 		none.name = "NoPremierships"
@@ -164,6 +177,52 @@ static func _club_honours(host: Control, seasons: Array) -> Control:
 	var ach := _achievement(seasons) if award_filter == "" else null
 	if ach != null:
 		v.add_child(ach)
+	return v
+
+
+## "Before you": the premierships the club won before the career began
+## (data/club_premierships.csv), as a quiet line and its years. Null when the
+## file has nothing for the club yet: nothing is guessed.
+static func _history(club: String) -> Control:
+	var h := ClubHistory.before_career(club)
+	if not bool(h["known"]):
+		return null
+	var v := UiKit.vbox(2)
+	v.name = "ClubHistory"
+	var years: Array = h["years"]
+	var also: Dictionary = h.get("also", {})
+	if years.is_empty() and not also.is_empty():
+		var lead := UiKit.lbl("Before you", UiKit.SMALL, UiKit.MUTED, true)
+		lead.name = "HistoryTitle"
+		v.add_child(lead)
+	elif years.is_empty():
+		var none := UiKit.lbl("Before you", UiKit.SMALL, UiKit.MUTED, true)
+		none.name = "HistoryTitle"
+		v.add_child(none)
+		var words := _para("No premierships yet.")
+		words.name = "HistoryNone"
+		v.add_child(words)
+	else:
+		var title := UiKit.lbl("Before you: %d %s" % [years.size(), "premiership" if years.size() == 1 else "premierships"],
+				UiKit.SMALL, UiKit.MUTED, true)
+		title.name = "HistoryTitle"
+		v.add_child(title)
+		var list := _para(", ".join(years.map(func(y): return str(y))))
+		list.name = "HistoryYears"
+		v.add_child(list)
+	for label in also:
+		var ys: Array = also[label]
+		var al := UiKit.lbl("%s: %d %s" % [label, ys.size(), "premiership" if ys.size() == 1 else "premierships"],
+				UiKit.SMALL, UiKit.MUTED, true)
+		al.name = "HistoryAs_" + str(label)
+		v.add_child(al)
+		var ayears := _para(", ".join(ys.map(func(y): return str(y))))
+		ayears.name = "HistoryAsYears_" + str(label)
+		v.add_child(ayears)
+	var gap := Control.new()
+	gap.custom_minimum_size.y = 6
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(gap)
 	return v
 
 
@@ -374,9 +433,13 @@ static func _tenure_table(host: Control, seasons: Array, in_progress: bool) -> C
 
 static func _tenure_row(cols: Array, head: bool, band := false, row_h := ROW_H) -> Control:
 	var p := PanelContainer.new()
-	var flat := StyleBoxFlat.new()
-	flat.bg_color = UiKit.PANEL if band else Color.TRANSPARENT
-	flat.content_margin_left = 4
+	# A premiership season is marked as the ladder marks your row: a wash of
+	# your colour and a rule down its left.
+	var won := not head and str(cols[3]) == "Premiers"
+	var flat := StatsSide.row_style(GameState.my_club, band, true) if won else StyleBoxFlat.new()
+	if not won:
+		flat.bg_color = UiKit.PANEL if band else Color.TRANSPARENT
+	flat.content_margin_left = StatsSide.RULE_INSET + 2   # clear of the rule, in every row so the columns line up
 	flat.content_margin_right = 4
 	p.add_theme_stylebox_override("panel", flat)
 	var h := UiKit.hbox(8)
@@ -385,8 +448,9 @@ static func _tenure_row(cols: Array, head: bool, band := false, row_h := ROW_H) 
 	var widths := [56, 56, 72, 0]
 	for i in range(cols.size()):
 		var text := str(cols[i])
+		# The season and where you finished lead each row; the column heads are quiet.
 		var l := UiKit.line(text, 12 if head else UiKit.BODY,
-				UiKit.MUTED if head or i == 0 else UiKit.TEXT, not head and text == "Premiers")
+				UiKit.MUTED if head else UiKit.TEXT, not head and (i < 2 or text == "Premiers"))
 		l.custom_minimum_size.x = float(widths[i])
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		if i == 3:
@@ -437,7 +501,7 @@ static func _item(art: Control, top: String, bottom: String, wrap_top := false) 
 	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_l.custom_minimum_size.x = width
 	v.add_child(name_l)
-	var what := UiKit.lbl(bottom, 12, UiKit.MUTED)
+	var what := UiKit.lbl(bottom, UiKit.SMALL, UiKit.TEXT)
 	what.name = "Bottom"
 	what.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	what.custom_minimum_size.x = width
@@ -534,7 +598,7 @@ static func _title(v: Control, text: String) -> void:
 	air.custom_minimum_size.y = 16
 	air.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(air)
-	var t := UiKit.section(text)
+	var t := StatsSide.heading(text)
 	t.name = "Title"
 	v.add_child(t)
 

@@ -264,7 +264,7 @@ static func _board_row(host: Control, row: Dictionary, rank: int) -> Control:
 	m.add_child(h)
 	var club := str(row["club"])
 	var mine := club == GameState.my_club
-	var pos := UiKit.line(str(rank), UiKit.SECONDARY, UiKit.MUTED)
+	var pos := UiKit.line(str(rank), UiKit.SECONDARY, UiKit.TEXT, true)
 	pos.name = "Rank"
 	pos.custom_minimum_size.x = 26
 	pos.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -283,7 +283,9 @@ static func _board_row(host: Control, row: Dictionary, rank: int) -> Control:
 	var meta := "%s · %d %s" % [club, games, "game" if games == 1 else "games"]
 	if bool(row["moved"]):
 		meta += " · two clubs"
-	var sub := UiKit.line(meta, UiKit.SECONDARY, UiKit.MUTED)
+	# His club's code in its colour where it reads, else the quiet grey.
+	var club_ink := StatsSide.ink(club)
+	var sub := UiKit.line(meta, UiKit.SECONDARY, UiKit.MUTED if club_ink == UiKit.TEXT else club_ink)
 	sub.name = "Meta"
 	who.add_child(sub)
 	var key := _sort

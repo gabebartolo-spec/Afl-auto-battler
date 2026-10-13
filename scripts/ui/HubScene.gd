@@ -34,6 +34,11 @@ func _ready() -> void:
 	if GameState.season == null:
 		Router.replace("main")
 		return
+	# A pre-season is running: it has its own screen until Round 1 is next.
+	# The off-season wrap is read here first.
+	if GameState.preseason_active() and not GameState.needs_season_wrap():
+		Router.replace("preseason")
+		return
 	_warm_pre_match.call_deferred()
 
 	add_child(ClubBackdrop.new().setup(GameState.my_club).live())
@@ -169,12 +174,17 @@ func _show_season_wrap() -> void:
 		var why := UiKit.lbl(str(w.get("reason", "")), 14, UiKit.MUTED)
 		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(why)
-	var go := UiKit.btn("Begin season", UiKit.BODY, true)
+	# With a pre-season to come, the wrap leads into it; a career saved at the
+	# wrap before pre-seasons existed begins its season as it always did.
+	var to_preseason: bool = GameState.preseason_active()
+	var go := UiKit.btn("Start the pre-season" if to_preseason else "Begin season", UiKit.BODY, true)
 	go.name = "BeginSeason"
 	go.custom_minimum_size.y = 48
 	go.pressed.connect(func():
 		GameState.begin_season_from_wrap()
-		overlay.queue_free())
+		overlay.queue_free()
+		if to_preseason:
+			Router.replace("preseason"))
 	(box["footer"] as VBoxContainer).add_child(go)
 
 
@@ -640,11 +650,21 @@ func _week_section(season: Season) -> Control:
 		var their := GameState.club_form_info(opp)
 		# Named: under the poster an unnamed "4th on the ladder" read as yours.
 		# "Form:" like your own line below, so the two read as parallel facts.
-		var standing := UiKit.lbl("%s are %s on the ladder  ·  %s" % [
-				GameDB.club_short(opp), GameState.ordinal(GameState.club_position(opp)),
-				GameState.form_line(their)], UiKit.SECONDARY, UiKit.MUTED)
-		standing.name = "OppFormLine"
-		nv.add_child(standing)
+		# Before the opponent's first game the ladder and form say nothing yet:
+		# last year's finish instead (nothing at all in a first season).
+		var standing_text := ""
+		if str(their["last"]) == "":
+			var fin := GameState.last_finish_of(opp)
+			if fin > 0:
+				standing_text = "%s finished %s last year" % [GameDB.club_short(opp), GameState.ordinal(fin)]
+		else:
+			standing_text = "%s are %s on the ladder  ·  %s" % [
+					GameDB.club_short(opp), GameState.ordinal(GameState.club_position(opp)),
+					GameState.form_line(their)]
+		if standing_text != "":
+			var standing := UiKit.lbl(standing_text, UiKit.SECONDARY, UiKit.MUTED)
+			standing.name = "OppFormLine"
+			nv.add_child(standing)
 		# Their list: the club's guernsey and name, then its line (TeamRating).
 		var their_list := GameState.team_outlook(opp)
 		if not their_list.is_empty():
@@ -1429,6 +1449,15 @@ func _show_results(results: Array) -> void:
 	if GameState.season.is_season_over():
 		v.add_child(UiKit.ellipsis("Premiers: %s" % GameDB.club_name(GameState.premier()),
 				18, UiKit.TEXT, true))
+	var medal := {}
+	for r in results:
+		if medal.is_empty():
+			medal = GameState.norm_smith_for(r)
+	if not medal.is_empty():
+		var ml := UiKit.lbl(str(medal["text"]), UiKit.BODY, UiKit.TEXT, true)
+		ml.name = "NormSmithMedal"
+		ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(ml)
 	if not others.is_empty():
 		v.add_child(UiKit.spacer(UiKit.GAP))
 		v.add_child(UiKit.lbl("Other results" if others.size() < results.size() else "Results",
@@ -1476,6 +1505,13 @@ func _my_result(v: VBoxContainer, res: Dictionary) -> void:
 		hl.name = "MyHeadline"
 		hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(hl)
+	# The quarter that turned a comeback win or a lost lead, and who did it.
+	var turned := ComebackTelling.turn_line(res, me)
+	if turned != "":
+		var tl := UiKit.lbl(turned, UiKit.BODY, UiKit.MUTED)
+		tl.name = "MyTurn"
+		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(tl)
 	var best := MatchNotes.standouts(res, me, 1)
 	if not best.is_empty():
 		var bl := UiKit.ellipsis("Best: %s %s  ·  %s" % [str(best[0]["name"]),

@@ -79,7 +79,7 @@ static func snapshot(p: Dictionary, last_season: int, honour_roll: Array) -> Dic
 ## are left out: the game does not record who played in a Grand Final, and a
 ## guess is not an honour.
 const HONOUR_KEYS := {"brownlow": "brownlow", "coleman": "coleman",
-		"rising_star": "rising_star", "coaches_award": "coaches"}
+		"rising_star": "rising_star", "coaches_award": "coaches", "norm_smith": "norm_smith"}
 
 static func honours(player_id: String, honour_roll: Array) -> Dictionary:
 	var out := {}

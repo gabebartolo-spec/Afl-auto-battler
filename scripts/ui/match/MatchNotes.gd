@@ -220,6 +220,11 @@ static func quarter_facts(res: Dictionary, my_side: int, q: int, answers := {}) 
 	var mine := _team_delta(now, was, my_side)
 	var theirs := _team_delta(now, was, opp)
 	var out := []
+	# Three-quarter time leads with where the match stands and why (ComebackTelling).
+	if q == 3:
+		var story := ComebackTelling.break_line(res, my_side)
+		if story != "":
+			out.append(story)
 
 	var clr_m := int(mine.get("clearances", 0.0))
 	var clr_t := int(theirs.get("clearances", 0.0))

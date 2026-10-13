@@ -147,7 +147,7 @@ static func _row(host: Control, row: Dictionary, rank: int, wide: bool) -> Contr
 	h.offset_left = 8
 	h.offset_right = -10
 	b.add_child(h)
-	var rk := _cell(str(rank) if rank > 0 else "", RANK_W, UiKit.MUTED, UiKit.SECONDARY, HORIZONTAL_ALIGNMENT_RIGHT)
+	var rk := _cell(str(rank) if rank > 0 else "", RANK_W, UiKit.TEXT, UiKit.SECONDARY, HORIZONTAL_ALIGNMENT_RIGHT, true)
 	rk.name = "Rank"
 	h.add_child(rk)
 	if club != "":
@@ -175,7 +175,9 @@ static func _row(host: Control, row: Dictionary, rank: int, wide: bool) -> Contr
 	if beside:
 		nm.custom_minimum_size.x = name_w
 	top.add_child(nm)
-	var club_ink := UiKit.TEXT if mine else UiKit.MUTED
+	# His club in its own colour where it reads (the guernsey beside him says the
+	# side where it does not); yours in bold.
+	var club_ink := StatsSide.ink(club)
 	if beside:
 		var cl := UiKit.line(club_text, UiKit.SECONDARY, club_ink, mine)
 		cl.name = "Club"

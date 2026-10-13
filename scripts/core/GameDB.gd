@@ -359,6 +359,10 @@ func player_display_name(player: Dictionary) -> String:
 		var real := str(player.get("real_name", "")).strip_edges()
 		if real != "":
 			return real
+		# A generated son or brother of a real player carries his real surname.
+		var fam := str(player.get("family_real_last", "")).strip_edges()
+		if fam != "" and generic != "":
+			return "%s %s" % [generic.get_slice(" ", 0), fam]
 	if generic != "":
 		return generic
 	return "Player"

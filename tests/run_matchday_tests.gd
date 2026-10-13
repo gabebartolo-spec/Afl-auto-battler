@@ -50,6 +50,7 @@ func _run() -> void:
 		await _loose_interceptor(sz)
 		await _main_ruck_picker(sz)
 		await _best_so_far(sz)
+		await _one_line_break(sz)
 	_break_units_keep_followups()
 	_break_packing_is_shortest()
 	_club_ink_all()
@@ -300,10 +301,15 @@ func _phone_match(sz: Vector2i) -> void:
 	var qh: Label = box.find_child("QuarterHeading", true, false)
 	_check(qh != null and qh.text == "First quarter" and not bt.contains("What's happening"),
 			"Quarter time leads with the quarter just played, by name (%s)" % tag)
-	_check(box.find_child("MoreCallsToggle", true, false) == null and box.find_child("PlanPicker", true, false).is_visible_in_tree()
-			and box.find_child("TagPicker", true, false).is_visible_in_tree()
-			and box.find_child("PepPicker", true, false).is_visible_in_tree()
-			and box.find_child("RotationPicker", true, false).is_visible_in_tree(),
+	# One line a call from quarter time on: each call's row is in view, its
+	# choices one tap behind it (the pickers are still on the break).
+	var rows_seen := true
+	for rk in ["plan", "tag", "pep", "rot"]:
+		var call_row: Control = box.find_child("CallRow_" + rk, true, false)
+		rows_seen = rows_seen and call_row != null and call_row.is_visible_in_tree()
+	_check(box.find_child("MoreCallsToggle", true, false) == null and rows_seen
+			and box.find_child("PlanPicker", true, false) != null and box.find_child("TagPicker", true, false) != null
+			and box.find_child("PepPicker", true, false) != null and box.find_child("RotationPicker", true, false) != null,
 			"Every call is in view at the break, with no More calls button (%s)" % tag)
 	_check((box.find_child("BreakColumns", true, false) != null) == bool(m.call("_wide_break")),
 			"A wide PC window lays the break out in columns; a phone keeps one (%s)" % tag)
@@ -324,6 +330,7 @@ func _phone_match(sz: Vector2i) -> void:
 		# Real taps from here (tests/tap.gd): a touch on the screen, not a call
 		# to the handler. First, the tool itself: a sheet over the button must
 		# take the tap.
+		await _open_call_of(m, ch)
 		var cover := ColorRect.new()
 		cover.color = Color(0, 0, 0, 0)
 		cover.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -388,7 +395,13 @@ func _phone_match(sz: Vector2i) -> void:
 			await _settle()
 	await _settle()
 	box = m.find_child("CoachBox", true, false)
-	var stats_b: Button = box.find_child("BreakStats", true, false) if box != null else null
+	# From quarter time on the break is one line a call: on a phone the match
+	# stats sit with Best so far, one tap from the break.
+	var best_open_h: Button = box.find_child("BestSoFarOpen", true, false) if box != null else null
+	if best_open_h != null:
+		_check((await Tap.tap(best_open_h)) == "", "Best so far opens from the half-time break with a real tap (%s)" % tag)
+		await _settle()
+	var stats_b: Button = m.find_child("BreakStats", true, false) if box != null else null
 	_check(stats_b != null and box.find_child("HalfTimeReport", true, false) == null,
 			"Half time offers the match stats, not a prose report (%s)" % tag)
 	if stats_b != null:
@@ -956,6 +969,12 @@ func _best_so_far(sz: Vector2i) -> void:
 		m.queue_free()
 		await _settle()
 		return
+	# On a phone it is one tap from the break, in its own sheet (one line a call).
+	var best_open: Button = box.find_child("BestSoFarOpen", true, false)
+	if best_open != null:
+		_check((await Tap.tap(best_open)) == "" and (block as Control).is_visible_in_tree(),
+				"On a phone Best so far opens from the break with a real tap (%s)" % tag)
+		await _settle()
 	# The top three of each side, from the match's own player stats.
 	var want := []
 	for side in [me, 1 - me]:
@@ -1034,7 +1053,7 @@ func _best_so_far(sz: Vector2i) -> void:
 			clipped.append("%s (%.0f > %.0f)" % [l.text, w, l.size.x])
 	_check(clipped.is_empty(), "Best so far clips no text (%s: %s)" % [tag, str(clipped)])
 	var plan_pick: Node = box.find_child("PlanPicker", true, false)
-	if sz.x < 900 and plan_pick != null:
+	if sz.x < 900 and plan_pick != null and best_open == null:
 		_check((plan_pick as Control).global_position.y < (block as Control).global_position.y,
 				"On a phone Best so far sits below the gameplan choices (%s)" % tag)
 	var all_b: Button = block.find_child("BestSoFarAll", true, false)
@@ -1045,6 +1064,257 @@ func _best_so_far(sz: Vector2i) -> void:
 			"...and opens the full player table (%s)" % tag)
 	m.queue_free()
 	await _settle()
+
+
+## The break from quarter time on is one line a call (director, 2026-10-14:
+## the break was "VERY busy", "a huge info dump", and "it looks bad when the
+## extra buttons pop in ... when we choosing our own tagger"). Every decision
+## the old break had is a row that shows its answer and opens its own call; who
+## tags lives inside the Tag call from the start, so picking a tag moves
+## nothing; Back closes a sheet and keeps the break; the picks made behind the
+## rows are the ones the quarter starts with. Real taps throughout. Fremantle v
+## Melbourne at half time (seed 2050), where Melbourne's ruck is running
+## through the middle: the tag names are their listed midfielders only.
+func _one_line_break(sz: Vector2i) -> void:
+	var tag := "%dx%d" % [sz.x, sz.y]
+	var db = root.get_node("GameDB")
+	var was_seed = _state.replay_seed
+	_state.reset()
+	_state.replay_seed = 2050
+	_state.career_seed = 2050
+	_state.start_season("FRE", db.club_list("FRE"))
+	_state.replay_seed = was_seed
+	root.size = sz
+	_check(_state.prepare_interactive_match(), "A live match is prepared for the one-line break (%s)" % tag)
+	var sim = _state.pending_sim
+	var me := int(sim.moment_side)
+	var them := str((sim.squads[1 - me] as Object).code)
+	sim.run_quarter()
+	sim.run_quarter()
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	await _settle()
+	var box: Control = m.find_child("CoachBox", true, false)
+	_check(box != null and box.has_meta("one_line"), "Half time is the one-line break (%s)" % tag)
+	if box == null:
+		m.queue_free()
+		await _settle()
+		return
+	var pc := bool(m.call("_wide_break"))
+	var keys: Array = []
+	for r in box.find_children("CallRow_*", "Button", true, false):
+		keys.append(str(r.name).trim_prefix("CallRow_"))
+	# Every decision the break had is still a row: none is lost.
+	var want := ["plan", "pep", "rot", "tag", "minder", "loose", "pt"]
+	if not (sim.duels[me] as Dictionary).is_empty():
+		want.append("mu")
+	if (m.call("_my_rucks", sim) as Array).size() >= 2:
+		want.append("ruck")
+	var lost := want.filter(func(k): return not keys.has(k))
+	_check(lost.is_empty(), "Every call has its row at the break (%s; missing %s)" % [tag, str(lost)])
+	# Each call's own controls are still there, behind its row.
+	var controls := {"plan": "PlanPicker", "pep": "PepPicker", "rot": "RotationPicker", "tag": "TagPicker",
+			"minder": "MinderBlock", "loose": "InterceptorPicker", "pt": "FocusPicker_focus_fwd", "mu": "ChangeMatchup",
+			"ruck": "MainRuckPicker"}
+	var orphan := []
+	for k in keys:
+		var body: Node = m.find_child("CallBody_" + str(k), true, false)
+		if body == null or body.find_child(str(controls.get(k, "")), true, false) == null:
+			orphan.append(k)
+	for slot in ["focus_mid", "focus_def"]:
+		var pt_body: Node = m.find_child("CallBody_pt", true, false)
+		if pt_body == null or pt_body.find_child("FocusPicker_" + slot, true, false) == null:
+			orphan.append(slot)
+	_check(orphan.is_empty(), "Every call keeps its own choices behind its row (%s; without %s)" % [tag, str(orphan)])
+	# A row says its answer now.
+	var plan_row: Button = box.find_child("CallRow_plan", true, false)
+	var plan_label := ""
+	for g in ((m.get_script() as Script).get_script_constant_map()["GAMEPLANS"] as Array):
+		if str(g[0]) == str(m.call("_current_plan", sim)):
+			plan_label = str(g[1])
+	_check(plan_row != null and (plan_row.get_meta("answer") as Label).text == plan_label and plan_label != "",
+			"The Game plan row says the plan in force (%s: %s)" % [tag, plan_label])
+	var tag_row: Button = box.find_child("CallRow_tag", true, false)
+	_check(tag_row != null and (tag_row.get_meta("answer") as Label).text == "No tag"
+			and not (tag_row.get_meta("changed") as Label).visible, "The Tag row says No tag, and is not marked changed (%s)" % tag)
+	# The break fits the screen: nothing to scroll for.
+	var fit := _break_fit(box)
+	_check(fit[0] <= fit[1] + 1.0, "The break fits the screen without scrolling (%s: %.0f of %.0f)" % [tag, fit[0], fit[1]])
+	var small := []
+	for r in box.find_children("CallRow_*", "Button", true, false):
+		if (r as Button).size.y < 43.5:
+			small.append(str(r.name))
+	_check(small.is_empty(), "Every call row is thumb-sized (%s: %s)" % [tag, str(small)])
+	# Every row takes a real tap and opens its call; Back closes it, the break stays.
+	var deaf := []
+	var unopened := []
+	var overflow := []
+	var kept := true
+	for k in keys:
+		var row: Button = box.find_child("CallRow_" + str(k), true, false)
+		var why: String = await Tap.tap(row)
+		await _settle()
+		if why != "":
+			deaf.append("%s (%s)" % [k, why])
+			continue
+		var body: Control = m.find_child("CallBody_" + str(k), true, false)
+		if pc:
+			var pane: Node = box.find_child("CallPane", true, false)
+			if pane == null or str(pane.get_meta("call", "")) != str(k) or body == null or not body.is_visible_in_tree():
+				unopened.append(k)
+			var f := _break_fit(box)
+			if f[0] > f[1] + 1.0:
+				overflow.append("%s %.0f of %.0f" % [k, f[0], f[1]])
+		else:
+			var sheet: Node = m.find_child("CallSheet_" + str(k), true, false)
+			if sheet == null or body == null or not sheet.is_ancestor_of(body) or not body.is_visible_in_tree():
+				unopened.append(k)
+			kept = kept and m.call("handle_back") == true
+			await _settle()
+			if m.find_child("CallSheet_" + str(k), true, false) != null or m.find_child("CoachBox", true, false) == null:
+				kept = false
+	_check(deaf.is_empty(), "Every call row takes a real tap (%s: %s)" % [tag, str(deaf)])
+	_check(unopened.is_empty(), "Every row opens its own call (%s: %s)" % [tag, str(unopened)])
+	if pc:
+		_check(overflow.is_empty(), "Every call fits beside the list on the PC sheet, nothing scrolls (%s: %s)" % [tag, str(overflow)])
+	else:
+		_check(kept, "Back closes a call's sheet and keeps the break (%s)" % tag)
+
+	# The tag: its names are their listed midfielders, who tags is there before
+	# a tag is picked, and picking one moves nothing.
+	await Tap.tap(tag_row)
+	await _settle()
+	var tp: Node = m.find_child("TagPicker", true, false)
+	var names: Array = []
+	var not_listed := []
+	var pick: Button = null
+	for b in (tp.find_children("TagPickerGrid_*", "Button", true, false) if tp != null else []):
+		var id := str(b.name).trim_prefix("TagPickerGrid_")
+		if id == "":
+			continue
+		names.append(db.player_display_name_by_id(id, id))
+		if pick == null:
+			pick = b
+		var p: Dictionary = sim._on_ground(1 - me, id)
+		if not p.is_empty() and str(p.get("own_role", p.get("role", ""))) != "MID":
+			not_listed.append(names.back())
+	_check(pick != null and not_listed.is_empty(), "The tag names are their listed midfielders only (%s: %s)" % [tag, str(not_listed)])
+	if them == "MEL":
+		# Max Gawn (a ruck in a midfield slot) and Jake Bowey (a defender with
+		# midfield second) are both taggable in the sim at half time here.
+		var through := []
+		for p in (sim.squads[1 - me] as Object).ground:
+			if sim.tag_target_ok(1 - me, str(p["id"])) and str(p.get("own_role", p.get("role", ""))) != "MID":
+				through.append(str(p["id"]))
+		var offered := through.filter(func(id): return tp.find_child("TagPickerGrid_" + str(id), true, false) != null)
+		_check(not through.is_empty() and offered.is_empty(),
+				"A ruck or defender running through the middle is not among the tag names (%s: %d such, %d offered)" % [tag, through.size(), offered.size()])
+		var other: Button = tp.find_child("TagPickerOther", true, false)
+		var w_other: String = await Tap.tap(other)
+		await _settle()
+		var listed_all := true
+		for id in through:
+			listed_all = listed_all and m.find_child("Sheet_" + str(id), true, false) != null
+		_check(w_other == "" and listed_all, "Other player still lists them, so anyone the game lets you tag can be (%s%s)" % [tag, (": " + w_other) if w_other != "" else ""])
+		m.call("handle_back")
+		await _settle()
+	else:
+		_check(false, "(setup) seed 2050 draws Fremantle v Melbourne (%s: drew %s)" % [tag, them])
+	var who: Control = (m.find_child("TaggerPicker", true, false) if pc else m.find_child("WhoTagsLine", true, false)) as Control
+	var has_who := m.find_child("TaggerPicker", true, false) != null
+	if has_who and pick != null:
+		_check(who != null and who.is_visible_in_tree(), "Who tags is in the Tag call before a tag is picked (%s)" % tag)
+		var scope: Node = box if pc else m.find_child("CallSheet_tag", true, false)
+		var before := _visible_buttons(scope)
+		var who_y := who.global_position.y if who != null else -1.0
+		var w_pick: String = await Tap.tap(pick)
+		await _settle()
+		var after := _visible_buttons(scope)
+		_check(w_pick == "" and after == before and who != null and absf(who.global_position.y - who_y) < 0.5,
+				"Picking a tag adds no buttons and moves nothing (%s: %d then %d buttons%s)" % [tag, before, after, (", " + w_pick) if w_pick != "" else ""])
+		var picked_id := str(pick.name).trim_prefix("TagPickerGrid_")
+		# Who tags: choose another man with a real tap.
+		var other_card: Button = null
+		if not pc:
+			var w_change: String = await Tap.tap(m.find_child("WhoTagsChange", true, false))
+			await _settle()
+			_check(w_change == "" and m.find_child("CallSheet_who", true, false) != null, "Change opens who tags as its own sheet (%s%s)" % [tag, (": " + w_change) if w_change != "" else ""])
+		for b in m.find_child("TaggerPicker", true, false).find_children("TaggerPickerGrid_*", "Button", true, false):
+			if str(b.name) != "TaggerPickerGrid_" and other_card == null:
+				other_card = b
+		var w_card: String = await Tap.tap(other_card)
+		await _settle()
+		var tagger_id := str(other_card.name).trim_prefix("TaggerPickerGrid_") if other_card != null else ""
+		if not pc:
+			_check(m.call("handle_back") == true, "Back is handled on who tags (%s)" % tag)
+			await _settle()
+			_check(m.find_child("CallSheet_who", true, false) == null and m.find_child("CallSheet_tag", true, false) != null,
+					"Back closes who tags and keeps the Tag sheet (%s)" % tag)
+			var who_name: Label = m.find_child("WhoTagsName", true, false)
+			_check(who_name != null and who_name.text == db.player_display_name_by_id(tagger_id, "?"),
+					"The Tag sheet names the man you chose (%s: %s)" % [tag, who_name.text if who_name != null else "-"])
+			var w_done: String = await Tap.tap(m.find_child("CallSheet_tag", true, false).find_child("CallDone", true, false))
+			await _settle()
+			_check(w_done == "" and m.find_child("CallSheet_tag", true, false) == null, "Done closes the Tag sheet (%s%s)" % [tag, (": " + w_done) if w_done != "" else ""])
+		var said := (tag_row.get_meta("answer") as Label).text
+		var surname: String = db.player_display_name_by_id(picked_id, "?").get_slice(" ", 1)
+		_check(w_card == "" and said.contains(surname) and said.contains(", by ") and (tag_row.get_meta("changed") as Label).visible,
+				"The Tag row says who is tagged and by whom, marked changed this break (%s: %s)" % [tag, said])
+		# A plan change behind its row, then Start quarter: the quarter starts with both.
+		await Tap.tap(plan_row)
+		await _settle()
+		var new_plan := "contest" if str(m.call("_current_plan", sim)) != "contest" else "balanced"
+		var w_plan: String = await Tap.tap(m.find_child("PlanPicker_" + new_plan, true, false))
+		await _settle()
+		if not pc:
+			await Tap.tap(m.find_child("CallSheet_plan", true, false).find_child("CallDone", true, false))
+			await _settle()
+		_check(w_plan == "" and (plan_row.get_meta("changed") as Label).visible, "A plan picked behind its row marks the row changed (%s%s)" % [tag, (": " + w_plan) if w_plan != "" else ""])
+		var w_start: String = await Tap.tap(m.find_child("StartQuarter", true, false))
+		await _settle()
+		var t: Dictionary = sim.tactics[me]
+		_check(w_start == "" and m.find_child("CoachBox", true, false) == null, "Start quarter takes a real tap and closes the break (%s%s)" % [tag, (": " + w_start) if w_start != "" else ""])
+		_check(str(t.get("gameplan", "")) == new_plan and str(t.get("tag_id", "")) == picked_id and str(t.get("tagger_id", "")) == tagger_id,
+				"The quarter starts with the calls made behind the rows (%s: %s, tag %s by %s)" % [tag, str(t.get("gameplan", "")), str(t.get("tag_id", "")), str(t.get("tagger_id", ""))])
+	else:
+		_check(false, "(setup) a tag and a choice of tagger are on offer (%s)" % tag)
+	m.queue_free()
+	await _settle()
+
+
+## What the break's list holds against the room it has (a break that fits does not scroll).
+func _break_fit(box: Node) -> Array:
+	for sc in box.find_children("*", "ScrollContainer", true, false):
+		if (sc as ScrollContainer).vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED:
+			continue
+		for ch in sc.get_children():
+			if ch is Control and not (ch is ScrollBar):
+				return [(ch as Control).get_combined_minimum_size().y, (sc as Control).size.y]
+	return [INF, 0.0]
+
+
+func _visible_buttons(scope: Node) -> int:
+	var n := 0
+	if scope != null:
+		for b in scope.find_children("*", "Button", true, false):
+			if (b as Button).is_visible_in_tree():
+				n += 1
+	return n
+
+
+## From quarter time on a call's controls sit behind its row: open the call
+## that holds `c` with a real tap on its row, as a player would.
+func _open_call_of(m: Node, c: Node) -> void:
+	var up: Node = c
+	while up != null and not str(up.name).begins_with("CallBody_"):
+		up = up.get_parent()
+	if up == null or (up as Control).is_visible_in_tree():
+		return
+	var row: Button = m.find_child("CallRow_" + str(up.name).trim_prefix("CallBody_"), true, false)
+	if row != null:
+		await Tap.tap(row)
+		await _settle()
 
 
 ## Every club's two hand-picked inks (director, 2026-10-13: hand-picked, clash
@@ -1132,49 +1402,43 @@ func _pc_break_worst_case(club := "COL") -> void:
 	var box: Node = m.find_child("CoachBox", true, false)
 	_check(box != null and box.find_child("LooseTally", true, false) != null, "(setup) your loose man's tally is on the break")
 	_check(box != null and box.find_child("BestSoFar", true, false) != null, "Best so far is on the fullest PC break (%s)" % club)
+	# One line a call (director, 2026-10-14): the quarter and Best so far, the
+	# rows, and the chosen call beside them. Whichever call is open, the sheet
+	# fits 1280x720 with room to spare and never changes height.
+	await _settle()
 	var bc: Control = box.find_child("BreakColumns", true, false) if box != null else null
-	var bsc: ScrollContainer = null
-	var up: Node = bc
-	while up != null and bsc == null:
-		bsc = up as ScrollContainer
-		up = up.get_parent()
-	var room := bsc.size.y if bsc != null else 0.0
-	var need := (bsc.get_child(0) as Control).get_combined_minimum_size().y if bsc != null else INF
-	_check(box != null and box.find_child("SpareMinderPicker", true, false) != null and need <= room + 1.0,
-			"Quarter time with both loose men and your tally fits 1280x720 without scrolling (%s: %.0f of %.0f)" % [club, need, room])
-	# With room to spare: a longer name or one more line must not tip it over.
-	_check(need <= 608.0 - 8.0, "...with at least 8 px to spare (%s: %.0f of 608)" % [club, need])
-	# Packing moves whole calls: no column opens on a bare line without its
-	# heading (a sentence, a note such as the synergies line, cut loose from its block),
-	# and the synergies line sits with the legs line it is about.
-	var bare := []
-	if bc != null:
-		for col in bc.get_children():
-			if col.get_child_count() > 0 and col.get_child(0) is Label and (col.get_child(0) as Label).text.ends_with("."):
-				bare.append("%s: %s" % [col.name, (col.get_child(0) as Label).text.left(30)])
-	_check(bare.is_empty(), "No break column opens on a line cut loose from its call (%s: %s)" % [club, str(bare)])
-	# A follow-up (Tag, then who tags) sits right after its own question, in
-	# the same column, never first in a column or apart from it.
-	var apart := []
-	if bc != null:
-		for f in bc.find_children("*", "Control", true, false):
-			if f.has_meta("break_follow"):
-				var par: Node = f.get_parent()
-				var at := f.get_index()
-				if at == 0 or not par.get_child(at - 1) is Control or not _follows_its_question(par, at):
-					apart.append(str(f.name))
-	_check(apart.is_empty(), "A follow-up never sits before or apart from its question (%s: %s)" % [club, str(apart)])
+	_check(bc != null and box.has_meta("one_line") and box.find_child("SpareMinderPicker", true, false) != null,
+			"Quarter time on a PC is the one-line break, with their loose man to cover (%s)" % club)
+	var worst := 0.0
+	var room := 0.0
+	var tall := []
+	var heights := {}
+	for r in (box.find_children("CallRow_*", "Button", true, false) if box != null else []):
+		var w_row: String = await Tap.tap(r)
+		await _settle()
+		var f := _break_fit(box)
+		room = f[1]
+		worst = maxf(worst, f[0])
+		heights[snappedf(f[1], 1.0)] = true
+		if w_row != "" or f[0] > f[1] + 1.0:
+			tall.append("%s %.0f of %.0f %s" % [r.name, f[0], f[1], w_row])
+	_check(tall.is_empty() and room > 0.0, "Quarter time with both loose men and your tally fits 1280x720 whichever call is open (%s: %s)" % [club, str(tall)])
+	_check(worst <= 608.0 - 8.0, "...with at least 8 px to spare (%s: %.0f of 608)" % [club, worst])
+	_check(heights.size() == 1, "Choosing another call never changes the sheet's height (%s: %s)" % [club, str(heights.keys())])
+	# The synergies line is a fact for the game plan: it sits in that call.
 	var syn: Node = null
 	for l in box.find_children("*", "Label", true, false) if box != null else []:
 		if (l as Label).text.begins_with("Your synergies"):
 			syn = l
+	var plan_body: Node = box.find_child("CallBody_plan", true, false) if box != null else null
+	_check(syn == null or (plan_body != null and plan_body.is_ancestor_of(syn)),
+			"The synergies line sits with the game plan it informs (%s)" % club)
+	# Best so far and the legs line stay beside the quarter they describe.
 	var legs: Node = box.find_child("LegsView", true, false) if box != null else null
-	_check(syn == null or (legs != null and syn.get_parent() == legs.get_parent()),
-			"The synergies line sits beside the legs line, not alone in a call column (%s)" % club)
 	var best_blk: Node = box.find_child("BestSoFar", true, false) if box != null else null
-	if syn != null and legs != null and best_blk != null and best_blk.get_parent() == legs.get_parent():
-		_check(best_blk.get_index() > syn.get_index() and syn.get_index() > legs.get_index(),
-				"The synergies line stays with the legs line, above Best so far (%s)" % club)
+	_check(legs != null and best_blk != null and best_blk.get_parent() == legs.get_parent()
+			and (best_blk as Control).is_visible_in_tree() and best_blk.get_index() > legs.get_index(),
+			"Best so far sits under the quarter and the legs line, in view (%s)" % club)
 	var stats: Button = box.find_child("BreakStats", true, false) if box != null else null
 	var w: String = await Tap.tap(stats)
 	_check(w == "" and m.find_child("BreakStatsSheet", true, false) != null, "Match stats opens from the actions row with a real tap (%s)" % w)
@@ -1209,6 +1473,7 @@ func _loose_interceptor(sz: Vector2i) -> void:
 			m.queue_free()
 			await _settle()
 			continue
+		await _open_call_of(m, block)
 		var tally: Label = block.find_child("LooseTally", true, false)
 		var id := str(sim.interceptor[me])
 		if not named:
@@ -1224,7 +1489,7 @@ func _loose_interceptor(sz: Vector2i) -> void:
 				"The line says his intercepts this match, %d (%s: %s)" % [n, tag, tally.text if tally else "-"])
 		var ask: Label = block.find_child("LooseQuestion", true, false)
 		_check(ask != null and ask.text == notes.loose_question(), "The call asks who plays loose behind the ball (%s)" % tag)
-		_check(_text(box).contains("He leaves his direct man to attack aerial balls. Another defender covers where possible; if he flies and loses, space opens behind him."),
+		_check(_text(m).contains("He leaves his direct man to attack aerial balls. Another defender covers where possible; if he flies and loses, space opens behind him."),
 				"The cost line stays word for word (%s)" % tag)
 		var bad := []
 		var shown := 0

@@ -9,6 +9,8 @@ extends RefCounted
 ##   Rising Star      best votes-then-influence among the season's weekly
 ##                    nominees (one a round: the most influential player 21
 ##                    and under not yet nominated)
+##   Norm Smith Medal the most influential player on the ground in the Grand
+##                    Final, from either side (the same measure as the votes)
 ##   Best & fairest   5-4-3-2-1 within each side every match, finals included
 ##   All-Australian   the season's best 23 by position (12+ games)
 ##
@@ -68,6 +70,54 @@ static func tally_match(tally: Dictionary, res: Dictionary, regular: bool) -> vo
 		for i in range(mini(5, everyone.size())):
 			var t: Dictionary = tally[str(everyone[i][0])]
 			t["coaches"] = int(t.get("coaches", 0)) + (5 - i)
+
+
+## The Norm Smith Medal for one Grand Final result: the most influential
+## player on the ground, from either side (CoachReport.influence, the measure
+## the Brownlow votes use). A level count goes to the home side's player who
+## comes first in the roster, so the same match always names the same man.
+## Returns {id, club, influence, line} (`line` is his stat line that day), or
+## {} when the match kept no player stats.
+static func norm_smith(res: Dictionary) -> Dictionary:
+	var stats_all: Dictionary = res.get("players", {})
+	var roster: Array = res.get("roster", [])
+	var codes := [str(res.get("home", "")), str(res.get("away", ""))]
+	var best := {}
+	for side in range(mini(2, roster.size())):
+		for r in roster[side]:
+			var id := str(r["id"])
+			if not stats_all.has(id):
+				continue
+			var inf := CoachReport.influence(stats_all[id])
+			if best.is_empty() or inf > float(best["influence"]):
+				best = {"id": id, "club": codes[side], "influence": inf,
+						"line": plain_line(stats_all[id])}
+	return best
+
+
+## What he did, in plain words: up to three headline figures, goals first if he
+## kicked any, then disposals, then tackles or marks (whichever he had more of).
+## "3 goals, 25 disposals and 8 marks".
+static func plain_line(st: Dictionary) -> String:
+	var parts: Array = []
+	var goals := int(st.get("goals", 0.0))
+	if goals > 0:
+		parts.append("%d %s" % [goals, "goal" if goals == 1 else "goals"])
+	var disp := int(st.get("disposals", 0.0))
+	if disp > 0:
+		parts.append("%d %s" % [disp, "disposal" if disp == 1 else "disposals"])
+	if parts.size() < 3:
+		var tackles := int(st.get("tackles", 0.0))
+		var marks := int(st.get("marks", 0.0))
+		if tackles > 0 and tackles >= marks:
+			parts.append("%d %s" % [tackles, "tackle" if tackles == 1 else "tackles"])
+		elif marks > 0:
+			parts.append("%d %s" % [marks, "mark" if marks == 1 else "marks"])
+	if parts.is_empty():
+		return "best on the ground"
+	if parts.size() == 1:
+		return str(parts[0])
+	return "%s and %s" % [", ".join(parts.slice(0, parts.size() - 1)), parts[parts.size() - 1]]
 
 
 ## The season's awards. `players` maps id -> player dict (role, age) for
