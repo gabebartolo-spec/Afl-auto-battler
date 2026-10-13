@@ -321,8 +321,13 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 		var top := UiKit.ellipsis(GameDB.card_surname(p), 13, UiKit.TEXT, true)
 		top.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		face.add_child(top)
+		# A man who plays several positions shows his main one on the oval (the
+		# full list is on his profile): four tags don't fit a card.
+		var tag := Ratings.role_tag(p)
+		if stacked and tag.length() > 8:
+			tag = str(p.get("role", tag))
 		var sub := UiKit.lbl(str(notes[id]) if field_only and notes.has(id)
-				else "%s %d" % [Ratings.role_tag(p), int(p["overall"])], 11, UiKit.MUTED)
+				else "%s %d" % [tag, int(p["overall"])], 11, UiKit.MUTED)
 		if not field_only and _trial_note(id) != "":
 			# A role trial from a story card: the position and the games left, in the
 			# tile's own second line (it does not grow the tile); the full words are the tooltip.

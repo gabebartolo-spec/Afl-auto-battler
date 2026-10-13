@@ -37,6 +37,7 @@ func _run() -> void:
 	await _selection_tests()
 	await _selection_pages_tests()
 	await _skip_match_tests()
+	await _week_ink_tests()
 	await _team_changes_tests()
 	await _backing_ui_tests()
 	await _captaincy_ui_tests()
@@ -981,3 +982,41 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
 		push_error(message)
+
+
+## The week's headings are the club's readable ink on the dark page, for every
+## club (the raw club colour was dark purple on dark purple), and the week
+## says each fact once.
+func _week_ink_tests() -> void:
+	var db = root.get_node("GameDB")
+	var uk = load("res://scripts/ui/UiKit.gd")
+	var bad := []
+	var codes: Array = db.clubs.keys()
+	for code in codes:
+		_state.reset()
+		_state.start_season(str(code), db.club_list(str(code)))
+		var ui := await _open()
+		var h: Label = ui.find_child("WeekHeading", true, false)
+		var kf: Label = null
+		for l in ui.find_children("*", "Label", true, false):
+			if str(l.text) == "Their key forwards":
+				kf = l
+		for lab in [h, kf]:
+			if lab == null:
+				continue
+			var ratio: float = uk.contrast(lab.get_theme_color("font_color"), uk.BG)
+			if ratio < 4.5:
+				bad.append("%s %s %.1f" % [code, lab.text, ratio])
+		if str(code) == "FRE":
+			_check(ui.find_child("LineStandings", true, false) == null and ui.find_child("H2H_midfield", true, false) != null,
+					"The week says line against line once, not twice")
+			var long_tag := false
+			for c in ui.find_children("Spot_*", "Button", true, false):
+				for l in c.find_children("*", "Label", true, false):
+					if str(l.text).count("/") >= 2:
+						long_tag = true
+			_check(not long_tag, "No oval tile lists three positions")
+		ui.queue_free()
+		await _settle()
+	_check(bad.is_empty(), "Every club's week headings read at 4.5:1 on the dark page (%s)" % str(bad))
+	_check(codes.size() >= 18, "All the clubs were checked (%d)" % codes.size())

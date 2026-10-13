@@ -47,6 +47,8 @@ func _ready() -> void:
 
 
 func _build() -> void:
+	# A move or a resize rebuilds the page: keep your place in the list.
+	var places := UiKit.scroll_places(_root)
 	UiKit.clear(_root)
 	_wide = ScreenLayout.wide_view(UiKit.view_width(self), UiKit.view_height(self), 900.0)
 	# Auto-pick is an action, never a mode: choose a strategy and it sets the
@@ -112,6 +114,7 @@ func _build() -> void:
 		_root.add_child(_scroller(_week_page(), "WeekScroll"))
 	else:
 		_root.add_child(_scroller(_side_page(auto), "SelectionScroll"))
+	UiKit.restore_places(_root, places)
 
 
 ## A page fills the space and scrolls only if something abnormal (a very long
@@ -272,7 +275,7 @@ func _week_page() -> Control:
 ## verdict. How they play is in the assistant's report.
 func _fill_week(v: VBoxContainer) -> void:
 	var nxt := GameState.my_next_opponent()
-	var accent := UiKit.team_colour()
+	var accent := UiKit.club_ink(GameState.my_club)
 	if nxt.is_empty():
 		v.add_child(_strength_line())
 	else:
@@ -294,7 +297,6 @@ func _fill_week(v: VBoxContainer) -> void:
 			var l := _para(str(row["text"]), 14, UiKit.TEXT)
 			l.name = "H2H_" + str(row["key"])
 			lines.add_child(l)
-	v.add_child(_lines_view())
 	v.add_child(_synergy_view())
 	var own := GameState.my_week_notes()
 	# A key player already on the team sheet's outs is said there, once.
@@ -330,17 +332,6 @@ func _fill_week(v: VBoxContainer) -> void:
 	var later := _para("Match-ups, game plan and tags are set before the first ball-up.", UiKit.SMALL, UiKit.MUTED)
 	later.name = "SetLater"
 	v.add_child(later)
-
-
-## Your lines as they stand in the competition, from the side as arranged now.
-func _lines_view() -> Control:
-	var words: Dictionary = Matchup.line_standings(GameState.my_club, GameState.season.lists,
-			GameState.season.selections, GameState.my_squad(), _line_cache)
-	var text := "Midfield %s · Ruck %s · Forwards %s · Defence %s" % [words["midfield"], words["ruck"],
-			words["attack"], words["defence"]]
-	var l := _para(text, 13, UiKit.TEXT)
-	l.name = "LineStandings"
-	return l
 
 
 ## The line synergies your 18 switch on - what the side is good at - any
