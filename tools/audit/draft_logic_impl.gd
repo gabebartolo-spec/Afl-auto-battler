@@ -208,6 +208,8 @@ func analyse(d: Draft, label: String, kept: Dictionary = {}) -> void:
 				rucks += 1
 			if bool(pair[2]):
 				keys += 1
+		if rucks >= 3:
+			_add("kept_clubs_3plus_rucks", 1)
 		for e in hist:
 			if str(e["club"]) != code:
 				continue

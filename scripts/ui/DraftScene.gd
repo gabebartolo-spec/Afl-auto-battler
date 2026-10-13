@@ -1517,7 +1517,7 @@ func _history_row(entry: Dictionary) -> Control:
 	var club_row := UiKit.hbox(6)
 	info.add_child(club_row)
 	club_row.add_child(UiKit.club_badge(str(entry["club"]), 12, true))
-	var tag := "YOUR PICK" if mine else "selected"
+	var tag := "Your pick" if mine else "selected"
 	if bool(entry.get("released", false)):
 		tag = "released"
 	club_row.add_child(UiKit.ellipsis(tag, UiKit.FINE, UiKit.EMPH if mine else UiKit.MUTED))

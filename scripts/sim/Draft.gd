@@ -22,6 +22,8 @@ var _fixed_order: Array = []
 ## had nobody it could take). A passed club is skipped for the rest of the
 ## draft and left out of the extra rounds.
 var passed_clubs := {}
+## Intake: how many slots the planned rounds hold (the extra rounds come after).
+var _planned_len := 0
 
 var pool: Array = []
 var budget := 0
@@ -181,6 +183,7 @@ func _build_sequence(comps: Array) -> void:
 	pick_rounds = []
 	pick_origin = []
 	comp_picks = []
+	_planned_len = slots.size()
 	for slot in slots:
 		if not (slot[2] as Dictionary).is_empty():
 			var entry: Dictionary = (slot[2] as Dictionary).duplicate()
@@ -1132,14 +1135,6 @@ func count() -> int:
 ## Picks a club may make: one a round, plus any compensation picks and picks
 ## it traded for, less those it traded away.
 func pick_limit(code: String) -> int:
-	if intake_mode:
-		# The rounds run until lists are full: a club may take every place it
-		# has been given so far.
-		var slots := 0
-		for c in pick_sequence:
-			if str(c) == code:
-				slots += 1
-		return slots
 	var n := target_size
 	for c in comp_picks:
 		if str(c["club"]) == code:
@@ -1152,6 +1147,11 @@ func pick_limit(code: String) -> int:
 			n += 1
 		if str(parts[1]) == code:
 			n -= 1
+	if intake_mode and _planned_len > 0:
+		# The rounds run until lists are full: the extra rounds' places count too.
+		for i in range(_planned_len, pick_sequence.size()):
+			if str(pick_sequence[i]) == code:
+				n += 1
 	return n
 
 
