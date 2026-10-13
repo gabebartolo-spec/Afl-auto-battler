@@ -15,7 +15,9 @@ static func projection(p: Dictionary, club: String, seed: int, uncertainty_mult 
 	var ov := int(p.get("overall", 50))
 	var pot := maxi(ov, int(p.get("potential", ov)))
 	var certainty := _certainty(p)
-	var u := maxf(0.25, float(uncertainty_mult))
+	# A club that saw him in its intra-club match reads him more tightly
+	# (PreSeason.seen_mult; 1.0 for everyone else, and with the switch off).
+	var u := maxf(0.25, float(uncertainty_mult) * PreSeason.seen_mult(p, club))
 	var ov_mid := clampi(int(round(float(ov) + _normal(_key(p, club, seed, "ovr")) * OVR_SD * certainty * u)), 1, 99)
 	var pot_mid := clampi(int(round(float(pot) + _normal(_key(p, club, seed, "pot")) * POT_SD * certainty * u)), ov_mid, 99)
 	var base_ov_half := 2 if certainty < 0.82 else 3

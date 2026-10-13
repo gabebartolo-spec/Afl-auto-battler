@@ -27,8 +27,10 @@ func run() -> void:
 	_test_sim_to_round_one()
 	_test_ai_parity()
 	_test_training_injuries()
+	_test_intra_club()
 	_test_old_saves()
 	await _test_screens()
+	await _test_draft_card()
 	await _test_switch_off()
 	PreSeason.reload()
 	Features.clear("preseason")
@@ -53,6 +55,16 @@ func _career(open := true, club := CLUB) -> void:
 	GameState.start_season(club, GameDB.club_list(club))
 	if open:
 		GameState.open_preseason()
+
+
+## Press on through every stop to Round 1 (the intra-club match is simmed on
+## the sides and invitations as they stand, as pressing on does).
+func _press_on() -> bool:
+	var guard := 0
+	while GameState.preseason_active() and guard < 12:
+		guard += 1
+		GameState.preseason_advance()
+	return not GameState.preseason_active()
 
 
 func _set_blocks(blocks: Array) -> bool:
@@ -323,9 +335,11 @@ func _test_flow() -> void:
 			and GameState.set_preseason_block(1, "solid", "skills")
 			and GameState.set_preseason_block(1, "solid", "running"),
 			"At the time trial the block already trained is closed and the ones to come can still change")
-	_check(GameState.preseason_advance() == "done" and not GameState.preseason_active()
-			and GameState.preseason_week() == 8 and GameState.season.round_index == 0,
-			"Pressing on from the time trial trains to week 8 and leaves Round 1 to play")
+	_check(GameState.preseason_advance() == "intra" and GameState.preseason_week() == 5
+			and GameState.preseason_stop() == "intra" and not GameState.intra_played(),
+			"Pressing on from the time trial trains weeks 4 and 5 and stops at the intra-club match")
+	_check(_press_on() and GameState.preseason_week() == 8 and GameState.season.round_index == 0,
+			"Pressing on from there plays it, trains to week 8 and leaves Round 1 to play")
 	_check(Conditioning.base_of(GameState.fitness_record(CLUB)) == "strong"
 			and GameState.fitness_plan(CLUB) == "peak"
 			and GameState.fitness_status_line().ends_with("on a strong base"),
@@ -405,7 +419,7 @@ func _run_preseason(reload_at := -1) -> String:
 	if reload_at < 0:
 		GameState.preseason_advance()
 		GameState.set_preseason_block(2, "solid", "skills")
-		GameState.preseason_advance()
+		_press_on()
 	else:
 		var changed := false
 		while GameState.preseason_active():
@@ -414,6 +428,9 @@ func _run_preseason(reload_at := -1) -> String:
 				if not changed:
 					GameState.set_preseason_block(2, "solid", "skills")
 					changed = true
+			if GameState.preseason_stop() == "intra":
+				GameState.sim_intra_match()
+				GameState.preseason["intra"]["seen"] = true
 			GameState.preseason_step_week()
 			if GameState.preseason_week() == reload_at:
 				GameState.save_career()
@@ -461,7 +478,7 @@ func _test_determinism() -> void:
 			and GameState.preseason_trial() == GameState.preseason.get("trial", {})
 			and (GameState.preseason_trial().get("best", []) as Array).size() == 5,
 			"Loaded at the time trial, the career is still at the time trial with the same names")
-	GameState.preseason_advance()
+	_press_on()
 	GameState.save_career()
 	GameState.load_career()
 	_check(not GameState.preseason_active() and GameState.preseason_stop() == "" and GameState.preseason_week() == 8,
@@ -489,6 +506,8 @@ func _test_own_dice() -> void:
 	data["base_thin_below"] = 0.0
 	data["base_strong_from"] = 99.0
 	data["heavy_week_injury"] = 0.0
+	data["intra_xp_games"] = 0.0
+	data["intra_injury_rate"] = 0.0
 	_career()
 	GameState.preseason_sim_to_round1()
 	_play(2)
@@ -587,13 +606,20 @@ func _test_ai_parity() -> void:
 	_check(is_equal_approx(open_mean, off_mean), "The league is rated the same when a pre-season opens as when none does")
 	var soft: Array = PreSeason.tune("soft_tissue_kinds")
 	var fair := true
+	var in_training := 0
+	var in_match := 0
 	for inj in GameState.preseason_injuries():
+		if str(inj.get("how", "")) == "intra":
+			in_match += 1
+			fair = fair and int(inj["week"]) == PreSeason.intra_week()
+			continue
+		in_training += 1
 		var blocks: Array = GameState.preseason_blocks(str(inj["club"]))
 		fair = fair and soft.has(str(inj["kind"])) \
 				and str(blocks[PreSeason.block_of_week(int(inj["week"]))][0]) == "heavy"
 	_check(off_inj == 0 and fair and on_inj <= GameState.preseason_injuries().size(),
-			"Only a Heavy week hurts anyone, at any club, and only with a soft-tissue injury (%d hurt in training, %d still out at Round 1)" % [
-			GameState.preseason_injuries().size(), on_inj])
+			"In training only a Heavy week hurts anyone, at any club, and only with a soft-tissue injury; the rest come from the intra-club match (%d in training, %d in the match, %d still out at Round 1)" % [
+			in_training, in_match, on_inj])
 	_check(on_mean >= off_mean and on_mean - off_mean < 1.0 and most <= GameState.SEASON_TRAIN_GAIN + 2,
 			"A pre-season lifts the league's mean rating by under a point (%.2f to %.2f), nobody by more than the season limit" % [off_mean, on_mean])
 	_check(theirs > 0.0 and absf(mine - theirs) < 0.5,
@@ -702,6 +728,252 @@ func _test_training_injuries() -> void:
 	PreSeason.reload()
 
 
+func _pool_sig() -> String:
+	var rows := []
+	for p in GameState.draftee_pool:
+		rows.append("%s/%d/%d/%d/%d/%s/%d" % [str(p["id"]), int(p["overall"]), int(p.get("potential", 0)), int(p.get("num", 0)),
+				int(p.get("injury_weeks", 0)), str(hash(str(p.get("attr", {})))), int(p.get("xp", 0))])
+	return str(hash(str(rows)))
+
+
+func _to_intra() -> void:
+	_career()
+	GameState.preseason_advance()
+	GameState.preseason_advance()
+
+
+## The intra-club match: two sides of the club's own list, prospects from the
+## coming National Draft filling the spots; what it leaves and what it never
+## touches; the same rules for AI clubs; its own dice; reloads.
+func _test_intra_club() -> void:
+	PreSeason.reload()
+	# The rules.
+	_check(PreSeason.invites_needed(32, 49) == 14 and PreSeason.invites_needed(46, 49) == 0
+			and PreSeason.invites_needed(44, 49) == 2 and PreSeason.invites_needed(20, 10) == 10,
+			"Two sides of 23 need the gap filled, and never more prospects than there are")
+	var listed := []
+	for i in range(30):
+		listed.append({"id": "L%02d" % i, "overall": 90 - i})
+	var guests := []
+	for i in range(16):
+		guests.append({"id": "G%02d" % i, "overall": 60 - i})
+	var even := PreSeason.intra_sides(listed, guests, "even")
+	var best := PreSeason.intra_sides(listed, guests, "best")
+	var best_first_listed := true
+	for q in best[0]:
+		best_first_listed = best_first_listed and str(q["id"]).begins_with("L")
+	var even_guests := 0
+	for q in even[0]:
+		even_guests += 1 if str(q["id"]).begins_with("G") else 0
+	_check((even[0] as Array).size() == 23 and (even[1] as Array).size() == 23 and even_guests == 8
+			and str(even[0][0]["id"]) == "L00" and str(even[1][0]["id"]) == "L01",
+			"Even sides deal the list and the prospects alternately, 23 a side")
+	_check((best[0] as Array).size() == 23 and (best[1] as Array).size() == 23 and best_first_listed
+			and str(best[1][0]["id"]) == "L23",
+			"Best side v the rest: the best 23 listed players are one side, the rest and every prospect the other")
+	var src := {"id": "D1", "num": 0, "overall": 60, "attr": {"durability": 50}, "injury_weeks": 0}
+	var copy := PreSeason.intra_guest(src, 61, CLUB)
+	copy["attr"]["durability"] = 1
+	_check(int(copy["num"]) == 61 and bool(copy["guest"]) and Injuries.chance(copy) == 0.0
+			and int(src["num"]) == 0 and int(src["attr"]["durability"]) == 50 and not src.has("guest"),
+			"A prospect plays as a copy with a spare number who cannot be hurt, and nothing done to the copy reaches him")
+	_check(PreSeason.prospect_line({"goals": 3, "disposals": 9}).contains("3 goals")
+			and PreSeason.prospect_line({"disposals": 25}).contains("25 disposals")
+			and PreSeason.prospect_line({"disposals": 4}).contains("quiet day")
+			and PreSeason.prospect_line({}) == "Saw almost nothing of the ball.",
+			"The line on a prospect says what he did, from his own numbers")
+	var half := {"id": "h", "attr": {"durability": 50}, "cond_injury": float(PreSeason.tune("intra_injury_rate"))}
+	_check(is_equal_approx(Injuries.chance(half), 0.5 * Injuries.chance({"id": "h", "attr": {"durability": 50}})),
+			"A listed player carries half a normal match's injury risk in it")
+
+	# In a career.
+	_to_intra()
+	_check(GameState.preseason_stop() == "intra" and GameState.preseason_week() == PreSeason.intra_week()
+			and not GameState.intra_played() and GameState.intra_invites().is_empty()
+			and str(GameState.preseason_intra()["mode"]) == "even",
+			"After week 5 the pre-season waits at the intra-club match, with nobody invited yet")
+	var fit := 0
+	for q in GameState.my_list:
+		fit += 1 if Ratings.available(q) else 0
+	var need: int = GameState.intra_needed()
+	var pool: Array = GameState.intra_prospects()
+	_check(need == PreSeason.invites_needed(fit, pool.size()) and need > 0 and pool.size() >= need,
+			"The sides need 46 less the fit listed players (%d for a list with %d fit)" % [need, fit])
+	var ai_seen := {}
+	for q in pool:
+		for c in (q.get("seen", {}) as Dictionary):
+			ai_seen[c] = int(ai_seen.get(c, 0)) + 1
+	var ai_ok := not ai_seen.has(CLUB)
+	for code in GameState.season.clubs:
+		if str(code) == CLUB:
+			continue
+		var fit_ai := 0
+		for q in GameState.season.lists[code]:
+			fit_ai += 1 if Ratings.available(q) or int(q.get("injury_weeks", 0)) > 0 else 0
+		ai_ok = ai_ok and int(ai_seen.get(str(code), 0)) > 0 and int(ai_seen.get(str(code), 0)) <= 46
+	_check(ai_ok, "Every AI club has played its own that week and seen the prospects it invited; yours waits for you")
+	var pool_before := _pool_sig()
+	_check(GameState.set_intra_mode("best") and not GameState.set_intra_mode("random")
+			and str(GameState.preseason_intra()["mode"]) == "best" and GameState.set_intra_mode("even"),
+			"The coach picks how the sides are made, from the two ways on offer")
+	var picked := []
+	for i in range(need):
+		picked.append(str(pool[pool.size() - 1 - i]["id"]))
+	var all_in := true
+	for id in picked:
+		all_in = GameState.toggle_intra_invite(str(id)) and all_in
+	_check(all_in and GameState.intra_invites().size() == need
+			and not GameState.toggle_intra_invite(str(pool[0]["id"])) and not GameState.toggle_intra_invite("nobody"),
+			"The coach invites whoever he likes from the class, as many as the sides need and no more")
+	_check(GameState.toggle_intra_invite(str(picked[0])) and GameState.intra_invites().size() == need - 1
+			and GameState.toggle_intra_invite(str(picked[0])),
+			"An invitation can be taken back and given again")
+	var xp_before := {}
+	var ov_before := {}
+	for q in GameState.my_list:
+		xp_before[str(q["id"])] = int(q.get("xp", 0))
+		ov_before[str(q["id"])] = int(q["overall"])
+	var hurt_before := GameState.preseason_injuries().size()
+	var board_before := GameState.board_confidence()
+	var news_before := GameState.news.size()
+	_check(GameState.sim_intra_match() and GameState.intra_played() and GameState.preseason_stop() == "intra"
+			and not GameState.sim_intra_match(),
+			"Simmed, the match is played once and the pre-season waits at its report")
+	var rep: Dictionary = GameState.preseason_intra()["report"]
+	var seen_ids := (rep["prospects"] as Array).map(func(r): return str(r["id"]))
+	seen_ids.sort()
+	var want := picked.duplicate()
+	want.sort()
+	var lines_ok := true
+	for r in rep["prospects"]:
+		lines_ok = lines_ok and str(r["line"]) != ""
+	var overlap := false
+	for id in rep["stood"]:
+		overlap = overlap or (rep["struggled"] as Array).has(id) or GameState.list_player(str(id)).is_empty()
+	_check(rep["names"] == ["Fremantle Purple", "Fremantle White"] and (rep["stood"] as Array).size() == 3
+			and (rep["struggled"] as Array).size() == 2 and not overlap and seen_ids == want and lines_ok,
+			"The report names the two sides by their strips, three who stood out, two who struggled, and a line on each prospect he invited")
+	# What it leaves on the prospects: the note, and nothing else.
+	var noted := true
+	for q in GameState.draftee_pool:
+		var mine_seen: Dictionary = (q.get("seen", {}) as Dictionary).get(CLUB, {})
+		noted = noted and (picked.has(str(q["id"])) == (not mine_seen.is_empty())) \
+				and (mine_seen.is_empty() or (int(mine_seen["year"]) == GameState.season_year and str(mine_seen["line"]) != ""))
+	_check(noted and _pool_sig() == pool_before,
+			"Each prospect he saw carries the club's note; nothing else about anyone in the draft pool has changed")
+	var one: Dictionary = {}
+	for q in GameState.draftee_pool:
+		if str(q["id"]) == str(picked[0]):
+			one = q
+	var unseen := one.duplicate(true)
+	unseen.erase("seen")
+	var tight: Dictionary = DraftScouting.projection(one, CLUB, GameState.career_seed)
+	var loose: Dictionary = DraftScouting.projection(unseen, CLUB, GameState.career_seed)
+	var other_club := ""
+	for c in GameState.season.clubs:
+		if str(c) != CLUB and not (one["seen"] as Dictionary).has(str(c)) and other_club == "":
+			other_club = str(c)
+	_check(int(tight["potential"][1]) - int(tight["potential"][0]) < int(loose["potential"][1]) - int(loose["potential"][0])
+			and absi(int(tight["overall_mid"]) - int(one["overall"])) <= absi(int(loose["overall_mid"]) - int(one["overall"]))
+			and is_equal_approx(PreSeason.seen_mult(one, CLUB), float(PreSeason.tune("intra_seen_uncertainty")))
+			and (other_club == "" or PreSeason.seen_mult(one, other_club) == 1.0),
+			"His club's read of a prospect it saw is narrower and no further from the truth; a club that did not see him reads him as before")
+	_check(PreSeason.seen_line(one, CLUB) == "Seen in your %d intra-club match. %s" % [GameState.season_year, str(one["seen"][CLUB]["line"])]
+			and PreSeason.seen_line(unseen, CLUB) == "",
+			"His draft card line says he was seen in the intra-club match and what he did")
+	var ai_tight := true
+	for q in GameState.draftee_pool:
+		for c in (q.get("seen", {}) as Dictionary):
+			ai_tight = ai_tight and is_equal_approx(PreSeason.seen_mult(q, str(c)), float(PreSeason.tune("intra_seen_uncertainty")))
+	_check(ai_tight, "An AI club's read of the prospects it saw tightens by the same rule")
+	# What it leaves on the list.
+	var grew := 0
+	var inside := true
+	var stamped := false
+	for q in GameState.my_list:
+		var id := str(q["id"])
+		grew += 1 if int(q.get("xp", 0)) != int(xp_before[id]) or int(q["overall"]) != int(ov_before[id]) else 0
+		inside = inside and int(q["overall"]) <= maxi(int(ov_before[id]), GameState.season_ceiling(q))
+		stamped = stamped or q.has("cond_injury") or q.has("guest")
+	_check(grew >= 30 and inside and not stamped,
+			"The listed players who played get a reserves game's development inside the season limit, and no stamp of the day is left on them (%d developed)" % grew)
+	var new_hurt: Array = GameState.preseason_injuries().slice(hurt_before)
+	var hurt_ok := true
+	for r in new_hurt:
+		hurt_ok = hurt_ok and str(r.get("how", "")) == "intra" and str(r["club"]) == CLUB \
+				and int(GameState.list_player(str(r["id"])).get("injury_weeks", 0)) == int(r["weeks"])
+	_check(hurt_ok and (rep["hurt"] as Array).size() == new_hurt.size() and GameState.my_new_injuries().size() == new_hurt.size(),
+			"Anyone hurt in it is a listed player, recorded as a match injury is and named in the report (%d this seed)" % new_hurt.size())
+	# What it never touches.
+	var no_games := true
+	for code in GameState.season.ladder:
+		no_games = no_games and int((GameState.season.ladder[code] as Dictionary).get("p", 0)) == 0
+	_check(GameState.season.round_index == 0 and GameState.season_log.is_empty() and GameState.season_tally.is_empty()
+			and GameState.season_stats.is_empty() and GameState.season_team.is_empty() and no_games
+			and GameState.board_confidence() == board_before and GameState.last_results.is_empty()
+			and GameState.pending_match.is_empty() and not GameDB.is_side("FRE_H") and not GameDB.is_side("FRE_A")
+			and GameState.news.size() == news_before + new_hurt.size(),
+			"Nothing of it is on the ladder, the season's statistics, the votes, the board or the news (but an injury), and its two sides are gone")
+	var games_ok := true
+	for q in GameState.my_list:
+		games_ok = games_ok and int(q.get("xp_games", 0)) == 0
+	_check(games_ok, "It is nobody's senior game")
+	var sig_played := _sig() + _pool_sig() + str(rep)
+	# The same choices again: the same match.
+	_to_intra()
+	for id in picked:
+		GameState.toggle_intra_invite(str(id))
+	GameState.sim_intra_match()
+	_check(_sig() + _pool_sig() + str(GameState.preseason_intra()["report"]) == sig_played,
+			"The same seed, sides and invitations give the same intra-club match")
+	# Saved and loaded at the stop, before and after it is played.
+	_to_intra()
+	for id in picked:
+		GameState.toggle_intra_invite(str(id))
+	GameState.save_career()
+	GameState.load_career()
+	GameState.replay_seed = SUITE_SEED
+	var kept: Array = GameState.intra_invites().map(func(x): return str(x))
+	_check(GameState.preseason_stop() == "intra" and not GameState.intra_played() and kept == picked,
+			"Loaded at the intra-club stop, the invitations are as he left them and the match is still to play")
+	GameState.sim_intra_match()
+	_check(_sig() + _pool_sig() + str(GameState.preseason_intra()["report"]) == sig_played,
+			"...and played after the reload it is the same match")
+	GameState.save_career()
+	GameState.load_career()
+	GameState.replay_seed = SUITE_SEED
+	_check(GameState.preseason_stop() == "intra" and GameState.intra_played()
+			and str(GameState.preseason_intra()["report"]["stood"]) == str(rep["stood"])
+			and not GameState.sim_intra_match() and not GameState.toggle_intra_invite(str(pool[0]["id"])),
+			"Loaded after it is played, the report is still there and the match cannot be played again")
+	_check(GameState.preseason_advance() == "done" and not GameState.preseason_active(),
+			"From the report, pressing on trains weeks 6 to 8 and leaves Round 1 to play")
+	# Best side v the rest plays out differently, and one-sidedly.
+	_to_intra()
+	GameState.set_intra_mode("best")
+	for id in picked:
+		GameState.toggle_intra_invite(str(id))
+	GameState.sim_intra_match()
+	var brep: Dictionary = GameState.preseason_intra()["report"]
+	_check(int(brep["score"][0]) > int(brep["score"][1]) and str(brep) != str(rep),
+			"Best side v the rest is a different match, and the best side wins it (%d to %d this seed)" % [int(brep["score"][0]), int(brep["score"][1])])
+	# Hands off: Sim to Round 1 plays it, the recruiters invite, sides even.
+	_career()
+	GameState.preseason_sim_to_round1()
+	var auto: Dictionary = GameState.preseason_intra()
+	_check(bool(auto.get("played", false)) and bool(auto.get("seen", false)) and str(auto.get("mode", "")) == "even"
+			and (auto.get("invites", []) as Array).size() == (auto["report"]["prospects"] as Array).size()
+			and (auto.get("invites", []) as Array).size() > 0,
+			"Sim to Round 1 plays the intra-club match too: even sides, the recruiters' invitations")
+	# The switch off: no match, no notes read.
+	Features.set_on("preseason", false)
+	_check(PreSeason.seen_mult(one, CLUB) == 1.0 and DraftScouting.projection(one, CLUB, GameState.career_seed) == loose
+			and not GameState.sim_intra_match() and not GameState.prepare_intra_match(),
+			"Switched off, there is no intra-club match and a note already on a prospect changes no club's read of him")
+	Features.set_on("preseason", true)
+	PreSeason.reload()
+
+
 ## Write the current career as a save from before pre-seasons: no `preseason`
 ## key, no base on any season fitness record.
 func _save_as_old() -> void:
@@ -791,6 +1063,50 @@ func _roll() -> void:
 		GameState.finish_intake_draft()
 	else:
 		GameState.start_next_season()
+
+
+## The draft card at the National Draft that follows the pre-season.
+func _test_draft_card() -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	tree.root.size = Vector2i(390, 844)
+	# The draft card, at the National Draft that follows: the line on a prospect
+	# the club saw, and none on one it did not.
+	PreSeason.reload()
+	_to_intra()
+	var seen_id := str(GameState.intra_prospects()[3]["id"])
+	GameState.toggle_intra_invite(seen_id)
+	GameState.sim_intra_match()
+	_press_on()
+	var unseen_id := ""
+	for q in GameState.draftee_pool:
+		if unseen_id == "" and not ((q.get("seen", {}) as Dictionary).has(CLUB)):
+			unseen_id = str(q["id"])
+	GameState.season.round_index = GameState.season.fixture.size()
+	var drafting: bool = GameState.begin_intake_draft()
+	var draft_scene: Control = load("res://scenes/DraftScene.tscn").instantiate()
+	tree.root.add_child(draft_scene)
+	await _frames(tree, 8)
+	draft_scene.call("_open_player", seen_id)
+	await _frames(tree, 4)
+	var card_line := draft_scene.find_child("SeenIntraClub", true, false) as Label
+	var seen_p: Dictionary = {}
+	for q in GameState.draftee_pool:
+		if str(q["id"]) == seen_id:
+			seen_p = q
+	_check(drafting and card_line != null and card_line.is_visible_in_tree()
+			and card_line.text == PreSeason.seen_line(seen_p, CLUB) and card_line.text.begins_with("Seen in your"),
+			"At the National Draft the card of a prospect he saw says so, and what he did that day (%s)" % (card_line.text if card_line != null else "no line"))
+	draft_scene.queue_free()
+	await _frames(tree, 3)
+	draft_scene = load("res://scenes/DraftScene.tscn").instantiate()
+	tree.root.add_child(draft_scene)
+	await _frames(tree, 8)
+	draft_scene.call("_open_player", unseen_id)
+	await _frames(tree, 4)
+	_check(unseen_id != "" and draft_scene.find_child("SeenIntraClub", true, false) == null,
+			"A prospect he did not see has no such line")
+	draft_scene.queue_free()
+	await _frames(tree, 3)
 
 
 ## The switch as it ships: off, unless the command line or the project says so.
@@ -1063,6 +1379,82 @@ func _test_screens() -> void:
 			"A finger's tap changes a block still to come")
 	_check(str(GameState.preseason_blocks()[1][0]) == "light", "Weeks 4 to 5 are now Light")
 	_check(await _tap(scene.find_child("PreSeasonGo", true, false), "Back to training"),
+			"A finger's tap goes back to training")
+	await _frames(tree, 10)
+	scene = tree.current_scene as Control
+	_check(scene != null and scene.name == "PreSeasonScene" and GameState.preseason_stop() == "intra"
+			and _label(scene, "PreSeasonHero") == "The intra-club match"
+			and _label(scene, "IntraStrips").contains("Fremantle Purple v Fremantle White")
+			and _label(scene, "IntraStrips").contains("You coach Purple"),
+			"Weeks 4 and 5 are trained and the game stops at the intra-club match, naming the two sides by their strips")
+	var need: int = GameState.intra_needed()
+	_check(need > 0 and _label(scene, "IntraCount") == "0 of %d invited" % need
+			and _label(scene, "IntraGain") == str(PreSeason.INTRA_GAIN["even"]) and _label(scene, "IntraCost") == str(PreSeason.INTRA_COST["even"])
+			and _fits(scene, 390.0),
+			"The stop says how many prospects the sides need and what even sides gain and cost")
+	_check(await _tap(scene.find_child("IntraMode_best", true, false), "Best side v the rest"),
+			"A finger's tap picks best side v the rest")
+	_check(str(GameState.preseason_intra()["mode"]) == "best" and _label(scene, "IntraGain") == str(PreSeason.INTRA_GAIN["best"])
+			and _label(scene, "IntraCost") == str(PreSeason.INTRA_COST["best"]),
+			"The sides choice is taken and its gain and cost change with it")
+	var first_two: Array = GameState.intra_prospects().slice(0, 2)
+	for q in first_two:
+		_check(await _tap(scene.find_child("Invite_" + str(q["id"]), true, false), "a prospect"),
+				"A finger's tap invites a prospect")
+	_check(GameState.intra_invites().size() == 2 and _label(scene, "IntraCount") == "2 of %d invited" % need
+			and bool((scene.find_child("Invite_" + str(first_two[0]["id"]), true, false) as Button).get_meta("chosen", false)),
+			"The two he tapped are invited, marked, and counted")
+	_check(await _tap(scene.find_child("Invite_" + str(first_two[1]["id"]), true, false), "the same prospect again"),
+			"A second tap takes an invitation back")
+	_check(GameState.intra_invites().size() == 1, "...and he is no longer invited")
+	_check(await _tap(scene.find_child("IntraFill", true, false), "Recruiters fill the rest"),
+			"A finger's tap lets the recruiters fill the rest")
+	_check(GameState.intra_invites().size() == need and GameState.intra_invites().has(str(first_two[0]["id"]))
+			and _label(scene, "IntraCount") == "%d of %d invited" % [need, need],
+			"The sides are full, and the prospect the coach picked is still among them")
+	Router.handle_back()
+	await _frames(tree, 8)
+	_check(Router.current() == "main" and GameState.preseason_stop() == "intra" and GameState.intra_invites().size() == need,
+			"Back at the intra-club stop goes to the main menu and keeps the sides and the invitations")
+	scene = await _open(tree)
+	# Coached from the box: the match scene, the two sides in their strips.
+	_check(await _tap(scene.find_child("PreSeasonGo", true, false), "Coach the match"),
+			"A finger's tap goes to coach the match")
+	await _frames(tree, 30)
+	var m := tree.current_scene as Control
+	_check(m != null and m.name == "MatchScene" and str(GameState.pending_phase) == "intra"
+			and GameDB.club_name(str(GameState.pending_match["home"])) == "Fremantle Purple"
+			and GameDB.club_name(str(GameState.pending_match["away"])) == "Fremantle White"
+			and int(m.get("_my_side")) == 0,
+			"The match opens in the match view as Fremantle Purple v Fremantle White, the coach in charge of Purple")
+	var pitch := m.get("_pitch") as PitchView
+	_check(pitch != null and UiKit.colour_distance(pitch._kits[0]["base"], pitch._kits[1]["base"]) >= PitchView.DISC_CLASH
+			and pitch._kits[0] == GameDB.club_guernsey("FRE"),
+			"On the oval the two sides wear the home strip and the clash strip")
+	var ladder_before := str(GameState.season.ladder)
+	var board_before := GameState.board_confidence()
+	m.call("_on_skip")
+	await _frames(tree, 40)
+	var cont := m.find_child("FullTimeContinue", true, false) as Button
+	_check(cont != null and GameState.intra_played() and m.find_child("LadderMove", true, false) == null
+			and m.find_child("NextFixture", true, false) == null,
+			"At full time the match is over and nothing is said of the ladder or the next round")
+	_check(await _tap(cont, "Continue at full time"), "A finger's tap leaves full time")
+	await _frames(tree, 12)
+	scene = tree.current_scene as Control
+	var rep: Dictionary = GameState.preseason_intra().get("report", {})
+	_check(scene != null and scene.name == "PreSeasonScene" and GameState.preseason_stop() == "intra"
+			and _label(scene, "IntraSide_0") == "Fremantle Purple" and _label(scene, "IntraSide_1") == "Fremantle White"
+			and _label(scene, "IntraStood_0") != "" and _label(scene, "IntraSeen_0") != "" and _label(scene, "IntraSeenLine_0") != ""
+			and (rep.get("prospects", []) as Array).size() == need and not GameDB.is_side("FRE_H"),
+			"Back on the pre-season screen is the report: the score, who stood out, and a line on every prospect seen")
+	_check(GameState.season.round_index == 0 and GameState.season_log.is_empty() and str(GameState.season.ladder) == ladder_before
+			and GameState.board_confidence() == board_before and GameState.season_tally.is_empty(),
+			"The coached match left nothing on the ladder, the season's record, the votes or the board")
+	_check(scene.find_child("Block_2", true, false) != null and scene.find_child("Block_1", true, false) == null
+			and _fits(scene, 390.0),
+			"With the report, only weeks 6 to 7 can still be changed")
+	_check(await _tap(scene.find_child("PreSeasonGo", true, false), "Back to training after the match"),
 			"A finger's tap goes back to training")
 	await _frames(tree, 10)
 	scene = tree.current_scene as Control
