@@ -59,9 +59,9 @@ func _run() -> void:
 		root.size = Vector2i(W, H)
 	for i in range(3):
 		await process_frame
-	state.start_season("GEE", db.club_list("GEE"))
+	state.start_season("FRE", db.club_list("FRE"))
 	var p: Dictionary = state.my_list[4]
-	for pair in [["training_extra_session", {}, "_one"], ["media_papers_again", p, "_two"], ["health_pulled_up_sore", p, "_risk"]]:
+	for pair in [["training_extra_session", {}, "_one"], ["media_papers_again", p, "_two"], ["selection_talk_dropped", p, "_three"], ["health_pulled_up_sore", p, "_risk"]]:
 		state.week_events = [state.story_card(str(pair[0]), pair[1])]
 		root.get_node("Router").go("hub")
 		for i in range(8):

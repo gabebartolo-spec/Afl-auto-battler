@@ -386,19 +386,20 @@ func _event_card(index: int) -> Control:
 		var t := UiKit.lbl(str(e.get("text", "")), 12, UiKit.TEXT)
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(t)
-		# What's at risk, in one line; the buttons carry the choice and the
-		# outcome shows after the pick.
-		var stakes := PackedStringArray()
+		# What an authored stakes line adds, then what happens if he says
+		# nothing, apart from the choices. Full-strength text: it is what a
+		# coach decides on.
 		if str(e.get("stakes", "")) != "":
-			stakes.append(str(e["stakes"]))
-		var silence := str((e.get("unanswered", {}) as Dictionary).get("hint", ""))
-		if silence != "":
-			stakes.append(silence)
-		if not stakes.is_empty():
-			var sk := UiKit.lbl(" ".join(stakes), UiKit.SMALL, UiKit.MUTED)
+			var sk := UiKit.lbl(str(e["stakes"]), UiKit.SECONDARY, UiKit.TEXT)
 			sk.name = "EventStakes_%d" % index
 			sk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(sk)
+		var silence := str((e.get("unanswered", {}) as Dictionary).get("hint", ""))
+		if silence != "":
+			var sl := UiKit.lbl(silence, UiKit.SECONDARY, UiKit.TEXT)
+			sl.name = "EventSilence_%d" % index
+			sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(sl)
 		var opts: Array = e.get("options", [])
 		var row: BoxContainer = UiKit.vbox(10) if _narrow() else UiKit.hbox(6)
 		v.add_child(row)
@@ -411,19 +412,22 @@ func _event_card(index: int) -> Control:
 			b.pressed.connect(func():
 				GameState.resolve_card(index, i)
 				_build())
-			# What this answer costs, worded from its own effects (a choice
-			# that costs nothing shows nothing under it).
-			var cost := StoryEngine.cost_line(o.get("effects", []), e.get("facts", {}))
-			if cost == "":
+			# What this answer does, worded from its own effects: gains first,
+			# then costs, one plain line each (a choice that does nothing
+			# mechanical shows nothing under it). Same text, same weight on
+			# every choice.
+			var lines := StoryEngine.stakes_lines(o.get("effects", []), e.get("facts", {}))
+			if lines.is_empty():
 				row.add_child(b)
 				continue
 			var col := UiKit.vbox(3)
 			col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			col.add_child(b)
-			var cl := UiKit.lbl(cost, UiKit.SMALL, UiKit.MUTED)
-			cl.name = "EventCost_%d_%d" % [index, i]
-			cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			col.add_child(cl)
+			for line in lines:
+				var cl := UiKit.lbl(line, UiKit.SECONDARY, UiKit.TEXT)
+				cl.name = "Event%s_%d_%d" % ["Gain" if line.begins_with(StoryEngine.GAIN_MARK) else "Cost", index, i]
+				cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				col.add_child(cl)
 			row.add_child(col)
 	else:
 		v.add_child(UiKit.lbl(str(e.get("outcome", "")), 13, UiKit.GOOD))

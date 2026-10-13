@@ -395,49 +395,64 @@ static func describe(c: Dictionary, facts: Dictionary) -> String:
 	return " ".join(out)
 
 
-## What a choice costs, in a coach's words, from the very effects that will
-## apply, so the line cannot drift from the mechanic and a new card gets it
-## for free. Words only; a figure appears where the coach needs it to decide
-## (the odds of a breakdown, the price of an early deal, a run of games).
-## "" when the choice costs nothing. A cost that only happens if the coach
-## later breaks a promise or the dice fall wrong says so ("leave him out
-## fit and...", "chance he breaks down").
-static func cost_line(effects: Array, facts: Dictionary) -> String:
-	var out: PackedStringArray = []
-	var done := {}
+## What a choice does, as the coach weighs it: what he gains, then what it
+## costs, each its own short line behind a plain marker, from the very effects
+## that will apply, so the line cannot drift from the mechanic and a new card
+## gets it for free. A morale drop is a cost. Words only; a figure appears
+## where the coach needs it to decide (the odds of a breakdown, the price of
+## an early deal, a run of games). A cost that only happens if the coach later
+## breaks a promise or the dice fall wrong says so. Effects that change
+## nothing the coach feels (a flag, a note) show nothing; no lines at all when
+## a choice does nothing mechanical.
+const GAIN_MARK := "Gain: "
+const COST_MARK := "Cost: "
+
+
+static func stakes_lines(effects: Array, facts: Dictionary) -> PackedStringArray:
+	var gains: PackedStringArray = []
+	var costs: PackedStringArray = []
 	for e in effects:
-		var op := str(e.get("op", ""))
-		var s := _cost_words(op, e, facts)
-		if s != "" and not done.has(s):
-			done[s] = true
-			out.append(fill(s, facts))
-	return " ".join(out)
+		for part in _effect_parts(e, facts):
+			var s := fill(str(part[1]), facts)
+			var into: PackedStringArray = gains if str(part[0]) == "gain" else costs
+			if not into.has(s):
+				into.append(s)
+	var out: PackedStringArray = []
+	if not gains.is_empty():
+		out.append(GAIN_MARK + " ".join(gains))
+	if not costs.is_empty():
+		out.append(COST_MARK + " ".join(costs))
+	return out
 
 
-static func _cost_words(op: String, e: Dictionary, facts: Dictionary) -> String:
+## The one effect-phrase function: [kind, words] for each thing an effect does
+## ("gain" or "cost"); an effect that moves nothing the coach feels gives none.
+static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
+	var op := str(e.get("op", ""))
+	var d := effect_d(e, facts)
 	match op:
-		"rest":
-			return "He misses this week's game."
-		"heavy_legs":
-			var who := str(e.get("who", "subject"))
-			if who == "subject":
-				return "Heavy legs on game day."
-			return "Heavy legs across the %s on game day." % ("side" if who == "side" else "whole list")
-		"sore":
-			return "He plays sore: {sore_odds} chance he breaks down for weeks."
-		"board":
-			return _board_words(effect_d(e, facts)) if effect_d(e, facts) < 0 else ""
-		"trust":
-			return _trust_words(effect_d(e, facts)) if effect_d(e, facts) < 0 else ""
-		"expects_game":
-			return "He'll expect a game this week; leave him out fit and the promise breaks."
-		"start_backing":
-			return "He'll expect the next {run_games} games; leave him out fit and the promise breaks."
 		"promise_win":
-			return "Lose and board confidence goes down."
+			return [["gain", PROMISE_WIN_GAIN], ["cost", PROMISE_WIN_COST]]
 		"extend_early":
-			return "Locked in at {early_price} a season, whatever he does next."
-	return ""
+			return [["gain", EXTEND_GAIN], ["cost", EXTEND_COST]]
+	var kind := ""
+	match op:
+		"morale", "board", "trust":
+			kind = "gain" if d > 0 else ("cost" if d < 0 else "")
+		"xp", "fresh":
+			kind = "gain"
+		"rest", "sore", "heavy_legs", "expects_game", "start_backing":
+			kind = "cost"
+	var s := _effect_words(e, facts)
+	if kind == "" or s == "":
+		return []
+	return [[kind, s]]
+
+
+const PROMISE_WIN_GAIN := "Win and board confidence goes up."
+const PROMISE_WIN_COST := "Lose and board confidence goes down."
+const EXTEND_GAIN := "He signs on for {more_seasons}."
+const EXTEND_COST := "Locked in at {early_price} a season, whatever he does next."
 
 
 static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
@@ -467,15 +482,18 @@ static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
 		"fresh":
 			return "Fresher legs: fewer injuries this week."
 		"heavy_legs":
-			return "Heavy legs on game day, and more soft-tissue risk."
+			var hl := "Heavy legs on game day, and more soft-tissue risk."
+			if who != "subject":
+				hl = "Heavy legs across the %s on game day, and more soft-tissue risk." % ("side" if who == "side" else "whole list")
+			return hl
 		"expects_game":
 			return "He expects a game this week; leave him out fit and the promise breaks."
 		"start_backing":
 			return "He expects to be picked for the next {run_games} games; leave him out fit and the promise breaks."
 		"extend_early":
-			return "He signs on for {more_seasons} at {early_price} a season, locked in whatever he does next."
+			return "%s %s" % [EXTEND_GAIN, EXTEND_COST]
 		"promise_win":
-			return "Win and board confidence goes up; lose and it goes down."
+			return "%s %s" % [PROMISE_WIN_GAIN, PROMISE_WIN_COST]
 		"explain":
 			return "{kpi_or_need} Nothing is promised."
 	return ""

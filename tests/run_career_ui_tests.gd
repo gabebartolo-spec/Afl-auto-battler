@@ -737,29 +737,30 @@ func _run() -> void:
 	_check(second_tap == "" and bool(_state.week_events[1].get("resolved", false))
 			and not bool(_state.week_events[0].get("resolved", false)),
 			"Two cards in a big week, each answered on its own by a tap (%s)" % second_tap)
-	# The stakes in one line under the text; the buttons carry the choice, and
-	# no line repeats a button's label to spell out what it does.
+	# What each answer does sits under its own button, worded from its effects,
+	# gains first then costs, in the same full-strength text for every answer:
+	# backing him names the promise, leaving him out names the missed game, and
+	# a finger on a button with lines under it still answers the card. The card
+	# does not repeat these lines under its heading.
 	_state.week_events = [_state.story_card("training_kid_pushing", _state.my_list[0])]
 	_router.go("hub")
 	await _settle()
 	var kid_card: Control = current_scene.find_child("WeekEvent", true, false)
-	var stakes_l: Label = kid_card.find_child("EventStakes_0", true, false) if kid_card != null else null
-	var repeats := 0
-	for l in (kid_card.find_children("*", "Label", true, false) if kid_card != null else []):
-		for o in _state.week_events[0]["options"]:
-			if (l as Label).text.contains(str(o["label"]) + ":"):
-				repeats += 1
-	_check(stakes_l != null and stakes_l.text.contains("promise breaks") and repeats == 0,
-			"The card puts the stakes in one line and leaves the choice to its buttons (%d repeats)" % repeats)
-	# The cost of each answer sits under its own button, worded from its effects:
-	# backing him names the promise, leaving him out names the missed game, and a
-	# finger on the costed button still answers the card.
+	var back_gain: Label = kid_card.find_child("EventGain_0_0", true, false) if kid_card != null else null
 	var back_cost: Label = kid_card.find_child("EventCost_0_0", true, false) if kid_card != null else null
+	var rest_gain: Label = kid_card.find_child("EventGain_0_1", true, false) if kid_card != null else null
 	var rest_cost: Label = kid_card.find_child("EventCost_0_1", true, false) if kid_card != null else null
 	var rest_btn: Button = kid_card.find_child("Event_1", true, false) if kid_card != null else null
-	_check(back_cost != null and back_cost.text.contains("promise breaks") and rest_cost != null and rest_cost.text == "He misses this week's game."
-			and rest_btn != null and rest_cost.get_global_rect().position.y >= rest_btn.get_global_rect().end.y - 1.0,
-			"Each costed answer says its cost in a line under its own button (%s / %s)" % [back_cost.text if back_cost != null else "none", rest_cost.text if rest_cost != null else "none"])
+	var same_style := true
+	for l in [back_gain, back_cost, rest_gain, rest_cost]:
+		if l == null or (l as Label).get_theme_font_size("font_size") < 14 or (l as Label).get_theme_color("font_color") != (back_gain as Label).get_theme_color("font_color") 				or (l as Label).get_theme_color("font_color").a < 0.99:
+			same_style = false
+	_check(kid_card != null and kid_card.find_child("EventStakes_0", true, false) == null
+			and back_gain != null and back_gain.text.begins_with("Gain: ") and back_cost != null and back_cost.text.contains("promise breaks")
+			and rest_gain != null and rest_gain.text.begins_with("Gain: ") and rest_cost != null and rest_cost.text == "Cost: He misses this week's game."
+			and same_style and rest_btn != null and rest_cost.get_global_rect().position.y >= rest_gain.get_global_rect().end.y - 1.0
+			and rest_gain.get_global_rect().position.y >= rest_btn.get_global_rect().end.y - 1.0,
+			"Each answer says its gains then its costs under its own button, in the same full-strength text (%s / %s)" % [back_cost.text if back_cost != null else "none", rest_cost.text if rest_cost != null else "none"])
 	var cost_tap: String = await Tap.tap(rest_btn) if rest_btn != null else "missing"
 	await _settle()
 	_check(cost_tap == "" and bool(_state.week_events[0].get("resolved", false)),
