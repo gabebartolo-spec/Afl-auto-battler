@@ -80,8 +80,7 @@ func _selection_tests() -> void:
 	# Their key forwards, and who you put on them.
 	var km: Node = ui.find_child("KeyMatchups", true, false)
 	_check(km != null and km.find_child("MatchupLine", true, false) != null
-			and _screen_text(km.find_child("MatchupLine", true, false)).replace("
-", " ").contains(" is on "),
+			and _screen_text(km.find_child("MatchupLine", true, false)).replace("\n", " ").contains(" is on "),
 			"Selection names their key forwards and who is on them")
 	var chm: Button = km.find_child("ChangeMatchup", true, false) if km != null else null
 	# Readability (director, 2026-10-13): your defender and their forward are each
@@ -90,15 +89,16 @@ func _selection_tests() -> void:
 	var names_bold := ml_labels.size() >= 2
 	for ml in ml_labels:
 		var ml_text := str((ml as Label).text)
-		if ml_text != "is on" and ml_text != "Nobody is on" and (ml as Label).get_theme_font("font") != UiKit.BOLD:
+		if ml_text != "is on" and ml_text != "Nobody is on" and (ml as Label).get_theme_font("font") != load("res://scripts/ui/UiKit.gd").BOLD:
 			names_bold = false
 	_check(names_bold, "The names in a match-up line are bold, each beside its guernsey")
 	var why_mu: String = (await Tap.tap(chm)) if chm != null else "no button"
 	_check(why_mu == "" and ui.find_child("MatchupChooser", true, false) != null,
 			"A real tap on Change opens the match-up chooser (%s)" % why_mu)
 	if chm != null:
-		chm.emit_signal("pressed")
-		await _settle()
+		if ui.find_child("MatchupChooser", true, false) == null:
+			chm.emit_signal("pressed")
+			await _settle()
 		var mc: Node = ui.find_child("MatchupChooser", true, false)
 		var defs_b := mc.find_children("Defender_*", "Button", true, false) if mc != null else []
 		_check(defs_b.size() >= 2, "Your defenders are offered, each described (%d)" % defs_b.size())
@@ -126,8 +126,9 @@ func _selection_tests() -> void:
 	_check(why_plan == "" and ui.find_child("PlanChooser", true, false) != null,
 			"A real tap on Change opens the plan chooser (%s)" % why_plan)
 	if change != null:
-		change.emit_signal("pressed")
-		await _settle()
+		if ui.find_child("PlanChooser", true, false) == null:
+			change.emit_signal("pressed")
+			await _settle()
 		var chooser: Node = ui.find_child("PlanChooser", true, false)
 		var contest: Button = chooser.find_child("ClubPlan_contest", true, false) if chooser != null else null
 		_check(contest != null, "The chooser offers the plans")
