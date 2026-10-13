@@ -2,8 +2,8 @@ extends SceneTree
 ## Readability roll-out batch 2 (director, 2026-10-13): This week, Coaching,
 ## Staff, Club Forge and the menu, for one match-up "your club v opponent".
 ##   godot --path . --script tools/visual/capture_readability_b2.gd -- --out /tmp/rb2
-## (no --club: all three match-ups, Collingwood v Carlton, Essendon v Sydney and
-## Hawthorn v Brisbane, at 390x844 and 1280x720). Writes
+## (no --club: all three match-ups, Fremantle v Western Bulldogs, Melbourne v St Kilda and
+## Essendon v Sydney, at 390x844 and 1280x720). Writes
 ## <out>_<club>_<opp>_<width>_selection.png, _plan.png, _coaching.png, _staff.png, _forge.png, _main.png
 ## and prints the deterministic clipped-text check: "CLIPPED n" is the number
 ## of visible labels with more lines than they may show, or with trimmed text
@@ -49,7 +49,7 @@ func _check_clipped(scene: Node, tag: String) -> void:
 
 func _run() -> void:
 	var out := "/tmp/rb2"
-	var sets := [["COL", "CAR"], ["ESS", "SYD"], ["HAW", "BRL"]]
+	var sets := [["FRE", "WBD"], ["MEL", "STK"], ["ESS", "SYD"]]
 	var sizes := [[390, 844], [1280, 720]]
 	var a := OS.get_cmdline_user_args()
 	for i in range(a.size() - 1):
