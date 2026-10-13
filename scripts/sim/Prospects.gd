@@ -56,6 +56,26 @@ const CLASS_TOP_RANKS := 30
 ## the prospect's room, so his POT (his ceiling) does not move.
 ## (static var, not const, only so tools/audit can try arms in one run.)
 static var DRAFT_NIGHT_SCALE := 1.0
+## Readiness (director 2026-10-13: "some players are more ready-made than others"): with the scale
+## below 1, a few prospects keep most of the old draft-night rating (ready-made: senior footy in
+## year 1, less climb left), most lose it all, and some lose more (long-term projects, a big
+## climb). Over-age prospects are likelier to be ready-made. The class average drop is unchanged.
+static var DRAFT_READINESS := true
+const READY_DROP := [0.25, 0.93, 1.5]  # share of the drop kept: ready-made, typical, project
+
+
+## 0 ready-made, 1 typical, 2 project: seeded by the prospect alone.
+static func readiness(p: Dictionary) -> int:
+	var rng := _rng_for("ready|%s|%s" % [str(p.get("id", "")), str(p.get("draft_year", 2026))])
+	var roll := rng.randf()
+	var over_age := float(p.get("age", 18.0)) >= 19.0
+	var ready_p := 0.40 if over_age else 0.08
+	var project_p := 0.10 if over_age else 0.32
+	if roll < ready_p:
+		return 0
+	if roll < ready_p + project_p:
+		return 2
+	return 1
 
 const ROLE_DELTAS := {
 	"MID": {"disposal": 6.0, "contested": 5.0, "pressure": 3.0, "carry": 4.0,
@@ -135,6 +155,10 @@ static func project(p: Dictionary) -> void:
 	p.erase("night_drop")
 	if DRAFT_NIGHT_SCALE != 1.0 and p.has("class_shift"):
 		var drop := target * (1.0 - DRAFT_NIGHT_SCALE)
+		if DRAFT_READINESS:
+			var rd := readiness(p)
+			drop *= float(READY_DROP[rd])
+			p["readiness"] = ["ready", "typical", "project"][rd]
 		target -= drop
 		p["night_drop"] = drop
 

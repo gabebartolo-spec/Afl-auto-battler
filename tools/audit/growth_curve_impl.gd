@@ -10,7 +10,7 @@ extends RefCounted
 ##   MED|seed|year|league median OVR of the best-22 players over clubs (season end)
 ##   COH|seed|draft year|year|pick|OVR at pick|age|OVR now|MED (every drafted player still listed, season end)
 ##   USER|seed|year|wins|games   (the autopilot user club, for AI v coach)
-## Args after the impl name: seeds (comma list) club seasons arms (comma list of step:gap[:night scale], the
+## Args after the impl name: seeds (comma list) club seasons arms (comma list of step:gap[:night scale[:readiness 0/1]], the
 ## Potential.YOUTH_STEP_PACE / YOUTH_GAP_PACE to try; default the shipped values). Careers run in turn.
 ## godot --headless --path . --script tools/audit/run_audit.gd -- growth_curve_impl 11,12 MEL 10 1:1,0.5:0.7
 
@@ -100,7 +100,8 @@ func _run_draft(d: Draft, national: bool, year: int) -> void:
 func _note(p: Dictionary, pick: int, national: bool, year: int) -> void:
 	if national:
 		gen_ids[str(p["id"])] = true
-		cohort.append({"id": str(p["id"]), "year": year, "pick": pick, "ovr0": int(p["overall"])})
+		cohort.append({"id": str(p["id"]), "year": year, "pick": pick, "ovr0": int(p["overall"]),
+				"pot0": int(p.get("potential", p["overall"])), "ready": str(p.get("readiness", "-")), "age0": int(float(p.get("age", 18.0)))})
 
 
 func _track(lists: Dictionary, year: int) -> void:
@@ -125,8 +126,9 @@ func _track(lists: Dictionary, year: int) -> void:
 	for e in cohort:
 		var q = by_id.get(str(e["id"]))
 		if q != null:
-			print("COH|%d|%d|%d|%d|%d|%d|%d|%.1f|%d" % [seed_n, int(e["year"]), year, int(e["pick"]), int(e["ovr0"]),
-					int(float(q.get("age", 0.0))), int(q["overall"]), thr, 1 if top22.has(str(e["id"])) else 0])
+			print("COH|%d|%d|%d|%d|%d|%d|%d|%.1f|%d|%s|%d|%d" % [seed_n, int(e["year"]), year, int(e["pick"]), int(e["ovr0"]),
+					int(float(q.get("age", 0.0))), int(q["overall"]), thr, 1 if top22.has(str(e["id"])) else 0,
+					e["ready"], int(e["pot0"]), int(e["age0"])])
 	var bands := {}
 	for e in cohort:
 		if year - int(e["year"]) != 3:
@@ -157,6 +159,7 @@ func run() -> void:
 			Potential.YOUTH_STEP_PACE = float(sp[0])
 			Potential.YOUTH_GAP_PACE = float(sp[1])
 				Prospects.DRAFT_NIGHT_SCALE = float(sp[2]) if sp.size() > 2 else 1.0
+				Prospects.DRAFT_READINESS = sp.size() > 3 and int(sp[3]) != 0
 		for sd in seeds:
 			seed_n = int(sd)
 			gen_ids = {}
@@ -169,7 +172,7 @@ func _career(club: String, seasons: int) -> void:
 	GameState.autosave_enabled = false
 	GameState.career_seed = seed_n
 	GameState.replay_seed = seed_n
-	print("GA|%d|%s|%d|step %.2f|gap %.2f|night %.2f" % [seed_n, club, seasons, Potential.YOUTH_STEP_PACE, Potential.YOUTH_GAP_PACE, Prospects.DRAFT_NIGHT_SCALE])
+	print("GA|%d|%s|%d|step %.2f|gap %.2f|night %.2f|ready %d" % [seed_n, club, seasons, Potential.YOUTH_STEP_PACE, Potential.YOUTH_GAP_PACE, Prospects.DRAFT_NIGHT_SCALE, 1 if Prospects.DRAFT_READINESS else 0])
 	GameState.begin_real_lists()
 	_snapshot("pre", GameDB.DATA_SEASON, GameState.league_lists)
 	GameState.choose_real_club(club)
