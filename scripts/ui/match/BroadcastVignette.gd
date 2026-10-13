@@ -671,8 +671,8 @@ const SF_PAD := 0.14             # his knee joint above the man's shoulder joint
 ## the shoulder from SF_CONTACT, so it rides the man as he buckles and can never float.
 const SF_SHOULDER := [Vector2(-0.217, 1.510), Vector2(-0.197, 1.519), Vector2(-0.234, 1.499), Vector2(-0.219, 1.497), Vector2(-0.216, 1.556),
 		Vector2(-0.212, 1.595), Vector2(-0.205, 1.558), Vector2(-0.200, 1.488), Vector2(-0.199, 1.427), Vector2(-0.198, 1.367)]
-const SF_KNEE := [Vector2(-0.108, 0.556), Vector2(-0.112, 0.583), Vector2(-0.148, 0.858),
-		Vector2(-0.089, 0.865), Vector2(-0.069, 0.799), Vector2(-0.066, 0.767), Vector2(-0.066, 0.754)]
+const SF_KNEE := [Vector2(-0.108, 0.556), Vector2(-0.112, 0.583), Vector2(-0.149, 0.777),
+		Vector2(-0.096, 0.738), Vector2(-0.082, 0.658), Vector2(-0.081, 0.613), Vector2(-0.081, 0.598)]
 ## Players further back in the shot (it is never three men on an empty ground): [right, beyond, who
 ## ("F" his side, "D" theirs, "U" umpire), anim, mirror].
 const SF_BACK := [[-2.3, 9.0, "D", "ready_turn", false], [2.6, 12.0, "F", "jog", false],
@@ -860,7 +860,7 @@ func _draw_speccy_front() -> void:
 		_player(near, 0.0, other, "ready_turn", "front", int(t * 2.5) % 3, 0, SF_LOOK_A, false, "ruck")
 	else:
 		# Arriving late, one arm up for it (the contest strip), never both hands.
-		_player(near, 0.16 * sin(k2 * PI * 0.5), other, "tap_b", "front", clampi(int(k2 * 4.0), 0, 3), 0, SF_LOOK_A, false, "ruck")
+		_player(near, 0.16 * sin(k2 * PI * 0.5), other, "tap_b", "front", clampi(int(k2 * 4.0), 0, 3), 0, SF_LOOK_A, true, "ruck")
 	# The ball: kicked from behind the camera, it drops into the top of the frame and into his hands
 	# (over the last quarter of a second in shot), then stays between his palms.
 	var palms := _sf_palms(mk)
