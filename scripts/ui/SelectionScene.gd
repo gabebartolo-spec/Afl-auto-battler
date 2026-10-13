@@ -48,7 +48,7 @@ func _ready() -> void:
 
 func _build() -> void:
 	UiKit.clear(_root)
-	_wide = UiKit.view_width(self) >= 900.0 and UiKit.view_width(self) > UiKit.view_height(self)
+	_wide = ScreenLayout.wide_view(UiKit.view_width(self), UiKit.view_height(self), 900.0)
 	# Auto-pick is an action, never a mode: choose a strategy and it sets the
 	# side; your moves after that stay yours (director, 2026-10-07). It is
 	# the top bar's right control (audit §8 Phase 1.4): the board comes first.

@@ -26,7 +26,9 @@ func _ready() -> void:
 	margin.add_child(_root)
 	get_viewport().size_changed.connect(func():
 		if is_inside_tree() and GameState.season != null:
-			_build())
+			var places := UiKit.scroll_places(_root)
+			_build()
+			UiKit.restore_places(_root, places))
 	_build()
 	if not GameState.season_awards.is_empty() and GameState.season.is_season_over() \
 			and not bool(GameState.season_awards.get("presentation_seen", false)):

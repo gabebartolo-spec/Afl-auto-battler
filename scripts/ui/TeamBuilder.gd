@@ -317,7 +317,7 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 		face.add_child(UiKit.lbl("Empty", 12, UiKit.MUTED))
 		b.custom_minimum_size = Vector2(88, 44)
 	elif on_field:
-		var top := UiKit.ellipsis(str(p.get("last", GameDB.player_display_name(p))), 13, UiKit.TEXT, true)
+		var top := UiKit.ellipsis(GameDB.card_surname(p), 13, UiKit.TEXT, true)
 		top.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		face.add_child(top)
 		var sub := UiKit.lbl(str(notes[id]) if field_only and notes.has(id)
