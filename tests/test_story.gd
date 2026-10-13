@@ -41,6 +41,10 @@ func run() -> void:
 	_test_old_save()
 	_test_leadership()
 	_test_captaincy()
+	_test_captain_cards()
+	_test_group_words_are_sentence_case()
+	_test_captain_cards_in_play()
+	_test_captain_from_the_start()
 	_test_time_trial_names()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
@@ -364,6 +368,7 @@ func _test_private_cards() -> void:
 			and bool(StoryDeck.by_id(StoryDeck.all(), "media_in_the_papers").get("private", false)),
 			"The papers card is marked private")
 	var ctx := ClubStories.context(GameState)
+	(ctx["club"] as Dictionary)["losing_run"] = 5  # so a card that waits on a losing run can be reached
 	var leaks := []
 	var reachable := 0
 	for t in private:
@@ -393,6 +398,14 @@ func _test_private_cards() -> void:
 					st["flags"][pid] = {str(needs["flag"]): 10 - int(needs.get("after", 1))}
 					if str(t.get("arc", "")) != "":
 						st["arcs"][str(t["arc"]) + "|" + pid] = {"state": "open"}
+			# A card that asks for a flag on its subject (a captain who found his form).
+			var where_flag := str((t["subject"].get("where", {}) as Dictionary).get("flag", ""))
+			if where_flag != "":
+				for f in players:
+					var pid2 := str(f["id"])
+					if not st["flags"].has(pid2):
+						st["flags"][pid2] = {}
+					st["flags"][pid2][where_flag] = 5
 			var who := StoryEngine.eligible_subject(t, ctx, st, 10, RandomNumberGenerator.new())
 			if named and not who.is_empty():
 				leaks.append(str(t["id"]))
@@ -905,6 +918,323 @@ func _test_captaincy() -> void:
 	_check(GameState.load_career() and GameState.captaincy.is_empty(), "An older save loads with no one named")
 	_run_on(1)
 	_check(not GameState.captaincy_record("COL").is_empty(), "Rivals appoint on the next round of an older save")
+
+
+# --- The captain's cards (P2-4) -----------------------------------------------
+
+func _captain_cards() -> Array:
+	return StoryDeck.all().filter(func(c): return str(c["id"]).begins_with("captain_"))
+
+
+func _test_captain_cards() -> void:
+	var cards := _captain_cards()
+	_check(cards.size() == 18, "The captain's deck has its 18 cards (%d)" % cards.size())
+	var bad_voice := []
+	for c in cards:
+		var text := JSON.stringify(c).to_lower()
+		for stat_word in ["discipline", "i will ", "do not ", "will not ", "cannot "]:
+			if text.contains(stat_word):
+				bad_voice.append("%s: %s" % [c["id"], stat_word])
+	_check(bad_voice.is_empty(), "The captain's cards talk like a coach, with no stat-speak (%s)" % ", ".join(PackedStringArray(bad_voice)))
+	var wrong_subject := []
+	for c in cards:
+		var w: Dictionary = (c["subject"] as Dictionary).get("where", {})
+		if not bool(w.get("captain", false)):
+			wrong_subject.append(str(c["id"]))
+	_check(wrong_subject.is_empty(), "Every captain card is about your captain (%s)" % ", ".join(PackedStringArray(wrong_subject)))
+	var private_ids := []
+	for c in cards:
+		if bool(c.get("private", false)):
+			private_ids.append(str(c["id"]))
+	private_ids.sort()
+	_check(private_ids == ["captain_slump_flat", "captain_slump_good", "captain_slump_mid", "captain_slump_start",
+			"captain_succession_next", "captain_succession_start"],
+			"Only the slump and succession cards are private (%s)" % ", ".join(PackedStringArray(private_ids)))
+	for c in cards:
+		if str(c["id"]).begins_with("captain_contract"):
+			_check(not bool(c.get("private", false)), "The contract arc is about the contract, a football fact (%s)" % c["id"])
+	var contract_end := ""
+	for c in cards:
+		if str(c["id"]) == "captain_contract_signed" or str(c["id"]) == "captain_contract_open":
+			contract_end += JSON.stringify(c).to_lower()
+	_check(not contract_end.contains("fall") and not contract_end.contains("angry") and not contract_end.contains("walk out"),
+			"A contract's end is a club or contract fact, never a fall-out")
+	var talk_slump := StoryDeck.by_id(StoryDeck.all(), "captain_slump_start")
+	var flags_by_choice := {}
+	for ch in talk_slump["choices"]:
+		var names := []
+		for e in ch["effects"]:
+			if str(e.get("op", "")) == "flag":
+				names.append(str(e["name"]))
+		flags_by_choice[str(ch["key"])] = names
+	_check(flags_by_choice["talk"].has("cs_good") and flags_by_choice["back"].has("cs_good") and not flags_by_choice["rest"].has("cs_good"),
+			"The slump's good ending follows a word or a backed run, not a rest")
+	var mid := StoryDeck.by_id(StoryDeck.all(), "captain_slump_mid")
+	var mid_good := 0
+	for ch in mid["choices"]:
+		for e in ch["effects"]:
+			if str(e.get("op", "")) == "flag" and str(e["name"]) == "cs_good":
+				mid_good += 1
+	_check(mid_good == 2 and int(mid["choices"].size()) == 3, "At the midpoint, keeping on backing him or another word leads to the good ending; leaving it does not")
+	var succ := StoryDeck.by_id(StoryDeck.all(), "captain_succession_next")
+	_check(succ["choices"].size() == 2, "Succession offers two answers, no free pick")
+	var wait := StoryDeck.by_id(StoryDeck.all(), "captain_contract_start")
+	_check(wait["choices"].size() == 2, "The contract question has one answer each way")
+
+	# A dispute left to the captain follows the printed rule.
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var cap: Dictionary = {}
+	var rec := GameState.captaincy_record("GEE")
+	for p in GameState.my_list:
+		if Captaincy.role_of(rec, str(p["id"])) == "captain":
+			cap = p
+	_check(not cap.is_empty(), "Geelong has a captain to hold the card")
+	if cap.is_empty():
+		return
+	var card := GameState.story_card("captain_selection_word", cap)
+	var leave_opt: Dictionary = (card["options"] as Array)[1]
+	var leave_detail := str(leave_opt["detail"])
+	var leave_rule := str(leave_opt["rule"])
+	var del_fx: Dictionary = {}
+	for ch in StoryDeck.by_id(StoryDeck.all(), "captain_selection_word")["choices"]:
+		if str(ch["key"]) == "leave":
+			del_fx = ch["effects"][0]
+	var held_words := StoryEngine.describe({"effects": del_fx["held"]}, card["facts"])
+	var failed_words := StoryEngine.describe({"effects": del_fx["failed"]}, card["facts"])
+	var stands: bool = bool(card["facts"]["delegate_holds"])
+	_check(leave_detail.contains(held_words.substr(1)) and leave_detail.contains(failed_words.substr(1))
+			and leave_detail.contains("would listen to" if stands else "wouldn't listen to")
+			and not leave_detail.to_lower().contains("settle") and not leave_detail.contains("Leadership"),
+			"The card line says what happens both ways, from the choice's own effects, and which way it stands (%s)" % leave_detail)
+	_check(leave_rule.contains("Leadership %d" % Leadership.of(cap)) and leave_rule.contains("%d or more" % StoryDeck.HOLDS_AT)
+			and leave_rule.contains("%d or more" % StoryDeck.HOLDS_WITH_TRUST) and not leave_rule.to_lower().contains("settle"),
+			"The rule one tap away prints his Leadership and the thresholds from the constants (%s)" % leave_rule)
+	_check(bool(card.get("choice_notes", false)), "A captain card shows what each choice does under its button")
+	var holds := StoryDeck.HOLDS_AT
+	for case in [[70, 0, true], [40, 80, false], [50, 40, true], [50, 0, false], [60, 0, true], [44, 90, false]]:
+		var lead := int(case[0])
+		var trust_value := int(case[1])
+		var band := Trust.band(trust_value)
+		var expect: bool = lead >= holds or (lead >= StoryDeck.HOLDS_WITH_TRUST and (band == "trusts" or band == "close"))
+		_check(expect == bool(case[2]), "The rule: Leadership %d, trust %d holds = %s" % [lead, trust_value, str(case[2])])
+
+	# Held and failed outcomes move the group, from the rule alone.
+	for side in [true, false]:
+		var facts: Dictionary = card["facts"]
+		facts["delegate_holds"] = side
+		var before := ClubLife.morale(GameState.my_list[0])
+		var out := ClubStories.apply_choice(GameState, card, 1)
+		var after := ClubLife.morale(GameState.my_list[0])
+		_check((after - before == 2) if side else (after - before == -2),
+				"Left to the captain, it %s: the group's mood moves %d (%s)" % ["holds" if side else "doesn't hold", after - before, out])
+
+	# The young player a captain puts forward gets his run.
+	var kid_card := GameState.story_card("captain_young_player", cap)
+	var kid_id := str(kid_card["facts"].get("kid_id", ""))
+	if kid_id != "":
+		ClubStories.apply_choice(GameState, kid_card, 0)
+		var kid := GameState.list_player(kid_id)
+		_check(Backing.is_active(kid), "Giving the young player a run starts his promised run")
+	else:
+		_check(true, "(no young player under ten games on this list)")
+
+	# Succession: the vice-captain takes the armband through the Captaincy rules.
+	var swap := GameState.story_card("captain_succession_next", cap)
+	var vice_id := str(swap["facts"].get("vice_id", ""))
+	_check(vice_id != "" and bool(swap["facts"].get("has_vice", false)), "Geelong has a vice-captain to take over")
+	if vice_id != "":
+		var line := ClubStories.apply_choice(GameState, swap, 0)
+		var after_rec := GameState.captaincy_record("GEE")
+		_check(Captaincy.role_of(after_rec, vice_id) == "captain" and Captaincy.role_of(after_rec, str(cap["id"])) == "vice",
+				"The vice-captain takes the armband and the old captain stays in the leadership group (%s)" % line)
+
+
+func _test_group_words_are_sentence_case() -> void:
+	var words := StoryEngine._morale_words(-3, "all") + " " + StoryEngine._morale_words(-8, "others") + " " + StoryEngine._morale_words(-3, "side")
+	_check(words.contains("The whole list is a little flat about it.") and words.contains("The rest of the group takes it hard.")
+			and words.contains("The side is a little flat about it."), "A group's mood line is in sentence case (%s)" % words)
+
+
+## The paths a normal career rarely walks: a captain who can't settle a dispute, a stale
+## succession card, and the slump arc in full.
+func _test_captain_cards_in_play() -> void:
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var rec := GameState.captaincy_record("GEE")
+	var cap: Dictionary = {}
+	for p in GameState.my_list:
+		if Captaincy.role_of(rec, str(p["id"])) == "captain":
+			cap = p
+	if cap.is_empty():
+		_check(false, "Geelong has a captain for the in-play checks")
+		return
+	# A young, unproven captain who doesn't trust you can't settle a dispute.
+	cap["real_name"] = ""
+	cap["age"] = 19.0
+	cap["career"] = {"games": 0, "goals": 0, "stints": [], "through": 2026, "unknown": []}
+	cap["gm"] = 0
+	var weak := Leadership.of(cap)
+	_check(weak < StoryDeck.HOLDS_WITH_TRUST, "The test captain's Leadership is low (%d)" % weak)
+	var failed_copy := {"captain_selection_word": "It didn't land with the group.",
+			"captain_group_flat": "The group stayed flat.", "captain_harder_session": "The session fell apart."}
+	var delta := {"captain_selection_word": -2, "captain_group_flat": -2, "captain_harder_session": -2}
+	var leave_index := {"captain_selection_word": 1, "captain_group_flat": 2, "captain_harder_session": 2}
+	for id in failed_copy:
+		var card := GameState.story_card(id, cap)
+		_check(not bool(card["facts"].get("delegate_holds", true)), "%s: with this captain it wouldn't hold" % id)
+		var detail := str(card["options"][int(leave_index[id])]["detail"])
+		_check(detail.contains("wouldn't listen to"), "%s: the choice says the group wouldn't listen (%s)" % [id, detail])
+		var before := ClubLife.morale(GameState.my_list[0])
+		var out := ClubStories.apply_choice(GameState, card, int(leave_index[id]))
+		_check(out.contains(str(failed_copy[id])) and ClubLife.morale(GameState.my_list[0]) - before == int(delta[id]),
+				"%s: left to a captain who can't, it fails with its own words and cost (%s)" % [id, out])
+
+	# A stale succession card does nothing, and never makes a co-captain.
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	rec = GameState.captaincy_record("GEE")
+	cap = {}
+	for p in GameState.my_list:
+		if Captaincy.role_of(rec, str(p["id"])) == "captain":
+			cap = p
+	var swap := GameState.story_card("captain_succession_next", cap)
+	var other := {}
+	for p in GameState.my_list:
+		if not Captaincy.is_named(rec, str(p["id"])):
+			other = p
+			break
+	GameState.set_captaincy([{"id": str(other["id"]), "role": "captain"}])
+	var before_ids := Captaincy.ids(GameState.captaincy_record("GEE"))
+	var line := ClubStories.apply_choice(GameState, swap, 0)
+	_check(Captaincy.ids(GameState.captaincy_record("GEE")) == before_ids and line.contains("has changed"),
+			"A succession card older than the captaincy changes nothing (%s)" % line)
+
+	# The slump arc, in full, in both endings.
+	for scenario in ["good", "flat", "rested_then_word"]:
+		GameState.reset()
+		GameState.career_seed = SUITE_SEED
+		GameState.replay_seed = SUITE_SEED
+		GameState.start_season("GEE", GameDB.club_list("GEE"))
+		rec = GameState.captaincy_record("GEE")
+		cap = {}
+		for p in GameState.my_list:
+			if Captaincy.role_of(rec, str(p["id"])) == "captain":
+				cap = p
+		cap["real_name"] = ""
+		cap["morale"] = 40
+		var ids := {}
+		var deck := StoryDeck.all()
+		for k in ["captain_slump_start", "captain_slump_mid", "captain_slump_good", "captain_slump_flat"]:
+			ids[k] = StoryDeck.by_id(deck, k)
+		GameState.losing_streak = 2  # a captain's form dips with the team's
+		var ctx := ClubStories.context(GameState)
+		var rng := RandomNumberGenerator.new()
+		var w := GameState.story_week()
+		var starts := not StoryEngine.eligible_subject(ids["captain_slump_start"], ctx, GameState.story, w, rng).is_empty()
+		_check(starts, "%s: a low-spirited, selected captain triggers the slump" % scenario)
+		var start_choice := 0 if scenario == "good" else 2
+		GameState.week_events = [GameState.story_card("captain_slump_start", cap)]
+		GameState.resolve_card(0, start_choice)
+		_advance_quietly(4, cap, ids)
+		cap["morale"] = 60
+		ctx = ClubStories.context(GameState)
+		w = GameState.story_week()
+		var mid_ok := not StoryEngine.eligible_subject(ids["captain_slump_mid"], ctx, GameState.story, w, rng).is_empty()
+		_check(mid_ok, "%s: a few weeks on, the midpoint card comes up" % scenario)
+		var mid_choice := 0 if scenario == "good" else (2 if scenario == "flat" else 1)
+		GameState.week_events = [GameState.story_card("captain_slump_mid", cap)]
+		GameState.resolve_card(0, mid_choice)
+		_advance_quietly(5, cap, ids)
+		ctx = ClubStories.context(GameState)
+		w = GameState.story_week()
+		var good := not StoryEngine.eligible_subject(ids["captain_slump_good"], ctx, GameState.story, w, rng).is_empty()
+		var flat := not StoryEngine.eligible_subject(ids["captain_slump_flat"], ctx, GameState.story, w, rng).is_empty()
+		var want_good: bool = scenario != "flat"
+		_check(good == want_good and flat == not want_good,
+				"%s: the %s ending follows (good %s, flat %s)" % [scenario, "good" if want_good else "flat", str(good), str(flat)])
+
+
+## Play rounds without answering anything the engine draws for itself, and forget
+## that it drew the arc's cards, so the test decides what the arc sees.
+func _advance_quietly(rounds: int, cap: Dictionary, ids: Dictionary) -> void:
+	GameState.stories_on = false  # no cards drawn while time passes
+	for r in range(rounds):
+		GameState.advance()
+		# The engine's own draws in the leadership category would crowd the arc out
+		# (no category twice in five weeks); forget them too.
+		for c in StoryDeck.all():
+			if str(c.get("category", "")) == "leadership":
+				(GameState.story["last"] as Dictionary).erase(str(c["id"]))
+		(GameState.story["subj"] as Dictionary).erase(str(cap["id"]))
+		var kept := []
+		for row in GameState.story["cats"]:
+			if str(row[1]) != "leadership":
+				kept.append(row)
+		GameState.story["cats"] = kept
+	GameState.stories_on = true
+
+
+## Director 2026-10-12: in a redraft or custom career your club starts with a captain
+## named by the same rule as the rivals; a real-lists career keeps the real captain.
+func _test_captain_from_the_start() -> void:
+	# A redraft: a list with no 2026 record behind it (Collingwood's players at Geelong).
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.start_season("GEE", GameDB.club_list("COL"))
+	var rec := GameState.captaincy_record("GEE")
+	var caps := Captaincy.ids(rec, "captain")
+	var by_rule := Captaincy.by_rule(GameState.my_list)
+	_check(caps.size() == 1 and not by_rule.is_empty() and caps[0] == str(by_rule[0]["id"]),
+			"A redraft career starts with a captain named by the rule (top Leadership)")
+	_check(Captaincy.ids(rec).size() == Captaincy.MAX_LEADERS, "...and two vice-captains")
+	# His cards can come up from week one.
+	GameState.losing_streak = 3
+	var ctx := ClubStories.context(GameState)
+	var flat := StoryDeck.by_id(StoryDeck.all(), "captain_group_flat")
+	var who := StoryEngine.eligible_subject(flat, ctx, StoryEngine.new_state(), GameState.story_week(), RandomNumberGenerator.new())
+	_check(not who.is_empty() and str(who.get("id", "")) == str(caps[0]), "The captain's cards can fire in a redraft career")
+	# The coach can change him; nobody puts him back.
+	GameState.set_captaincy([])
+	_run_on(2)
+	_check(Captaincy.ids(GameState.captaincy_record("GEE")).is_empty(), "A captain you took off stays off: nothing is added for you")
+
+	# Real lists keep the real captain.
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var real_cap: Dictionary = {}
+	for p in GameState.my_list:
+		if Captaincy.role_of(GameState.captaincy_record("GEE"), str(p["id"])) == "captain":
+			real_cap = p
+	_check(not real_cap.is_empty() and Leadership.role_2026(real_cap) == "captain", "A real-lists career keeps the real captain")
+
+	# A save from before this: no captaincy at all.
+	GameState.save_career()
+	var old := CareerSave.read(GameState.save_path)
+	old.erase("captaincy")
+	CareerSave.write(old, GameState._save_meta(), GameState.save_path)
+	_check(GameState.load_career() and GameState.captaincy.is_empty(), "An old save with no captaincy loads cleanly, empty")
+	_run_on(1)
+	_check(not Captaincy.ids(GameState.captaincy_record("GEE"), "captain").is_empty(),
+			"...and your club is named once, by the rule, at the first round after loading")
+	GameState.set_captaincy([])
+	_run_on(2)
+	_check(Captaincy.ids(GameState.captaincy_record("GEE")).is_empty(), "...and a spot you then leave open stays open")
+
+	# A P2-2-era save: a record that is empty and was never seeded.
+	GameState.captaincy["GEE"] = {"slots": [], "since": 2027, "changes": {}, "passed": {}, "log": []}
+	_run_on(1)
+	_check(not Captaincy.ids(GameState.captaincy_record("GEE"), "captain").is_empty(),
+			"An empty, never-seeded record from an earlier build is named once, by the rule")
 
 
 # --- A result that names players (the time trial) --------------------------------

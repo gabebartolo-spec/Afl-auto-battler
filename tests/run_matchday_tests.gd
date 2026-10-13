@@ -286,7 +286,9 @@ func _phone_match(sz: Vector2i) -> void:
 	_check(facts != null and facts.get_child_count() <= 3,
 			"What happened in the quarter is three things at most (%s)" % tag)
 	var bt := _text(box)
-	_check(not bt.contains("pts") and not bt.contains("Expected points") and not bt.contains(" def ")
+	# "pts" as a word: a quarter's "4 intercepts so far" is football, not an engine number.
+	var pts_word := RegEx.create_from_string("\\bpts\\b")
+	_check(pts_word.search(bt) == null and not bt.contains("Expected points") and not bt.contains(" def ")
 			and not bt.contains("defeated"), "The break shows no engine numbers or result words (%s)" % tag)
 	_check(bt.contains("Tag on ") and box.find_child("CallsDid", true, false) != null,
 			"The break says what your calls did, your tag among them (%s)" % tag)
@@ -348,7 +350,7 @@ func _phone_match(sz: Vector2i) -> void:
 			_check(((qsim._own[myside] as Dictionary)["duels"] as Dictionary).has(fid),
 					"A match-up you change stays your call (%s)" % tag)
 			var btext := _text(box)
-			_check(not btext.contains("%") and not btext.contains("pts"), "The match-ups show no engine numbers (%s)" % tag)
+			_check(not btext.contains("%") and pts_word.search(btext) == null, "The match-ups show no engine numbers (%s)" % tag)
 	var small := []
 	for b in box.find_children("*", "Button", true, false):
 		if b.is_visible_in_tree() and b.size.y < 40:
