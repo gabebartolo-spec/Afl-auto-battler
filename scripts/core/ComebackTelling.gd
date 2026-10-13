@@ -171,6 +171,9 @@ static func _turner(res: Dictionary, q: int, side: int) -> String:
 		var d := {}
 		for k in a:
 			d[k] = float(a[k]) - float(b.get(k, 0.0))
+		# Only a player with something to name: a goal, 6 clearances or 9 disposals.
+		if int(d.get("goals", 0.0)) < 1 and int(d.get("clearances", 0.0)) < 6 				and int(d.get("disposals", 0.0)) < 9:
+			continue
 		var inf := CoachReport.influence(d)
 		if inf > best_inf:
 			best_inf = inf
@@ -179,17 +182,20 @@ static func _turner(res: Dictionary, q: int, side: int) -> String:
 			best_d = d
 	if best_id == "":
 		return ""
-	var bits := PackedStringArray()
+	var name := GameDB.player_display_name_by_id(best_id, best_name)
 	var g := int(best_d.get("goals", 0.0))
 	var bh := int(best_d.get("behinds", 0.0))
-	if g > 0:
-		bits.append("%d.%d" % [g, bh])
 	var cl := int(best_d.get("clearances", 0.0))
 	var disp := int(best_d.get("disposals", 0.0))
+	var other := ""
 	if cl >= 6:
-		bits.append("%d clearances" % cl)
+		other = "%d clearances" % cl
 	elif disp >= 9:
-		bits.append("%d disposals" % disp)
-	if bits.is_empty():
-		return ""
-	return "%s, %s" % [GameDB.player_display_name_by_id(best_id, best_name), " and ".join(bits)]
+		other = "%d disposals" % disp
+	if g > 0 and other == "":
+		return "%s kicked %d.%d" % [name, g, bh]
+	if g > 0:
+		return "%s, %d.%d and %s" % [name, g, bh, other]
+	if other != "":
+		return "%s, %s" % [name, other]
+	return ""
