@@ -15,6 +15,7 @@ const ROOKIE_MAX_AGE := 24.0
 const PRIME_MAX_AGE := 29.0
 
 var _draft: Draft
+var _meeting: Control = null    # the recruiting meeting, while it is open
 var _club := ""
 var _phase := "club"
 var _role := ""
@@ -964,6 +965,11 @@ func _land_my_pick() -> void:
 # ---------------------------------------------------------------------------
 ## Android Back and the top-bar back close the player first.
 func handle_back() -> bool:
+	# The recruiting meeting closes before the draft is left.
+	if is_instance_valid(_meeting):
+		_meeting.queue_free()
+		_meeting = null
+		return true
 	if is_instance_valid(_detail):
 		_close_player()
 		return true
@@ -995,6 +1001,7 @@ func _show_meeting() -> void:
 	var box := UiKit.modal_box(self, 520.0, 0.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = "DraftMeeting"
+	_meeting = overlay
 	var v: VBoxContainer = box["body"]
 	v.add_child(UiKit.lbl("Before the draft", 20, UiKit.TEXT, true))
 	if not (notes["list"] as Array).is_empty():

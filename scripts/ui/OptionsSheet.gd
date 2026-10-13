@@ -61,8 +61,9 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 		_row(v, "Screen size", "SettingsScreenSize", sizes, GameState.screen_size(),
 				"Everything bigger, for a big screen across the room. TV suits a television from the couch.",
 				func(k): GameState.set_screen_size(k))
-		_row(v, "Full screen", "SettingsFullscreen", [["off", "Off"], ["on", "On"]],
-				"on" if GameState.fullscreen() else "off", "Fill the screen, with no window border.",
+		_row(v, "Display", "SettingsFullscreen", [["on", "Fullscreen"], ["off", "Window"]],
+				"on" if GameState.fullscreen() else "off",
+				"Fullscreen fills the screen with no border; Window opens maximised. Alt+Enter switches.",
 				func(k): GameState.set_fullscreen(k == "on"))
 	_row(v, "Tutorials", "SettingsTutorials", [["on", "On"], ["off", "Off"]],
 			"on" if GameState.tutorials_on() else "off",

@@ -215,9 +215,25 @@ static func apply_choice(gs, card: Dictionary, choice: int) -> String:
 		if line != "":
 			said.append(line)
 	var out := " ".join(said) if not said.is_empty() else str(opt.get("result", ""))
+	out = StoryEngine.fill_ranked(out, running_fitness(gs))
 	if out == "":
 		out = "Business as usual."
 	return (out + " " + StoryEngine.aftermath(applied)).strip_edges()
+
+
+## Your players who could run a time trial, fittest first. The rating is the
+## one the match uses for running fitness: durability sets how fast a player
+## tires on the ground and how he recovers between games. An injured player
+## sits it out; ties go to the name, so the same list gives the same answer.
+static func running_fitness(gs) -> Array:
+	var rows := []
+	for p in gs.my_list:
+		if int(p.get("injury_weeks", 0)) > 0:
+			continue
+		rows.append({"id": str(p["id"]), "name": GameDB.player_display_name(p),
+				"v": int((p.get("attr", {}) as Dictionary).get("durability", 0))})
+	rows.sort_custom(func(a, b): return int(a["v"]) > int(b["v"]) or (int(a["v"]) == int(b["v"]) and str(a["id"]) < str(b["id"])))
+	return rows
 
 
 static func _targets(gs, e: Dictionary, p: Dictionary) -> Array:
