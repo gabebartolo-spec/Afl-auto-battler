@@ -1654,7 +1654,7 @@ func _trophies() -> void:
 		var fzt: Label = s.find_child("HistoryAs_Fitzroy", true, false)
 		_check(fz != null and fz.text == "1898, 1899" and fzt != null and fzt.text == "Fitzroy: 2 premierships",
 				"Flags carried from a merged club read under its name, apart from the club's own (%s)" % tag)
-		_check(hist_list != null and hist_list.get_theme_color("font_color") == UiKit.MUTED
+		_check(hist_list != null and hist_list.get_theme_color("font_color") == load("res://scripts/ui/UiKit.gd").MUTED
 				and hist_list.autowrap_mode != TextServer.AUTOWRAP_OFF and hist_list.get_combined_minimum_size().x < 380.0,
 				"The history is the quiet colour and wraps rather than widening the screen (%s)" % tag)
 		_check(hist_list != null and yours != null and hist_list.is_visible_in_tree()
