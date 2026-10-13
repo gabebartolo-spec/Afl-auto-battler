@@ -65,6 +65,10 @@ func _update_scale() -> void:
 func _fit_first_window() -> void:
 	if DisplayServer.get_name() == "headless" or OS.get_name() != "Windows":
 		return
+	# A tool run with --script sets its own window size and position (and a
+	# capture is parked off-screen so it never takes the keyboard focus).
+	if OS.get_cmdline_args().has("--script") or OS.get_cmdline_args().has("-s"):
+		return
 	if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_WINDOWED:
 		return
 	var os_density := float(DisplayServer.screen_get_dpi()) / 96.0
@@ -114,6 +118,13 @@ static func tap_word() -> String:
 ## on is_desktop(); the wide-layout checks use this.
 static func roomy(w: float, h: float) -> bool:
 	return not is_phone() and w >= 760.0 and w > h * 1.2
+
+
+## The PC layouts (side panels, columns) for a screen of at least min_w units,
+## landscape when asked. Never on a phone or its browser: a phone browser inside
+## a wide frame (itch's 1280x720) would otherwise get the PC layout, cropped.
+static func wide_view(w: float, h: float, min_w: float, landscape := true) -> bool:
+	return not is_phone() and w >= min_w and (not landscape or w > h)
 
 
 ## Desktop only: a phone's density already comes from its screen.
