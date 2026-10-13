@@ -467,7 +467,7 @@ static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
 
 
 const SWAP_GAIN := "{vice_name} takes the armband; {name} stays in the leadership group."
-const SWAP_COST := "Taking it off {name} mid-season costs him morale and trust, and uses your one change this season."
+const SWAP_COST := "Taking it off {name} mid-season drops his morale and he trusts you less. It uses your one change this season."
 const PROMISE_WIN_GAIN := "Win and board confidence goes up."
 const PROMISE_WIN_COST := "Lose and board confidence goes down."
 const EXTEND_GAIN := "He signs on for {more_seasons}."
