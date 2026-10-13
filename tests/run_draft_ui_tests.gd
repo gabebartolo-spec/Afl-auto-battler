@@ -116,6 +116,7 @@ func _run() -> void:
 	await _test_intake_combine()
 	await _test_search_keyboard()
 	await _test_rotation()
+	await _test_phone_browser_never_wide()
 	print("Draft UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
 
@@ -239,6 +240,9 @@ func _test_search_keyboard() -> void:
 			Input.flush_buffered_events()
 			await process_frame
 	await _settle()
+	# The list follows the typing after a short pause (the search timer).
+	await create_timer(0.4).timeout
+	await _settle()
 	_check(field.text == "van", "Typing van fills the field (%s)" % field.text)
 	var all_n: int = _state.draft.board("", "", "", "overall", true).size()
 	var want: int = _state.draft.board("", "", "van", "overall", true).size()
@@ -301,6 +305,31 @@ func _test_rotation() -> void:
 	root.size = old_size
 	ui.queue_free()
 	await _settle()
+
+
+## A phone's browser in a wide frame (itch's 1280x720 shown on a phone, seen
+## at 900x700 or 1280x720 units) must keep the phone layout, not the PC one.
+func _test_phone_browser_never_wide() -> void:
+	var old_size := root.size
+	var layout = load("res://scripts/core/ScreenLayout.gd")
+	for sz in [Vector2i(900, 700), Vector2i(1280, 720)]:
+		for phone in [true, false]:
+			layout.force_web_phone = phone
+			root.size = sz
+			_state.reset()
+			_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(),
+					_db.active_clubs(2026).duplicate(), 12345)
+			var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
+			root.add_child(ui)
+			ui.call("_on_club_chosen", "COL")
+			await _settle()
+			_check(bool(ui.get("_wide")) == (not phone),
+					"%dx%d %s: the draft is %s" % [sz.x, sz.y, "phone browser" if phone else "PC browser",
+					"the phone layout" if phone else "the wide layout"])
+			ui.queue_free()
+			await _settle()
+	layout.force_web_phone = false
+	root.size = old_size
 
 
 ## A League Draft for COL played to the end, cheapest players first. With

@@ -387,24 +387,22 @@ func _event_card(index: int) -> Control:
 		var t := UiKit.lbl(str(e.get("text", "")), 12, UiKit.TEXT)
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(t)
-		# What's at risk, in one line; the buttons carry the choice and the
-		# outcome shows after the pick.
-		var stakes := PackedStringArray()
+		# What an authored stakes line adds, then what happens if he says
+		# nothing, apart from the choices. Full-strength text: it is what a
+		# coach decides on.
 		if str(e.get("stakes", "")) != "":
-			stakes.append(str(e["stakes"]))
-		var silence := str((e.get("unanswered", {}) as Dictionary).get("hint", ""))
-		if silence != "":
-			stakes.append(silence)
-		if not stakes.is_empty():
-			var sk := UiKit.lbl(" ".join(stakes), UiKit.SMALL, UiKit.MUTED)
+			var sk := UiKit.lbl(str(e["stakes"]), UiKit.SECONDARY, UiKit.TEXT)
 			sk.name = "EventStakes_%d" % index
 			sk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(sk)
+		var silence := str((e.get("unanswered", {}) as Dictionary).get("hint", ""))
+		if silence != "":
+			var sl := UiKit.lbl(silence, UiKit.SECONDARY, UiKit.TEXT)
+			sl.name = "EventSilence_%d" % index
+			sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(sl)
 		var opts: Array = e.get("options", [])
-		# A card that says what each choice does (the captain's cards) puts that line under
-		# its button, so the stakes are in front of the player before the pick.
-		var notes := bool(e.get("choice_notes", false))
-		var row: BoxContainer = UiKit.vbox(10 if notes else 4) if _narrow() else UiKit.hbox(8 if notes else 6)
+		var row: BoxContainer = UiKit.vbox(22) if _narrow() else UiKit.hbox(8)
 		v.add_child(row)
 		for i in range(opts.size()):
 			var o: Dictionary = opts[i]
@@ -412,28 +410,61 @@ func _event_card(index: int) -> Control:
 			b.name = "Event_%d" % i
 			b.custom_minimum_size = Vector2(0, 48)
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			if not _narrow():
+				# Side by side, every choice gets an equal share and wraps its own words.
+				b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				b.custom_minimum_size = Vector2(0, 48)
 			b.pressed.connect(func():
 				GameState.resolve_card(index, i)
 				_build())
-			if notes and str(o.get("detail", "")) != "":
-				var cell := UiKit.vbox(3)
-				cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				cell.add_child(b)
-				var line := UiKit.lbl(str(o["detail"]), UiKit.SMALL, UiKit.MUTED)
-				line.name = "EventNote_%d" % i
-				line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-				cell.add_child(line)
-				# The exact rule behind that line is one deliberate tap away.
-				if str(o.get("rule", "")) != "":
-					var more := UiKit.text_action("See the rule", UiKit.SMALL)
-					more.name = "EventRule_%d" % i
-					more.alignment = HORIZONTAL_ALIGNMENT_LEFT
-					var rule_text := str(o["rule"])
-					more.pressed.connect(func(): _show_rule(rule_text))
-					cell.add_child(more)
-				row.add_child(cell)
-			else:
+			# What this answer does, worded from its own effects: gains first,
+			# then costs, one plain line each (a choice that does nothing
+			# mechanical shows nothing under it). Same text, same weight on
+			# every choice.
+			var lines := StoryEngine.stakes_lines(o.get("effects", []), e.get("facts", {}))
+			var rule_text := str(o.get("rule", ""))
+			if lines.is_empty() and rule_text == "":
 				row.add_child(b)
+				continue
+			var col := UiKit.vbox(3)
+			col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			col.add_child(b)
+			for line in lines:
+				var mark := ""
+				var kind := "Note"
+				if line.begins_with(StoryEngine.GAIN_MARK):
+					mark = "Gain:"
+					kind = "Gain"
+				elif line.begins_with(StoryEngine.COST_MARK):
+					mark = "Cost:"
+					kind = "Cost"
+				var cl := UiKit.lbl(line.substr(mark.length()).strip_edges() if mark != "" else line, UiKit.SECONDARY, UiKit.TEXT)
+				cl.name = "Event%s_%d_%d" % [kind, index, i]
+				cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				if mark == "":
+					col.add_child(cl)
+					continue
+				# The marker is bold (weight, not colour); the sentence stays regular.
+				var item := UiKit.hbox(6)
+				var mk := UiKit.lbl(mark, UiKit.SECONDARY, UiKit.TEXT, true)
+				mk.name = "Event%sMark_%d_%d" % [kind, index, i]
+
+				mk.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+				mk.autowrap_mode = TextServer.AUTOWRAP_OFF
+				mk.custom_minimum_size = Vector2(40, 0)
+				item.add_child(mk)
+				cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				item.add_child(cl)
+				col.add_child(item)
+			# The exact rule behind a line is one deliberate tap away.
+			if rule_text != "":
+				var more := UiKit.text_action("See the rule", UiKit.SMALL)
+				more.name = "EventRule_%d" % i
+				more.alignment = HORIZONTAL_ALIGNMENT_LEFT
+				more.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+				more.pressed.connect(func(): _show_rule(rule_text))
+				col.add_child(more)
+			row.add_child(col)
 	else:
 		v.add_child(UiKit.lbl(str(e.get("outcome", "")), 13, UiKit.GOOD))
 	return card

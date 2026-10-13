@@ -149,14 +149,14 @@ func _usable_size() -> Vector2:
 
 func _layout_signature() -> String:
 	var area := _usable_size()
-	return "%s/%s/%d" % [area.x >= 760.0 and area.x > area.y,
+	return "%s/%s/%d" % [ScreenLayout.wide_view(area.x, area.y, 760.0),
 			area.y < 680.0, _grid_columns()]
 
 
 func _build_layout() -> void:
 	_club_backdrop()
 	var area := _usable_size()
-	_wide = area.x >= 760.0 and area.x > area.y
+	_wide = ScreenLayout.wide_view(area.x, area.y, 760.0)
 	_short = area.y < 680.0
 	_layout_key = _layout_signature()
 	_built_width = UiKit.view_width(self)
