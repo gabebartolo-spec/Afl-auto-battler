@@ -28,7 +28,17 @@ static func phase(gs) -> String:
 static func pick(gs) -> Array:
 	if phase(gs) == "finals" and (gs.season.is_season_over() or gs.my_finals_status() != "alive"):
 		return []
-	return StoryEngine.pick_week(StoryDeck.all(), context(gs), gs.story)
+	var cards: Array = StoryEngine.pick_week(StoryDeck.all(), context(gs), gs.story)
+	# The result of a role trial comes first, the week after it ends.
+	if not gs.trial_result.is_empty():
+		var tr: Dictionary = gs.trial_result
+		var who: Dictionary = gs.list_player(str(tr.get("id", "")))
+		if not who.is_empty():
+			var c := card_for(gs, "media_trial_worked" if bool(tr.get("ok", false)) else "media_trial_not_yet", who)
+			if not c.is_empty():
+				cards.push_front(c)
+		gs.trial_result = {}
+	return cards
 
 
 static func context(gs) -> Dictionary:
@@ -114,10 +124,13 @@ static func _winning_run(gs) -> int:
 
 static func player_facts(gs) -> Array:
 	var selected := {}
+	var starting := {}
 	var side: Dictionary = gs.current_side()
 	for k in side:
 		for id in side[k]:
 			selected[str(id)] = true
+			if k != "BENCH":
+				starting[str(id)] = true
 	var info: Dictionary = gs.talk_info(selected)
 	var fit := []
 	for p in gs.my_list:
@@ -131,7 +144,28 @@ static func player_facts(gs) -> Array:
 	var out := []
 	for p in gs.my_list:
 		var id := str(p["id"])
-		out.append(player_fact(gs, p, selected.has(id), info.get(id, {}), int(rank.get(id, 99)), cap_room))
+		var f := player_fact(gs, p, selected.has(id), info.get(id, {}), int(rank.get(id, 99)), cap_room)
+		f["starting"] = starting.has(id)
+		# Picked in his second position already: a role trial there is no trial.
+		var line := ""
+		for k in side:
+			if k != "BENCH" and (side[k] as Array).has(id):
+				line = str(k)
+		if line != "" and GameState._in_trial_line(line, trial_role(p)):
+			f["has_role2"] = false
+		out.append(f)
+	# Form in the bottom half of the side: his last games' rating is lower than
+	# at least half of the starters' who have three games of it.
+	var forms := []
+	for f in out:
+		if bool(f["starting"]) and int(f["form_games"]) >= 3:
+			forms.append(int(f["form"]))
+	for f in out:
+		var below := 0
+		for x in forms:
+			if int(x) < int(f["form"]):
+				below += 1
+		f["form_low"] = int(f["form_games"]) >= 3 and float(below) < float(forms.size()) / 2.0
 	return out
 
 
@@ -151,14 +185,24 @@ static func player_fact(gs, p: Dictionary, selected: bool, i: Dictionary, fit_ra
 	var t := Trust.value(gs.relations, Trust.player_key(id))
 	var ovr := int(p.get("overall", 0))
 	var pot := int(p.get("potential", ovr))
+	var recent: Array = (gs.form_log.get(id, {}) as Dictionary).get("last", [])
+	var form := 0
+	for x in recent:
+		form += int(x)
+	form = int(round(float(form) / float(recent.size()))) if not recent.is_empty() else 0
 	var lead := Leadership.of(p)
 	var band := Trust.band(t)
 	var holds: bool = lead >= StoryDeck.HOLDS_AT or (lead >= StoryDeck.HOLDS_WITH_TRUST and (band == "trusts" or band == "close"))
-	return {"id": id, "name": name, "first": name.split(" ")[0], "age": float(p.get("age", 25.0)),
+	var out := {"id": id, "name": name, "first": name.split(" ")[0], "age": float(p.get("age", 25.0)),
 			"games": gs.games_played(p), "fit": fit, "selected": selected, "overall": ovr, "potential": pot,
 			"pot_gap": pot - ovr, "contract_years": int(p.get("contract_years", 2)), "morale": ClubLife.morale(p),
 			"trust": t, "trust_band": Trust.band(t),
 			"discipline": int((p.get("attr", {}) as Dictionary).get("discipline", 50)),
+			# Recent form: his last games' Player Rating, averaged (the form the
+			# game already keeps and shows); form_games counts them (0 to 3).
+			"form": form, "form_games": recent.size(), "has_role2": trial_role(p) != "", "form_low": false,
+			"trial_word": CoachPathway.position_word({"pos": trial_role(p)}), "trial_home": CoachPathway.position_word({"pos": str(p.get("role", ""))}), "trial_avg": 0, "trial_par": 0, "trial_tail": "",
+			"starting": false,   # player_facts sets it from the side
 			"backed": Backing.is_active(p), "fit_rank": fit_rank, "talk_case": case, "kpi": kpi,
 			"kpi_or_need": kpi if kpi != "" else need_line,
 			"explain_label": "Talk him through his season" if kpi != "" else "Tell him what he has to show",
@@ -175,6 +219,19 @@ static func player_fact(gs, p: Dictionary, selected: bool, i: Dictionary, fit_ra
 			# fairly high and he trusts you (the rule is printed on the choice).
 			"leadership": lead, "captain": Captaincy.role_of(gs.captaincy_record(gs.my_club), id) == "captain",
 			"delegate_holds": holds, "holds_at": StoryDeck.HOLDS_AT, "holds_trust_at": StoryDeck.HOLDS_WITH_TRUST}
+	# The result of his role trial, for the card that reports it.
+	var tr: Dictionary = gs.trial_result
+	if not tr.is_empty() and str(tr.get("id", "")) == id:
+		out["trial_word"] = str(tr["word"])
+		out["trial_avg"] = int(tr["avg"])
+		out["trial_par"] = int(tr["par"])
+		var back := "He goes back to his usual spot."
+		if bool(tr["ok"]):
+			out["trial_tail"] = ("%s He starts training as a %s with three weeks already banked." % [back, str(tr["word"])]
+					if bool(tr["trained"]) else "%s He cannot start training there just now." % back)
+		else:
+			out["trial_tail"] = back
+	return out
 
 
 ## One card from the deck about `p` (or the club), built for this week whether
@@ -210,7 +267,17 @@ static func apply_choice(gs, card: Dictionary, choice: int) -> String:
 	var facts: Dictionary = card.get("facts", {})
 	var applied := {}
 	var said: PackedStringArray = []
+	# A role trial that cannot start (he is not in the side now, or is picked
+	# there already) costs nothing: no trust, morale or board either.
 	for e in opt.get("effects", []):
+		if str(e.get("op", "")) == "role_trial":
+			var started: String = gs.start_role_trial(p, int(e.get("weeks", 3)))
+			if started == "":
+				return "%s is not in the side to try in a new role, so nothing changes." % GameDB.player_display_name(p)
+			said.append(started)
+	for e in opt.get("effects", []):
+		if str(e.get("op", "")) == "role_trial":
+			continue
 		var line := _apply(gs, e, p, facts, applied)
 		if line != "":
 			said.append(line)
@@ -234,6 +301,15 @@ static func running_fitness(gs) -> Array:
 				"v": int((p.get("attr", {}) as Dictionary).get("durability", 0))})
 	rows.sort_custom(func(a, b): return int(a["v"]) > int(b["v"]) or (int(a["v"]) == int(b["v"]) and str(a["id"]) < str(b["id"])))
 	return rows
+
+
+## The position a role trial would try him in: his second position, or one he
+## has learned, that is not the one he is listed at. "" when he has none.
+static func trial_role(p: Dictionary) -> String:
+	for r in Ratings.second_positions(p):
+		if str(r) != "" and str(r) != str(p.get("role", "")):
+			return str(r)
+	return ""
 
 
 static func _targets(gs, e: Dictionary, p: Dictionary) -> Array:
@@ -277,6 +353,8 @@ static func _apply(gs, e: Dictionary, p: Dictionary, facts: Dictionary, applied:
 					d, StoryEngine.fill(str(e.get("why", "")), facts), int(gs.season_year), when)
 		"rest":
 			p["rested"] = true
+		"role_trial":
+			return gs.start_role_trial(p, int(e.get("weeks", 3)))
 		"sore":
 			if int(p.get("injury_weeks", 0)) > 0:
 				return "%s has since been ruled out anyway." % name
