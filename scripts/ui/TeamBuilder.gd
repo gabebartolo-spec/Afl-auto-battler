@@ -135,6 +135,7 @@ func _build() -> void:
 			card.set_meta("spot", str(keys[i]))
 			_pitch.add_child(card)
 	var inter := UiKit.lbl("Interchange", UiKit.SMALL, UiKit.MUTED, true)
+	inter.autowrap_mode = TextServer.AUTOWRAP_OFF
 	if interchange_actions != null:
 		# The word and what acts on the side, side by side (no stretch between).
 		var irow := UiKit.hbox(12)

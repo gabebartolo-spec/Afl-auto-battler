@@ -51,8 +51,18 @@ func _run() -> void:
 	state.save_path = "user://capture.save"
 	state.settings_path = "user://capture_settings.cfg"
 	state.reset()
+	# The window is sized so the UI has exactly W x H units, whatever this
+	# screen's DPI scale is (ScreenLayout divides the window by it).
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))
+	# One unit is one pixel, as on a phone's reference size (not this PC's DPI).
+	var sl = root.get_node("ScreenLayout")
+	sl.ui_scale = 1.0 / maxf(0.01, sl.desktop_density(Vector2(W, H), DisplayServer.screen_get_scale(),
+			DisplayServer.screen_get_dpi() if OS.get_name() == "Windows" else 0))
+	sl._update_scale()
+	for i in range(6):
+		await process_frame
+	print("view ", root.get_visible_rect().size)
 	state.start_season(club, db.club_list(club))
 	for r in range(rounds):
 		state.advance()

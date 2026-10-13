@@ -171,6 +171,7 @@ func _side_page(auto: bool) -> Control:
 	builder.inspect.connect(_open_profile)
 	builder.changed.connect(func(note: String):
 		_notice = note
+		builder.start_note = note
 		_undo = {}
 		var hint: Label = builder.find_child("BuilderHint", true, false)
 		if hint != null:

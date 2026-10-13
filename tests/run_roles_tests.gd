@@ -389,7 +389,7 @@ func _selection_pages_tests() -> void:
 		var tag := "%s phone" % club
 		# --- phone 390x844 ---
 		root.size = Vector2i(390, 844)
-		var ui := await _open()
+		var ui := await _open(false)
 		var tab_side: Button = ui.find_child("SelectionPage_side", true, false)
 		var tab_week: Button = ui.find_child("SelectionPage_week", true, false)
 		_check(tab_side != null and tab_week != null and tab_side.size.y >= 44 and tab_week.size.y >= 44
@@ -464,7 +464,7 @@ func _selection_pages_tests() -> void:
 			var ptag := "%s %dx%d" % [club, size.x, size.y]
 			root.size = size
 			_state.set_selection({})
-			ui = await _open()
+			ui = await _open(false)
 			_check(ui.find_child("SidePage", true, false) != null and ui.find_child("WeekPage", true, false) != null
 					and ui.find_child("SelectionPage_side", true, false) == null,
 					"PC: the side and the week are both in view, no toggle (%s)" % ptag)
@@ -669,7 +669,8 @@ func _backing_ui_tests() -> void:
 	var kid_id := str(kid["id"])
 	var digits := RegEx.new()
 	digits.compile("\\d")
-	var ui := await _open()
+	root.size = Vector2i(420, 860)
+	var ui := await _open(false)
 	var tile: Node = _card_of(ui, str(best["id"]))
 	_check(tile != null, "The best player is on the field")
 	if tile != null:
@@ -712,6 +713,8 @@ func _backing_ui_tests() -> void:
 			var ledger: Array = kid.get("backed", [])
 			_check(ledger.size() == 1 and str(ledger[0]["state"]) == "active", "He is on a run")
 			_check(_screen_text(ui).contains("has your word for three games"), "Selection says what changed")
+			root.size = Vector2i(1280, 720)  # the week is in view beside the side
+			await _settle()
 			var line: Label = ui.find_child("Backing_" + kid_id, true, false)
 			_check(line != null and line.text == "You promised %s a run: game one of three." % db.player_display_name(kid)
 					and digits.search(line.text) == null, "Selection reminds you of the run, in words (%s)" % (line.text if line else "-"))
@@ -951,7 +954,10 @@ func _culture_ui_tests() -> void:
 	await _settle()
 
 
-func _open() -> Control:
+## `pc`: open it in a PC window, where the side and the week are both in view.
+func _open(pc := true) -> Control:
+	if pc:
+		root.size = Vector2i(1280, 720)
 	var ui: Control = load("res://scenes/SelectionScene.tscn").instantiate()
 	root.add_child(ui)
 	await _settle()
