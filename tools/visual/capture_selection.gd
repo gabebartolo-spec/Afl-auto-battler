@@ -5,7 +5,7 @@ extends SceneTree
 ## --picked: one player tapped, waiting for the second tap. --opp: the oval
 ## flipped to this week's opponent. --guide: the synergy guide with Complete.
 ## --report: the assistant's report. --rounds N: play N rounds first.
-## --oval: scrolled down to the oval.
+## --oval: (old) scrolled down to the oval. --club CODE; --weeksheet opens the week over the phone's side page.
 ## Writes <out>_sheet.png.
 
 var W := 1280
@@ -21,6 +21,8 @@ func _run() -> void:
 	var picked := false
 	var oval := false
 	var mode := ""
+	var club := "COL"
+	var page := ""
 	var rounds := 0
 	var a := OS.get_cmdline_user_args()
 	for i in range(a.size()):
@@ -30,13 +32,17 @@ func _run() -> void:
 			var wh := str(a[i + 1]).split("x")
 			W = int(wh[0])
 			H = int(wh[1])
+		if str(a[i]) == "--club" and i + 1 < a.size():
+			club = str(a[i + 1])
+		if str(a[i]) == "--page" and i + 1 < a.size():
+			page = str(a[i + 1])
 		if str(a[i]) == "--rounds" and i + 1 < a.size():
 			rounds = int(a[i + 1])
 		if str(a[i]) == "--picked":
 			picked = true
 		if str(a[i]) == "--oval":
 			oval = true
-		if str(a[i]) in ["--opp", "--guide", "--report"]:
+		if str(a[i]) in ["--opp", "--guide", "--report", "--weeksheet"]:
 			mode = str(a[i]).trim_prefix("--")
 	await process_frame
 	var state = root.get_node("GameState")
@@ -45,12 +51,25 @@ func _run() -> void:
 	state.save_path = "user://capture.save"
 	state.settings_path = "user://capture_settings.cfg"
 	state.reset()
+	# The window is sized so the UI has exactly W x H units, whatever this
+	# screen's DPI scale is (ScreenLayout divides the window by it).
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))
-	state.start_season("COL", db.club_list("COL"))
+	# One unit is one pixel, as on a phone's reference size (not this PC's DPI).
+	var sl = root.get_node("ScreenLayout")
+	sl.ui_scale = 1.0 / maxf(0.01, sl.desktop_density(Vector2(W, H), DisplayServer.screen_get_scale(),
+			DisplayServer.screen_get_dpi() if OS.get_name() == "Windows" else 0))
+	sl._update_scale()
+	for i in range(6):
+		await process_frame
+	print("view ", root.get_visible_rect().size)
+	state.replay_seed = 2027
+	state.start_season(club, db.club_list(club))
 	for r in range(rounds):
 		state.advance()
 	var ui: Control = load("res://scenes/SelectionScene.tscn").instantiate()
+	if page != "":
+		ui.set("_page", page)
 	root.add_child(ui)
 	for i in range(8):
 		await process_frame
@@ -64,6 +83,8 @@ func _run() -> void:
 			ui.call("_build")
 		"guide":
 			ui.call("_show_synergies")
+		"weeksheet":
+			ui.call("_open_week")
 		"report":
 			ui.call("_show_report", str(state.my_next_opponent().get("code", "")))
 	for i in range(8):
