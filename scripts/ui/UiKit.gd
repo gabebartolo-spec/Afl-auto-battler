@@ -314,7 +314,7 @@ static func club_ink(code: String, surface := AUTO_COLOUR) -> Color:
 			return cand
 		if dark_ground:
 			val = minf(1.0, val + 0.05)
-			sat = maxf(0.45, sat - 0.03)
+			sat = maxf(0.6, sat - 0.02)
 		else:
 			val = maxf(0.0, val - 0.05)
 	return TEXT

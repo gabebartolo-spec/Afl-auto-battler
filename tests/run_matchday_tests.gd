@@ -1010,7 +1010,7 @@ func _club_ink_all() -> void:
 		dh = minf(dh, 1.0 - dh)
 		if dh > 0.04:
 			bad.append("%s hue %.0f deg from its primary" % [code, dh * 360.0])
-		if ink.s < 0.4:
+		if ink.s < 0.5:
 			bad.append("%s ink is grey (s %.2f)" % [code, ink.s])
 	_check(n >= 18 and bad.is_empty(), "All %d clubs' ink reads, keeps its primary hue and is never grey (%s)" % [n, str(bad)])
 
