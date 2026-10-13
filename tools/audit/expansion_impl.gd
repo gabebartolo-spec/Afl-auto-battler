@@ -9,12 +9,32 @@ extends RefCounted
 ##   DRAFT  seed year club | the picks the club used in that year's National Draft
 ##   EXP    seed year club clubyear | ladder place, wins, strength rank
 ##   SUMMARY at the end: place by club year, first top 8 and first finals (top 10).
-## Args after the impl name: seeds (comma list) club seasons (default 301 MEL 8).
+## Args after the impl name: seeds (comma list) club seasons [package]
+## (default 301 MEL 8, no package).
 ## godot --headless --path . --script tools/audit/run_audit.gd -- expansion_impl 301,302 MEL 8
+##
+## The optional package is an ESTIMATE of a concession package for the first
+## new club only (Tasmania; Canberra stays as it is, a control in the same
+## career). It changes no game code: the audit moves players by hand.
+##   p1=1,3,5   the players taken at those picks in the draft before entry
+##              join the new club instead (as if it had held the picks)
+##   p2=5,9     the same for the draft after its first season; p3 after its second
+##   unc=8      one out-of-contract player from each of 8 rival clubs joins
+##   rank=2     which one: each club's 2nd best player coming out of contract
+##              (by OVR a season earlier, under 30 when he joins), the 8 best of those
+##   room=4     the club's own generated players can improve at most 4 points
+##              past their rating at entry (a list of state-league and
+##              overlooked players, not of future stars)
+## e.g. expansion_impl 301 MEL 8 "p1=1,3,5,7;p2=5,9;unc=8;rank=2"
+## PACK lines say who moved. Not modelled: rivals sliding down the draft
+## order, compensation picks, must-trade picks, cap or list allowances.
 
 const NEW_CLUBS := ["TAS", "CANB"]
 
 var rows := []   # {seed, code, cy, pos, n, w, l, pct, rank}
+var pack := {}   # the package estimate, see the header
+var _expiring := []   # [{id, club, ovr}] rivals' out-of-contract players before entry
+var _held := {}  # draft year -> pick history, for the package's picks
 
 
 func _run_draft(d: Draft) -> void:
@@ -127,10 +147,11 @@ func _season_end(seed: int) -> void:
 		rows.append({"seed": seed, "code": code, "cy": cy, "pos": i + 1, "n": table.size(),
 				"w": int(row["w"]), "l": int(row["l"]), "pct": float(row["pct"]), "rank": rank,
 				"flag": premier == code})
-		print("EXP %d %d %s year %d | ladder %d of %d | %d-%d, %.0f%% | strength rank %d | best 22 %.1f (rivals %.1f) | best-22 age %.1f | list %d%s" % [
+		print("EXP %d %d %s year %d | ladder %d of %d | %d-%d, %.0f%% | strength rank %d | best 22 %.1f (rivals %.1f) | best-22 age %.1f | list %d | payroll %.2f of the cap%s" % [
 				seed, year, code, cy, i + 1, table.size(), int(row["w"]), int(row["l"]), float(row["pct"]),
 				rank, _strength(lists[code]), _league_mean(lists, code), _mean_age(lists[code]),
-				(lists[code] as Array).size(), " | PREMIERS" if premier == code else ""])
+				(lists[code] as Array).size(),
+				float(Contracts.payroll(lists[code])) / maxf(1.0, float(GameState.salary_cap)), " | PREMIERS" if premier == code else ""])
 
 
 func _draft_lines(seed: int, year: int, history: Array) -> void:
@@ -142,6 +163,97 @@ func _draft_lines(seed: int, year: int, history: Array) -> void:
 		if picks.is_empty():
 			continue
 		print("DRAFT %d %d %s | picks %s" % [seed, year, code, str(picks)])
+
+
+func _pack_list(key: String) -> Array:
+	var out := []
+	for v in str(pack.get(key, "")).split(",", false):
+		out.append(int(v))
+	return out
+
+
+func _move(id: String, to: String, why: String, seed: int) -> bool:
+	var lists: Dictionary = GameState.season.lists
+	for c in lists:
+		if str(c) == to:
+			continue
+		var arr: Array = lists[c]
+		for i in range(arr.size()):
+			if str(arr[i]["id"]) != id:
+				continue
+			if arr.size() <= Contracts.MIN_LIST:
+				return false
+			var p: Dictionary = arr[i]
+			arr.remove_at(i)
+			p["club"] = to
+			var nums := {}
+			for q in lists[to]:
+				nums[int(q.get("num", 0))] = true
+			var n := 1
+			while nums.has(n):
+				n += 1
+			p["num"] = n
+			(lists[to] as Array).append(p)
+			print("PACK %d %d %s | %s | from %s: age %.0f, OVR %d, POT %d" % [seed, GameState.season_year, to, why,
+					str(c), float(p.get("age", 0.0)), int(p["overall"]), int(p.get("potential", p["overall"]))])
+			return true
+	return false
+
+
+## Keep the new club inside the list limit: the weakest go first.
+func _trim(code: String) -> void:
+	var arr: Array = GameState.season.lists[code]
+	while arr.size() > Contracts.MAX_LIST:
+		var worst := 0
+		for i in range(arr.size()):
+			if int(arr[i]["overall"]) < int(arr[worst]["overall"]):
+				worst = i
+		arr.remove_at(worst)
+
+
+func _note_expiring() -> void:
+	_expiring = []
+	for c in GameState.season.lists:
+		var out := []
+		for p in Contracts.expiring(GameState.season.lists[c]):
+			if float(p.get("age", 0.0)) < 29.0:   # under 30 when he joins
+				out.append(p)
+		out.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+		var k := int(pack.get("rank", "1")) - 1
+		if k < out.size():
+			_expiring.append({"id": str(out[k]["id"]), "club": str(c), "ovr": int(out[k]["overall"])})
+	_expiring.sort_custom(func(a, b): return int(a["ovr"]) > int(b["ovr"]))
+
+
+## The package, applied at the start of a season (rollover done).
+func _apply_pack(seed: int) -> void:
+	if pack.is_empty():
+		return
+	var code := str(NEW_CLUBS[0])
+	var cy := GameState.season_year - GameDB.enter_year(code) + 1
+	if cy < 1 or cy > 3:
+		return
+	var history: Array = _held.get(GameState.season_year - 1, [])
+	for pick in _pack_list("p%d" % cy):
+		for e in history:
+			if int(e.get("pick", 0)) == pick and str(e.get("club", "")) != code:
+				_move(str(e.get("player_id", "")), code, "pick %d" % pick, seed)
+	if cy == 1 and pack.has("room"):
+		for p in GameState.season.lists[code]:
+			if bool(p.get("generated", false)) and str(p.get("id", "")).begins_with("EXP_"):
+				p["potential"] = mini(int(p.get("potential", p["overall"])), int(p["overall"]) + int(pack["room"]))
+	if cy == 1:
+		var want := int(pack.get("unc", "0"))
+		var got := 0
+		for e in _expiring:
+			if got >= want:
+				break
+			if _move(str(e["id"]), code, "out of contract", seed):
+				got += 1
+		print("PACK %d %d %s | out of contract: wanted %d, candidates %d, joined %d" % [
+				seed, GameState.season_year, code, want, _expiring.size(), got])
+	_trim(code)
+	GameState.ensure_contracts()
 
 
 func _career(seed: int, club: String, seasons: int) -> void:
@@ -156,6 +268,11 @@ func _career(seed: int, club: String, seasons: int) -> void:
 	_run_draft(GameState.draft)
 	GameState.start_season(club, GameState.draft.list())
 	for s in range(seasons):
+		_apply_pack(seed)
+		# Who is in the last year of his deal, read at the season's start:
+		# rivals re-sign most of them before the season ends.
+		if not pack.is_empty() and GameState.season_year == GameDB.enter_year(str(NEW_CLUBS[0])) - 1:
+			_note_expiring()
 		_entry(seed)
 		while not GameState.season.is_season_over():
 			GameState.advance()
@@ -168,6 +285,7 @@ func _career(seed: int, club: String, seasons: int) -> void:
 			_run_draft(GameState.draft)
 			var history: Array = GameState.draft.pick_history.duplicate()
 			GameState.finish_intake_draft()
+			_held[year] = history
 			_draft_lines(seed, year, history)
 		else:
 			GameState.start_next_season()
@@ -236,6 +354,13 @@ func run() -> void:
 	var seeds := (str(args[1]) if args.size() > 1 else "301").split(",")
 	var club := str(args[2]) if args.size() > 2 else "MEL"
 	var seasons := int(args[3]) if args.size() > 3 else 8
+	if args.size() > 4:
+		for part in str(args[4]).split(";", false):
+			var kv := part.split("=")
+			if kv.size() == 2:
+				pack[kv[0]] = kv[1]
+		print("PACKAGE %s" % str(pack))
 	for s in seeds:
+		_held = {}
 		_career(int(s), club, seasons)
 	_summary()
