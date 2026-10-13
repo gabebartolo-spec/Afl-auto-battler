@@ -32,24 +32,34 @@ func _run() -> void:
 	var width := 360
 	var scale := 0.5
 	var film := ""
+	var fps := 12.0
+	var height := 0
+	var clubs := ["COL", "CAR"]
 	var a := OS.get_cmdline_user_args()
 	for i in range(a.size() - 1):
 		match str(a[i]):
 			"--out": out = str(a[i + 1])
 			"--width": width = int(a[i + 1])
+			# --height N: a fixed window height (default 2.2 x the width, a tall phone); 720 with --width 1280 is a PC.
+			"--height": height = int(a[i + 1])
 			"--scale": scale = float(a[i + 1])
 			"--film": film = str(a[i + 1])
+			# --fps N: film frames a second (default 12). Review clips at 30: a TV camera's pan
+			# sampled at 12 reads as jumps that the game, drawing every frame, doesn't have.
+			"--fps": fps = float(a[i + 1])
+			# --clubs FRE,MEL: the featured player's club and the opposition (default COL,CAR).
+			"--clubs": clubs = str(a[i + 1]).split(",")
 			# Loaded, not named: a class named here compiles before the autoloads exist
 			# (VignetteGround reads GameDB), and the whole tool failed to load.
 			"--venue": load("res://scripts/ui/match/VignetteGround.gd").venue = str(a[i + 1])
 	await process_frame
 	var db = root.get_node("GameDB")
 	var w := width
-	var h := int(round(width * 2.2))       # a tall phone in portrait
+	var h := height if height > 0 else int(round(width * 2.2))       # a tall phone in portrait
 	root.size = Vector2i(w, h)
 	DisplayServer.window_set_size(Vector2i(w, h))
 	# A real small forward for the crumb and the pocket snap, a key forward for the rest.
-	var squad: Array = db.club_list("COL").duplicate()
+	var squad: Array = db.club_list(clubs[0]).duplicate()
 	squad.sort_custom(func(x, y): return float(x.get("height_cm", 0)) < float(y.get("height_cm", 0)))
 	var small: Dictionary = squad.filter(func(x): return float(x.get("height_cm", 0)) > 0)[0]
 	var tall: Dictionary = squad[squad.size() - 4]
@@ -60,13 +70,17 @@ func _run() -> void:
 		var kind: String = KINDS[r]
 		var star: Dictionary = small if kind in ["goal_line", "boundary_snap"] else tall
 		var ev := {"kind": "goal", "side": 0, "num": int(star.get("num", 7)), "player_id": str(star["id"]),
-				"club": "COL", "q": 4, "set_shot": kind == "after_siren", "crumb": kind == "goal_line"}
+				"club": clubs[0], "q": 4, "set_shot": kind == "after_siren", "crumb": kind == "goal_line"}
 		if kind.begins_with("speccy"):
 			ev["kind"] = "mark"
+		# The score, as every match event carries it: the big screen shows it (without one it draws two
+		# blank colour blocks, which read as placeholders in a review clip).
+		ev["goals"] = [9, 7]
+		ev["behinds"] = [8, 11]
 		var vig = load("res://scripts/ui/match/BroadcastVignette.gd").new()
 		root.add_child(vig)
-		vig.size = Vector2(w, h)
-		vig.setup(kind, ev, {}, {"home": "COL", "away": "CAR"})
+		vig.size = root.get_visible_rect().size   # canvas units: the window is scaled (project stretch), not 1:1
+		vig.setup(kind, ev, {}, {"home": clubs[0], "away": clubs[1]})
 		vig.set_process(false)
 		var beats: Array = BEATS[kind]
 		if film != "":
@@ -77,7 +91,7 @@ func _run() -> void:
 			var ft := 0.0
 			while ft < vig.duration_for(kind):
 				beats.append(ft)
-				ft += 1.0 / 12.0
+				ft += 1.0 / fps
 		for c in range(beats.size()):
 			vig.set("_t", float(beats[c]))
 			vig.modulate.a = 1.0

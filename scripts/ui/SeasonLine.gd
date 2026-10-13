@@ -64,7 +64,7 @@ func _draw() -> void:
 	var actual := PackedVector2Array()
 	for w in range(Conditioning.LAST_WEEK + 1):
 		planned.append(Vector2(_x(w), _y(Conditioning.planned(_rec, w))))
-		actual.append(Vector2(_x(w), _y(Conditioning.actual(_rec, w, _hp))))
+		actual.append(Vector2(_x(w), _y(Conditioning.legs(_rec, w, _hp))))
 	_dotted(planned, UiKit.MUTED)
 	draw_polyline(actual, UiKit.TEXT, 3.0, true)
 	# Now.
