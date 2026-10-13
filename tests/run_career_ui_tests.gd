@@ -704,11 +704,21 @@ func _run() -> void:
 	_check(not form_digits and not form_text.contains(" his ") and not form_text.contains("his season"),
 			"Recent games shows no rating numbers and no dangling 'his' (%s)" % form_text.replace("\n", " / "))
 	var plan: Button = current_scene.find_child("ClubPlan_contest", true, false)
-	if plan != null:
-		plan.emit_signal("pressed")
-		await _settle()
+	var size_plan: Vector2i = root.size
+	root.size = Vector2i(390, 844)   # a phone window, so the finger lands on screen
+	await _settle()
+	plan = current_scene.find_child("ClubPlan_contest", true, false)
+	var why_plan: String = (await Tap.tap(plan)) if plan != null else "no tile"
+	await _settle()
 	_check(_state.club_plan == "contest" and _state.season.plans.get("SYD", "") == "contest",
-			"Choosing a game plan makes it the club's plan")
+			"Choosing a game plan makes it the club's plan (a real tap: %s)" % why_plan)
+	# Readability: the chosen plan is bold, the others regular.
+	var chosen_l: Label = plan.find_child("Plan", true, false) if plan != null else null
+	var other_tile: Node = current_scene.find_child("ClubPlan_attacking", true, false)
+	var other_l: Label = other_tile.find_child("Plan", true, false) if other_tile != null else null
+	root.size = size_plan
+	_check(chosen_l != null and other_l != null and chosen_l.get_theme_font("font") == load("res://scripts/ui/UiKit.gd").BOLD
+			and other_l.get_theme_font("font") != load("res://scripts/ui/UiKit.gd").BOLD, "The chosen plan is bold, the others are regular")
 	_state.set_club_plan("balanced")
 	_router.handle_back(true)
 	await _settle()

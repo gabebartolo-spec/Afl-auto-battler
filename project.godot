@@ -58,3 +58,10 @@ anti_aliasing/quality/msaa_2d=1
 anti_aliasing/quality/msaa_2d.web=0
 textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0.071, 0.067, 0.063, 1)
+
+[features]
+
+; Feature switches (scripts/core/Features.gd). A feature merged before its
+; patch is ready ships OFF here; its tests and tools turn it on for themselves,
+; and a dev run does with:  godot --path . -- --features preseason
+preseason=false
