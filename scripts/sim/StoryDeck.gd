@@ -184,7 +184,7 @@ static func _check_card(t: Dictionary) -> Array:
 		if str(c.get("label", "")) == "":
 			errs.append("%s/%s: the choice has no label" % [id, ck])
 		for field in ["label", "note", "result"]:
-			errs.append_array(_check_text("%s/%s" % [id, ck], str(c.get(field, "")), player))
+			errs.append_array(_check_text("%s/%s" % [id, ck], str(c.get(field, "")), player, field == "result"))
 		for e in c.get("effects", []):
 			errs.append_array(_check_effect("%s/%s" % [id, ck], e, player))
 	var un: Dictionary = t.get("unanswered", {})
@@ -219,8 +219,13 @@ static func _check_effect(where: String, e, player: bool) -> Array:
 
 
 ## Placeholders must be facts the game supplies: {name} only on a player card.
-static func _check_text(where: String, s: String, player: bool) -> Array:
+static func _check_text(where: String, s: String, player: bool, ranked := false) -> Array:
 	var errs := []
+	# {best3} / {worst2} name players from a ranked list: a result line on a
+	# club card only (StoryEngine.fill_ranked).
+	var rk := RegEx.create_from_string(StoryEngine.RANKED_TOKEN)
+	if not rk.search_all(s).is_empty() and not (ranked and not player):
+		errs.append("%s: {best3} and {worst2} belong in a club card's result line" % where)
 	var re := RegEx.create_from_string("\\{([a-z_]+)\\}")
 	for m in re.search_all(s):
 		var f: String = m.get_string(1)

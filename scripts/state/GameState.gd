@@ -264,8 +264,8 @@ func _ready() -> void:
 	Feel.haptics = bool(cfg.get_value("ui", "haptics", true))
 	Feel.reduced = bool(cfg.get_value("ui", "reduced_motion", false))
 	ScreenLayout.set_screen_size(str(cfg.get_value("ui", "screen_size", "standard")))
-	if bool(cfg.get_value("ui", "fullscreen", false)):
-		ScreenLayout.set_fullscreen(true)
+	# A desktop opens fullscreen unless the player chose Window (director, 2026-10-12).
+	ScreenLayout.set_fullscreen(bool(cfg.get_value("ui", "fullscreen", true)))
 	_apply_battery_saver(bool(cfg.get_value("ui", "battery_saver", false)))
 
 
@@ -436,7 +436,7 @@ func set_screen_size(key: String) -> void:
 
 
 func fullscreen() -> bool:
-	return bool(get_setting("fullscreen", false))
+	return bool(get_setting("fullscreen", true))
 
 
 func set_fullscreen(on: bool) -> void:
@@ -1077,7 +1077,13 @@ func _unlinked_lists(lists: Dictionary) -> Dictionary:
 func reset() -> void:
 	# Mid-career seasons mutate the loaded player dicts in place (intake,
 	# ageing, XP training). A new career must start from the pristine 2026
-	# dataset, so reload the data files before rebuilding anything.
+	# dataset, so reload the data files before rebuilding anything. The caches
+	# built from the players (prospect shapes, story cards) are dropped with it,
+	# so a new career never reads one built under the last. PlayerProfile's rating
+	# scale stays: matches on worker threads only read it (Season warms it first),
+	# and clearing it let a worker rebuild it and crash (CI 38237786675).
+	Prospects.forget_cache()
+	StoryDeck.reload()
 	GameDB.reload()
 	# Nothing of the last career's market or caches carries into this one
 	# (a second career in one process played its off-season differently).
@@ -3816,6 +3822,13 @@ func coaches_award_leaders(n := 5) -> Array:
 			return int(a["votes"]) > int(b["votes"])
 		return str(a["id"]) < str(b["id"]))
 	return rows.slice(0, n)
+
+
+## Browser builds have no threads: the round's other matches play one per
+## frame while yours is on screen (see Season.pump).
+func _process(_delta: float) -> void:
+	if not _others.is_empty() and _others.has("todo"):
+		Season.pump(_others)
 
 
 ## After a round: every club that played is a week closer to getting its
