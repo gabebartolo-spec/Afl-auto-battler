@@ -3,7 +3,7 @@ extends RefCounted
 ## League-wide list-building phase.
 ##
 ## Every club starts empty. The clubs are shuffled into a random draft order,
-## then picks snake back and forth (serpentine) until every club has an equal
+## then picks snake back and forth (serpentine; the National Draft keeps one order) until every club has an equal
 ## list. The human chooses on their club's turns; the rival clubs auto-pick
 ## between those turns from the same remaining pool and under the same cap.
 
@@ -18,6 +18,10 @@ var existing_sizes := {}              # code -> kept list length (intake only)
 var existing_role_counts := {}        # code -> {RUCK..FWD} kept players (intake)
 var existing_roles := {}              # code -> [[role, role2], ...] kept players (intake)
 var _fixed_order: Array = []
+## Intake only: clubs that have stopped drafting (the coach passed, or a rival
+## had nobody it could take). A passed club is skipped for the rest of the
+## draft and left out of the extra rounds.
+var passed_clubs := {}
 
 var pool: Array = []
 var budget := 0
@@ -91,6 +95,8 @@ static func build_intake(all_players: Array, p_clubs: Array, p_order: Array,
 	# Rookie deals sit outside the list cap the career draft enforces; money is
 	# not the constraint here, list space is.
 	d.budget = 999999999
+	# The sequence was built before intake_mode was set: rebuild it the intake way.
+	d._build_sequence([])
 	return d
 
 
@@ -146,7 +152,9 @@ func _build_sequence(comps: Array) -> void:
 	var regular := 0
 	for r in range(target_size):
 		var round_order := draft_order.duplicate()
-		if r % 2 == 1:
+		# The League Draft snakes. The National Draft runs the same order every
+		# round, worst club first (director, 2026-10-14).
+		if r % 2 == 1 and not intake_mode:
 			round_order.reverse()
 		for code in round_order:
 			var owner := str(pick_owners.get("%d:%s" % [r + 1, code], code))
@@ -255,7 +263,65 @@ func _list_full(code: String) -> bool:
 
 
 func _skip_current_pick() -> void:
+	if intake_mode and pick_index < pick_sequence.size():
+		# A club that passes (or has no pick it can take) is out of the rest of
+		# the draft, so the extra rounds always end.
+		passed_clubs[str(pick_sequence[pick_index])] = true
 	pick_index += 1
+	_extend_if_needed()
+
+
+## The National Draft runs until every list is full or the class is gone
+## (director, 2026-10-14): when the planned rounds end with prospects left,
+## another round in the same order is added for the clubs that still have room
+## and have not passed. A prospect is never wasted while a club has a place for him.
+func _extend_if_needed() -> void:
+	if not intake_mode or pick_index < pick_sequence.size():
+		return
+	var left := remaining_pool()
+	if left <= 0:
+		return
+	var rnd := (int(pick_rounds[-1]) if not pick_rounds.is_empty() else 0) + 1
+	var added := 0
+	for code in draft_order:
+		if added >= left:
+			break
+		if passed_clubs.has(code) or _list_full(code):
+			continue
+		pick_sequence.append(code)
+		pick_rounds.append(rnd)
+		pick_origin.append(code)
+		added += 1
+
+
+## Why the coach cannot pass this pick, in words ("" when he can). Intake only.
+func pass_block_reason() -> String:
+	if not intake_mode or not is_user_turn():
+		return "You can only pass on your own pick."
+	var have := int(existing_sizes.get(user_club, 0)) + count_for(user_club)
+	if have < Prospects.MIN_LIST:
+		return "Your list has %d players and needs at least %d, so you cannot pass yet." % [have, Prospects.MIN_LIST]
+	return ""
+
+
+## The coach passes: this pick and every later one are skipped.
+func user_pass() -> bool:
+	if pass_block_reason() != "":
+		return false
+	passed_clubs[user_club] = true
+	_skip_current_pick()
+	auto_until_user_turn()
+	return true
+
+
+## "Pick for me": the assistant's best available player for this one pick.
+func pick_for_me() -> bool:
+	if not is_user_turn():
+		return false
+	var p := _best_ai_pick(user_club)
+	if p.is_empty():
+		return false
+	return pick(p)
 
 
 func auto_until_user_turn() -> void:
@@ -263,6 +329,9 @@ func auto_until_user_turn() -> void:
 		return
 	while not is_finished():
 		var code := current_club()
+		if passed_clubs.has(code):
+			_skip_current_pick()
+			continue
 		if _list_full(code):
 			# The club is at the list cap: pass, like a club with no space
 			# under the CBA at the real draft.
@@ -318,6 +387,7 @@ func _draft_pick(code: String, p: Dictionary) -> bool:
 	pick_history.append(entry)
 	_pick_by_player[id] = entry
 	pick_index += 1
+	_extend_if_needed()
 	return true
 
 
@@ -330,7 +400,7 @@ func drafted_by(player_id: String) -> String:
 	return str(pick_details(player_id).get("club", ""))
 
 
-## Actual overall pick numbers, including the current turn, in snake order.
+## Actual overall pick numbers, including the current turn, in draft order.
 ## A limit of 0 returns the entire remaining schedule for the club.
 func upcoming_picks(code: String, limit := 3) -> Array:
 	var out := []
@@ -563,6 +633,8 @@ func _best_ai_pick(code: String) -> Dictionary:
 			continue
 		if not _can_afford_for(code, p):
 			continue
+		if intake_mode and str(p["role"]) == "RUCK" and _intake_ruck_need(code, p) <= 0.0:
+			continue   # a fourth ruck: no use to this club
 		var score := _ai_score(code, p)
 		if score > best_score:
 			best_score = score
@@ -664,6 +736,8 @@ func _ai_score(code: String, p: Dictionary) -> float:
 	for entry in roles:
 		var role: String = entry[0]
 		var need := _need_weight(code, role)
+		if role == "RUCK" and intake_mode:
+			need = _intake_ruck_need(code, p)
 		if role == "RUCK" and _has_first_ruck(code) and int(p["overall"]) >= RUCK_FIRST_CHOICE:
 			# One ruck plays at a time: a club with its first-choice ruck
 			# looks for a second, not another star to sit behind him.
@@ -877,7 +951,10 @@ func horizon_worth(p: Dictionary, horizon: String) -> float:
 	var seasons := Potential.outlook(p, HORIZON_YEARS)
 	for t in range(HORIZON_YEARS):
 		var w := float(weights[t])
-		total += w
+		# A club going for the flag now values an older star for the seasons he
+		# will actually play: seasons after he retires do not dilute his rating
+		# (director, 2026-10-14). Building clubs count every season as before.
+		total += w * (float(seasons[t][1]) if horizon == "now" else 1.0)
 		above += w * float(seasons[t][1]) * (float(seasons[t][0]) - HORIZON_REPLACEMENT)
 	var v := HORIZON_REPLACEMENT + above / maxf(0.001, total)
 	_horizon_cache[key] = v
@@ -900,6 +977,11 @@ func _ideal_counts(code: String) -> Dictionary:
 ## A national-draft prospect at a position the club already has covered is
 ## worth this share: a few rating points, enough to separate near-equals.
 const INTAKE_COVERED := 0.92
+## A third ruck is worth this share early in a National Draft; full (covered)
+## from this round on, or when he has this much growth in him.
+const INTAKE_RUCK_THIRD := 0.5
+const INTAKE_RUCK_LATE_ROUND := 3
+const INTAKE_RUCK_PROJECT_GAP := 12
 
 
 ## A first-choice ruck (League Draft): rated this or better and young enough
@@ -915,6 +997,18 @@ func _has_first_ruck(code: String) -> bool:
 		if str(p["role"]) == "RUCK" and int(p["overall"]) >= RUCK_FIRST_CHOICE and float(p.get("age", 30.0)) < 33.0:
 			return true
 	return false
+
+
+## AI clubs stop at two rucks (director, 2026-10-14): a third only late in the
+## draft or as a clear project (a long way to grow), never a fourth.
+func _intake_ruck_need(code: String, p: Dictionary) -> float:
+	var n := int(role_counts_for(code).get("RUCK", 0))
+	if n < 2:
+		return 1.0
+	if n >= 3:
+		return 0.0
+	var project := int(p.get("potential", 0)) - int(p.get("overall", 0)) >= INTAKE_RUCK_PROJECT_GAP
+	return INTAKE_COVERED if (current_round() >= INTAKE_RUCK_LATE_ROUND or project) else INTAKE_RUCK_THIRD
 
 
 func _need_weight(code: String, role: String) -> float:
@@ -1038,6 +1132,14 @@ func count() -> int:
 ## Picks a club may make: one a round, plus any compensation picks and picks
 ## it traded for, less those it traded away.
 func pick_limit(code: String) -> int:
+	if intake_mode:
+		# The rounds run until lists are full: a club may take every place it
+		# has been given so far.
+		var slots := 0
+		for c in pick_sequence:
+			if str(c) == code:
+				slots += 1
+		return slots
 	var n := target_size
 	for c in comp_picks:
 		if str(c["club"]) == code:
