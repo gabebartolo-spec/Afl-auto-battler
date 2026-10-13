@@ -43,6 +43,8 @@ var _burst_left := 0
 var _burst_tag := ""
 var _after_behind := -1
 var _moment_shots := 0
+var _every := 40
+var _pending_now := ""
 
 
 func _initialize() -> void:
@@ -140,7 +142,7 @@ func _run() -> void:
 	_scene = load("res://scenes/MatchScene.tscn").instantiate()
 	root.add_child(_scene)
 	_pitch = _scene.get("_pitch")
-	_pitch.event_played.connect(func(ev): _new_events.append(ev))
+	_pitch.event_played.connect(_released)
 	_log = FileAccess.open(_out + "_log.jsonl", FileAccess.WRITE)
 	_trace = FileAccess.open(_out + "_trace.jsonl", FileAccess.WRITE)
 
@@ -174,28 +176,14 @@ func _run() -> void:
 	var done := false
 	var code := 0
 	while not done:
-		await RenderingServer.frame_post_draw
+		# On the frame clock, not the draw: the game only redraws when something
+		# changed, so a still screen (a coach's call waiting) draws nothing, and a
+		# loop waiting on a drawn frame never woke to answer it.
+		await process_frame
 		_frame += 1
 		var now := Time.get_ticks_msec()
-		# The events the view released this frame, in order.
-		for ev in _new_events:
-			_emitted_events.append(ev)
-			var kind := str(ev.get("kind", ""))
-			var side := int(ev.get("side", -1))
-			if kind == "goal" and side >= 0:
-				_tally[side][0] += 1
-			elif kind == "behind" and side >= 0:
-				_tally[side][1] += 1
-			_on_event(ev)
-			_since_even += 1
-			if _since_even >= every:
-				_since_even = 0
-				_even_n += 1
-				_want("even", 0)
-				if _even_n % 5 == 0:
-					_burst_left = 4
-					_burst_tag = "burst%02d" % int(_even_n / 5.0)
-		_new_events.clear()
+		_every = every
+		_drain()
 		if _emitted_events.size() != last_emitted:
 			last_emitted = _emitted_events.size()
 			last_progress = now
@@ -207,13 +195,13 @@ func _run() -> void:
 			_overlay_frames += 1
 			last_progress = now
 			if _overlay_frames == 45:
-				_shot("fulltime")
+				await _shot("fulltime")
 				done = true
 		elif start != null and not _pressed.has(start.get_instance_id()):
 			_overlay_frames += 1
 			last_progress = now
 			if _overlay_frames == 30:
-				_shot("break_q%d" % int(_state.pending_sim.current_quarter))
+				await _shot("break_q%d" % int(_state.pending_sim.current_quarter))
 				_flush()
 			elif _overlay_frames >= 36:
 				_pressed[start.get_instance_id()] = true
@@ -225,7 +213,7 @@ func _run() -> void:
 			var m: Dictionary = _state.pending_sim.pending_moment
 			if _overlay_frames == 24 and _moment_shots < 4:
 				_moment_shots += 1
-				_shot("moment_%s" % str(m.get("kind", "")))
+				await _shot("moment_%s" % str(m.get("kind", "")))
 				_flush()
 			elif _overlay_frames >= 30:
 				_pressed[card.get_instance_id()] = true
@@ -237,18 +225,18 @@ func _run() -> void:
 					(b as Button).emit_signal("pressed")
 		else:
 			_overlay_frames = 0
-			_in_play()
+			await _in_play()
 		if _frame % 6 == 0 and bool(_pitch.playing):
 			_trace.store_line(JSON.stringify(_state_line("trace", false)))
 		if _queue.size() >= 14:
 			_flush()
 		if now - last_progress > 90000:
-			_shot("stalled")
+			await _shot("stalled")
 			print("OVAL STALLED: no event released for 90 s at event %d" % _emitted_events.size())
 			code = 2
 			done = true
 		if now - t0 > int(maxsecs * 1000.0):
-			_shot("timeout")
+			await _shot("timeout")
 			print("OVAL TIMEOUT at event %d of %d" % [_emitted_events.size(), int(_pitch.events.size())])
 			code = 3
 			done = true
@@ -262,6 +250,10 @@ func _run() -> void:
 	print("OVAL done: %d frames, %d events, tally %s, %.0f s" % [_n, _emitted_events.size(), str(_tally),
 			float(Time.get_ticks_msec() - t0) / 1000.0])
 	quit(code)
+
+
+func _released(ev: Dictionary) -> void:
+	_new_events.append(ev)
 
 
 func _kit(k: Dictionary) -> Dictionary:
@@ -348,17 +340,48 @@ func _in_play() -> void:
 	var fired := false
 	for p in _pending:
 		if int(p["at"]) <= _frame and not fired:
-			_shot(str(p["what"]))
 			fired = true
+			_pending_now = str(p["what"])
 		else:
 			keep.append(p)
 	_pending = keep
-	if not fired and _burst_left > 0 and _frame % 2 == 0:
+	if fired:
+		await _shot(_pending_now)
+	elif _burst_left > 0 and _frame % 2 == 0:
 		_burst_left -= 1
-		_shot(_burst_tag)
+		await _shot(_burst_tag)
 
 
+## The events the view released since the last look, in order.
+func _drain() -> void:
+	var batch := _new_events
+	_new_events = []
+	for ev in batch:
+		_emitted_events.append(ev)
+		var kind := str(ev.get("kind", ""))
+		var side := int(ev.get("side", -1))
+		if kind == "goal" and side >= 0:
+			_tally[side][0] += 1
+		elif kind == "behind" and side >= 0:
+			_tally[side][1] += 1
+		_on_event(ev)
+		_since_even += 1
+		if _since_even >= _every:
+			_since_even = 0
+			_even_n += 1
+			_want("even", 0)
+			if _even_n % 5 == 0:
+				_burst_left = 4
+				_burst_tag = "burst%02d" % int(_even_n / 5.0)
+
+
+## A frame and the match's state at that frame: ask for a draw, wait for it,
+## then read both (the events released meanwhile are counted first, so the
+## log's score is the one on the screen).
 func _shot(what: String) -> void:
+	(_pitch as Control).queue_redraw()
+	await RenderingServer.frame_post_draw
+	_drain()
 	var img: Image = root.get_viewport().get_texture().get_image()
 	var path := "%s_%03d_%s.png" % [_out, _n, what]
 	_queue.append([path, img])
@@ -411,6 +434,17 @@ func _state_line(what: String, full: bool) -> Dictionary:
 	line["scale"] = snappedf(float(_pitch._scale()), 0.01)
 	line["speed"] = float(_pitch.speed)
 	line["caption"] = str(_pitch.caption_text())
+	if _pitch.has_method("bench_spots"):
+		var drawn := []
+		for dp in _pitch._disc:
+			drawn.append([roundi(origin.x + dp.x), roundi(origin.y + dp.y)])
+		line["drawn"] = drawn
+		line["tr"] = snappedf(float(_pitch.token_radius()), 0.1)
+		var bench := []
+		for sp in _pitch.bench_spots(_pitch.token_radius()):
+			bench.append([int(sp["side"]), int(sp["num"]), roundi(origin.x + sp["pos"].x), roundi(origin.y + sp["pos"].y)])
+		line["bench_drawn"] = bench
+		line["clash"] = bool(_pitch.clash)
 	line["rings"] = (_pitch.rings as Dictionary).size()
 	line["role_labels"] = d.role_labels()
 	line["tally"] = _tally.duplicate(true)
