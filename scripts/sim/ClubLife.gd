@@ -131,18 +131,27 @@ static func add_morale(p: Dictionary, d: int) -> void:
 	p["morale"] = clampi(morale(p) + d, 5, 100)
 
 
+static func _sting_share(own: float, culture_s: float) -> float:
+	if culture_s == 0.0:
+		return own
+	var lim: Array = Culture.effects().get("sting_limit", [-0.4, 0.6])
+	return clampf(own + culture_s, float(lim[0]), float(lim[1]))
+
+
 ## After your match: who played gets a lift (more for a win), a fit player
 ## left out loses some - a star left out loses more.
 ## `soften` (id -> 0..0.4, from your man-managers) spares part of what being
 ## left out costs; it never adds to it.
-static func morale_after_match(list: Array, played: Dictionary, won: bool, soften: Dictionary = {}) -> void:
+## `culture_s` is the club's culture on the same scale (Togetherness: +0.1 softens
+## the sting 10%, -0.1 sharpens it), added to each player's own softening.
+static func morale_after_match(list: Array, played: Dictionary, won: bool, soften: Dictionary = {}, culture_s := 0.0) -> void:
 	for p in list:
 		var id := str(p["id"])
 		if played.has(id):
 			add_morale(p, 2 + (2 if won else 0) - (0 if won else 1))
 		elif int(p.get("injury_weeks", 0)) <= 0:
 			var loss := 6 if int(p.get("overall", 0)) >= 78 else 3
-			add_morale(p, -CoachEffects.softened(loss, float(soften.get(id, 0.0))))
+			add_morale(p, -CoachEffects.softened(loss, _sting_share(float(soften.get(id, 0.0)), culture_s)))
 		else:
 			# Injured players drift back toward settled.
 			add_morale(p, signi(MORALE_BASE - morale(p)))

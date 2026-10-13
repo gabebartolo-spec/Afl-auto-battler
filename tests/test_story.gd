@@ -50,6 +50,7 @@ func run() -> void:
 	_test_culture_order_and_tails()
 	_test_culture_sentences()
 	_test_culture_copy_is_true()
+	_test_culture_effects()
 	_test_captain_cards()
 	_test_group_words_are_sentence_case()
 	_test_captain_cards_in_play()
@@ -1526,8 +1527,7 @@ func _test_culture_order_and_tails() -> void:
 			"A rise carries no tail (the page says it once); only a fall says it cost the strand")
 
 
-## The screen claims no effect because there is none: nothing reads a strand to change play,
-## and each "what moves it" line matches the movers.
+## The screen's effect lines match what is applied, and each "what moves it" line matches the movers.
 func _test_culture_copy_is_true() -> void:
 	var files := []
 	var stack := ["res://scripts"]
@@ -1544,12 +1544,20 @@ func _test_culture_copy_is_true() -> void:
 		if text.contains("Culture.value(") or text.contains("Culture.words("):
 			readers.append(f.get_file())
 	readers.sort()
-	_check(readers == ["CultureSheet.gd", "GameState.gd"], "Only the screen and the news mover read a strand (%s)" % ", ".join(readers))
+	_check(readers == ["CultureSheet.gd", "GameState.gd"], "Only the screen and the news mover read a strand directly (%s)" % ", ".join(readers))
 	var gs := FileAccess.get_file_as_string("res://scripts/state/GameState.gd")
 	var at := gs.find("func _culture_move")
 	var body := gs.substr(at, gs.find("
 func ", at + 5) - at)
-	_check(gs.count("Culture.value(") == body.count("Culture.value("), "In GameState a strand is read only to make news")
+	_check(gs.count("Culture.value(") == body.count("Culture.value("), "In GameState a strand is read directly only to make news")
+	# Play reads a strand in one place, by kind; each kind is applied where the screen says.
+	var effect_readers := []
+	for f in files:
+		if FileAccess.get_file_as_string(f).contains("Culture.club_effect("):
+			effect_readers.append(f.get_file())
+	_check(effect_readers == ["GameState.gd"], "Only GameState applies a culture effect (%s)" % ", ".join(effect_readers))
+	for kind in ["recovery", "sting", "resign_floor", "free_agent_score"]:
+		_check(gs.contains("culture_effect(") and gs.contains("\"%s\")" % kind), "Culture's %s effect is applied" % kind)
 	for st in ["standards", "together", "ambition"]:
 		_check(Culture.moves_line(st) != "", "%s says what moves it" % st)
 	var tg := Culture.moves_line("together")
@@ -1566,6 +1574,80 @@ func ", at + 5) - at)
 	var loose := Culture.season_steps(9, 18, false, 0.0, -2.5)
 	_check(tidy[0]["strand"] == "standards" and tidy[0]["d"] > 0 and loose[0]["d"] < 0, "Discipline moves Standards the way the line says")
 	_check(Culture.event_text("Togetherness", {"w": "Round 10", "why": "A run of four losses", "d": -3}) == "Round 10: a run of four losses. Togetherness fell.", "An event reads as one line")
+
+
+func _test_culture_effects() -> void:
+	var fx := Culture.effects()
+	# The table names real bands, and a middle band does nothing.
+	for kind in Culture.KIND_STRAND:
+		var strand: String = Culture.KIND_STRAND[kind]
+		var bands: Dictionary = (fx[kind] as Dictionary)[strand]
+		var keys := []
+		for b in Culture.BANDS[strand]:
+			keys.append(b[1])
+		for k in bands:
+			_check(keys.has(k), "%s %s: %s is a real band" % [kind, strand, k])
+		_check(not bands.has("mid"), "%s: the middle band does nothing" % kind)
+		for k in bands:
+			_check(absf(float(bands[k])) <= float(fx["little_max"][kind]) * 2.0, "%s %s is small" % [kind, k])
+	# The screen's line says exactly the applied size and direction.
+	for strand in ["standards", "together", "ambition"]:
+		for t in [-60, -20, 0, 20, 60]:
+			var line := Culture.effect_line(strand, t)
+			var band := Culture.band_key(strand, t)
+			var kind := {"standards": "recovery", "together": "sting", "ambition": "resign_floor"}[strand]
+			var x := Culture.effect_of(kind, strand, band)
+			if x == 0.0:
+				_check(line == "", "%s %d: no line when it does nothing" % [strand, t])
+			else:
+				_check(line.contains("a little") or line.contains("keen"), "%s %d: size in words (%s)" % [strand, t, line])
+				if strand != "ambition":
+					_check(line.contains("faster") or line.contains("better") if x > 0.0 else line.contains("slower") or line.contains("worse"),
+							"%s %d: direction matches (%s)" % [strand, t, line])
+	_check(Culture.effect_line("standards", 20) == "Players recover a little faster between games.", "Standards, good band")
+	_check(Culture.effect_line("standards", -50) == "Players recover a little slower between games.", "Standards, slack band")
+	_check(Culture.effect_line("ambition", -50) == "", "A rebuild is not a fault: no effect")
+	# Standards: legs recover by the applied share.
+	var a := {"id": "x1", "age": 25.0, "attr": {"durability": 70.0}, "workload": 60.0}
+	var b := a.duplicate(true)
+	Workload.advance_week({"AAA": [a]}, [], "w1", {"AAA": 1.0})
+	Workload.advance_week({"AAA": [b]}, [], "w1", {"AAA": 1.05})
+	_check(absf((float(a["workload"]) - float(b["workload"])) - Workload.recovery(a) * 0.05) < 0.001, "Standards 5% more recovery is exactly 5% of a week's recovery")
+	# Togetherness: the sting of a missed game.
+	var star := {"id": "s", "overall": 80, "morale": 70}
+	var role := {"id": "r", "overall": 60, "morale": 70}
+	ClubLife.morale_after_match([star, role], {}, false, {}, 0.2)
+	_check(int(star["morale"]) == 70 - CoachEffects.softened(6, 0.2) and int(role["morale"]) == 70 - CoachEffects.softened(3, 0.2), "A very tight group softens the sting by a fifth")
+	var star2 := {"id": "s", "overall": 80, "morale": 70}
+	ClubLife.morale_after_match([star2], {}, false, {}, -0.2)
+	_check(int(star2["morale"]) == 70 - CoachEffects.softened(6, -0.2) and int(star2["morale"]) < 64, "A divided group sharpens it")
+	var played := {"id": "p", "overall": 60, "morale": 70}
+	ClubLife.morale_after_match([played], {"p": true}, false, {}, 0.2)
+	_check(int(played["morale"]) == 71, "Culture does not touch a player who played")
+	# Ambition: the re-sign floor and the free agent's weighing.
+	var pl: Dictionary = GameDB.all_players_sorted()[30]
+	var low := Contracts.lowest(pl, 2)
+	var cut := -int(round(float(low) * 0.02))
+	_check(Contracts.respond(pl, low + cut, 2, 0, cut)["answer"] == "accept" and Contracts.respond(pl, low + cut - 5000, 2, 0, cut)["answer"] != "accept",
+			"All in on winning now: he re-signs for 2% less, not 3%")
+	var o1 := {"salary": 800000, "years": 2, "role": "ground", "finish_t": 0.5}
+	var o2 := o1.duplicate()
+	o2["amb"] = 0.10
+	_check(absf(Contracts.offer_score(pl, o2) - Contracts.offer_score(pl, o1) - 0.10) < 0.0001, "The club's push adds exactly its size to a free agent's weighing")
+	# The same rule for every club, and an old save is neutral.
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	_check(GameState.culture_effect("GEE", "recovery") == 0.0 and GameState.culture_effect("COL", "sting") == 0.0, "A club with nothing recorded is neutral")
+	for code in ["GEE", "COL"]:
+		Culture.change(GameState.relations, code, "standards", 6, "x", GameState.season_year, "Round 1")
+		Culture.change(GameState.relations, code, "standards", 6, "x", GameState.season_year, "Round 2")
+		Culture.change(GameState.relations, code, "standards", 6, "x", GameState.season_year, "Round 3")
+	_check(GameState.culture_effect("GEE", "recovery") == 0.03 and GameState.culture_effect("COL", "recovery") == 0.03, "Every club gets the same size for the same band")
+	GameState.culture_effects_on = false
+	_check(GameState.culture_effect("GEE", "recovery") == 0.0, "Off means off")
+	GameState.culture_effects_on = true
 
 
 func _test_culture_sentences() -> void:

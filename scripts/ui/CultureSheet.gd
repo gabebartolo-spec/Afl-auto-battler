@@ -167,10 +167,15 @@ static func _icon(id: String) -> TextureRect:
 	return t
 
 
-## What moves the strand: one plain line under its headline. (What it does in
-## play joins it once the director approves the effects.)
+## Under a strand's headline: what it does now (bold, only while its band does
+## something) and what moves it.
 static func _what_it_does(d: Dictionary, parent: Control, size := 0) -> void:
 	var fs := size if size > 0 else UiKit.SECONDARY
+	var effect := Culture.effect_line(str(d["id"]), int(d["t"]))
+	if effect != "":
+		var does := UiKit.lbl(effect, fs, UiKit.TEXT, true)
+		does.name = "StrandEffect"
+		parent.add_child(does)
 	var moves := UiKit.lbl(Culture.moves_line(str(d["id"])), fs, UiKit.TEXT)
 	moves.name = "StrandMoves"
 	parent.add_child(moves)

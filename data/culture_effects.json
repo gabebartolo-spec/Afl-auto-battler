@@ -1,0 +1,9 @@
+{
+  "_about": "Club culture effects (director 2026-10-13: small, then measure; both ways for Standards and Togetherness, Ambition only on the winning-now side). Keys are the band names in Culture.BANDS. Every club follows the same rule.",
+  "recovery": {"standards": {"elite": 0.05, "good": 0.03, "loose": -0.03, "slack": -0.05}},
+  "sting": {"together": {"very": 0.20, "tight": 0.10, "cliques": -0.10, "split": -0.20}},
+  "resign_floor": {"ambition": {"allin": 0.02, "now": 0.01}},
+  "free_agent_score": {"ambition": {"allin": 0.10, "now": 0.05}},
+  "sting_limit": [-0.4, 0.6],
+  "little_max": {"recovery": 0.06, "sting": 0.25, "resign_floor": 0.03, "free_agent_score": 0.12}
+}

@@ -797,7 +797,9 @@ func _culture_ui_tests() -> void:
 	_check(why == "" and sheet != null and _screen_text(sheet).contains("A tight group")
 			and _screen_text(sheet).contains("Nothing stands out yet"),
 			"The screen says the strands in words, and what has nothing to say (%s)" % why)
-	_check(sheet != null and not _screen_text(sheet).contains("No effect"), "The screen claims no effect it does not have")
+	_check(sheet != null and _screen_text(sheet).contains("Players take a missed game a little better.")
+			and not _screen_text(sheet).contains("recover") and not _screen_text(sheet).contains("willing"),
+			"The screen says what an active band does, and nothing for a band that does nothing")
 	_check(sheet != null and _screen_text(sheet).contains(Culture.moves_line("ambition")), "Each strand says what moves it")
 	var reasons: Node = sheet.find_child("CultureReasons", true, false) if sheet != null else null
 	_check(reasons != null and reasons.is_visible_in_tree() and _screen_text(reasons).contains("layed finals. Togetherness rose."),
