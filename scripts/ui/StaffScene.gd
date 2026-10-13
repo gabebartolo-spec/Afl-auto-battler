@@ -42,7 +42,7 @@ func _build() -> void:
 	# the page, its ink. A dark club is carried by the guernsey alone.
 	var who_h := UiKit.hbox(8)
 	who_h.add_child(UiKit.club_marker(_club, 24.0))
-	var head := UiKit.ellipsis(GameDB.club_name(_club), UiKit.H2, UiKit.score_colour(_club, UiKit.BG), true)
+	var head := UiKit.ellipsis(GameDB.club_name(_club), UiKit.H2, UiKit.club_vivid(_club, UiKit.BG), true)
 	head.name = "StaffClub"
 	who_h.add_child(head)
 	body.add_child(who_h)
@@ -118,7 +118,7 @@ func _you_row() -> Control:
 	v.name = "StaffRow_SC"
 	v.custom_minimum_size.y = 64
 	v.add_child(UiKit.lbl("Senior coach", UiKit.SMALL, UiKit.TEXT, true))
-	v.add_child(UiKit.lbl("You", UiKit.BODY, UiKit.score_colour(GameState.my_club, UiKit.BG), true))
+	v.add_child(UiKit.lbl("You", UiKit.BODY, UiKit.club_vivid(GameState.my_club, UiKit.BG), true))
 	var l := UiKit.lbl("Selection, tactics and training are your calls.", UiKit.SMALL, UiKit.TEXT)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(l)
