@@ -260,6 +260,7 @@ static func build(deck: Array, t: Dictionary, subj: Dictionary, club: Dictionary
 	for c in t["choices"]:
 		var detail := " ".join(PackedStringArray([describe(c, facts), fill(str(c.get("note", "")), facts)])).strip_edges()
 		options.append({"key": str(c["key"]), "label": fill(str(c["label"]), facts), "detail": detail,
+				"rule": fill(str(c.get("rule", "")), facts),
 				"effects": (c.get("effects", []) as Array).duplicate(true), "result": fill(str(c.get("result", "")), facts)})
 	var card := {"key": str(t["id"]), "tid": str(t["id"]), "story": true, "category": str(t["category"]),
 			"default": int(t.get("default", -1)), "week": w, "facts": facts,
@@ -268,6 +269,8 @@ static func build(deck: Array, t: Dictionary, subj: Dictionary, club: Dictionary
 			"options": options}
 	if str(t.get("stakes", "")) != "":
 		card["stakes"] = fill(str(t["stakes"]), facts)
+	if bool(t.get("choice_notes", false)):
+		card["choice_notes"] = true
 	if player:
 		card["player_id"] = str(subj["id"])
 	if str(t.get("arc", "")) != "":
@@ -433,7 +436,36 @@ static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
 			return "Win and the board is won over; lose and it costs you."
 		"explain":
 			return "{kpi_or_need} Nothing is promised."
+		"delegate":
+			return _delegate_words(e, facts)
+		"back_kid":
+			return "{kid_name} is promised the next {run_games} games; leave him out fit and the promise breaks."
+		"captaincy_swap":
+			return "{vice_name} takes the armband; {name} stays in the leadership group. The Captaincy costs apply."
 	return ""
+
+
+## Left to the captain: what happens if the group listens and what if it doesn't,
+## worded from the choice's own held / failed effects, and which way it stands now.
+static func _delegate_words(e: Dictionary, facts: Dictionary) -> String:
+	var held := _lower_first(_outcome_words(e.get("held", []), facts))
+	var failed := _lower_first(_outcome_words(e.get("failed", []), facts))
+	if bool(facts.get("delegate_holds", false)):
+		return "As it stands the group would listen to {name}: %s If they didn't, %s" % [held, failed]
+	return "As it stands the group wouldn't listen to {name}: %s If they did, %s" % [failed, held]
+
+
+static func _outcome_words(effects: Array, facts: Dictionary) -> String:
+	var out: PackedStringArray = []
+	for ne in effects:
+		var w := _effect_words(ne, facts)
+		if w != "":
+			out.append(w)
+	return " ".join(out) if not out.is_empty() else "nothing changes."
+
+
+static func _lower_first(s: String) -> String:
+	return s.substr(0, 1).to_lower() + s.substr(1)
 
 
 static func _morale_words(d: int, who: String) -> String:
@@ -452,7 +484,8 @@ static func _morale_words(d: int, who: String) -> String:
 	var group: String = {"side": "the side", "all": "the whole list", "others": "the rest of the group"}.get(who, "the group")
 	if d > 0:
 		return ("A lift for %s." if d >= 5 else "A small lift for %s.") % group
-	return ("%s takes it hard." if d <= -5 else "%s is a little flat about it.") % group.capitalize()
+	var lead := group.substr(0, 1).to_upper() + group.substr(1)  # sentence case, not Title Case
+	return ("%s takes it hard." if d <= -5 else "%s is a little flat about it.") % lead
 
 
 static func _board_words(d: int) -> String:

@@ -179,10 +179,12 @@ var conditioning := {}
 ## Who leads each club (Captaincy.gd): club code -> its record. A club with
 ## no entry has named no one; an older save has none for anyone.
 var captaincy := {}
-## Whether AI clubs choose a season plan by phase (never saved). Off until
-## the plan screen lands (BOSS, 2026-10-11): a coach who cannot choose a plan
-## yet must not face AI clubs running theirs. Audits and tests switch it on.
-var fitness_ai_by_phase := false
+## Whether AI clubs choose a season plan by phase (never saved). On now that
+## the plan screen lets you choose yours (BOSS, 2026-10-12): contenders peak
+## for September and rebuilders develop. This one switch is the director's
+## lever on the AI side (his Develop-dominance question): off, every AI club
+## plays Steady, as before.
+var fitness_ai_by_phase := true
 ## Audits only (never saved): club -> high-performance level, for AI clubs.
 var fitness_hp_override := {}
 ## Club Forge: the career's created club as its spec (ClubForge), or {}.
@@ -800,8 +802,11 @@ func load_career() -> bool:
 	_sync_dual()
 	_recompute_ratings()
 	_migrate_money_units()
-	if int(state.get("career_version", 0)) < CAREER_VERSION:
+	var saved_version := int(state.get("career_version", 0))
+	if saved_version < 1:
 		_migrate_careers()
+	if saved_version < 2:
+		_migrate_player_clubs()
 	_migrate_train_plans()
 	_migrate_injury_logs()
 	_mark_unicorns()
@@ -854,8 +859,39 @@ func _mark_unicorns() -> void:
 	GameDB.mark_unicorns(all)
 
 
-## Career records (Career.gd) arrived with save format 1.
-const CAREER_VERSION := 1
+## Career records (Career.gd) arrived with save format 1; a listed player's
+## club field following his list (a league re-draft) with save format 2.
+const CAREER_VERSION := 2
+
+
+## A save from before format 2: a re-drafted player still carried his 2026
+## club. Each listed player takes the club of the list he is on, once. A
+## real-lists career already agrees, so nothing there changes.
+func _migrate_player_clubs() -> void:
+	if season == null:
+		return
+	# A run you promised was stamped with the club field he had then; it moves
+	# with him, or his "With us" line would drop it (Backing.memory_bits).
+	for code in season.lists:
+		for p in season.lists[code]:
+			if p is Dictionary:
+				_restamp_backed(p, str(code))
+	_rehome_players(season.lists)
+	for p in my_list:
+		if p is Dictionary and my_club != "":
+			_restamp_backed(p, my_club)
+			p["club"] = my_club
+
+
+## Runs made at the club field he carried before the migration now read as made
+## at `club`, where he is listed. Runs made at any other club stay as they are.
+func _restamp_backed(p: Dictionary, club: String) -> void:
+	var old := str(p.get("club", ""))
+	if old == club or not (p.get("backed") is Array):
+		return
+	for e in p["backed"]:
+		if e is Dictionary and str(e.get("club", "")) == old:
+			e["club"] = club
 
 
 ## A save from before career records: every player gets his dataset career
@@ -1898,6 +1934,9 @@ func _next_jumper_number(list: Array) -> int:
 func start_season(club_code: String, list: Array) -> void:
 	my_club = club_code
 	var lists := {}
+	# A league re-draft moves players between clubs: each arrives carrying his
+	# 2026 club, and takes his new club's code once his record is written below.
+	var rehome := false
 	if start_mode == "real" and not league_lists.is_empty() and season == null:
 		# A real-lists career: each club's real list plus its 2026 draftees,
 		# already career copies (begin_real_lists).
@@ -1906,6 +1945,7 @@ func start_season(club_code: String, list: Array) -> void:
 				lists[code] = league_lists[code]
 	elif draft != null and draft.league_mode and draft.is_finished():
 		league_lists = draft.all_lists()
+		rehome = true
 		for code in GameDB.club_order:
 			lists[code] = _career_copies(league_lists.get(code, []))
 			# Drafted players arrive in their old clubs' numbers: two 35s can
@@ -1939,6 +1979,8 @@ func start_season(club_code: String, list: Array) -> void:
 			for p in lists[code]:
 				Career.add_season(p, GameDB.DATA_SEASON, str(p.get("data_club", p.get("club", ""))),
 						int(float(p.get("gm", 0.0))), int(float(p.get("gl", 0.0))))
+	if rehome:
+		_rehome_players(lists)
 	# Fixtures, ladders and finals cover only the clubs active this year.
 	season = Season.new(GameDB.active_clubs(season_year).duplicate(), lists,
 			_clock_seed(4))
@@ -2306,6 +2348,14 @@ func fitness_ceiling_step(p: Dictionary) -> int:
 	elif int(rec.get("year", 0)) != season_year:
 		return 0
 	return Conditioning.ceiling_step(rec, fitness_week(), fitness_bye_week(club), p)
+
+
+## Where your club stands, in words, for the hub and Training: "Building,
+## peak due in August". Empty once the season is over.
+func fitness_status_line() -> String:
+	if season == null or season.is_season_over():
+		return ""
+	return Conditioning.status_words(fitness_record(my_club), fitness_week())
 
 
 func can_revise_fitness() -> bool:
@@ -3115,6 +3165,18 @@ func finals_outcome_line(res: Dictionary) -> String:
 			return ("%d PREMIERS" % season_year) if won \
 					else ("Runners-up in %d" % season_year)
 	return ""
+
+
+## A player's club is the list he is on (Develop's room and the coaches'
+## teaching read it). Returns how many players it changed.
+func _rehome_players(lists: Dictionary) -> int:
+	var changed := 0
+	for code in lists:
+		for p in lists[code]:
+			if p is Dictionary and str(p.get("club", "")) != str(code):
+				p["club"] = str(code)
+				changed += 1
+	return changed
 
 
 ## Deep copy so a career can raise attributes without mutating GameDB.
@@ -5211,7 +5273,7 @@ var _phase_cache := {}
 
 ## A club's list as the game sees it (TeamRating): its match-day side today on the
 ## OVR scale, the same list in three seasons, and its phase, with the line a
-## screen shows ("Contender · 78, 81 in three years").
+## screen shows ("Contender. Team rating 78. On this list, 81 in three years.").
 func team_outlook(club: String) -> Dictionary:
 	if season == null or not season.lists.has(club):
 		return {}
@@ -6977,8 +7039,10 @@ const MAX_NEWS := 120
 const NEWS_MIN_OVR := 72
 
 
-func add_news(kind: String, text: String) -> void:
-	var when := "Off-season" if offseason_year == season_year or season == null else last_label
+func add_news(kind: String, text: String, when_label: String = "") -> void:
+	var when := when_label
+	if when == "":
+		when = "Off-season" if offseason_year == season_year or season == null else last_label
 	news.push_front({"year": season_year, "when": when, "kind": kind, "text": text})
 	if news.size() > MAX_NEWS:
 		news.resize(MAX_NEWS)
@@ -8425,8 +8489,15 @@ func _captain_name(id: String, roster: Array) -> String:
 	return "A player"
 
 
-## Every club has a record: the 2026 record for real lists, the rule for a
-## rival without one. Your own club stays empty until you name someone.
+## Every club has a record: the 2026 record for real lists, the rule for a club
+## without one. Your own club is named the same way when its record is first made
+## (director 2026-10-12: in a redraft or custom career it starts with a captain
+## named by the rule, and you can change him on the Captaincy page). When your
+## captain retires or leaves, the best-rated vice-captain steps up by the same rule
+## as a rival's (the highest Leadership if none is left), with a note to the coach
+## (director 2026-10-12). A spot the coach emptied himself stays empty: nobody is
+## added for him. A save from before this ("seeded" missing) is named once, by the
+## rule, at the first round after it loads, unless it already has leaders.
 func _captaincy_refresh() -> void:
 	if season == null:
 		return
@@ -8437,6 +8508,8 @@ func _captaincy_refresh() -> void:
 		if fresh_rec:
 			rec = Captaincy.fresh(season_year)
 			rec["slots"] = Captaincy.from_record(str(code), roster)
+		var had_captain := not Captaincy.ids(rec, "captain").is_empty()
+		var lost_captain: String = str(Captaincy.ids(rec, "captain")[0]) if had_captain else ""
 		Captaincy.prune(rec, roster)
 		if str(code) != my_club:
 			var made := Captaincy.fill(rec, roster)
@@ -8444,6 +8517,36 @@ func _captaincy_refresh() -> void:
 				rec["since"] = season_year
 				add_news("captaincy", "%s have named %s captain." % [
 						GameDB.club_name(str(code)), _captain_name(made, roster)])
+		elif not bool(rec.get("seeded", false)) and Captaincy.slots(rec).is_empty():
+			# Your club, the first time: named by the rule. No news.
+			Captaincy.fill(rec, roster)
+		elif had_captain and Captaincy.ids(rec, "captain").is_empty():
+			# Your captain has retired or left: the next in line steps up. A spot you emptied
+			# yourself has no captain to lose, so it never comes here.
+			var stepped := ""
+			if Captaincy.slots(rec).is_empty():
+				# He was the only leader the coach had named: one captain by the rule, and
+				# no vice-captains the coach never had.
+				var pick := Captaincy.by_rule(roster)
+				if not pick.is_empty():
+					stepped = str(pick[0]["id"])
+					rec["slots"] = [{"id": stepped, "role": "captain"}]
+			else:
+				stepped = Captaincy.fill(rec, roster)
+			if stepped != "":
+				rec["since"] = season_year
+				var mid := captaincy_mid_season()
+				var retired := false
+				for r in intake_summary.get("retired", []):
+					if str((r as Dictionary).get("id", "")) == lost_captain:
+						retired = true
+				var note := "Your captain has %s, so %s takes over as captain. You can change it on the Captaincy page." % [
+						"retired" if retired else "left the club", _captain_name(stepped, roster)]
+				# Before Round 1 it is the off-season, as the feed calls it; the page says Pre-season.
+				Captaincy.add_log(rec, season_year,
+						last_label if mid else ("Off-season" if offseason_year == season_year else "Pre-season"), note)
+				add_news("captaincy", note, last_label if mid else "Off-season")
+		rec["seeded"] = true
 		captaincy[code] = rec
 
 

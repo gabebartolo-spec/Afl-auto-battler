@@ -31,16 +31,26 @@ const OPS := {
 	"morale": false, "xp": false, "board": false, "trust": true, "rest": true, "sore": true,
 	"fresh": false, "heavy_legs": false, "expects_game": true, "start_backing": true,
 	"extend_early": true, "promise_win": false, "flag": false, "explain": true, "talk_note": true,
+	# The captain's cards: a dispute left to the captain, settled by his Leadership and his
+	# trust in you; a promised run for the young player the card names; the vice-captain
+	# takes the armband (through the Captaincy rules and their costs).
+	"delegate": true, "back_kid": false, "captaincy_swap": false,
 }
+## The rule a dispute left to the captain follows: the group listens to him if his
+## Leadership is at least HOLDS_AT, or at least HOLDS_WITH_TRUST and he trusts you.
+const HOLDS_AT := 60
+const HOLDS_WITH_TRUST := 45
 
 ## Facts a player card can test and print (GameState._story_player_facts).
 const PLAYER_FACTS := ["name", "first", "age", "games", "fit", "selected", "overall", "potential",
 		"pot_gap", "contract_years", "morale", "trust", "trust_band", "discipline", "backed",
 		"fit_rank", "talk_case", "kpi", "kpi_or_need", "explain_label", "talk_text", "sore_odds",
-		"ask", "early_price", "more_seasons", "extension_ok", "job", "real_named"]
+		"ask", "early_price", "more_seasons", "extension_ok", "job", "real_named",
+		"leadership", "captain", "delegate_holds", "holds_at", "holds_trust_at"]
 ## Facts about the club and the week (GameState._story_club_facts).
 const CLUB_FACTS := ["club", "opp", "round", "year", "losing_run", "winning_run", "ladder",
-		"board", "fit_count", "run_games", "finals_week"]
+		"board", "fit_count", "run_games", "finals_week", "captain_name", "vice_name", "vice_id",
+		"has_vice", "kid_name", "kid_id", "has_kid"]
 
 const DEFAULTS := {"weight": 1, "cooldown": 40, "subject_cooldown": 8, "per_season": 0,
 		"phase": ["regular"], "default": -1}
@@ -183,7 +193,7 @@ static func _check_card(t: Dictionary) -> Array:
 		keys[ck] = true
 		if str(c.get("label", "")) == "":
 			errs.append("%s/%s: the choice has no label" % [id, ck])
-		for field in ["label", "note", "result"]:
+		for field in ["label", "note", "rule", "result"]:
 			errs.append_array(_check_text("%s/%s" % [id, ck], str(c.get(field, "")), player, field == "result"))
 		for e in c.get("effects", []):
 			errs.append_array(_check_effect("%s/%s" % [id, ck], e, player))
@@ -215,6 +225,18 @@ static func _check_effect(where: String, e, player: bool) -> Array:
 		errs.append_array(_check_text(where, str(e.get("why", "")), player))
 	if op == "flag" and str(e.get("name", "")) == "":
 		errs.append("%s: a flag needs a name" % where)
+	if op == "delegate":
+		for side in ["held", "failed"]:
+			var nested: Array = e.get(side, [])
+			if nested.is_empty():
+				errs.append("%s: a dispute left to the captain needs a '%s' outcome" % [where, side])
+			for ne in nested:
+				if str((ne as Dictionary).get("op", "")) == "delegate":
+					errs.append("%s: a delegated outcome cannot delegate again" % where)
+				else:
+					errs.append_array(_check_effect(where + "/" + side, ne, player))
+		for field in ["held_result", "failed_result"]:
+			errs.append_array(_check_text(where, str(e.get(field, "")), player))
 	return errs
 
 

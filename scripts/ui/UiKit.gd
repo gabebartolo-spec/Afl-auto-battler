@@ -826,7 +826,7 @@ static func team_colour() -> Color:
 			continue
 		if best.a == 0.0 or col.s * col.v > best.s * best.v:
 			best = col
-	return ClubDuel._show(best) if best.a > 0.0 else ACCENT
+	return ClubBackdrop.lifted(best) if best.a > 0.0 else ACCENT
 
 
 ## Match day's sheet wash: the opponent's colour, the atmosphere you play
@@ -1367,7 +1367,7 @@ static func _ladder_header(specs: Array) -> HBoxContainer:
 	for spec in specs:
 		var expand: bool = bool(spec.get("expand", false))
 		h.add_child(_ladder_label(str(spec["title"]), int(spec.get("w", 0)),
-				MUTED, 12, false, expand))
+				MUTED, SECONDARY, false, expand))
 	return h
 
 
@@ -1380,17 +1380,17 @@ static func _ladder_data_row(r: Dictionary, pos: int, specs: Array, mine: String
 		var expand: bool = bool(spec.get("expand", false))
 		var w := int(spec.get("w", 0))
 		if key == "club":
-			h.add_child(club_badge(str(r["code"]), 13, false, true))
+			h.add_child(club_badge(str(r["code"]), SECONDARY, false, true))
 		elif key == "pos":
-			h.add_child(_ladder_label(str(pos), w, col, 13, is_mine, false))
+			h.add_child(_ladder_label(str(pos), w, col, SECONDARY, is_mine, false))
 		elif key == "rec":
-			h.add_child(_ladder_label("%d-%d" % [int(r["w"]), int(r["l"])], w, col, 12, false, false))
+			h.add_child(_ladder_label("%d-%d" % [int(r["w"]), int(r["l"])], w, col, SECONDARY, false, false))
 		elif key == "pct":
-			h.add_child(_ladder_label("%.0f" % float(r["pct"]), w, col, 12, false, false))
+			h.add_child(_ladder_label("%.0f" % float(r["pct"]), w, col, SECONDARY, false, false))
 		elif key == "pts":
-			h.add_child(_ladder_label(str(int(r["pts"])), w, col, 13, true, false))
+			h.add_child(_ladder_label(str(int(r["pts"])), w, col, SECONDARY, true, false))
 		else:
-			h.add_child(_ladder_label(str(int(r.get(key, 0))), w, col, 12, false, false))
+			h.add_child(_ladder_label(str(int(r.get(key, 0))), w, col, SECONDARY, false, false))
 	return h
 
 
