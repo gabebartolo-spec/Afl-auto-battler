@@ -71,9 +71,25 @@ func _build() -> void:
 		for q in GameState.my_list:
 			if str(q.get("id", "")) == str(id):
 				named.append(GameDB.player_display_name(q))
-	var cap_link := UiKit.section_link("Captaincy", ", ".join(named) if not named.is_empty() else "No captain named ›",
+	var cap_link := UiKit.section_link("Captaincy", (", ".join(named) if not named.is_empty() else "No captain named") + "  ›",
 			"CaptaincyOpen")
 	cap_link.pressed.connect(func(): _open_captaincy())
+	if not _narrow():
+		# A PC row is a row of text, not a bar across the whole window (PC is
+		# not a big phone): it takes what its words need, left-aligned.
+		cap_link.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		cap_link.custom_minimum_size = Vector2(460, 48)
+		# The names start a clear step after the label, and the row says it opens.
+		var title_l := cap_link.find_child("SectionTitle", true, false)
+		if title_l != null:
+			# The label keeps the width of its own word (a trimmed label with no
+			# room asked for collapses to nothing beside the names).
+			(title_l as Label).text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+			(title_l as Control).size_flags_horizontal = Control.SIZE_FILL
+		var h := cap_link.find_child("SectionLeadsTo", true, false)
+		if h != null:
+			(h as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		(cap_link.get_child(0) as BoxContainer).add_theme_constant_override("separation", 16)
 	_root.add_child(cap_link)
 
 	if _narrow():
