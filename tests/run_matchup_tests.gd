@@ -38,6 +38,7 @@ func _run() -> void:
 	await _regular_bye()
 	await _finals_week_by_week()
 	await _finals_cup()
+	await _finals_status_paths()
 	await _coach_approach_card()
 	await _season_wrap()
 	await _season_review_scrolls()
@@ -425,6 +426,51 @@ func _reset() -> void:
 	_state.reset()
 	_state.career_seed = SUITE_SEED
 	_state.replay_seed = SUITE_SEED
+
+
+## The status line over the bracket on every path a side can take through the finals: a
+## qualifying final's loser is still alive (the double chance), every other loser's season
+## has ended, the premiers say so (found by uiart: "Your season ended in the Qualifying
+## Final 2" over a side in the Grand Final).
+func _finals_status_paths() -> void:
+	var db = root.get_node("GameDB")
+	_reset()
+	_state.start_season("FRE", db.club_list("FRE"))
+	var top: Array = ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10"]
+	var me := "A1"
+	var cases := [
+		["a week off in the wildcard round", {}, false, "Still alive"],
+		["lost the qualifying final", {"L_QF1": me}, false, "Still alive"],
+		["lost the qualifying final, won the semi", {"L_QF1": me, "W_SF1": me}, false, "Still alive"],
+		["lost the qualifying final, won the semi and the preliminary final", {"L_QF1": me, "W_SF1": me, "W_PF1": me}, false, "Still alive"],
+		["lost the qualifying final, then the semi", {"L_QF1": me, "L_SF1": me}, false, "season ended in the Semi Final 1"],
+		["won the qualifying final, lost the preliminary final", {"W_QF1": me, "L_PF1": me}, false, "season ended in the Preliminary Final 1"],
+		["lost an elimination final", {"L_EF1": me}, false, "season ended in the Elimination Final 1"],
+		["lost a wildcard final", {"L_WC1": me}, false, "season ended in the Wildcard Final 1"],
+		["lost the Grand Final", {"W_QF1": me, "L_GF": me}, true, "season ended in the Grand Final"],
+		["won the Grand Final", {"W_QF1": me, "W_GF": me}, true, "Premiers"],
+	]
+	for c in cases:
+		var f: Dictionary = {"week": 5, "top": top, "slots": (c[1] as Dictionary).duplicate(), "weeks": [], "premier": "", "runner_up": "", "done": bool(c[2])}
+		if str(c[3]) == "Premiers":
+			f["premier"] = me
+		var sea: Season = _state.season
+		var saved: Dictionary = sea.finals
+		sea.finals = f
+		var host := MarginContainer.new()
+		root.add_child(host)
+		var fb = load("res://scripts/ui/FinalsBracket.gd").new()
+		host.add_child(fb)
+		fb.setup(sea, me, func(_md): pass)
+		await _settle()
+		var you: Label = fb.find_child("FinalsYou", true, false)
+		var text := you.text if you != null else "-"
+		_check(text.contains(str(c[3])), "Finals status, %s: reads %s (%s)" % [c[0], c[3], text])
+		if str(c[3]) == "Still alive":
+			_check(not text.contains("ended"), "Finals status, %s: never says the season ended" % c[0])
+		host.queue_free()
+		sea.finals = saved
+		await _settle()
 
 
 ## The cup on the finals series (director, 2026-10-14): the real cup art over
