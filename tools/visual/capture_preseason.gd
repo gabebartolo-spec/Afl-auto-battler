@@ -1,7 +1,7 @@
 extends SceneTree
 ## The pre-season stops (slice 1), for the lead's check and the director's look.
 ## Needs a real renderer:
-##   godot --path . --script tools/visual/capture_preseason.gd -- --out /tmp/pre --club FRE [--size 1280x720] [--seed 4127]
+##   godot --path . --script tools/visual/capture_preseason.gd -- --out /tmp/pre --club FRE [--size 1280x720] [--seed 4127] [--risk 0.3]
 ## Writes <out>_plan.png (the plan as it opens), <out>_plan_low.png (the same,
 ## scrolled to the foot), <out>_plan_set.png (a Heavy running block and a Heavy
 ## last block picked), <out>_trial.png and <out>_trial_low.png (the time trial
@@ -10,6 +10,7 @@ extends SceneTree
 var W := 390
 var H := 844
 var _seed := 4127
+var _risk := -1.0
 
 
 func _initialize() -> void:
@@ -36,6 +37,10 @@ func _run() -> void:
 			out = str(a[i + 1])
 		if str(a[i]) == "--club":
 			club = str(a[i + 1])
+		if str(a[i]) == "--risk":
+			# A bigger Heavy-week risk than the game's, so the "Hurt in training"
+			# list is sure to show (for the look only; never a balance read).
+			_risk = float(a[i + 1])
 		if str(a[i]) == "--seed":
 			_seed = int(a[i + 1])
 		if str(a[i]) == "--size":
@@ -73,6 +78,8 @@ func _run() -> void:
 		await process_frame
 	state.start_season(club, db.club_list(club))
 	state.open_preseason()
+	if _risk >= 0.0:
+		load("res://scripts/sim/PreSeason.gd").data()["heavy_week_injury"] = _risk
 	for m in state.season.fixture[0]:
 		if str(m["home"]) == club or str(m["away"]) == club:
 			print("round 1: ", m["home"], " v ", m["away"])
