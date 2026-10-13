@@ -167,7 +167,7 @@ func _mount_body(stack: bool) -> void:
 	# A phone follows the ball close up because its screen is small (and so does
 	# any narrow, stacked window); a wide window shows the whole ground whatever
 	# the platform (director, 2026-10-09; the web build on a PC, 2026-10-12).
-	_pitch.camera_enabled = stack or ScreenLayout.is_phone()
+	_orient_pitch(stack)
 	_pitch.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_pitch.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	# The feed is a handful of lines (scores, breaks, calls): on a phone the
@@ -193,6 +193,18 @@ func _mount_body(stack: bool) -> void:
 		sv.add_child(_controls())
 	_fit_side_panel()
 	_body.add_child(_side_panel)
+
+
+## A phone held upright shows the whole ground running top to bottom, goals at
+## the top and the bottom, nothing cut off (director, 2026-10-14). A phone on its
+## side, and any narrow window wider than it is tall, keeps the close-up that
+## follows the ball; a wide window shows the whole ground left to right.
+func _orient_pitch(stack: bool) -> void:
+	if _pitch == null:
+		return
+	var tall := UiKit.view_height(self) > UiKit.view_width(self)
+	_pitch.upright = stack and tall
+	_pitch.camera_enabled = (stack or ScreenLayout.is_phone()) and not _pitch.upright
 
 
 func _fit_side_panel() -> void:
@@ -2912,6 +2924,7 @@ func _reflow() -> void:
 		_root.add_child(_body)
 		_root.move_child(_body, idx)
 	else:
+		_orient_pitch(stack)
 		_fit_side_panel()
 	var old := _root.get_child(0)
 	_root.remove_child(old)
