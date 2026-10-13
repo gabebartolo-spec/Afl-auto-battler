@@ -41,6 +41,27 @@ func _run() -> void:
 	_check(not jacob.is_empty() and not benji.is_empty() and not jack.is_empty() and not oliver.is_empty(),
 			"The four shipped players are in the game")
 
+	# Every shipped row finds its players, and its line names the other person:
+	# a wrong date of birth would otherwise be ignored without a word.
+	var csv := FileAccess.open("res://data/player_relations.csv", FileAccess.READ)
+	var head := csv.get_csv_line()
+	var shipped := 0
+	while not csv.eof_reached():
+		var c := csv.get_csv_line()
+		if c.size() < head.size() or c[0] == "":
+			continue
+		shipped += 1
+		var who: Dictionary = _rel.find(c[0], c[1], c[2])
+		_check(not who.is_empty(), "Row %s %s finds his player (%s)" % [c[0], c[1], c[2]])
+		if who.is_empty():
+			continue
+		var l: String = _rel.line(who["p"])
+		_check(l.contains("%s %s" % [c[5], c[6]]), "Row %s %s: his line names %s %s: %s" % [c[0], c[1], c[5], c[6], l])
+		if c[7] != "":
+			_check(not _rel.find(c[5], c[6], c[7]).is_empty(), "Row %s %s: %s %s is in the game" % [c[0], c[1], c[5], c[6]])
+		print("LINE ", c[0], " ", c[1], " | ", l, " | ", c[10])
+	_check(shipped >= 30, "The verified rows are in the file (%d)" % shipped)
+
 	# Both ways round: the shipped file.
 	_check(_rel.line(benji) == "Brother of Jacob van Rooyen (Melbourne)",
 			"Benji's bio: " + _rel.line(benji))
