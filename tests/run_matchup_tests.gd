@@ -37,6 +37,7 @@ func _run() -> void:
 	await _wide_hub_footer()
 	await _regular_bye()
 	await _finals_week_by_week()
+	await _finals_cup()
 	await _coach_approach_card()
 	await _season_wrap()
 	await _season_review_scrolls()
@@ -424,6 +425,87 @@ func _reset() -> void:
 	_state.reset()
 	_state.career_seed = SUITE_SEED
 	_state.replay_seed = SUITE_SEED
+
+
+## The cup on the finals series (director, 2026-10-14): the real cup art over
+## the Grand Final before it is played, phone and PC, and big in the
+## premier's colour once it is won. Every match is still there to tap.
+func _finals_cup() -> void:
+	var db = root.get_node("GameDB")
+	var kit = load("res://scripts/ui/UiKit.gd")
+	_reset()
+	_state.start_season("FRE", db.club_list("FRE"))
+	var guard := 0
+	while guard < 400 and not _state.season.is_season_over():
+		var f: Dictionary = _state.season.finals
+		if not f.is_empty() and int(f.get("week", 1)) >= 5:
+			break
+		_state.advance()
+		guard += 1
+	for decided in [false, true]:
+		if decided:
+			guard = 0
+			while guard < 10 and not _state.season.is_season_over():
+				_state.advance()
+				guard += 1
+		for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+			var tag := "%dx%d %s" % [sz.x, sz.y, "decided" if decided else "Grand Final week"]
+			root.size = sz
+			var host := MarginContainer.new()
+			root.add_child(host)
+			host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			var tapped := []
+			var fb = load("res://scripts/ui/FinalsBracket.gd").new()
+			host.add_child(fb)
+			fb.setup(_state.season, _state.my_club, func(md): tapped.append(str(md["tag"])))
+			fb.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			await _settle()
+			var gf: Button = fb.find_child("Final_GF", true, false)
+			if not decided:
+				var cup: Control = fb.find_child("FinalsCup", true, false)
+				var art: TextureRect = cup.find_child("Art_premiership_cup", true, false) if cup != null else null
+				_check(art != null and art.texture.resource_path == "res://assets/honours/premiership_cup.png" and art.material == null
+						and art.size.y >= 120.0,
+						"%s: the real cup stands over the Grand Final, silver, %d tall" % [tag, int(art.size.y) if art != null else 0])
+				_check(gf != null and cup != null and cup.get_global_rect().end.y <= gf.global_position.y + 0.5
+						and Rect2(Vector2.ZERO, Vector2(sz)).encloses(cup.get_global_rect()) and gf.size.y >= 44.0,
+						"%s: the cup is whole on the screen and the Grand Final sits under it, a thumb tall" % tag)
+				if sz.x < 600:
+					_check(fb.find_child("FinalsCupBand", true, false) != null and (fb.find_child("FinalsCupBand", true, false) as Control).mouse_filter == Control.MOUSE_FILTER_IGNORE,
+							"%s: with both Grand Finalists known the cup stands between their colours" % tag)
+				var why: String = await Tap.tap(gf)
+				_check(why == "" and tapped == ["GF"], "%s: a real tap still opens the Grand Final (%s)" % [tag, why])
+			else:
+				var prem := str(_state.season.finals.get("premier", ""))
+				var hero: Control = fb.find_child("FinalsHero", true, false)
+				var art: TextureRect = hero.find_child("Art_premiership_cup", true, false) if hero != null else null
+				_check(art != null and art.texture.resource_path == "res://assets/honours/premiership_cup.png" and art.size.y >= 150.0,
+						"%s: the premiers' cup is the real art, big (%d)" % [tag, int(art.size.y) if art != null else 0])
+				var wash = hero.find_child("FinalsWash", true, false) if hero != null else null
+				var ink: Color = kit.club_ink(prem)
+				_check(wash != null and kit.contrast((wash.colour as Color).darkened(0.2), Color.WHITE) >= 3.5
+						and (absf((wash.colour as Color).h - ink.h) < 0.03 or ink.s < 0.1),
+						"%s: the cup stands in the premier's own colour, dark enough for white type (%s for %s)" % [tag, (wash.colour as Color).to_html(false) if wash != null else "-", prem])
+				var who: Label = hero.find_child("FinalsPremier", true, false) if hero != null else null
+				var whole := who != null and who.text == str(db.club_name(prem) if sz.x >= 900 else db.club_short(prem))
+				for l in (hero.find_children("*", "Label", true, false) if hero != null else []):
+					var lab := l as Label
+					if lab.size.y + 1.0 < lab.get_combined_minimum_size().y or not hero.get_global_rect().grow(0.5).encloses(lab.get_global_rect()):
+						whole = false
+					if lab.autowrap_mode == TextServer.AUTOWRAP_OFF and lab.get_theme_font("font").get_string_size(lab.text,
+							HORIZONTAL_ALIGNMENT_LEFT, -1, lab.get_theme_font_size("font_size")).x > lab.size.x + 0.5:
+						whole = false
+				_check(whole and Rect2(Vector2.ZERO, Vector2(sz)).encloses(hero.get_global_rect()),
+						"%s: the premiers are named whole beside the cup, on the screen (%s)" % [tag, who.text if who != null else "-"])
+				var you: Label = fb.find_child("FinalsYou", true, false)
+				_check(you != null and you.text != "" and you.global_position.y >= hero.get_global_rect().end.y - 0.5,
+						"%s: your own finish is still said under it (%s)" % [tag, you.text if you != null else "-"])
+				_check(fb.find_child("FinalsCup", true, false) == null, "%s: one cup on the screen, not two" % tag)
+				var why: String = await Tap.tap(gf) if gf != null and gf.is_visible_in_tree() else "the Grand Final is not shown"
+				_check(why == "" and tapped == ["GF"], "%s: a real tap still opens the Grand Final that was played (%s)" % [tag, why])
+			host.queue_free()
+			await _settle()
+	root.size = Vector2i(390, 844)
 
 
 func _open_hub() -> Control:
