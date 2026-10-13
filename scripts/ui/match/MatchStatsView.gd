@@ -27,12 +27,16 @@ var _me := 0
 var _view := "team"
 var _scope := "all"      # "all" or the quarter number as a string
 var _live := false        # at a break: the match so far
+## Opens on the player table (the break's "All player stats"), not the team's.
+var players_first := false
 
 
 func setup(res: Dictionary, my_side: int, live := false) -> MatchStatsView:
 	_res = res
 	_me = my_side
 	_live = live
+	if players_first:
+		_view = "players"
 	add_theme_constant_override("separation", 8)
 	# The layout reads the screen's width, which a view not yet on screen
 	# can't know (it took a PC's and opened a phone in landscape columns

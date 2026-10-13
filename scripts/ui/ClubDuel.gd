@@ -34,41 +34,24 @@ func live() -> ClubDuel:
 	return self
 
 
-## The two colours a pairing shows: each club's main colour, or its most
-## vivid one when the main is near black; if the two still look alike (both
-## red, say), the right-hand club takes whichever of its colours differs most.
-## A colour too dark to show is lifted.
+## The two colours a pairing shows: the same two inks the screens' names and
+## bars use (UiKit.club_ink_pair: the away side takes its second when the two
+## are alike), deepened until the white type on the band reads. One source of
+## club colour for the banner and the blocks under it (director, 2026-10-13).
 static func duel_colours(left: String, right: String) -> Array:
-	var a := _pick(left)
-	var b := _pick(right)
-	if _diff(a, b) < 0.45:
-		var best := b
-		var best_d := _diff(a, b)
-		for c in GameDB.club_colours(right):
-			var cc := _show(c)
-			if cc.get_luminance() > 0.75:
-				continue  # never white: the type on it is white
-			var d := _diff(a, cc)
-			if d > best_d:
-				best_d = d
-				best = cc
-		b = best
-	return [a, b]
+	var inks := UiKit.club_ink_pair(left, right)
+	return [_banner(inks[0]), _banner(inks[1])]
 
 
-## A club's colour for its side: its main colour, shown; a grey or black main
-## hands over to its most vivid colour (Essendon's red, not its black).
-static func _pick(code: String) -> Color:
-	var cols: Array = GameDB.club_colours(code)
-	var main: Color = cols[0]
-	if main.s < 0.2 and main.get_luminance() < 0.3:
-		var vivid := main
-		for c in cols:
-			var cc: Color = c
-			if cc.s > vivid.s + 0.2 and cc.get_luminance() < 0.75:
-				vivid = cc
-		return _show(vivid)
-	return _show(main)
+## An ink deepened until white type over this band colour (darkened a quarter
+## at the top, as _half does) has 3.5:1 or better.
+static func _banner(ink: Color) -> Color:
+	var out := ink
+	var guard := 0
+	while guard < 12 and UiKit.contrast(out.darkened(0.25), Color.WHITE) < 3.5:
+		out = out.darkened(0.1)
+		guard += 1
+	return out
 
 
 static func _diff(a: Color, b: Color) -> float:
