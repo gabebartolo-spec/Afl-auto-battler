@@ -704,11 +704,15 @@ func _run() -> void:
 	_check(not form_digits and not form_text.contains(" his ") and not form_text.contains("his season"),
 			"Recent games shows no rating numbers and no dangling 'his' (%s)" % form_text.replace("\n", " / "))
 	var plan: Button = current_scene.find_child("ClubPlan_contest", true, false)
-	if plan != null:
-		plan.emit_signal("pressed")
-		await _settle()
+	var why_plan: String = (await Tap.tap(plan)) if plan != null else "no tile"
+	await _settle()
 	_check(_state.club_plan == "contest" and _state.season.plans.get("SYD", "") == "contest",
-			"Choosing a game plan makes it the club's plan")
+			"Choosing a game plan makes it the club's plan (a real tap: %s)" % why_plan)
+	# Readability: the chosen plan is bold, the others regular.
+	var chosen_l: Label = plan.find_child("Plan", true, false) if plan != null else null
+	var other_l: Label = current_scene.find_child("ClubPlan_attacking", true, false).find_child("Plan", true, false) 			if current_scene.find_child("ClubPlan_attacking", true, false) != null else null
+	_check(chosen_l != null and other_l != null and chosen_l.get_theme_font("font") == UiKit.BOLD
+			and other_l.get_theme_font("font") != UiKit.BOLD, "The chosen plan is bold, the others are regular")
 	_state.set_club_plan("balanced")
 	_router.handle_back(true)
 	await _settle()

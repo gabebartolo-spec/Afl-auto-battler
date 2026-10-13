@@ -83,6 +83,15 @@ func _selection_tests() -> void:
 ", " ").contains(" is on "),
 			"Selection names their key forwards and who is on them")
 	var chm: Button = km.find_child("ChangeMatchup", true, false) if km != null else null
+	# Readability (director, 2026-10-13): your defender and their forward are each
+	# in bold, beside their own guernsey; and the button still takes a finger.
+	var ml_labels: Array = km.find_child("MatchupLine", true, false).find_children("*", "Label", true, false) if km != null else []
+	_check(ml_labels.size() >= 2 and ml_labels.all(func(l): return str(l.text) in ["is on", "Nobody is on"]
+			or (l as Label).get_theme_font("font") == UiKit.BOLD),
+			"The names in a match-up line are bold, each beside its guernsey")
+	var why_mu: String = (await Tap.tap(chm)) if chm != null else "no button"
+	_check(why_mu == "" and ui.find_child("MatchupChooser", true, false) != null,
+			"A real tap on Change opens the match-up chooser (%s)" % why_mu)
 	if chm != null:
 		chm.emit_signal("pressed")
 		await _settle()
@@ -109,6 +118,9 @@ func _selection_tests() -> void:
 			"The game plan you take in is on show (%s)" % (plan_line.text if plan_line else "-"))
 	var change: Button = ui.find_child("ChangePlan", true, false)
 	_check(change != null and change.size.y >= 44, "The plan can be changed from selection")
+	var why_plan: String = (await Tap.tap(change)) if change != null else "no button"
+	_check(why_plan == "" and ui.find_child("PlanChooser", true, false) != null,
+			"A real tap on Change opens the plan chooser (%s)" % why_plan)
 	if change != null:
 		change.emit_signal("pressed")
 		await _settle()
