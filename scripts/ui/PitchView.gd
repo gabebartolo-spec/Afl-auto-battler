@@ -99,11 +99,22 @@ var clash := false
 ## side in a pack: audit frame fre_mel_phone 005).
 const DISC_CLASH := 30.0
 ## Discs that would overlap are drawn apart, so both numbers show. Drawing only:
-## the players stay where the match has them. NUDGE_GAP is the least distance
-## between two drawn centres, in disc diameters; each frame the nudge eases back
+## the players stay where the match has them. NUDGE_GAP is the distance two drawn
+## centres are pushed toward, in disc diameters; each frame the nudge eases back
 ## by NUDGE_EASE and is pushed out again only as far as it must be, starting from
 ## where the discs were drawn last, so a pair keeps its sides and does not jitter.
+## The view stays truthful: a disc is never drawn more than NUDGE_CAP (in disc
+## diameters: half a disc's width) from where its player is, so in a thick pack
+## discs still overlap, and the draw order keeps the ball carrier and the two
+## opponents nearest him on top (lead, 2026-10-14, provisional until the director
+## looks). nudge_full lifts the cap, for the comparison capture only: every disc
+## fully apart, at the cost of a disc sitting up to 17 m from its player on a phone.
 const NUDGE_GAP := 1.0
+const NUDGE_CAP := 0.5
+static var nudge_full := false
+## For a comparison capture only: on a clash the away side swaps its own kit's two
+## colours (base and pattern) instead of taking UiKit's second ink.
+static var clash_kit_swap := false
 const NUDGE_EASE := 0.85
 const NUDGE_PASSES := 24
 var _nudge := PackedVector2Array()
@@ -465,6 +476,8 @@ static func kits_for(home: String, away: String) -> Array:
 	if UiKit.colour_distance(hb, ab) < DISC_CLASH:
 		var second := UiKit.club_ink_second(away)
 		var own: Color = a.get("pattern", Color.DIM_GRAY)
+		if clash_kit_swap:
+			second = own
 		if UiKit.colour_distance(hb, second) < DISC_CLASH \
 				and UiKit.colour_distance(hb, own) > UiKit.colour_distance(hb, second):
 			second = own
@@ -643,8 +656,7 @@ func _draw() -> void:
 	var tr := token_radius()
 	_layout_discs(tr)
 	_draw_bench(tr)
-	_draw_tokens(0, tr)
-	_draw_tokens(1, tr)
+	_draw_tokens(tr)
 	_draw_rings(tr)
 	if _figs != null:
 		_figs.slots = _figure_slots(tr) if mini_figures else []
@@ -950,6 +962,7 @@ func _layout_discs(tr: float) -> void:
 		_nudge[i] *= NUDGE_EASE
 		pos[i] = real[i] + _nudge[i]
 	var want := tr * 2.0 * NUDGE_GAP
+	var cap := INF if nudge_full else tr * 2.0 * NUDGE_CAP
 	for pass_no in range(NUDGE_PASSES):
 		var moved := false
 		for i in range(n):
@@ -969,9 +982,48 @@ func _layout_discs(tr: float) -> void:
 				moved = true
 		if not moved:
 			break
+		if cap < INF:
+			for i in range(n):
+				var off := pos[i] - real[i]
+				if off.length() > cap:
+					pos[i] = real[i] + off.limit_length(cap)
 	for i in range(n):
 		_nudge[i] = pos[i] - real[i]
 	_disc = pos
+
+
+## The order the discs are drawn in, last on top: the farthest from the ball
+## first, and last of all the two opponents nearest the man with the ball, then
+## the man himself, so where discs still overlap the ones that matter show whole.
+func draw_order() -> Array:
+	var n := director.tokens.size()
+	var ball_pos: Vector2 = director.ball.get("pos", Vector2.ZERO)
+	var carrier := int(director.ball.get("holder", -1))
+	if carrier < 0 or carrier >= n:
+		carrier = director.actor if director.actor >= 0 and director.actor < n else -1
+	var rows := []
+	for i in range(n):
+		rows.append([(director.tokens[i]["pos"] as Vector2).distance_squared_to(ball_pos), i])
+	rows.sort_custom(func(a, b): return a[0] > b[0] if a[0] != b[0] else a[1] < b[1])
+	var out := []
+	for r in rows:
+		out.append(int(r[1]))
+	if carrier >= 0:
+		var side := int(director.tokens[carrier]["side"])
+		var at: Vector2 = director.tokens[carrier]["pos"]
+		var opp := []
+		for i in range(n):
+			if int(director.tokens[i]["side"]) != side:
+				opp.append([(director.tokens[i]["pos"] as Vector2).distance_squared_to(at), i])
+		opp.sort_custom(func(a, b): return a[0] < b[0] if a[0] != b[0] else a[1] < b[1])
+		var top := []
+		for k in range(mini(2, opp.size()) - 1, -1, -1):
+			top.append(int(opp[k][1]))
+		top.append(carrier)
+		for id in top:
+			out.erase(id)
+			out.append(id)
+	return out
 
 
 ## Where the discs are drawn now, for tests and the capture tool: a layout
@@ -1069,14 +1121,13 @@ func ball_point() -> Vector2:
 ## A side's tokens: a disc in the club's home kit (its base colour and its
 ## design in the pattern colour), the number on it in white with a dark edge
 ## so it reads on any kit, dropped when the disc is under 18 px.
-func _draw_tokens(side: int, tr: float) -> void:
-	var kit: Dictionary = _kits[side]
-	var base: Color = kit.get("base", Color.WHITE)
+func _draw_tokens(tr: float) -> void:
 	var font := UiKit.BOLD
 	var fs := int(clampf(tr * 1.1, 9.0, 15.0))
-	for t in director.tokens:
-		if int(t["side"]) != side:
-			continue
+	for id in draw_order():
+		var t: Dictionary = director.tokens[id]
+		var kit: Dictionary = _kits[int(t["side"])]
+		var base: Color = kit.get("base", Color.WHITE)
 		var p := _disc_at(int(t["id"]))
 		if p.x < -tr * 3.0 or p.y < -tr * 3.0 or p.x > size.x + tr * 3.0 or p.y > size.y + tr * 3.0:
 			continue

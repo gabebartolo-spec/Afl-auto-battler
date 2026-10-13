@@ -1632,12 +1632,16 @@ func _test_discs_apart() -> void:
 			cut = k + 1
 			break
 	res["events"] = all.slice(0, cut)
-	for view in [[Vector2(370, 490), true, "phone"], [Vector2(760, 590), false, "PC"]]:
+	for view in [[Vector2(370, 490), true, "phone", false], [Vector2(760, 590), false, "PC", false],
+			[Vector2(370, 490), true, "phone, fully apart", true]]:
+		PitchView.nudge_full = view[3]
 		var pv := PitchView.new()
 		pv.size = view[0]
 		pv.camera_enabled = view[1]
 		pv.setup(res)
 		pv.set_speed(4.0)
+		var worst_nudge_discs := 0.0
+		var top_ok := true
 		pv.play()
 		var closest := INF
 		var real_closest := INF
@@ -1660,23 +1664,36 @@ func _test_discs_apart() -> void:
 				if pv.director.tokens[i]["pos"] != before[i]:
 					moved_engine += 1
 				worst_nudge_m = maxf(worst_nudge_m, drawn[i].distance_to(real[i]) / pv._scale())
+				worst_nudge_discs = maxf(worst_nudge_discs, drawn[i].distance_to(real[i]) / (2.0 * tr))
 				for j in range(i + 1, drawn.size()):
 					closest = minf(closest, drawn[i].distance_squared_to(drawn[j]) / (4.0 * tr * tr))
 					real_closest = minf(real_closest, real[i].distance_squared_to(real[j]) / (4.0 * tr * tr))
 			var holder := int(pv.director.ball.get("holder", -1))
 			if str(pv.director.ball.get("mode", "")) == "held" and holder >= 0:
 				ball_off = maxf(ball_off, pv.ball_point().distance_to(drawn[holder]) / pv._scale())
+				var order := pv.draw_order()
+				if order.size() != drawn.size() or int(order[-1]) != holder \
+						or int(pv.director.tokens[order[-2]]["side"]) == int(pv.director.tokens[holder]["side"]) \
+						or int(pv.director.tokens[order[-3]]["side"]) == int(pv.director.tokens[holder]["side"]):
+					top_ok = false
 		closest = sqrt(closest)
 		real_closest = sqrt(real_closest)
-		_check(not pv.playing and closest >= 0.97,
-				"%s: no two discs are drawn closer than a diameter (closest %.2f of one; the players themselves get to %.2f)" % [
-				str(view[2]), closest, real_closest])
+		if bool(view[3]):
+			_check(not pv.playing and closest >= 0.97,
+					"%s: no two discs are drawn closer than a diameter (closest %.2f of one; the players themselves get to %.2f)" % [
+					str(view[2]), closest, real_closest])
+		else:
+			_check(not pv.playing and worst_nudge_discs <= PitchView.NUDGE_CAP + 0.01,
+					"%s: a disc is drawn within half its width of its player (%.2f of a disc at most; closest pair %.2f of one, the players %.2f)" % [
+					str(view[2]), worst_nudge_discs, closest, real_closest])
+		_check(top_ok, "%s: the man with the ball is drawn last, over the two opponents nearest him" % str(view[2]))
 		_check(moved_engine == 0, "%s: drawing the discs apart moves no player" % str(view[2]))
 		_check(ball_off <= 1.0, "%s: a held ball is drawn at its holder's disc (%.2f m off)" % [str(view[2]), ball_off])
 		_check(worst_nudge_m < 20.0, "%s: no disc is drawn far from its player (%.1f m at most)" % [str(view[2]), worst_nudge_m])
 		print("  discs apart, %s: closest %.2f diameters (players %.2f), biggest nudge %.1f m" % [
 				str(view[2]), closest, real_closest, worst_nudge_m])
 		pv.free()
+	PitchView.nudge_full = false
 	# Frame to frame: two players standing still on one spot are drawn the same
 	# way every frame (no jitter, no swapping sides).
 	var pv2 := PitchView.new()
