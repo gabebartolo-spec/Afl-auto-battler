@@ -464,7 +464,7 @@ func _finals_cup() -> void:
 			if not decided:
 				var cup: Control = fb.find_child("FinalsCup", true, false)
 				var art: TextureRect = cup.find_child("Art_premiership_cup", true, false) if cup != null else null
-				_check(art != null and art.texture.resource_path == "res://assets/honours/premiership_cup.png" and art.material == null
+				_check(art != null and art.texture.resource_path == "res://assets/honours/premiership_cup.png" and art.modulate == Color.WHITE
 						and art.size.y >= 120.0,
 						"%s: the real cup stands over the Grand Final, silver, %d tall" % [tag, int(art.size.y) if art != null else 0])
 				_check(gf != null and cup != null and cup.get_global_rect().end.y <= gf.global_position.y + 0.5
@@ -479,7 +479,7 @@ func _finals_cup() -> void:
 				var prem := str(_state.season.finals.get("premier", ""))
 				var hero: Control = fb.find_child("FinalsHero", true, false)
 				var art: TextureRect = hero.find_child("Art_premiership_cup", true, false) if hero != null else null
-				_check(art != null and art.texture.resource_path == "res://assets/honours/premiership_cup.png" and art.size.y >= 150.0,
+				_check(art != null and art.texture.resource_path == "res://assets/honours/premiership_cup.png" and art.size.y >= 130.0,
 						"%s: the premiers' cup is the real art, big (%d)" % [tag, int(art.size.y) if art != null else 0])
 				var wash = hero.find_child("FinalsWash", true, false) if hero != null else null
 				var ink: Color = kit.club_ink(prem)

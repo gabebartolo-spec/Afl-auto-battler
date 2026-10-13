@@ -101,7 +101,7 @@ func _status() -> Control:
 ## soft light, the club's name in the scoreboard face. The cup stays silver;
 ## the colour is the room it stands in.
 const HERO_CUP_NARROW := 150.0
-const HERO_CUP_WIDE := 180.0
+const HERO_CUP_WIDE := 132.0
 ## The cup over the Grand Final on a phone, before it is decided.
 const STAGE_CUP := 120.0
 
@@ -125,7 +125,7 @@ func _premiers(prem: String) -> Control:
 	var row: BoxContainer = UiKit.hbox(20) if wide else UiKit.vbox(6)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	m.add_child(row)
-	var cup := HonoursArt.view("premiership_cup", HERO_CUP_WIDE if wide else HERO_CUP_NARROW, prem, 0, "Premiership cup")
+	var cup := _cup(HERO_CUP_WIDE if wide else HERO_CUP_NARROW)
 	cup.name = "FinalsHeroCup"
 	cup.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	row.add_child(cup)
@@ -144,6 +144,37 @@ func _premiers(prem: String) -> Control:
 	t.add_child(who)
 	row.add_child(t)
 	return p
+
+
+## The cup art's own shadow runs to the picture's edge, which shows as a box
+## on a colour: here it fades out before the edge. The cup itself is untouched.
+const CUP_SHADER := """
+shader_type canvas_item;
+void fragment() {
+	vec4 c = texture(TEXTURE, UV);
+	float shadow = 1.0 - step(0.012, max(c.r, max(c.g, c.b)));
+	float keep = smoothstep(0.0, 0.2, min(UV.x, 1.0 - UV.x)) * smoothstep(0.0, 0.05, 1.0 - UV.y);
+	c.a *= mix(1.0, keep, shadow);
+	COLOR = c * COLOR;
+}
+"""
+static var _cup_mat: ShaderMaterial
+
+
+## The premiership cup `height` tall, silver as drawn (never tinted).
+func _cup(height: float) -> Control:
+	var cup := HonoursArt.view("premiership_cup", height, "", 0, "Premiership cup")
+	var art := cup.find_child("Art_premiership_cup", true, false) as TextureRect
+	if art == null and cup.get_child_count() > 0:
+		art = cup.get_child(0) as TextureRect
+	if art != null:
+		if _cup_mat == null:
+			_cup_mat = ShaderMaterial.new()
+			var sh := Shader.new()
+			sh.code = CUP_SHADER
+			_cup_mat.shader = sh
+		art.material = _cup_mat
+	return cup
 
 
 ## The premier's colour as the room the cup stands in: full at the head,
@@ -168,7 +199,7 @@ class Wash extends Control:
 ## The cup the two Grand Finalists play for, over their match on a phone:
 ## between both clubs' colours once both are known, on the page until then.
 func _stage_cup() -> Control:
-	var cup := HonoursArt.view("premiership_cup", STAGE_CUP, "", 0, "Premiership cup")
+	var cup := _cup(STAGE_CUP)
 	cup.name = "FinalsCup"
 	var c := CenterContainer.new()
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -225,7 +256,7 @@ class BracketCanvas extends Control:
 				_nodes[str(m[0])] = n
 				add_child(n)
 		if not bool(_fb._season.finals.get("done", false)):
-			var cup := HonoursArt.view("premiership_cup", FinalsBracket.CUP_H, "", 0, "")
+			var cup := _fb._cup(FinalsBracket.CUP_H)
 			cup.name = "FinalsCup"
 			add_child(cup)
 			_nodes["_cup"] = cup
