@@ -15,8 +15,7 @@ extends RefCounted
 ## words, never a verdict on a player's character.
 ##
 ## They have no effect yet: P2-5 decides what they touch, measured. The screen
-## says so (effect_line); when P2-5 gives a strand an effect, that line and its
-## test change with it.
+## claims none; when an effect is approved, its line joins the screen with a test.
 
 const STRANDS := [["standards", "Standards"], ["together", "Togetherness"], ["ambition", "Ambition"]]
 ## The most one moment moves a strand, either way.
@@ -233,12 +232,6 @@ static func _distinct_sorted(years: Array) -> Array:
 
 ## What a strand reads when no band is named: nothing yet, or which way its
 ## latest move went (so it never contradicts the reason below it).
-## What a strand does in the game right now, one plain line. Nothing reads it
-## yet (tests/test_story.gd checks no sim script does), so every strand says so.
-static func effect_line(_strand: String, _t: int) -> String:
-	return "No effect yet."
-
-
 ## What moves a strand, from the same constants the movers use.
 static func moves_line(strand: String) -> String:
 	match strand:

@@ -4,15 +4,11 @@ extends RefCounted
 ## the career behind them. Display only: no numbers, no meters, no effect on
 ## the sim. Back, or the back arrow, returns to My list.
 ##
-## Three treatments of the same content for the director to choose from
-## (2026-10-13: "ugly screen, rework"). `variant` is debug-only; the default
-## is A. A: The club's wall. B: Three words about us. C: Inside the rooms.
-
-static var variant := "A"
+## Layout: three words about us, and how we got here (director, 2026-10-13).
 
 const WIDE := 760.0
-## The autoload by node, as UiKit does: a script with static vars is compiled before
-## the autoload names exist.
+
+## The autoloads by node, as UiKit does (their names are not known when this compiles).
 static func _gs():
 	return Engine.get_main_loop().root.get_node("GameState")
 
@@ -21,13 +17,8 @@ static func _short(club: String) -> String:
 	return str(Engine.get_main_loop().root.get_node("GameDB").club_short(club))
 
 
-const PLATE := "res://assets/vignette/rooms/press_room_plate.png"
-
-
 ## The screen, full over `host`. Returns the overlay (named CultureSheet).
 static func open(host: Control, on_close: Callable = Callable()) -> Control:
-	if OS.is_debug_build() and OS.get_environment("AFL_CULTURE") != "":
-		variant = OS.get_environment("AFL_CULTURE")
 	var root := ColorRect.new()
 	root.name = "CultureSheet"
 	root.color = UiKit.BG
@@ -39,23 +30,10 @@ static func open(host: Control, on_close: Callable = Callable()) -> Control:
 			root.queue_free()
 			if on_close.is_valid():
 				on_close.call()
-	# Android Back: a layer inside the screen (the reasons sheet) closes first.
-	var layers: Array = []
-	root.set_meta("back", func() -> bool:
-		if not layers.is_empty() and is_instance_valid(layers[0]) and layers[0].visible:
-			layers[0].visible = false
-			return true
-		return false)
 	var club: String = _gs().my_club
 	var data := strands(club)
 	var wide := UiKit.view_width(host) >= WIDE
-	match variant:
-		"B":
-			_build_b(root, club, data, wide, done)
-		"C":
-			_build_c(root, club, data, wide, done, layers)
-		_:
-			_build_a(root, club, data, wide, done, layers)
+	_build(root, club, data, wide, done)
 	return root
 
 
@@ -137,19 +115,6 @@ static func _lead(_club: String) -> Color:
 	return UiKit.team_colour()
 
 
-static func _wash(root: Control, lead: Color, height: float, alpha: float) -> void:
-	var w := Control.new()
-	w.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(w)
-	w.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	w.draw.connect(func() -> void:
-		var top := Color(lead, alpha)
-		var none := Color(lead, 0.0)
-		var sz := w.size.x
-		w.draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(sz, 0), Vector2(sz, height), Vector2(0, height)]),
-				PackedColorArray([top, top, none, none])))
-
-
 ## A club colour lifted until it reads against the page at `ratio`.
 static func _lift(c: Color, ratio := 3.0) -> Color:
 	var n := 0
@@ -187,137 +152,18 @@ static func _back(done: Callable) -> Button:
 	return b
 
 
-static func _hero(club: String, size: int) -> HBoxContainer:
-	var row := UiKit.hbox(12)
-	row.alignment = BoxContainer.ALIGNMENT_BEGIN
-	row.add_child(UiKit.club_marker(club, 48.0))
-	var col := UiKit.vbox(0)
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var name := UiKit.heading(_short(club), size)
-	name.name = "CultureClub"
-	col.add_child(name)
-	col.add_child(UiKit.lbl("Club culture", UiKit.NAME, UiKit.TEXT, true))
-	row.add_child(col)
-	return row
-
-
-## What the strand does now, and what moves it: two plain lines under its headline.
+## What moves the strand: one plain line under its headline. (What it does in
+## play joins it once the director approves the effects.)
 static func _what_it_does(d: Dictionary, parent: Control, size := 0) -> void:
 	var fs := size if size > 0 else UiKit.SECONDARY
-	var effect := UiKit.lbl(Culture.effect_line(str(d["id"]), int(d["t"])), fs, UiKit.TEXT, true)
-	effect.name = "StrandEffect"
-	parent.add_child(effect)
 	var moves := UiKit.lbl(Culture.moves_line(str(d["id"])), fs, UiKit.TEXT)
 	moves.name = "StrandMoves"
 	parent.add_child(moves)
 
 
-## Every strand's reasons, newest first, under its name in the club's ink.
-static func _reason_rows(data: Array, ink: Color) -> VBoxContainer:
-	var v := UiKit.vbox(20)
-	v.name = "CultureReasons"
-	for d in data:
-		var reasons: Array = d["reasons"]
-		if reasons.is_empty():
-			continue
-		var g := UiKit.vbox(8)
-		g.add_child(UiKit.lbl(str(d["label"]), UiKit.NAME, ink, true))
-		for r in reasons:
-			g.add_child(UiKit.lbl(Culture.group_text(str(d["label"]), r), UiKit.BODY, UiKit.TEXT))
-		v.add_child(g)
-	if v.get_child_count() == 0:
-		v.add_child(UiKit.lbl("Nothing has moved it yet.", UiKit.BODY, UiKit.TEXT))
-	return v
+# --- the screen ----------------------------------------------------------
 
-
-## A reasons sheet from the bottom, over a dim; a tap on the dim closes it.
-static func _reasons_sheet(root: Control, club: String, data: Array, wide: bool, layers: Array) -> Control:
-	var layer := VBoxContainer.new()
-	layer.name = "CultureReasonsSheet"
-	layer.add_theme_constant_override("separation", 0)
-	layer.visible = false
-	root.add_child(layer)
-	layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.62)
-	dim.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	dim.mouse_filter = Control.MOUSE_FILTER_STOP
-	dim.gui_input.connect(func(ev: InputEvent) -> void:
-		if ev is InputEventMouseButton and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT \
-				and not ev.is_pressed():
-			layer.visible = false)
-	layer.add_child(dim)
-	var holder := HBoxContainer.new()
-	holder.alignment = BoxContainer.ALIGNMENT_CENTER
-	layer.add_child(holder)
-	var sheet := UiKit.panel(UiKit.PANEL, 16)
-	sheet.custom_minimum_size.x = 640.0 if wide else 0.0
-	sheet.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if wide else Control.SIZE_EXPAND_FILL
-	holder.add_child(sheet)
-	var v := UiKit.vbox(10)
-	sheet.add_child(v)
-	v.add_child(UiKit.lbl("All reasons", UiKit.TITLE, UiKit.TEXT, true))
-	v.add_child(_rule(_lead(club)))
-	var sc := UiKit.scroll(_reason_rows(data, _ink(club)))
-	sc.custom_minimum_size.y = minf(UiKit.view_height(root) * 0.5, 420.0)
-	v.add_child(sc)
-	var close := UiKit.text_action("Done", UiKit.NAME)
-	close.name = "CultureReasonsDone"
-	close.pressed.connect(func(): layer.visible = false)
-	v.add_child(close)
-	layers.append(layer)
-	return layer
-
-
-# --- A: the club's wall --------------------------------------------------
-
-static func _build_a(root: Control, club: String, data: Array, wide: bool, done: Callable, layers: Array) -> void:
-	var lead := _lead(club)
-	var ink := _ink(club)
-	_wash(root, lead, 340.0, 0.55)
-	var m := _margin(root, wide)
-	var page := UiKit.vbox(10)
-	m.add_child(page)
-	var top := UiKit.hbox(8)
-	top.add_child(_back(done))
-	page.add_child(top)
-	page.add_child(_hero(club, 30))
-	page.add_child(UiKit.spacer(36 if wide else 22))
-	var strands_box: BoxContainer = UiKit.hbox(36) if wide else UiKit.vbox(30)
-	strands_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	for d in data:
-		var col := UiKit.vbox(8)
-		col.name = "Strand_" + str(d["id"])
-		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		col.add_child(UiKit.lbl(str(d["label"]), UiKit.NAME, ink, true))
-		col.add_child(_rule(lead))
-		col.add_child(UiKit.spacer(2))
-		var words := UiKit.lbl(str(d["words"]), 34 if wide else 28, UiKit.TEXT, true)
-		words.name = "StrandWords"
-		col.add_child(words)
-		if str(d["recent"]) != "":
-			var why := UiKit.lbl(str(d["recent"]), UiKit.BODY, UiKit.TEXT)
-			why.name = "StrandRecent"
-			col.add_child(why)
-		_what_it_does(d, col)
-		strands_box.add_child(col)
-	if wide:
-		page.add_child(strands_box)
-	else:
-		page.add_child(UiKit.scroll(strands_box))
-	var all := UiKit.text_action("All reasons ›", UiKit.NAME)
-	all.name = "CultureAllReasons"
-	all.custom_minimum_size = Vector2(160, 52)
-	all.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	page.add_child(all)
-	var sheet := _reasons_sheet(root, club, data, wide, layers)
-	all.pressed.connect(func(): sheet.visible = true)
-
-
-# --- B: three words about us ---------------------------------------------
-
-static func _build_b(root: Control, club: String, data: Array, wide: bool, done: Callable) -> void:
+static func _build(root: Control, club: String, data: Array, wide: bool, done: Callable) -> void:
 	var lead := _lead(club)
 	var ink := _ink(club)
 	var m := _margin(root, wide)
@@ -336,20 +182,20 @@ static func _build_b(root: Control, club: String, data: Array, wide: bool, done:
 	page.add_child(top)
 	page.add_child(UiKit.spacer(14))
 	# The statement: three phrases as one, the strand's name small beside each.
-	var statement := UiKit.vbox(22)
+	var statement := UiKit.vbox(52 if wide else 22)
 	for d in data:
 		var row := UiKit.hbox(14)
 		row.name = "Strand_" + str(d["id"])
-		var name := UiKit.lbl(str(d["label"]), UiKit.SECONDARY, ink, true)
-		name.custom_minimum_size.x = 104.0
+		var name := UiKit.lbl(str(d["label"]), UiKit.NAME if wide else UiKit.SECONDARY, ink, true)
+		name.custom_minimum_size.x = 130.0 if wide else 104.0
 		name.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		row.add_child(name)
-		var cell := UiKit.vbox(4)
+		var cell := UiKit.vbox(8 if wide else 4)
 		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var words := UiKit.heading(str(d["words"]), 30)
 		words.name = "StrandWords"
 		cell.add_child(words)
-		_what_it_does(d, cell)
+		_what_it_does(d, cell, UiKit.H2 if wide else 0)
 		row.add_child(cell)
 		statement.add_child(row)
 	# The dated list, newest first, each marked with the strand it touched.
@@ -358,7 +204,7 @@ static func _build_b(root: Control, club: String, data: Array, wide: bool, done:
 		var cols := UiKit.hbox(56)
 		cols.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		var left := UiKit.vbox(0)
-		left.custom_minimum_size.x = 520.0
+		left.custom_minimum_size.x = 600.0
 		left.add_child(UiKit.spacer(18))
 		left.add_child(statement)
 		cols.add_child(left)
@@ -410,87 +256,3 @@ static func _dated_list(data: Array, ink: Color, lead: Color) -> VBoxContainer:
 		row.add_child(col)
 		v.add_child(row)
 	return v
-
-
-# --- C: inside the rooms -------------------------------------------------
-
-static func _build_c(root: Control, club: String, data: Array, wide: bool, done: Callable, layers: Array) -> void:
-	var lead := _lead(club)
-	var ink := _ink(club)
-	var tex: Texture2D = null
-	if ResourceLoader.exists(PLATE):
-		tex = load(PLATE)
-	if tex == null:
-		var img := Image.load_from_file(ProjectSettings.globalize_path(PLATE))
-		if img != null:
-			tex = ImageTexture.create_from_image(img)
-	_wash(root, lead, 300.0, 0.50)
-	var m := _margin(root, wide)
-	var page := UiKit.vbox(10)
-	m.add_child(page)
-	var top := UiKit.hbox(8)
-	top.add_child(_back(done))
-	page.add_child(top)
-	page.add_child(_hero(club, 30))
-	page.add_child(UiKit.spacer(12))
-	# The room as a picture of its own, framed, with the words on a solid panel below.
-	if tex != null:
-		var band := Control.new()
-		band.name = "CulturePlate"
-		band.custom_minimum_size = Vector2(0, 130 if not wide else 170)
-		band.clip_contents = true
-		band.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var plate := TextureRect.new()
-		plate.texture = tex
-		plate.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		plate.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		band.add_child(plate)
-		# Taller than the band and pinned to its top: only the wall and the desk show, never the figures below.
-		plate.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-		plate.offset_bottom = 175.0
-		band.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN if wide else Control.SIZE_EXPAND_FILL
-		if wide:
-			band.custom_minimum_size.x = 640.0
-		page.add_child(band)
-		page.add_child(UiKit.spacer(4))
-	var col := UiKit.vbox(26)
-	col.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	if wide:
-		col.custom_minimum_size.x = 640.0
-		col.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	for d in data:
-		var s := UiKit.vbox(4)
-		s.name = "Strand_" + str(d["id"])
-		s.add_child(UiKit.lbl(str(d["label"]), UiKit.NAME, ink, true))
-		var words := UiKit.heading(str(d["words"]), 30)
-		words.name = "StrandWords"
-		s.add_child(words)
-		_what_it_does(d, s)
-		col.add_child(s)
-	var solid := UiKit.panel(UiKit.PANEL, 16)
-	solid.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	solid.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN if wide else Control.SIZE_EXPAND_FILL
-	solid.add_child(UiKit.scroll(col))
-	page.add_child(solid)
-	# The reasons: a sheet that rises from the bottom.
-	var sheet := UiKit.panel(UiKit.PANEL, 14)
-	sheet.name = "CultureReasonsSheet"
-	sheet.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN if wide else Control.SIZE_EXPAND_FILL
-	sheet.custom_minimum_size.x = 640.0 if wide else 0.0
-	var v := UiKit.vbox(8)
-	sheet.add_child(v)
-	var all := UiKit.text_action("All reasons ⌃", UiKit.NAME)
-	all.name = "CultureAllReasons"
-	all.custom_minimum_size = Vector2(0, 48)
-	all.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	v.add_child(all)
-	var sc := UiKit.scroll(_reason_rows(data, ink))
-	sc.custom_minimum_size.y = minf(UiKit.view_height(root) * 0.42, 360.0)
-	sc.visible = false
-	v.add_child(sc)
-	all.pressed.connect(func():
-		sc.visible = not sc.visible
-		all.text = "All reasons ⌄" if sc.visible else "All reasons ⌃")
-	page.add_child(sheet)
-	layers.append(sc)  # Back folds the sheet away before it leaves

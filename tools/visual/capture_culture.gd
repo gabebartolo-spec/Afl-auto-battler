@@ -3,8 +3,7 @@ const Tap := preload("res://tests/tap.gd")
 ## The Club culture sheet (stories P2-3), over My list, for the
 ## director's look. Needs a real renderer:
 ##   godot --path . --script tools/visual/capture_culture.gd -- --out /tmp/cult [--size 1280x720]
-## Writes <out>_list.png (My list, the Club culture row), <out>_culture.png (the three strands in words) and <out>_why.png (a strand's
-## reasons open). Plays a season first, so the strands have something to say.
+## Writes <out>_list.png (My list, the Club culture row), <out>_culture.png (the three strands in words). Plays a season first, so the strands have something to say.
 
 var W := 390
 var H := 844
@@ -119,34 +118,19 @@ func _run() -> void:
 	for i in range(8):
 		await process_frame
 	await _shot(out + "_list.png")
-	# Each treatment (CultureSheet.variant): the way in by a real tap (phone), the
-	# screen, the reasons, then Back. Writes <out>_<V>_culture.png and <out>_<V>_reasons.png.
-	for v in ["A", "B", "C"]:
-		load("res://scripts/ui/CultureSheet.gd").variant = v
-		current_scene.queue_free()
+	root.get_node("Router").go("list")
+	for i in range(20):
 		await process_frame
-		root.get_node("Router").go("list")
-		for i in range(20):
-			await process_frame
-		var open_btn: Button = current_scene.find_child("CultureOpen", true, false)
-		var why: String = await _tap(open_btn) if W < 760 else "not tapped on the PC canvas"
-		if why != "" or current_scene.find_child("CultureSheet", true, false) == null:
-			print(v, ": tap not mapped here (", why, "): pressing instead")
-			open_btn.emit_signal("pressed")
-		await _shot(out + "_" + v + "_culture.png")
-		print(v, " clipped text: ", _clipped(current_scene.find_child("CultureSheet", true, false)))
-		var all: Button = current_scene.find_child("CultureAllReasons", true, false)
-		if all != null:
-			all.emit_signal("pressed")
-		await _shot(out + "_" + v + "_reasons.png")
-		print(v, " clipped text (reasons): ", _clipped(current_scene.find_child("CultureSheet", true, false)))
-		var closed := false
-		for k in range(2):
-			if current_scene.find_child("CultureSheet", true, false) != null:
-				current_scene.handle_back()
-				await process_frame
-		closed = current_scene.find_child("CultureSheet", true, false) == null
-		print(v, " back closes: ", closed)
+	var open_btn: Button = current_scene.find_child("CultureOpen", true, false)
+	var why: String = await _tap(open_btn) if W < 760 else "not tapped on the PC canvas"
+	if why != "" or current_scene.find_child("CultureSheet", true, false) == null:
+		print("tap not mapped here (", why, "): pressing instead")
+		open_btn.emit_signal("pressed")
+	await _shot(out + "_culture.png")
+	print("clipped text: ", _clipped(current_scene.find_child("CultureSheet", true, false)))
+	current_scene.handle_back()
+	await process_frame
+	print("back closes: ", current_scene.find_child("CultureSheet", true, false) == null)
 	quit(0)
 
 

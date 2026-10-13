@@ -1525,7 +1525,7 @@ func _test_culture_order_and_tails() -> void:
 			"A rise carries no tail (the page says it once); only a fall says it cost the strand")
 
 
-## The screen's lines say what the code does: nothing reads a strand to change play,
+## The screen claims no effect because there is none: nothing reads a strand to change play,
 ## and each "what moves it" line matches the movers.
 func _test_culture_copy_is_true() -> void:
 	var files := []
@@ -1550,7 +1550,6 @@ func _test_culture_copy_is_true() -> void:
 func ", at + 5) - at)
 	_check(gs.count("Culture.value(") == body.count("Culture.value("), "In GameState a strand is read only to make news")
 	for st in ["standards", "together", "ambition"]:
-		_check(Culture.effect_line(st, 50) == "No effect yet." and Culture.effect_line(st, -50) == "No effect yet.", "%s says it has no effect yet" % st)
 		_check(Culture.moves_line(st) != "", "%s says what moves it" % st)
 	var tg := Culture.moves_line("together")
 	for n in [Culture.FINALS_PLACES, Culture.BOTTOM_PLACES, Culture.WINNING_RUNS[0], Culture.WINNING_RUNS[1], Culture.LOSING_RUNS[0], Culture.LOSING_RUNS[1]]:
