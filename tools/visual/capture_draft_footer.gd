@@ -3,7 +3,7 @@ extends SceneTree
 ## a list the rules refuse (over the cap), and a list with every position covered.
 ## Needs a real renderer:
 ##   godot --path . --script tools/visual/capture_draft_footer.gd -- --out /tmp/draft_footer [--size 390x844]
-## Writes <out>_short.png, <out>_invalid.png and <out>_ready.png.
+## Writes <out>_short.png, <out>_invalid.png, <out>_invalid_mylist.png and <out>_ready.png.
 
 var W := 390
 var H := 844
@@ -41,6 +41,15 @@ func _run() -> void:
 		img.convert(Image.FORMAT_RGBA8)
 		img.save_png("%s_%s.png" % [out, variant])
 		print("wrote %s_%s.png: %s" % [out, variant, (ui.find_child("UpcomingPicks", true, false) as Label).text.replace("\n", " / ")])
+		if variant == "invalid":
+			# The way out: My list offers Release on a list the rules refuse.
+			ui.call("_select_tab", "squad")
+			for i in range(6):
+				await process_frame
+			var img2 := root.get_viewport().get_texture().get_image()
+			img2.convert(Image.FORMAT_RGBA8)
+			img2.save_png("%s_invalid_mylist.png" % out)
+			print("wrote %s_invalid_mylist.png" % out)
 		ui.queue_free()
 		await process_frame
 	quit(0)

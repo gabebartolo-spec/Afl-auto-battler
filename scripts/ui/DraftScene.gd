@@ -1447,8 +1447,15 @@ func _refresh_mine() -> void:
 		_mine_box.add_child(UiKit.lbl(
 			"Cover 6 DEF, 6 MID and 6 FWD for the ground. Carry at least 2 RUCK. The bench is flexible; other needs are guidance, not limits.",
 			13, UiKit.MUTED))
-	var stuck := _draft.user_stuck()
-	if stuck:
+	var stuck := _draft.can_release()
+	if _draft.finished_list_refused():
+		var fix := UiKit.lbl("%s Release a player: he goes back into the pool and you pick another." % _draft.invalid_reason(),
+				14, UiKit.BAD)
+		fix.name = "DraftFix"
+		fix.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_mine_box.add_child(UiKit.spacer(6))
+		_mine_box.add_child(fix)
+	elif _draft.user_stuck():
 		# Only an older save can get here: say so plainly and offer the one
 		# legal way on - never a cap breach.
 		var why := UiKit.lbl("No player left fits your cap and your list's needs. Release one of your picks to make room: he goes back into the pool and you get an extra pick at the end of the draft.",
@@ -1655,7 +1662,8 @@ func _refresh_status() -> void:
 		var invalid := _draft.invalid_reason()
 		var short := _draft.short_positions()
 		if invalid != "":
-			_next_picks.text = invalid + "\nStart season waits until that is fixed."
+			_next_picks.text = invalid + ("\nRelease a player on My list to fix it."
+					if _draft.finished_list_refused() else "\nStart season waits until that is fixed.")
 		elif short != "":
 			_next_picks.text = "Short %s.\nOthers will have to fill in." % short
 		else:

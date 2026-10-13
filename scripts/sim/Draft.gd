@@ -1091,11 +1091,25 @@ func user_stuck() -> bool:
 	return true
 
 
+## A finished list the rules refuse (over the cap, or short of two rucks) with
+## every place filled. Play cannot reach it - every pick is checked against
+## the cap and the two-ruck rule - but an older save can. Releasing a pick
+## reopens the draft with one extra pick at the end, so the coach can fix it
+## without starting again. Never true for a list that is valid.
+func finished_list_refused() -> bool:
+	return league_mode and not intake_mode and is_finished() 			and not is_valid() and count() >= target_size
+
+
+## Releasing a pick is offered when you are stuck or the finished list is refused.
+func can_release() -> bool:
+	return user_stuck() or finished_list_refused()
+
+
 ## The way out of a stuck draft without ever breaching the cap: release one
 ## of your picks. He goes back into the pool, his salary comes off your books
 ## and you get an extra pick at the end of the draft to fill his place.
 func release_for_room(id: String) -> bool:
-	if not user_stuck() or not picked.has(id) or drafted_by(id) != user_club:
+	if not can_release() or not picked.has(id) or drafted_by(id) != user_club:
 		return false
 	var p: Dictionary = picked[id]
 	(club_lists[user_club] as Array).erase(p)

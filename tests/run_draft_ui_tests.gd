@@ -160,8 +160,26 @@ func _test_start_season_footer() -> void:
 	await _settle()
 	_check(_state.season == null and ui.is_inside_tree() and ui.get("_phase") == "board",
 			"A tap on Start season with an invalid list leaves you on the draft")
+	# ...and the coach can fix it here: My list offers Release, a real tap
+	# frees the player and reopens the draft for another pick.
+	_check(footer.text.contains("Release a player") and d.finished_list_refused(),
+			"The footer says how to fix it: " + footer.text.replace("
+", " / "))
+	ui.call("_select_tab", "squad")
+	await _settle()
+	var rel: Button = null
+	for n in ui.find_children("Release_*", "Button", true, false):
+		rel = n
+		break
+	_check(rel != null, "A refused list offers Release on My list")
+	var count_before: int = d.count()
+	var rel_why: String = await Tap.tap(rel)
+	await _settle()
+	_check(rel_why == "" and d.count() == count_before - 1 and not d.is_finished() and d.is_user_turn() and d.spent() <= d.budget,
+			"A tap on Release returns him to the pool and reopens your pick, under the cap (%s)" % rel_why)
+	_check(fin.disabled and not ui.find_child("UpcomingPicks", true, false).text.contains("over the salary cap"),
+			"Start season stays off until the list is whole, and the cap reason is gone")
 	d.budget += 1000
-	(d.club_lists["COL"] as Array).pop_back()
 	_check(d.invalid_reason() == "You have %d of %d players." % [d.target_size - 1, d.target_size],
 			"A short list says how many players it has: " + d.invalid_reason())
 	ui.queue_free()
