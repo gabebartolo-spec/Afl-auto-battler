@@ -50,12 +50,13 @@ const CLASS_TIERS := [
 ]
 const CLASS_TOP_RANKS := 30
 
-## Draft-night rating scale for generated classes (proposal, director 2026-10-13: young
-## draftees should arrive and climb like real AFL ones). 1.0 is the old curve. The
+## Draft-night rating scale for generated classes (director 2026-10-14, "A: gentle": young
+## draftees arrive lower and climb like real AFL ones). 1.0 is the old curve. Only new
+## generated classes use it: players already on a list, and the real 2026 class, are not rescaled. The
 ## rank-base rating is multiplied by this and the points taken off are added back to
 ## the prospect's room, so his POT (his ceiling) does not move.
 ## (static var, not const, only so tools/audit can try arms in one run.)
-static var DRAFT_NIGHT_SCALE := 1.0
+static var DRAFT_NIGHT_SCALE := 0.78
 ## Readiness (director 2026-10-13: "some players are more ready-made than others"): with the scale
 ## below 1, a few prospects keep most of the old draft-night rating (ready-made: senior footy in
 ## year 1, less climb left), most lose it all, and some lose more (long-term projects, a big

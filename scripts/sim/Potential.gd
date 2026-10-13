@@ -59,7 +59,7 @@ const GAP_PULL := [[21.0, 0.30], [24.0, 0.22], [28.0, 0.15]]
 const REHAB_PULL := 0.9
 const MIN_STEP := 2.0
 
-## Youth pace (director, 2026-10-13: "slow the kids down to match real AFL").
+## Youth pace (director, 2026-10-13: "slow the kids down to match real AFL"; settled 2026-10-14 as a lower draft-night rating, the climb at the old pace 1.0).
 ## The yearly development step by age: [oldest age, lowest, highest]. Rolled
 ## fresh each off-season (Prospects.age_player); `outlook` uses the middle.
 const AGE_STEP := [[20.0, 2.5, 6.0], [23.0, 1.0, 4.0], [27.0, 0.0, 2.0],
@@ -69,9 +69,9 @@ const AGE_STEP := [[20.0, 2.5, 6.0], [23.0, 1.0, 4.0], [27.0, 0.0, 2.0],
 const YOUTH_PACE_UNTIL := 24.0
 ## Multiplies the age-band step when it is a gain.
 ## (static var, not const, only so tools/audit/growth_curve_impl.gd can try arms in one run.)
-static var YOUTH_STEP_PACE := 0.7
+static var YOUTH_STEP_PACE := 1.0
 ## Multiplies the share of the gap to POT closed in one off-season.
-static var YOUTH_GAP_PACE := 0.7
+static var YOUTH_GAP_PACE := 1.0
 ## Past 30 a player comes back from an injury season less of the way: the
 ## rehab pull eases this much per year, never below REHAB_PULL_FLOOR of it.
 const REHAB_AGE_EASE := 0.12

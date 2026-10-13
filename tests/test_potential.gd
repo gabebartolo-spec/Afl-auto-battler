@@ -26,6 +26,7 @@ func run() -> void:
 	_test_training_discount()
 	_test_draftee_potential()
 	_test_youth_pace()
+	_test_pick_values_held()
 	_test_save_and_backfill()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
@@ -194,47 +195,104 @@ func _test_training_discount() -> void:
 	_check(cheap > 0 and cheap < full, "Training cost reflects POT (%d vs %d)" % [cheap, full])
 
 
-## Three off-seasons of a young class at the old pace (1.0) and the shipped pace:
-## the kids come on slower (director 2026-10-13), the best of them still get
-## there, and nobody past 24 is touched.
-func _three_seasons(class_players: Array) -> Array:
-	var ovr: Array = []
-	for p in class_players:
-		var c: Dictionary = p.duplicate(true)
-		for y in range(3):
-			Prospects.age_player(c, 2028 + y)
-		ovr.append(float(c["overall"]))
-	ovr.sort()
-	return ovr
+## Young draftees (director 2026-10-14, "A: gentle"): they arrive lower than the old curve, a few
+## are ready-made, the ceiling is the same, and nobody already on a list is rescaled.
+func _top_ten(scale: float) -> Array:
+	var old := Prospects.DRAFT_NIGHT_SCALE
+	Prospects.DRAFT_NIGHT_SCALE = scale
+	var out: Array = []
+	for y in range(2027, 2033):
+		for p in Prospects.generate_class(y, 700 + y):
+			if int(p["draft_rank"]) <= 10:
+				out.append(p)
+	Prospects.DRAFT_NIGHT_SCALE = old
+	return out
+
+
+func _mean_of(ps: Array, key: String) -> float:
+	var t := 0.0
+	for p in ps:
+		t += float(p[key])
+	return t / maxf(1.0, float(ps.size()))
 
 
 func _test_youth_pace() -> void:
-	var cls: Array = Prospects.generate_class(2027) + Prospects.generate_class(2028) + Prospects.generate_class(2029)
-	var step := Potential.YOUTH_STEP_PACE
-	var gap := Potential.YOUTH_GAP_PACE
-	Potential.YOUTH_STEP_PACE = 1.0
-	Potential.YOUTH_GAP_PACE = 1.0
-	var old := _three_seasons(cls)
-	var old_vets: int = int(_age_once(_real("Connor Rozee"))["overall"])
-	Potential.YOUTH_STEP_PACE = step
-	Potential.YOUTH_GAP_PACE = gap
-	var now := _three_seasons(cls)
-	var mean := func(a: Array) -> float:
-		var t := 0.0
-		for x in a:
-			t += float(x)
-		return t / maxf(1.0, float(a.size()))
-	var q := func(a: Array, f: float) -> float:
-		return float(a[int(f * float(a.size() - 1))])
-	_check(step < 1.0 and gap < 1.0, "The youth pace is slower than the old pace")
-	_check(mean.call(now) <= mean.call(old) - 1.5,
-			"A drafted class is at least 1.5 OVR lower after three seasons (%.1f v %.1f)" % [mean.call(now), mean.call(old)])
-	_check(q.call(now, 0.9) >= q.call(old, 0.9) - 4.0,
-			"The best tenth still gets there (90th percentile %.1f v %.1f)" % [q.call(now, 0.9), q.call(old, 0.9)])
-	_check(q.call(now, 0.9) - q.call(now, 0.5) >= q.call(old, 0.9) - q.call(old, 0.5) - 1.0,
-			"The spread between a star and a typical pick is kept")
-	_check(int(old_vets) == int(_age_once(_real("Connor Rozee"))["overall"]),
-			"A rehab-year star is not slowed by the youth pace")
+	_check(is_equal_approx(Prospects.DRAFT_NIGHT_SCALE, 0.78), "The draft-night scale is the gentle 0.78")
+	_check(Potential.YOUTH_STEP_PACE == 1.0 and Potential.YOUTH_GAP_PACE == 1.0, "The climb itself runs at the old pace")
+	var old_top := _top_ten(1.0)
+	var top := _top_ten(Prospects.DRAFT_NIGHT_SCALE)
+	var drop := _mean_of(old_top, "overall") - _mean_of(top, "overall")
+	_check(drop >= 10.0 and drop <= 18.0, "A top-10 pick arrives about 14 points lower than on the old curve (%.1f)" % drop)
+	_check(absf(_mean_of(old_top, "potential") - _mean_of(top, "potential")) <= 1.5, "His ceiling (POT) is the same")
+	# Readiness: a few are ready-made, most typical, some long-term projects.
+	var ready := 0
+	var project := 0
+	var ready_ov := 0.0
+	var project_ov := 0.0
+	for p in top:
+		if str(p.get("readiness", "")) == "ready":
+			ready += 1
+			ready_ov += float(p["overall"])
+		elif str(p.get("readiness", "")) == "project":
+			project += 1
+			project_ov += float(p["overall"])
+	var n := float(top.size())
+	_check(float(ready) / n >= 0.10 and float(ready) / n <= 0.35, "About 1 in 5 of a top 10 is ready-made (%d of %d)" % [ready, top.size()])
+	_check(project > 0 and ready > 0 and ready_ov / float(ready) > project_ov / float(project) + 8.0,
+			"A ready-made pick is well ahead of a project on draft night")
+	# He climbs: three off-seasons add well over ten points to the average top-10 pick.
+	var start := _mean_of(top, "overall")
+	var after := 0.0
+	for p in top:
+		var c: Dictionary = p.duplicate(true)
+		for y in range(3):
+			Prospects.age_player(c, 2040 + y)
+		after += float(c["overall"])
+	after /= n
+	_check(after - start >= 15.0, "The average top-10 pick climbs %.1f points in three seasons" % (after - start))
+	# Nobody already listed is rescaled: a saved draftee keeps his rating whatever the scale is now,
+	# and the real 2026 class (data, not generated) projects the same either way.
+	var saved: Dictionary = (_top_ten(1.0)[0] as Dictionary).duplicate(true)
+	var kept := int(saved["overall"])
+	var scale := Prospects.DRAFT_NIGHT_SCALE
+	Prospects.DRAFT_NIGHT_SCALE = 0.5
+	var after_aging := int(_age_once(saved)["overall"])
+	_check(int(saved["overall"]) == kept, "A draftee already on a list keeps his rating when the scale changes")
+	Prospects.DRAFT_NIGHT_SCALE = scale
+	_check(after_aging >= kept, "...and a young listed player still climbs")
+	var real_pick: Dictionary = {}
+	for p in GameDB.draftees:
+		real_pick = (p as Dictionary).duplicate(true)
+		break
+	if not real_pick.is_empty():
+		Prospects.project(real_pick)
+		var at_scale := int(real_pick["overall"])
+		Prospects.DRAFT_NIGHT_SCALE = 1.0
+		Prospects.project(real_pick)
+		Prospects.DRAFT_NIGHT_SCALE = scale
+		_check(at_scale == int(real_pick["overall"]), "The real 2026 class is not rescaled")
+
+
+## Director 2026-10-14, "hold pick values where they are": a pick is read by the player it buys,
+## so lowering the draft-night rating does not cheapen picks (today's values, 12 classes, a
+## rebuilding club: pick 1 about 1.9, pick 10 about 1.3, pick 30 about 0.7).
+func _pick_value_at(pick: int, scale: float) -> float:
+	var old := Prospects.DRAFT_NIGHT_SCALE
+	Prospects.DRAFT_NIGHT_SCALE = scale
+	var t := 0.0
+	for c in range(12):
+		var ranked: Array = TradeValue.rank_prospects(Prospects.generate_class(2027 + c, 700 + c))
+		t += TradeValue.pick_value([[pick, 1.0]], ranked, "rebuilding")
+	Prospects.DRAFT_NIGHT_SCALE = old
+	return t / 12.0
+
+
+func _test_pick_values_held() -> void:
+	for e in [[1, 1.9], [10, 1.3], [30, 0.7]]:
+		var now := _pick_value_at(int(e[0]), Prospects.DRAFT_NIGHT_SCALE)
+		var old := _pick_value_at(int(e[0]), 1.0)
+		_check(absf(now - float(e[1])) <= 0.15, "Pick %d is worth about %.1f to a rebuilding club (%.2f)" % [int(e[0]), float(e[1]), now])
+		_check(absf(now - old) <= 0.03 * old, "Pick %d is worth the same as on the old curve (%.2f v %.2f)" % [int(e[0]), now, old])
 
 
 func _test_draftee_potential() -> void:
