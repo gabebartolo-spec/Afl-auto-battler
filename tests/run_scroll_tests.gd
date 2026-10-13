@@ -398,6 +398,20 @@ func _hub_round1(size: Vector2i) -> void:
 	_state.start_season("WBD", _db.club_list("WBD"))
 	_state.replay_seed = SUITE_SEED
 	_state.tutorials = false
+	# Last year's finish: the real 2026 ladder in a real-lists first season,
+	# nothing in a redrafted league or for a club that is not on that ladder.
+	_state.start_mode = "real"
+	var real_ladder: Array = _db.ladder_2026()
+	var first: String = str(real_ladder[0]["club"])
+	_check(_state.last_finish_of(first) == 1, "%s: the real champion finished 1st last year (%d)" % [tag, _state.last_finish_of(first)])
+	_state.start_mode = "redraft"
+	_check(_state.last_finish_of(first) == 0, "%s: a redrafted league has no last-year finish" % tag)
+	_state.start_mode = "real"
+	_check(_state.last_finish_of("TAS") == 0, "%s: an expansion club has no last-year finish" % tag)
+	var keep_club: String = _state.my_club
+	_state.my_club = "ZZZ"
+	_check(_state.last_finish_of(first) == 0, "%s: a created club has no last-year finish" % tag)
+	_state.my_club = keep_club
 	_router.stack = []
 	_router.go("main")
 	await _settle()
@@ -423,6 +437,8 @@ func _hub_round1(size: Vector2i) -> void:
 	# The week's opponent line before a game: last year's finish or nothing,
 	# never "no games yet" or a form.
 	var opp: Label = hub.find_child("OppFormLine", true, false)
+	_check(opp != null and opp.text.contains("finished") and opp.text.ends_with("last year"),
+			"%s: the opponent line gives last year's finish (%s)" % [tag, opp.text if opp else "-"])
 	_check(opp == null or (not opp.text.contains("no games yet") and not opp.text.contains("Form")
 			and not opp.text.contains("on the ladder")), "%s: no ladder spot or form before a game (%s)" % [tag, opp.text if opp else "-"])
 	var ev: Control = hub.find_child("WeekEvent", true, false)
