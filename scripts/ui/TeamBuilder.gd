@@ -241,7 +241,7 @@ func _build() -> void:
 		bar.add_child(cancel)
 		rest.add_child(bar)
 	else:
-		var tap_hint := ScreenLayout.tap_word() + " a player, then another (or drag one onto another) to swap them."
+		var tap_hint := ("Tap" if (ScreenLayout.is_phone() or not _wide) else "Click") + " a player, then another (or drag one onto another) to swap them."
 		if hint_extra != "":
 			tap_hint = hint_extra + " " + tap_hint
 		var hint := UiKit.lbl(start_note if start_note != "" else tap_hint, UiKit.SMALL,

@@ -405,6 +405,9 @@ func _selection_pages_tests() -> void:
 		_check(ui.find_children("Spot_*", "Button", true, false).size() == 18
 				and ui.find_children("BenchSpot_*", "Button", true, false).size() == 5,
 				"Phone: the 18 and the bench are all on the first page (%s)" % tag)
+		var phone_hint: Label = ui.find_child("BuilderHint", true, false)
+		_check(phone_hint != null and phone_hint.text.contains("Tap a player, then another (or drag one onto another) to swap them.")
+				and not phone_hint.text.contains("Click"), "Phone: the help line says Tap, not Click (%s)" % tag)
 		var inter := ui.find_child("InterchangeRow", true, false)
 		var save: Button = ui.find_child("SaveBest23", true, false)
 		_check(inter != null and save != null and _gap_x(inter.get_child(0), save) < 48.0 and save.size.y >= 44,
@@ -471,6 +474,8 @@ func _selection_pages_tests() -> void:
 					"PC: the side and the week are both in view, no toggle (%s)" % ptag)
 			_check(_no_scroll(ui.find_child("SelectionScroll", true, false)) and _no_scroll(ui.find_child("WeekScroll", true, false)),
 					"PC: neither column scrolls (%s)" % ptag)
+			var pc_hint: Label = ui.find_child("BuilderHint", true, false)
+			_check(pc_hint != null and pc_hint.text.contains("Click a player"), "PC: the help line says Click (%s)" % ptag)
 			var week_w := (ui.find_child("WeekScroll", true, false) as Control).size.x
 			_check(week_w >= 460.0 and week_w <= 600.5, "PC: the week keeps a readable column, %d wide (%s)" % [int(week_w), ptag])
 			var sl2: Label = ui.find_child("SynergyLine", true, false)
