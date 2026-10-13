@@ -50,6 +50,13 @@ const CLASS_TIERS := [
 ]
 const CLASS_TOP_RANKS := 30
 
+## Draft-night rating scale for generated classes (proposal, director 2026-10-13: young
+## draftees should arrive and climb like real AFL ones). 1.0 is the old curve. The
+## rank-base rating is multiplied by this and the points taken off are added back to
+## the prospect's room, so his POT (his ceiling) does not move.
+## (static var, not const, only so tools/audit can try arms in one run.)
+static var DRAFT_NIGHT_SCALE := 1.0
+
 const ROLE_DELTAS := {
 	"MID": {"disposal": 6.0, "contested": 5.0, "pressure": 3.0, "carry": 4.0,
 			"creating": 2.0, "marking": -1.0, "goalkicking": -3.0, "intercept": 0.0,
@@ -125,6 +132,11 @@ static func project(p: Dictionary) -> void:
 	var rank := int(p.get("draft_rank", 0))
 	var role := str(p.get("role", "MID"))
 	var target := rank_base_overall(rank)
+	p.erase("night_drop")
+	if DRAFT_NIGHT_SCALE != 1.0 and p.has("class_shift"):
+		var drop := target * (1.0 - DRAFT_NIGHT_SCALE)
+		target -= drop
+		p["night_drop"] = drop
 
 	# Reported U18 production lifts the floor, capped so a stat-stuffing
 	# Talent League season can never out-project a 20-game AFL pro.
@@ -157,7 +169,11 @@ static func project(p: Dictionary) -> void:
 		target += 1.0  # over-age means proven, at a small trade-off in ceiling
 	target += rng.randf_range(-1.5, 1.5)
 	target += float(p.get("class_shift", 0.0))
+	var unscaled := target + float(p.get("night_drop", 0.0))
 	target = clampf(target, 38.0, 74.0)
+	if p.has("night_drop"):
+		# Only the points actually taken off count (the floor stops the lowest picks).
+		p["night_drop"] = clampf(unscaled, 38.0, 74.0) - target
 
 	# Attributes: centre on the target with the shape of a real player of his
 	# role (a specialist's spike and weak spot, not a flat template - director,

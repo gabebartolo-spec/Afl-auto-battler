@@ -19,7 +19,7 @@ for path in sys.argv[1:]:
     for line in open(path, encoding="utf-8", errors="replace"):
         f = line.strip().split("|")
         if f[0] == "GA":
-            arm = f[4].replace("step ", "") + ":" + f[5].replace("gap ", "")
+            arm = f[6].replace("night ", "n") + " " + f[4].replace("step ", "") + ":" + f[5].replace("gap ", "") if len(f) > 6 else f[4].replace("step ", "") + ":" + f[5].replace("gap ", "")
         elif f[0] == "COH":
             seed, dy, y, pick, o0, age, ov, thr = int(f[1]), int(f[2]), int(f[3]), int(f[4]), int(f[5]), int(f[6]), int(f[7]), float(f[8])
             coh[(arm, rng_of(pick))].append((dy, y, age, ov, thr, seed, pick))

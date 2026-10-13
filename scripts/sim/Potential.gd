@@ -305,6 +305,7 @@ static func _draftee_potential(p: Dictionary, rng: RandomNumberGenerator) -> flo
 	# A strong or weak generated class moves its best prospects' ceilings
 	# (Prospects.CLASS_TIERS); the per-player roll still makes busts.
 	room += float(p.get("class_ceiling", 0.0))
+	room += float(p.get("night_drop", 0.0))  # a lower draft-night rating keeps the same ceiling
 	return float(int(p.get("overall", 50))) + room + rng.randf_range(-3.0, 3.0)
 
 
