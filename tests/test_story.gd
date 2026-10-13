@@ -995,10 +995,23 @@ func _test_captain_cards() -> void:
 	if cap.is_empty():
 		return
 	var card := GameState.story_card("captain_selection_word", cap)
-	var leave_detail := str((card["options"] as Array)[1]["detail"])
-	_check(leave_detail.contains("Leadership %d" % Leadership.of(cap)) and leave_detail.contains("60 or more")
-			and leave_detail.contains("45 or more") and (leave_detail.contains("would settle it") or leave_detail.contains("wouldn't settle it")),
-			"The choice prints his Leadership, the rule, and what it means now (%s)" % leave_detail)
+	var leave_opt: Dictionary = (card["options"] as Array)[1]
+	var leave_detail := str(leave_opt["detail"])
+	var leave_rule := str(leave_opt["rule"])
+	var del_fx: Dictionary = {}
+	for ch in StoryDeck.by_id(StoryDeck.all(), "captain_selection_word")["choices"]:
+		if str(ch["key"]) == "leave":
+			del_fx = ch["effects"][0]
+	var held_words := StoryEngine.describe({"effects": del_fx["held"]}, card["facts"])
+	var failed_words := StoryEngine.describe({"effects": del_fx["failed"]}, card["facts"])
+	var stands: bool = bool(card["facts"]["delegate_holds"])
+	_check(leave_detail.contains(held_words.substr(1)) and leave_detail.contains(failed_words.substr(1))
+			and leave_detail.contains("would listen to" if stands else "wouldn't listen to")
+			and not leave_detail.to_lower().contains("settle") and not leave_detail.contains("Leadership"),
+			"The card line says what happens both ways, from the choice's own effects, and which way it stands (%s)" % leave_detail)
+	_check(leave_rule.contains("Leadership %d" % Leadership.of(cap)) and leave_rule.contains("%d or more" % StoryDeck.HOLDS_AT)
+			and leave_rule.contains("%d or more" % StoryDeck.HOLDS_WITH_TRUST) and not leave_rule.to_lower().contains("settle"),
+			"The rule one tap away prints his Leadership and the thresholds from the constants (%s)" % leave_rule)
 	_check(bool(card.get("choice_notes", false)), "A captain card shows what each choice does under its button")
 	var holds := StoryDeck.HOLDS_AT
 	for case in [[70, 0, true], [40, 80, false], [50, 40, true], [50, 0, false], [60, 0, true], [44, 90, false]]:
@@ -1075,7 +1088,7 @@ func _test_captain_cards_in_play() -> void:
 		var card := GameState.story_card(id, cap)
 		_check(not bool(card["facts"].get("delegate_holds", true)), "%s: with this captain it wouldn't hold" % id)
 		var detail := str(card["options"][int(leave_index[id])]["detail"])
-		_check(detail.contains("wouldn't settle it"), "%s: the choice says it wouldn't settle it (%s)" % [id, detail])
+		_check(detail.contains("wouldn't listen to"), "%s: the choice says the group wouldn't listen (%s)" % [id, detail])
 		var before := ClubLife.morale(GameState.my_list[0])
 		var out := ClubStories.apply_choice(GameState, card, int(leave_index[id]))
 		_check(out.contains(str(failed_copy[id])) and ClubLife.morale(GameState.my_list[0]) - before == int(delta[id]),

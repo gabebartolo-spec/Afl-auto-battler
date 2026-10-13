@@ -36,7 +36,7 @@ const OPS := {
 	# takes the armband (through the Captaincy rules and their costs).
 	"delegate": true, "back_kid": false, "captaincy_swap": false,
 }
-## The rule a dispute left to the captain follows: he settles it if his
+## The rule a dispute left to the captain follows: the group listens to him if his
 ## Leadership is at least HOLDS_AT, or at least HOLDS_WITH_TRUST and he trusts you.
 const HOLDS_AT := 60
 const HOLDS_WITH_TRUST := 45
@@ -46,7 +46,7 @@ const PLAYER_FACTS := ["name", "first", "age", "games", "fit", "selected", "over
 		"pot_gap", "contract_years", "morale", "trust", "trust_band", "discipline", "backed",
 		"fit_rank", "talk_case", "kpi", "kpi_or_need", "explain_label", "talk_text", "sore_odds",
 		"ask", "early_price", "more_seasons", "extension_ok", "job", "real_named",
-		"leadership", "captain", "delegate_holds"]
+		"leadership", "captain", "delegate_holds", "holds_at", "holds_trust_at"]
 ## Facts about the club and the week (GameState._story_club_facts).
 const CLUB_FACTS := ["club", "opp", "round", "year", "losing_run", "winning_run", "ladder",
 		"board", "fit_count", "run_games", "finals_week", "captain_name", "vice_name", "vice_id",
@@ -193,7 +193,7 @@ static func _check_card(t: Dictionary) -> Array:
 		keys[ck] = true
 		if str(c.get("label", "")) == "":
 			errs.append("%s/%s: the choice has no label" % [id, ck])
-		for field in ["label", "note", "result"]:
+		for field in ["label", "note", "rule", "result"]:
 			errs.append_array(_check_text("%s/%s" % [id, ck], str(c.get(field, "")), player, field == "result"))
 		for e in c.get("effects", []):
 			errs.append_array(_check_effect("%s/%s" % [id, ck], e, player))

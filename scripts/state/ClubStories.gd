@@ -174,7 +174,7 @@ static func player_fact(gs, p: Dictionary, selected: bool, i: Dictionary, fit_ra
 			# A dispute left to the captain: held when his Leadership is high enough, or
 			# fairly high and he trusts you (the rule is printed on the choice).
 			"leadership": lead, "captain": Captaincy.role_of(gs.captaincy_record(gs.my_club), id) == "captain",
-			"delegate_holds": holds}
+			"delegate_holds": holds, "holds_at": StoryDeck.HOLDS_AT, "holds_trust_at": StoryDeck.HOLDS_WITH_TRUST}
 
 
 ## One card from the deck about `p` (or the club), built for this week whether

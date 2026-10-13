@@ -12,6 +12,7 @@ var _results_overlay: Control
 var _media_overlay: Control
 var _talk_overlay: Control
 var _news_overlay: Control
+var _rule_overlay: Control
 var _sim_confirm: Control
 var _quick_sim: Control
 var _onboarding_overlay: Control
@@ -412,12 +413,45 @@ func _event_card(index: int) -> Control:
 				line.name = "EventNote_%d" % i
 				line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				cell.add_child(line)
+				# The exact rule behind that line is one deliberate tap away.
+				if str(o.get("rule", "")) != "":
+					var more := UiKit.text_action("See the rule", UiKit.SMALL)
+					more.name = "EventRule_%d" % i
+					more.alignment = HORIZONTAL_ALIGNMENT_LEFT
+					var rule_text := str(o["rule"])
+					more.pressed.connect(func(): _show_rule(rule_text))
+					cell.add_child(more)
 				row.add_child(cell)
 			else:
 				row.add_child(b)
 	else:
 		v.add_child(UiKit.lbl(str(e.get("outcome", "")), 13, UiKit.GOOD))
 	return card
+
+
+## The exact rule behind a choice's line, looked up on purpose.
+func _show_rule(text: String) -> void:
+	if _rule_overlay != null and is_instance_valid(_rule_overlay):
+		return
+	var box := UiKit.modal_box(self, 460.0)
+	_rule_overlay = box["overlay"]
+	_rule_overlay.name = "RuleSheet"
+	var v: VBoxContainer = box["body"]
+	var l := UiKit.lbl(text, 15, UiKit.TEXT)
+	l.name = "RuleText"
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(l)
+	var ok := UiKit.btn("Close", UiKit.NAME, true)
+	ok.name = "RuleClose"
+	ok.custom_minimum_size = Vector2(0, 48)
+	ok.pressed.connect(_close_rule)
+	(box["footer"] as VBoxContainer).add_child(ok)
+
+
+func _close_rule() -> void:
+	if _rule_overlay != null and is_instance_valid(_rule_overlay):
+		_rule_overlay.queue_free()
+	_rule_overlay = null
 
 
 func _sacked_card() -> Control:
@@ -1125,6 +1159,9 @@ func handle_back() -> bool:
 		return true
 	if _sim_confirm != null and is_instance_valid(_sim_confirm):
 		_close_sim_confirm()
+		return true
+	if _rule_overlay != null and is_instance_valid(_rule_overlay):
+		_close_rule()
 		return true
 	if _news_overlay != null and is_instance_valid(_news_overlay):
 		_news_overlay.queue_free()

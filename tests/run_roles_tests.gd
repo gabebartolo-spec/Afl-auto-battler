@@ -739,8 +739,29 @@ func _captain_card_ui_tests() -> void:
 	_check(tall, "Every choice on a captain's card is a thumb-sized tap (48 px)")
 	_check(notes == (card["options"] as Array).size(), "Every choice says what it does, under its button (%d lines)" % notes)
 	var rule: Label = hub.find_child("EventNote_2", true, false)
-	_check(rule != null and rule.text.contains("Leadership") and rule.text.contains("settle it"),
-			"The choice left to the captain prints his Leadership, the rule and what it means now")
+	_check(rule != null and rule.text.contains("would listen to") and not rule.text.to_lower().contains("settle"),
+			"The choice left to the captain says what happens now, without the rule")
+	var see: Button = hub.find_child("EventRule_2", true, false)
+	_check(see != null and see.size.y >= 43.5, "The rule is one tap away, thumb-high")
+	var tapped: String = await Tap.tap(see)
+	for i in range(6):
+		await process_frame
+	var sheet: Control = hub.get("_rule_overlay")
+	var shown: Label = hub.find_child("RuleText", true, false)
+	_check(tapped == "" and sheet != null and is_instance_valid(sheet) and shown != null and shown.text.contains("Leadership"),
+			"A real tap opens the rule (%s)" % tapped)
+	var close_btn: Button = hub.find_child("RuleClose", true, false)
+	var closed: String = await Tap.tap(close_btn)
+	for i in range(6):
+		await process_frame
+	_check(closed == "" and hub.find_child("RuleText", true, false) == null, "A real tap on Close shuts the rule (%s)" % closed)
+	await Tap.tap(see)
+	for i in range(6):
+		await process_frame
+	var back_ok: bool = hub.call("handle_back") == true
+	for i in range(4):
+		await process_frame
+	_check(back_ok and hub.find_child("RuleText", true, false) == null, "Android Back closes the rule")
 	var ev0: Button = hub.find_child("Event_0", true, false)
 	var why: String = await Tap.tap(hub.find_child("Event_0", true, false))
 	for i in range(10):
