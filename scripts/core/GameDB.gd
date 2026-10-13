@@ -376,6 +376,18 @@ func player_display_name_by_id(id: String, fallback := "") -> String:
 	return fallback
 
 
+## The surname on a player card. Generated draftees and expansion players carry
+## "last": "" (the key exists, so a plain get() never falls back), which left
+## their cards without a name. Empty last: the last word of the shown name.
+func card_surname(player: Dictionary) -> String:
+	var last := str(player.get("last", "")).strip_edges()
+	if last != "":
+		return last
+	var full := player_display_name(player)
+	var parts := full.split(" ", false)
+	return parts[parts.size() - 1] if not parts.is_empty() else full
+
+
 ## A surname for a caption or a tight label: the real last name in real-name
 ## mode, otherwise the last word of the fictional name. A long one is cut
 ## ("Papaioannou" reads "Papaioann.").
