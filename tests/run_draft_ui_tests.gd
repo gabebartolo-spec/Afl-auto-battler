@@ -117,6 +117,7 @@ func _run() -> void:
 	await _test_search_keyboard()
 	await _test_rotation()
 	await _test_phone_browser_never_wide()
+	await _test_stage()
 	print("Draft UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
 
@@ -1131,6 +1132,97 @@ func _mouse_move(at: Vector2) -> void:
 	Input.flush_buffered_events()
 	await process_frame
 	await process_frame
+
+
+## Draft night's stage (director, 2026-10-14): the real lectern and hanger
+## pictures, the guernsey of the club on the clock hanging from the hanger in
+## that club's own kit, nothing in the header cut short, the back button
+## still a real tap away. Without the files the club's marker is back.
+func _test_stage() -> void:
+	var art = load("res://scripts/ui/UiArt.gd")
+	var culture = load("res://scripts/ui/CultureSheet.gd")
+	for club in ["FRE", "MEL"]:
+		for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+			var tag := "%s %dx%d" % [club, sz.x, sz.y]
+			root.size = sz
+			_state.reset()
+			_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(),
+					_db.active_clubs(2026).duplicate(), 12345)
+			var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
+			root.add_child(ui)
+			ui.call("_on_club_chosen", club)
+			await _settle()
+			var stage: Control = ui.find_child("DraftStage", true, false)
+			var lectern: TextureRect = stage.find_child("DraftLectern", true, false) if stage != null else null
+			var hung: Control = stage.find_child("DraftGuernsey", true, false) if stage != null else null
+			var hanger: TextureRect = hung.find_child("Art_hanger", true, false) if hung != null else null
+			_check(lectern != null and hanger != null and lectern.texture.resource_path == "res://assets/ui/models/lectern.png"
+					and hanger.texture.resource_path == "res://assets/ui/models/hanger.png"
+					and float(lectern.texture.get_height()) >= 2.0 * lectern.size.y and float(hanger.texture.get_width()) >= 2.0 * hanger.size.x,
+					"%s: the draft's header shows the lectern's and the hanger's own pictures, sharp at this size" % tag)
+			if stage == null or lectern == null or hanger == null:
+				ui.queue_free()
+				await _settle()
+				continue
+			var tint: Color = lectern.modulate
+			_check(tint.is_equal_approx(culture.emblem_tint(club)) and (tint.s < 0.08 or (tint.h > 0.08 and tint.h < 0.92))
+					and hanger.modulate == Color.WHITE,
+					"%s: the lectern carries the club's wash and is never red; the hanger stays wood (%s)" % [tag, tint.to_html(false)])
+			var crest = hung.find_child("ClubMarker", true, false)
+			var on_clock := str(_state.draft.current_club())
+			var kit_cols: Dictionary = _db.club_guernsey(on_clock)
+			_check(crest != null and str(crest.code) == on_clock and (crest.primary as Color).is_equal_approx(kit_cols["base"])
+					and str(crest.design) == str(kit_cols["design"]),
+					"%s: the guernsey on the hanger is the club on the clock's own (%s)" % [tag, on_clock])
+			var cr: Rect2 = (crest as Control).get_global_rect() if crest != null else Rect2()
+			var hr := hanger.get_global_rect()
+			_check(crest != null and hr.position.y < cr.position.y and hr.end.y > cr.position.y and hr.end.y < cr.position.y + cr.size.y * 0.3
+					and absf(hr.get_center().x - cr.get_center().x) <= 1.0 and hr.size.x > cr.size.x * 0.64 and hr.size.x < cr.size.x,
+					"%s: the hanger's hook is over the collar and its tips show at the shoulders, on the guernsey's centre line" % tag)
+			var header: Control = stage.get_parent()
+			var whole := header.get_global_rect().grow(0.5).encloses(stage.get_global_rect()) \
+					and Rect2(Vector2.ZERO, Vector2(sz)).encloses(stage.get_global_rect())
+			var quiet := stage.mouse_filter == Control.MOUSE_FILTER_IGNORE
+			for n in stage.find_children("*", "Control", true, false):
+				quiet = quiet and (n as Control).mouse_filter == Control.MOUSE_FILTER_IGNORE
+			for l in header.find_children("*", "Label", true, false):
+				var lab := l as Label
+				if lab.get_parent() is Button or not lab.is_visible_in_tree() or lab.text == "":
+					continue
+				if lab.size.y + 1.0 < lab.get_combined_minimum_size().y or lab.get_global_rect().intersects(stage.get_global_rect()):
+					whole = false
+				if lab.autowrap_mode == TextServer.AUTOWRAP_OFF and lab.text_overrun_behavior == TextServer.OVERRUN_NO_TRIMMING \
+						and lab.get_theme_font("font").get_string_size(lab.text, HORIZONTAL_ALIGNMENT_LEFT, -1, lab.get_theme_font_size("font_size")).x > lab.size.x + 0.5:
+					whole = false
+			_check(whole and quiet, "%s: the stage sits inside the header, takes no tap, and the title beside it is whole" % tag)
+			var back: Button = ui.find_child("BackToMenu", true, false)
+			_check(back != null and back.size.x >= 44.0 and back.size.y >= 44.0, "%s: the back button is still a thumb wide and tall" % tag)
+			if sz.x < 600 and club == "FRE":
+				for c in back.pressed.get_connections():
+					back.pressed.disconnect(c["callable"])
+				var why: String = await Tap.tap(back)
+				_check(why == "", "%s: a real tap still reaches the back button beside the title (%s)" % [tag, why])
+				var status: Label = ui.find_child("DraftStatus", true, false)
+				var cap: Label = ui.find_child("SalaryCap", true, false)
+				_check(status != null and status.text != "" and cap != null and cap.text.contains("Cap left"),
+						"%s: who is on the clock and the cap left are still said under the header" % tag)
+			ui.queue_free()
+			await _settle()
+	art.dir = "res://assets/ui/no_such_folder"
+	root.size = Vector2i(390, 844)
+	_state.reset()
+	_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(), _db.active_clubs(2026).duplicate(), 12345)
+	var plain: Control = load("res://scenes/DraftScene.tscn").instantiate()
+	root.add_child(plain)
+	plain.call("_on_club_chosen", "FRE")
+	await _settle()
+	var head: Control = (plain.find_child("BackToMenu", true, false) as Control).get_parent()
+	_check(plain.find_child("DraftStage", true, false) == null and head.find_child("ClubMarker", true, false) != null,
+			"Without the pictures the header shows the club's marker, as before")
+	plain.queue_free()
+	await _settle()
+	art.dir = "res://assets/ui/models"
+	_state.reset()
 
 
 func _settle() -> void:
