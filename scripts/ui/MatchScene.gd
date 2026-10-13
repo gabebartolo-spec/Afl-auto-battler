@@ -992,37 +992,6 @@ func _balance_break_columns(cols: Array) -> void:
 	var units := _break_units(cols)
 	var sep := float((cols[0] as VBoxContainer).get_theme_constant("separation"))
 	var h: Array = _unit_heights(units, sep)
-	# Best so far shows three a side on a PC when the break still fits 720 high
-	# with them (the same three as a phone); otherwise two.
-	var thirds: Array = []
-	if _coach_overlay != null:
-		for r in _coach_overlay.find_children("BestRow_*", "", true, false):
-			if (r as Node).has_meta("best_third"):
-				thirds.append(r)
-	if not thirds.is_empty():
-		var sc0: ScrollContainer = null
-		var up0: Node = cols[0]
-		while up0 != null and sc0 == null:
-			sc0 = up0 as ScrollContainer
-			up0 = up0.get_parent()
-		var row_box := (cols[0] as Node).get_parent() as Control
-		if sc0 != null and row_box != null:
-			var base := (sc0.get_child(0) as Control).get_combined_minimum_size().y - row_box.get_combined_minimum_size().y
-			var tallest := 0.0
-			for col_units in _shortest_tallest(h, cols.size(), 100000.0):
-				var sum := 0.0
-				for k in col_units:
-					sum += float(h[k])
-				tallest = maxf(tallest, sum)
-			if base + tallest > sc0.size.y - 8.0:
-				for t in thirds:
-					(t as Node).get_parent().remove_child(t)
-					(t as Node).queue_free()
-				await get_tree().process_frame
-				if not is_instance_valid(cols[0]):
-					return
-				units = _break_units(cols)
-				h = _unit_heights(units, sep)
 	# Where each column ends, so the tallest column is as short as it can be
 	# (every split of the units, in order, into that many columns).
 	var n_units := units.size()
@@ -1115,6 +1084,22 @@ func _balance_break_columns(cols: Array) -> void:
 				(n as Node).get_parent().remove_child(n)
 				(cols[c] as Node).add_child(n)
 	_settle_rotations_gap()
+	# Best so far shows three a side on a PC, as on a phone, while the break
+	# still fits 720 high; when even the best deal overflows, the third of each
+	# side goes (the older two-a-side break) and the calls are dealt again.
+	await get_tree().process_frame
+	if not is_instance_valid(cols[0]) or _coach_overlay == null or not is_instance_valid(_coach_overlay):
+		return
+	if (sc.get_child(0) as Control).get_combined_minimum_size().y > sc.size.y - 8.0:
+		var dropped := false
+		for r in _coach_overlay.find_children("BestRow_*", "", true, false):
+			if (r as Node).has_meta("best_third"):
+				(r as Node).get_parent().remove_child(r)
+				(r as Node).queue_free()
+				dropped = true
+		if dropped:
+			await get_tree().process_frame
+			_balance_break_columns(cols)
 
 
 ## The gap above Rotations is only for a block that has something above it.
