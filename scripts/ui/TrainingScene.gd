@@ -126,7 +126,7 @@ func _on_names() -> void:
 
 
 func _build() -> void:
-	_wide = UiKit.view_width(self) >= 760.0
+	_wide = ScreenLayout.wide_view(UiKit.view_width(self), 0.0, 760.0, false)
 	var list_y := UiKit.scroll_place(_list_scroll) if is_instance_valid(_list_scroll) else 0
 	var detail_y := UiKit.scroll_place(_detail_scroll) if is_instance_valid(_detail_scroll) else 0
 	UiKit.clear(_root)

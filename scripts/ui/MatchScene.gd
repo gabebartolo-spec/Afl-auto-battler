@@ -642,10 +642,10 @@ func _show_coach_box() -> void:
 		else:
 			rep.add_child(stats)
 			rep.add_child(UiKit.spacer(UiKit.GAP))
-		# The quarter just played, by name: what happened, not what is happening.
 		var played := UiKit.section(str({2: "First quarter", 3: "Second quarter",
 				4: "Third quarter"}.get(q, "Last quarter")))
 		played.name = "QuarterHeading"
+		played.set_meta("break_unit", true)
 		rep.add_child(played)
 		rep.add_child(_quarter_view(q - 1))
 		var did := MatchNotes.calls_lines(_res, _my_side, q - 1) \
@@ -956,7 +956,16 @@ func _show_coach_box() -> void:
 	var sync_rot := func(key: String) -> void:
 		rot_note.text = str(MatchSim.ROTATION_POLICIES[key]["text"])
 	var rot := _segmented("RotationPicker", rot_opts, calls, "rotation", sync_rot)
-	tail.add_child(_call_block("Rotations", rot))
+	var rot_block := _call_block("Rotations", rot)
+	rot_block.name = "RotationsBlock"
+	if wide:
+		# A gap above Rotations on a PC, so the pep note above it does not run
+		# into the heading; hidden when the block lands at a column's top.
+		var gap := UiKit.spacer(6)
+		gap.name = "RotationsGap"
+		rot_block.add_child(gap)
+		rot_block.move_child(gap, 0)
+	tail.add_child(rot_block)
 	tail.add_child(rot_note)
 	sync_rot.call(_rotation)
 	# On a wide screen the three play-through calls fill the last column, so the
@@ -974,6 +983,10 @@ func _show_coach_box() -> void:
 		syn_label.get_parent().remove_child(syn_label)
 		syn_label.remove_meta("break_unit")
 		(rep if rep != v else tail).add_child(syn_label)
+	# Who is playing well, on the break (director, 2026-10-11): on a PC in the
+	# report column; on a phone below the choices, so nothing the next quarter
+	# depends on is pushed under the pinned Start button.
+	(rep if rep != v else tail).add_child(_best_so_far())
 
 	var start := UiKit.btn("Start quarter" if q > 1 else "Ball it up", UiKit.HEADING, true)
 	start.name = "StartQuarter"
@@ -1040,8 +1053,9 @@ var _break_reading: Array = []
 ## where each column ends follows what is in it this break (a loose defender
 ## of theirs, a second ruck), so the tallest column is as short as it can be
 ## and nothing scrolls on a 720-unit screen. A call keeps its words under it.
-func _balance_break_columns(cols: Array) -> void:
-	await get_tree().process_frame
+func _balance_break_columns(cols: Array, again := false) -> void:
+	if not again:
+		await get_tree().process_frame
 	if not is_instance_valid(cols[0]):
 		return
 	# Packed again (a call shown or hidden since): from the reading order the
@@ -1058,14 +1072,7 @@ func _balance_break_columns(cols: Array) -> void:
 	# Calls in reading order: a call starts a unit; its notes go with it.
 	var units := _break_units(cols)
 	var sep := float((cols[0] as VBoxContainer).get_theme_constant("separation"))
-	var h: Array = []
-	for u in units:
-		var t := 0.0
-		for n in u:
-			# A hidden call (Who tags with no tag) takes no room in the column.
-			if (n as Control).visible:
-				t += (n as Control).get_combined_minimum_size().y + sep
-		h.append(t)
+	var h: Array = _unit_heights(units, sep)
 	# Where each column ends, so the tallest column is as short as it can be
 	# (every split of the units, in order, into that many columns).
 	var n_units := units.size()
@@ -1082,7 +1089,8 @@ func _balance_break_columns(cols: Array) -> void:
 	# is too tall for the screen (both loose men, a tag card, your tally), pack
 	# by height instead: the tallest call goes to the shortest column, and each
 	# column still lists its calls in reading order.
-	await get_tree().process_frame
+	if not again:
+		await get_tree().process_frame
 	if not is_instance_valid(cols[0]):
 		return
 	var sc: ScrollContainer = null
@@ -1090,7 +1098,10 @@ func _balance_break_columns(cols: Array) -> void:
 	while up != null and sc == null:
 		sc = up as ScrollContainer
 		up = up.get_parent()
-	if sc == null or (sc.get_child(0) as Control).get_combined_minimum_size().y <= sc.size.y + 1.0:
+	# Tight counts too: under 8 px to spare, the next line or a longer name
+	# would tip it over, so look for the shorter deal.
+	if sc == null or (sc.get_child(0) as Control).get_combined_minimum_size().y <= sc.size.y - 8.0:
+		_settle_rotations_gap()
 		return
 	var order := range(n_units)
 	order.sort_custom(func(a, b): return float(h[a]) > float(h[b]))
@@ -1142,12 +1153,110 @@ func _balance_break_columns(cols: Array) -> void:
 					break
 			if improved:
 				break
+	# The greedy answer can sit a whole call above the best there is (Best so
+	# far on the fullest PC break: 551 against 532 with the same blocks), so
+	# look for the true shortest tallest column before placing anything.
+	var exact := _shortest_tallest(h, cols.size(), load_h.max())
+	if not exact.is_empty():
+		picks = exact
 	for c in range(cols.size()):
 		(picks[c] as Array).sort()
 		for k in picks[c]:
 			for n in units[k]:
 				(n as Node).get_parent().remove_child(n)
 				(cols[c] as Node).add_child(n)
+	_settle_rotations_gap()
+	# Best so far shows three a side on a PC, as on a phone, while the break
+	# still fits 720 high; when even the best deal overflows, the third of each
+	# side goes (the older two-a-side break) and the calls are dealt again.
+	if _coach_overlay == null or not is_instance_valid(_coach_overlay):
+		return
+	if (sc.get_child(0) as Control).get_combined_minimum_size().y > sc.size.y - 8.0:
+		var dropped := false
+		for r in _coach_overlay.find_children("BestRow_*", "", true, false):
+			if (r as Node).has_meta("best_third"):
+				(r as Node).get_parent().remove_child(r)
+				(r as Node).queue_free()
+				dropped = true
+		if dropped:
+			_balance_break_columns(cols, true)
+			return
+		# Still too tall: the gap above Rotations is the first thing to give.
+		var gap: Node = _coach_overlay.find_child("RotationsGap", true, false)
+		if gap != null:
+			(gap as Control).visible = false
+
+
+## The gap above Rotations is only for a block that has something above it.
+func _settle_rotations_gap() -> void:
+	if _coach_overlay == null or not is_instance_valid(_coach_overlay):
+		return
+	var blk: Node = _coach_overlay.find_child("RotationsBlock", true, false)
+	var gap: Node = blk.find_child("RotationsGap", false, false) if blk != null else null
+	if gap != null:
+		(gap as Control).visible = blk.get_index() > 0
+
+
+func _unit_heights(units: Array, sep: float) -> Array:
+	var h: Array = []
+	for u in units:
+		var t := 0.0
+		for n in u:
+			# A hidden call (Who tags with no tag) takes no room in the column.
+			if (n as Control).visible:
+				t += (n as Control).get_combined_minimum_size().y + sep
+		h.append(t)
+	return h
+
+
+## Every way of dealing the units (heights h) into `parts` columns, searched
+## for the one whose tallest column is shortest; tallest calls first, and a
+## branch is dropped the moment it cannot beat the best so far. Returns the
+## unit numbers in each column, or an empty array when nothing beats `above`
+## (the answer the caller already has).
+static func _shortest_tallest(h: Array, parts: int, above: float) -> Array:
+	var order := range(h.size())
+	order.sort_custom(func(a, b): return float(h[a]) > float(h[b]))
+	var state := {"best": above - 0.5, "picks": [], "steps": 0}
+	var load_h: Array = []
+	var cur: Array = []
+	for c in range(parts):
+		load_h.append(0.0)
+		cur.append([])
+	_deal(order, 0, h, load_h, cur, state)
+	return state["picks"] as Array
+
+
+static func _deal(order: Array, i: int, h: Array, load_h: Array, cur: Array, state: Dictionary) -> void:
+	state["steps"] = int(state["steps"]) + 1
+	if int(state["steps"]) > 400000:
+		return
+	if i == order.size():
+		var top := 0.0
+		for l in load_h:
+			top = maxf(top, float(l))
+		if top < float(state["best"]):
+			state["best"] = top
+			var copy := []
+			for col in cur:
+				copy.append((col as Array).duplicate())
+			state["picks"] = copy
+		return
+	var k: int = order[i]
+	var seen := []
+	for c in range(load_h.size()):
+		# Two columns with the same load so far are the same choice.
+		if seen.has(float(load_h[c])):
+			continue
+		seen.append(float(load_h[c]))
+		var after := float(load_h[c]) + float(h[k])
+		if after >= float(state["best"]):
+			continue
+		load_h[c] = after
+		(cur[c] as Array).append(k)
+		_deal(order, i + 1, h, load_h, cur, state)
+		(cur[c] as Array).pop_back()
+		load_h[c] = after - float(h[k])
 
 
 ## The break's calls as units in reading order: a node marked "break_unit"
@@ -1583,7 +1692,7 @@ func _player_choice(node_name: String, none_label: String, roster: Array, first:
 			grid.move_child(other, 1)
 		if _pc_break:
 			for gb in grid.get_children():
-				(gb as Control).custom_minimum_size.y = 40.0
+				(gb as Control).custom_minimum_size.y = 38.0
 	rebuild.call(rebuild)
 	return box
 
@@ -1791,7 +1900,7 @@ func _roster_side(side: int) -> Array:
 # ---------------------------------------------------------------------------
 ## The match so far in full, over the break: team and player stats for both
 ## clubs, any quarter on its own. Close (or Back) returns to your calls.
-func _show_break_stats() -> void:
+func _show_break_stats(players_first := false) -> void:
 	_close_report()
 	var box := UiKit.modal_box(self, 1100.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
@@ -1803,11 +1912,98 @@ func _show_break_stats() -> void:
 	box_score.name = "BreakBoxScore"
 	v.add_child(box_score)
 	v.add_child(UiKit.spacer(UiKit.GAP))
-	v.add_child(MatchStatsView.new().setup(_res, _my_side, true))
+	var msv := MatchStatsView.new()
+	msv.players_first = players_first
+	v.add_child(msv.setup(_res, _my_side, true))
 	var close := UiKit.btn("Back to your calls", UiKit.NAME, true)
 	close.custom_minimum_size = Vector2(0, 44)
 	close.pressed.connect(_close_report)
 	box["footer"].add_child(close)
+
+
+## Best so far, on the break: the three best of each side by match rating so
+## far (yours first), each with his rating and the numbers that stand out, as
+## full time's best players read; "All player stats" opens the full table.
+# A PC break is tight (the fullest one, GWS with both loose men, has 8 px to
+# spare and Best so far may be at most ~213 px tall), so the rows sit 4 px apart
+# there; a phone scrolls and has room for more.
+const BEST_ROW_GAP_PC := 2
+
+
+func _best_so_far() -> Control:
+	var box := UiKit.vbox(4 if _pc_break else 6)
+	box.name = "BestSoFar"
+	box.set_meta("break_unit", true)
+	var head := UiKit.hbox(8)
+	var title := UiKit.section("Best so far")
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	var all := UiKit.btn("All player stats", UiKit.BODY)
+	all.name = "BestSoFarAll"
+	all.custom_minimum_size = Vector2(0, 24 if _pc_break else 44)
+	all.pressed.connect(func(): _show_break_stats(true))
+	# On a PC the way to the table sits in the heading row (shorter block: the
+	# fullest break still fits 1280x720); a phone has it under the list.
+	if _pc_break:
+		head.add_child(all)
+	box.add_child(head)
+	# Your club first, then theirs, each under its own name, best rated first;
+	# the same number each side: three, as on a phone, and on a PC the third
+	# goes (row meta best_third) when the break would not fit 720 high with it.
+	# Allegiance (director 2026-10-13): each side carries its club's colour (bar,
+	# guernsey, name, rating) where it reads; see UiKit.club_heading.
+	# One screen, both clubs: the pair helper gives the away side its second ink
+	# when the two first inks look alike (a clash guernsey).
+	var inks := UiKit.club_ink_pair(str(_res["home"]), str(_res["away"]))
+	for side in [_my_side, 1 - _my_side]:
+		var code := str(_res["home"] if side == 0 else _res["away"])
+		var side_box := UiKit.vbox(4 if _pc_break else 6)
+		var rows_box := UiKit.vbox(BEST_ROW_GAP_PC if _pc_break else 8)
+		# The column heading is a label he can skip: quiet, lighter than the
+		# figures under it.
+		# Said once, in the first club's heading: both columns line up under it.
+		var rh: Label = null
+		if side == _my_side:
+			rh = UiKit.lbl("Rating", UiKit.SECONDARY, UiKit.MUTED)
+			rh.name = "RatingHeading"
+			rh.custom_minimum_size.x = 56
+			rh.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		var sh := UiKit.club_heading(code, rh, UiKit.BODY if _pc_break else UiKit.NAME, 20.0 if _pc_break else 22.0, inks[side])
+		sh.get_node("ClubName").name = "BestClub_%d" % side
+		side_box.add_child(sh)
+		var shown := 0
+		for p in MatchNotes.standouts(_res, side, 3):
+			shown += 1
+			var row := UiKit.hbox(8)
+			row.name = "BestRow_%s" % str(p["id"])
+			if _pc_break and shown == 3:
+				row.set_meta("best_third", true)
+			var col := UiKit.vbox(0)
+			col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			col.add_child(UiKit.emphasis(str(p["name"]), UiKit.BODY if _pc_break else UiKit.NAME))
+			# A PC column is narrow: two numbers fit on the line, a third ran
+			# off it ("6 rebound 5...", capture 2026-10-12).
+			var bits: PackedStringArray = str(p["line"]).split(", ")
+			var line := ", ".join(bits.slice(0, 2)) if _pc_break else str(p["line"])
+			# Under the bold name, a step down in size and tone, still readable.
+			col.add_child(UiKit.ellipsis(line, UiKit.SECONDARY, UiKit.TEXT.lerp(UiKit.MUTED, 0.4)))
+			row.add_child(col)
+			# The figure says how well, in bold TEXT: the club colour says who, and
+			# a red or pink number would read as BAD beside the red Start button.
+			var r := UiKit.line(MatchNotes.rating_text(float(p["rating"])), 20, UiKit.TEXT, true)
+			r.name = "StandoutRating"
+			r.custom_minimum_size.x = 56
+			r.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			row.add_child(r)
+			rows_box.add_child(row)
+		side_box.add_child(rows_box)
+		var wrap := UiKit.club_section_body(code, side_box, inks[side])
+		wrap.name = "BestSide_%d" % side
+		side_box.name = "BestSideBox_%d" % side
+		box.add_child(wrap)
+	if not _pc_break:
+		box.add_child(all)
+	return box
 
 
 func _glance_section(v: VBoxContainer, title: String, node_name: String, lines: Array) -> void:

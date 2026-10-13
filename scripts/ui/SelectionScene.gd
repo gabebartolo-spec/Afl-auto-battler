@@ -65,7 +65,7 @@ func _build() -> void:
 	if not auto and not GameState.my_selection().has("WING"):
 		GameState.set_selection(GameState.current_side())
 
-	var wide := UiKit.view_width(self) >= 900.0 and UiKit.view_width(self) > UiKit.view_height(self)
+	var wide := ScreenLayout.wide_view(UiKit.view_width(self), UiKit.view_height(self), 900.0)
 	# What the board shows, as one line of text each, over the board.
 	var head := UiKit.vbox(0)
 	head.name = "BuilderHead"

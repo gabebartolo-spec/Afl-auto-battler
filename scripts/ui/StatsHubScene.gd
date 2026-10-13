@@ -69,7 +69,7 @@ func content_width() -> float:
 
 ## A wide screen (a PC), whatever the section's column.
 func wide() -> bool:
-	return _full_width() >= 900.0
+	return ScreenLayout.wide_view(_full_width(), 0.0, 900.0, false)
 
 
 func _build() -> void:
