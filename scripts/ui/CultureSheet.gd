@@ -42,7 +42,7 @@ static func open(host: Control, on_close: Callable = Callable()) -> Control:
 			layers[0].visible = false
 			return true
 		return false)
-	var club := _gs().my_club
+	var club: String = _gs().my_club
 	var data := strands(club)
 	var wide := UiKit.view_width(host) >= WIDE
 	match variant:
@@ -75,7 +75,7 @@ static func strands(club: String) -> Array:
 
 ## The row on My list that opens it: an invitation, the three phrases in bold.
 static func entry_row() -> Button:
-	var club := _gs().my_club
+	var club: String = _gs().my_club
 	var b := UiKit.text_action("", UiKit.NAME)
 	b.name = "CultureOpen"
 	b.custom_minimum_size = Vector2(0, 92)
@@ -164,7 +164,7 @@ static func _margin(root: Control, wide: bool) -> MarginContainer:
 
 
 static func _back(done: Callable) -> Button:
-	var b := UiKit.btn("‹", 28)
+	var b := UiKit.btn("‹", UiKit.GLYPH)
 	b.name = "CultureBack"
 	b.flat = true
 	b.custom_minimum_size = Vector2(48, 48)
