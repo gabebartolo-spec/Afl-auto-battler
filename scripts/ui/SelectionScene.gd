@@ -39,7 +39,7 @@ func _ready() -> void:
 
 func _build() -> void:
 	# A move or a resize rebuilds the list: keep your place in it.
-	var keep := _scroll_box.scroll_vertical if is_instance_valid(_scroll_box) else 0
+	var keep := UiKit.scroll_place(_scroll_box) if is_instance_valid(_scroll_box) else 0
 	UiKit.clear(_root)
 	# Auto-pick is an action, never a mode: choose a strategy and it sets the
 	# side; your moves after that stay yours (director, 2026-10-07). It is
@@ -65,7 +65,7 @@ func _build() -> void:
 	if not auto and not GameState.my_selection().has("WING"):
 		GameState.set_selection(GameState.current_side())
 
-	var wide := UiKit.view_width(self) >= 900.0 and UiKit.view_width(self) > UiKit.view_height(self)
+	var wide := ScreenLayout.wide_view(UiKit.view_width(self), UiKit.view_height(self), 900.0)
 	# What the board shows, as one line of text each, over the board.
 	var head := UiKit.vbox(0)
 	head.name = "BuilderHead"
@@ -89,7 +89,7 @@ func _build() -> void:
 	_scroll_box = UiKit.scroll(body)
 	_scroll_box.name = "SelectionScroll"
 	_root.add_child(_scroll_box)
-	_restore_scroll.call_deferred(keep)
+	UiKit.restore_scroll(_scroll_box, keep)
 	var builder := TeamBuilder.new()
 	builder.name = "TeamBuilder"
 	builder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -344,15 +344,6 @@ func _close_synergies() -> void:
 	if _synergy_overlay != null and is_instance_valid(_synergy_overlay):
 		_synergy_overlay.queue_free()
 	_synergy_overlay = null
-
-
-func _restore_scroll(value: int) -> void:
-	# After the rebuilt list has its height, or the offset is clamped to 0.
-	if not is_inside_tree():
-		return
-	await get_tree().process_frame
-	if is_instance_valid(_scroll_box):
-		_scroll_box.scroll_vertical = value
 
 
 ## A player's profile over the list; closing it leaves the list untouched. A
