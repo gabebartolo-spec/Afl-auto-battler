@@ -136,6 +136,10 @@ func setup(p_result: Dictionary) -> void:
 	director.setup(p_result, events)
 	period = 1
 	_caption = {}
+	_press_said = [false, false]
+	_press_banner = {}
+	_zone_fade = [0.0, 0.0]
+	_ev_idx = 0
 	_last_actor = -1
 	_poss_side = -1
 	_restarted = true
@@ -215,6 +219,7 @@ func _process(delta: float) -> void:
 			_track_quarter(ev)
 			_name_the_scorer(ev)
 			_cue_turnover(ev)
+			_press_cue(ev)
 			event_played.emit(ev)
 			if str((ev as Dictionary).get("kind", "")) == "final":
 				playing = false
@@ -226,12 +231,19 @@ func _process(delta: float) -> void:
 		_follow_ball()
 	_name_the_ball_carrier()
 	_age_caption(delta)
+	_step_zone_fade(delta)
+	if not _press_banner.is_empty():
+		_press_banner["left"] = float(_press_banner["left"]) - delta
+		if float(_press_banner["left"]) <= 0.0:
+			_press_banner = {}
 	if _shake > 0.0:
 		_shake = maxf(0.0, _shake - delta)
 		queue_redraw()
 	_update_camera(delta)
 	if playing or _cam.distance_to(_drawn_cam) > 0.05 or absf(_zoom - _drawn_zoom) > 0.002 \
-			or not director.flash.is_empty() or not _caption.is_empty():
+			or not director.flash.is_empty() or not _caption.is_empty() or not _press_banner.is_empty() \
+			or float(_zone_fade[0]) > 0.0 or float(_zone_fade[1]) > 0.0 \
+			or director.press_zone_on(0) or director.press_zone_on(1):
 		queue_redraw()
 
 
@@ -277,6 +289,19 @@ func _name_the_scorer(ev: Dictionary) -> void:
 ## A forced turnover, a rebound and an intercept mark always are; otherwise
 ## the side with the ball changed without a restart in between. A goal's name
 ## is never covered.
+## The first time a pressing side defends after setting its plan: its line, on
+## the oval for a moment ("<Club> push up to press."), once a side a match.
+func _press_cue(ev: Dictionary) -> void:
+	var idx := _ev_idx
+	_ev_idx += 1
+	var presser := MatchNotes.press_trigger(result.get("timeline", []), idx, ev, _press_said)
+	if presser < 0:
+		return
+	_press_said[presser] = true
+	var code := str(result.get("home") if presser == 0 else result.get("away"))
+	_press_banner = {"text": MatchNotes.press_line(code), "left": PRESS_BANNER_SECS, "side": presser}
+
+
 func _cue_turnover(ev: Dictionary) -> void:
 	var kind := str(ev.get("kind", ""))
 	if RESTARTS.has(kind):
@@ -480,6 +505,7 @@ func _draw() -> void:
 		var x0 := c.x - a + (2.0 * a) * float(i) / float(stripes)
 		var x1 := c.x - a + (2.0 * a) * float(i + 1) / float(stripes)
 		draw_colored_polygon(_stripe(c, a, b, x0, x1), grass[1])
+	_draw_press_zone(c, a, b)
 	# The turf's edge in the stand's shadow: a few soft rings fading inward.
 	var shade := maxf(6.0, 7.0 * s)
 	for i in range(4):
@@ -546,6 +572,121 @@ func _draw() -> void:
 		draw_arc(_w2s(fl["pos"]), rad2, 0, TAU, 48, col, 4.0, antialias)
 	_draw_role_labels(tr)
 	_draw_caption(tr)
+	_draw_press_banner()
+
+
+## The press zone: a wash of the press club's own colour over the part of the
+## ground it is hunting, under the lines, the players and the ball. Its
+## strength is the sim's own zone table (MatchDirector.press_zone_field,
+## soft-edged); it eases in and out over PRESS_FADE_SECS of real time; the
+## oval's edge is untouched. At the full strength of the opponents' back
+## third it has to read on a phone without the unpressed ground beside it
+## (director, 2026-10-13: the first 0.12 moved a channel by 8-11 of 255 and
+## read as a darker turf stripe), so it was a 40% mix of the colour; the
+## director then judged that too heavy ("right colour, about half as strong"),
+## so the grass and its mowing stripes now show through. Half (0.2) was tried
+## and lost the colours: through the green only the strength is halved, the hue
+## goes slate (Fremantle), teal (Bulldogs, Melbourne, Carlton) and olive (St
+## Kilda, Hawthorn). 0.3 is the least that still reads as each club's colour.
+const PRESS_ZONE_ALPHA := 0.3
+## The strength the colour is worked out at (what the club colour would be at
+## a 40% mix), so the colour is the same hue and the strength the one above.
+const PRESS_COLOUR_ALPHA := 0.4
+const PRESS_FADE_SECS := 0.9
+var _zone_fade := [0.0, 0.0]
+var _press_said := [false, false]
+var _caption_rect = null       # where the caption was drawn last (the press line steps clear of it)
+var _press_banner := {}        # {text, left}: "<Club> push up to press."
+var _ev_idx := 0
+const PRESS_BANNER_SECS := 3.5
+
+
+## The wash eases (smoothstep) rather than moving linearly.
+static func ease_fade(t: float) -> float:
+	return smoothstep(0.0, 1.0, t)
+
+
+func _step_zone_fade(delta: float) -> void:
+	for side in [0, 1]:
+		var on: bool = director.press_zone_on(side)
+		_zone_fade[side] = move_toward(float(_zone_fade[side]), 1.0 if on else 0.0, delta / PRESS_FADE_SECS)
+
+
+func _draw_press_zone(c: Vector2, a: float, b: float) -> void:
+	for side in [0, 1]:
+		var fade := ease_fade(float(_zone_fade[side]))
+		if fade <= 0.003:
+			continue
+		var base := press_zone_colour(home_code if side == 0 else away_code)
+		var dir := MatchDirector._dir(side)
+		# Slices across the oval, each a quad with a colour at both ends, so the
+		# strength varies smoothly with no seam and no snap to a turf stripe.
+		var n := 56
+		var lo := -MatchMotion.HALF_LEN
+		var hi := MatchMotion.HALF_LEN
+		for i in range(n):
+			var wx0 := lerpf(lo, hi, float(i) / float(n))
+			var wx1 := lerpf(lo, hi, float(i + 1) / float(n))
+			var k0 := MatchDirector.press_zone_field(wx0 * dir)
+			var k1 := MatchDirector.press_zone_field(wx1 * dir)
+			if k0 <= 0.002 and k1 <= 0.002:
+				continue
+			var x0 := _w2s(Vector2(wx0, 0.0)).x
+			var x1 := _w2s(Vector2(wx1, 0.0)).x
+			var xl := minf(x0, x1)
+			var xr := maxf(x0, x1)
+			var left_k := k0 if x0 <= x1 else k1
+			var right_k := k1 if x0 <= x1 else k0
+			var q := _stripe(c, a, b, xl, xr)
+			var cols := PackedColorArray()
+			for p in q:
+				var t := 0.0 if xr <= xl else clampf((p.x - xl) / (xr - xl), 0.0, 1.0)
+				cols.append(Color(base.r, base.g, base.b, PRESS_ZONE_ALPHA * fade * lerpf(left_k, right_k, t)))
+			draw_polygon(q, cols)
+
+
+## The turf the wash sits on, for working out what colour to lay over it.
+const PRESS_TURF := Color(0.118, 0.333, 0.133)
+## Which of a club's colours it is known by, as UiKit.club_ink chooses it
+## (INK_SLOT on claude/break-best-so-far, PR #666): the first, except the
+## Bulldogs and Essendon, whose second is the one a supporter names; -1 is a
+## club with no hue (Collingwood). Kept here so the two can be unified once
+## #666 is on main; this file does not touch UiKit.
+const PRESS_INK_SLOT := {"WBD": 1, "ESS": 1, "COL": -1}
+## What the wash should look like once mixed with the turf: the club's hue,
+## saturated, at about the turf's own lightness, so the grass is still grass
+## and the colour still the club's.
+const PRESS_TARGET_V := 0.64
+## A club with no hue (Collingwood, or a custom club in black and white): a
+## dark, cool wash, the zone's shape carrying the rest.
+const PRESS_NO_HUE := Color(0.02, 0.03, 0.07)
+
+
+## The colour to lay over the turf at PRESS_COLOUR_ALPHA so the mix lands on the
+## club's colour at turf lightness: the plain colour of a dark club (navy,
+## brown, deep purple) would only darken the grass, and a plain blue or red
+## drifts to teal or brown through the green beneath it. Worked back from the
+## mix, kept in range.
+static func press_zone_colour(code: String) -> Color:
+	var cols: Array = GameDB.club_colours(code)
+	var slot := int(PRESS_INK_SLOT.get(code, 0))
+	if slot < 0:
+		return PRESS_NO_HUE
+	var pick: Color = cols[slot]
+	if pick.s < 0.25:
+		# A custom club whose first colour is black or white: its most saturated.
+		pick = Color(0, 0, 0, 0)
+		var best := 0.25
+		for c in cols:
+			var col: Color = c
+			if col.s > best:
+				best = col.s
+				pick = col
+		if pick.a == 0.0:
+			return PRESS_NO_HUE
+	var target := Color.from_hsv(pick.h, clampf(pick.s, 0.6, 0.85), PRESS_TARGET_V)
+	var w := (Vector3(target.r, target.g, target.b) - Vector3(PRESS_TURF.r, PRESS_TURF.g, PRESS_TURF.b) * (1.0 - PRESS_COLOUR_ALPHA)) / PRESS_COLOUR_ALPHA
+	return Color(clampf(w.x, 0.0, 1.0), clampf(w.y, 0.0, 1.0), clampf(w.z, 0.0, 1.0))
 
 
 ## A thin light ring on each of your players with a call on him or a run
@@ -602,7 +743,31 @@ func _draw_role_labels(tr: float) -> void:
 		draw_string(UiKit.BOLD, origin, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.85))
 
 
+func _draw_press_banner() -> void:
+	if _press_banner.is_empty():
+		return
+	var text := str(_press_banner["text"])
+	var fs := 20
+	var font := UiKit.BOLD
+	var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var origin := Vector2(clampf((size.x - width) * 0.5, 4.0, maxf(4.0, size.x - width - 4.0)), float(fs) + 10.0)
+	# Never over the "Turnover" / name caption: if they would meet, the line
+	# steps below it.
+	if _caption_rect != null:
+		var mine := Rect2(origin - Vector2(4, float(fs)), Vector2(width + 8.0, float(fs) + 8.0))
+		if mine.intersects(_caption_rect as Rect2):
+			origin.y = (_caption_rect as Rect2).end.y + float(fs) + 6.0
+	var fade := clampf(float(_press_banner["left"]) / 0.4, 0.0, 1.0)
+	# Plain text with a soft dark shadow and an outline: no pill.
+	for off in [Vector2(0, 2), Vector2(1, 2), Vector2(-1, 2)]:
+		draw_string(font, origin + off, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.35 * fade))
+	for off in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1), Vector2(-1, -1), Vector2(1, 1), Vector2(-1, 1), Vector2(1, -1)]:
+		draw_string(font, origin + off, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.8 * fade))
+	draw_string(font, origin, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, fade))
+
+
 func _draw_caption(tr: float) -> void:
+	_caption_rect = null
 	if _caption.is_empty():
 		return
 	var tok := int(_caption["tok"])
@@ -617,6 +782,7 @@ func _draw_caption(tr: float) -> void:
 	var origin := p + Vector2(-width * 0.5, -tr * 2.4)
 	origin.x = clampf(origin.x, 4.0, maxf(4.0, size.x - width - 4.0))
 	origin.y = maxf(origin.y, float(fs) + 2.0)
+	_caption_rect = Rect2(origin - Vector2(4, float(fs)), Vector2(width + 8.0, float(fs) + 10.0))
 	# It fades over its last third of a second.
 	var fade := clampf(float(_caption["left"]) / 0.3, 0.0, 1.0)
 	for off in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
