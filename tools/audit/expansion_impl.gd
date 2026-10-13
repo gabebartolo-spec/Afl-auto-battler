@@ -349,8 +349,37 @@ func _summary() -> void:
 				code, str(f8), str(f10)])
 
 
+## "lists" as the first argument: the list each new club is given, as made
+## (before any season), so the two can be compared.
+func _lists() -> void:
+	for code in NEW_CLUBS:
+		var year := GameDB.enter_year(code)
+		var arr: Array = Prospects.generate_expansion_list(code, year)
+		arr.sort_custom(func(a, b): return int(a.get("potential", 0)) > int(b.get("potential", 0)))
+		var pots := []
+		var young := 0
+		var p80 := 0
+		var p85 := 0
+		var top := 0.0
+		var ovr := 0.0
+		for i in range(arr.size()):
+			var p: Dictionary = arr[i]
+			var pot := int(p.get("potential", p["overall"]))
+			pots.append("%d>%d@%d" % [int(p["overall"]), pot, int(float(p.get("age", 0.0)))])
+			if float(p.get("age", 0.0)) < 22.0: young += 1
+			if pot >= 80: p80 += 1
+			if pot >= 85: p85 += 1
+			if i < 22: top += float(pot)
+			ovr += float(p["overall"])
+		print("LIST %s %d | players %d | mean OVR %.1f | under 22 %d | POT 80+ %d | POT 85+ %d | mean POT of the best 22 by POT %.1f | OVR>POT@age %s" % [
+				code, year, arr.size(), ovr / float(arr.size()), young, p80, p85, top / 22.0, str(pots)])
+
+
 func run() -> void:
 	var args := OS.get_cmdline_user_args()
+	if args.size() > 1 and str(args[1]) == "lists":
+		_lists()
+		return
 	var seeds := (str(args[1]) if args.size() > 1 else "301").split(",")
 	var club := str(args[2]) if args.size() > 2 else "MEL"
 	var seasons := int(args[3]) if args.size() > 3 else 8
