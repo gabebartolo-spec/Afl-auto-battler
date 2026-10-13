@@ -20,6 +20,7 @@ func run() -> void:
 	GameDB.reload()
 	_test_vote_arithmetic()
 	_test_brownlow_eligibility()
+	_test_norm_smith_rules()
 	_test_full_season()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
@@ -89,6 +90,53 @@ func _test_brownlow_eligibility() -> void:
 			"A successful appeal restores Brownlow eligibility without changing votes")
 
 
+## The Norm Smith Medal: the most influential player of the Grand Final from
+## either side, by the same measure as the votes, and the same man every time.
+func _test_norm_smith_rules() -> void:
+	var res := _one_match()
+	res["tag"] = "GF"
+	var before := JSON.stringify(res)
+	var best := {}
+	for side in range(2):
+		for r in res["roster"][side]:
+			var inf := CoachReport.influence(res["players"].get(str(r["id"]), {}))
+			if best.is_empty() or inf > float(best["inf"]):
+				best = {"id": str(r["id"]), "inf": inf, "side": side}
+	var m := Awards.norm_smith(res)
+	_check(str(m.get("id", "")) == str(best["id"]) and float(m["influence"]) == float(best["inf"]),
+			"The Norm Smith Medal goes to the most influential player on the ground")
+	_check(str(m["club"]) == str([res["home"], res["away"]][int(best["side"])]),
+			"...and carries his own club")
+	_check(Awards.norm_smith(res) == m and JSON.stringify(res) == before,
+			"The same match always names the same man, and the result is left untouched")
+	_check(str(m["line"]) == Awards.plain_line(res["players"][str(m["id"])]),
+			"His line is in plain words (%s)" % str(m["line"]))
+	_check(Awards.plain_line({"goals": 3.0, "disposals": 25.0, "marks": 8.0, "tackles": 2.0}) == "3 goals, 25 disposals and 8 marks"
+			and Awards.plain_line({"goals": 1.0, "disposals": 1.0, "tackles": 5.0, "marks": 9.0}) == "1 goal, 1 disposal and 9 marks"
+			and Awards.plain_line({"disposals": 30.0, "tackles": 7.0, "marks": 4.0, "behinds": 2.0}) == "30 disposals and 7 tackles"
+			and not Awards.plain_line({"disposals": 22.0, "clearances": 11.0, "inside50": 6.0}).contains("CLR"),
+			"At most three headline figures, goals first, no codes or percentages")
+	# The losing side can win it: lift one of the beaten side's players clear.
+	var home_won: bool = int(res["score"][0]) > int(res["score"][1])
+	var loser_side := 1 if home_won else 0
+	var star: String = str(res["roster"][loser_side][0]["id"])
+	res["players"][star] = {"disposals": 60.0, "goals": 9.0}
+	var lm := Awards.norm_smith(res)
+	_check(str(lm["id"]) == star and str(lm["club"]) == str([res["home"], res["away"]][loser_side]),
+			"A player on the losing side can win the medal")
+	GameState.reset()
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var plain: Dictionary = res.duplicate(true)
+	plain.erase("tag")
+	_check(GameState.norm_smith_for(plain).is_empty(), "Only a Grand Final has a Norm Smith Medal")
+	var shown: Dictionary = GameState.norm_smith_for(res)
+	_check(str(shown.get("text", "")).begins_with("Norm Smith Medal: ")
+			and str(shown["text"]).contains(GameDB.club_name(str(shown["club"])))
+			and str(shown["text"]).ends_with(str(shown["line"])),
+			"The result line reads 'Norm Smith Medal: name (club), stat line' (%s)" % str(shown.get("text", "")))
+	_check(Awards.norm_smith({}).is_empty(), "A match with no player stats names nobody")
+
+
 func _test_full_season() -> void:
 	GameState.reset()
 	GameState.start_season("GEE", GameDB.club_list("GEE"))
@@ -147,6 +195,38 @@ func _test_full_season() -> void:
 	_check(GameState.honour_roll.size() == 1 and not GameState.records.is_empty(),
 			"The honour roll and records are written")
 	_check(GameState.award_name(brownlow_winner) != "", "Award winners have names")
+	# The Norm Smith Medal: from the Grand Final itself, recorded, in the news.
+	var gf := {}
+	for week in GameState.season.finals.get("weeks", []):
+		for r in week:
+			if str(r.get("tag", "")) == "GF":
+				gf = r
+	var nsm: Dictionary = aw.get("norm_smith", {})
+	_check(not gf.is_empty() and not nsm.is_empty() and nsm == Awards.norm_smith(gf),
+			"The season's awards name the Grand Final's most influential player")
+	var roll_ns: Array = (GameState.honour_roll.back() as Dictionary).get("norm_smith", [])
+	_check(roll_ns.size() == 1 and str(roll_ns[0]["id"]) == str(nsm.get("id", "x")),
+			"The Norm Smith Medal is recorded on the honour roll beside the premier")
+	var ns_news := ""
+	for item in GameState.news:
+		if str(item["text"]).begins_with("Norm Smith Medal: "):
+			ns_news = str(item["text"])
+	_check(ns_news == "Norm Smith Medal: %s (%s), %s" % [GameState.award_name(nsm),
+			GameDB.club_name(str(nsm.get("club", ""))), str(nsm.get("line", ""))],
+			"The news says it in plain words (%s)" % ns_news)
+	var nsm_id: String = str(nsm.get("id", ""))
+	_check(GameState.norm_smith_years(nsm_id) == [GameDB.START_YEAR],
+			"His profile can list the year he won it")
+	# An older save: a season with no Norm Smith on its entry loads and says nothing.
+	var kept_roll: Array = GameState.honour_roll.duplicate(true)
+	var old_roll: Array = GameState.honour_roll.duplicate(true)
+	(old_roll[0] as Dictionary).erase("norm_smith")
+	GameState.honour_roll = old_roll
+	GameState.save_career()
+	GameState.load_career()
+	_check(GameState.honour_roll.size() == 1 and GameState.norm_smith_years(nsm_id).is_empty(),
+			"An old save's season has no Norm Smith recorded and is not back-filled")
+	GameState.honour_roll = kept_roll
 	GameState.save_career()
 	GameState.load_career()
 	_check(int(GameState.season_awards.get("year", 0)) == GameDB.START_YEAR and GameState.honour_roll.size() == 1,

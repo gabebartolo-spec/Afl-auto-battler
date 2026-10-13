@@ -166,7 +166,7 @@ static func _honours(host: Control, aw: Dictionary) -> Control:
 	# wouldn't fit (a phone), every club goes under its name instead, so the
 	# table keeps one shape.
 	var row_w: float = TABLE_W if bool(host.call("wide")) else float(host.call("content_width"))
-	var stack := name_w > row_w - LEAD_W - CLUB_W - fig_w - 3.0 * GAP
+	var stack := name_w > row_w - float(StatsSide.RULE_INSET) - LEAD_W - CLUB_W - fig_w - 3.0 * GAP
 	for i in range(rows.size()):
 		var x: Array = rows[i]
 		var r: Dictionary = x[1]
@@ -273,7 +273,7 @@ static func _title(v: Control, text: String) -> void:
 	air.custom_minimum_size.y = 16
 	air.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(air)
-	var t := UiKit.section(text)
+	var t := StatsSide.heading(text)
 	t.name = "Title"
 	v.add_child(t)
 
@@ -291,7 +291,11 @@ static func _header(head: String) -> Control:
 		elif i == 3:
 			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		h.add_child(label)
-	return h
+	# Over the rows' columns, which stand clear of their club's rule.
+	var m := MarginContainer.new()
+	m.add_theme_constant_override("margin_left", StatsSide.RULE_INSET)
+	m.add_child(h)
+	return m
 
 
 ## One player as a tappable table row: a rank (or a lead such as the award or
@@ -305,8 +309,9 @@ static func _player_row(host: Control, id: String, club: String, rank: String, f
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(0, 46 if stack else (ROW_H if bool(host.call("wide")) else ROW_H_PHONE))
 	b.clip_contents = true
-	var flat := StyleBoxFlat.new()
-	flat.bg_color = UiKit.PANEL if band else Color.TRANSPARENT
+	# Every row carries its club's rule down the left; your club's players, the
+	# ladder's wash as well.
+	var flat := StatsSide.row_style(club, band, club == GameState.my_club)
 	var hover := StyleBoxFlat.new()
 	hover.bg_color = Color(UiKit.TEXT, 0.06)
 	for state in ["normal", "focus"]:
@@ -315,14 +320,15 @@ static func _player_row(host: Control, id: String, club: String, rank: String, f
 		b.add_theme_stylebox_override(state, hover)
 	var row := UiKit.hbox(int(GAP))
 	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.offset_left = StatsSide.RULE_INSET
 	b.add_child(row)
 	if lead != "":
-		var l := UiKit.ellipsis(lead, UiKit.BODY, UiKit.MUTED)
+		var l := UiKit.ellipsis(lead, UiKit.BODY, UiKit.TEXT)
 		l.custom_minimum_size.x = lead_w
 		l.size_flags_horizontal = Control.SIZE_FILL
 		row.add_child(l)
 	else:
-		var n := UiKit.line(rank, UiKit.BODY, UiKit.MUTED)
+		var n := UiKit.line(rank, UiKit.BODY, UiKit.TEXT, true)
 		n.custom_minimum_size.x = 28
 		n.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		row.add_child(n)
@@ -330,7 +336,8 @@ static func _player_row(host: Control, id: String, club: String, rank: String, f
 			bold or club == GameState.my_club)
 	who.name = "Name"
 	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var c := UiKit.ellipsis(GameDB.club_short(club), 14, UiKit.MUTED)
+	# His club in its own colour where it reads; otherwise the rule beside it.
+	var c := UiKit.ellipsis(GameDB.club_short(club), 14, StatsSide.ink(club), club == GameState.my_club)
 	c.name = "Club"
 	if stack:
 		var both := UiKit.vbox(0)

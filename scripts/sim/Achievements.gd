@@ -25,7 +25,7 @@ const DEFINITIONS := [
 		"desc": "Adelaide win a premiership. The Crows' first flag came in 1997 - and they won again in 1998.",
 		"type": "premiership"},
 	{"id": "brl_back_to_back", "club": "BRL", "name": "Lions' share",
-		"desc": "Brisbane win two premierships in a row. The Lions three-peated in 2001-03 and went back-to-back in 2024-25.",
+		"desc": "Brisbane win two premierships in a row. The Lions three-peated in 2001-03 and again in 2024-26.",
 		"type": "flags_window", "count": 2, "span": 2},
 	{"id": "car_top_ladder", "club": "CAR", "name": "Blue Revolution",
 		"desc": "Carlton top the home-and-away ladder. Sixteen times the Blues lifted the flag, from the 1906-08 three-peat to 1995.",

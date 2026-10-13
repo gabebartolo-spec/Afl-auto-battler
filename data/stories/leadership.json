@@ -1583,7 +1583,7 @@
 						"held": [
 							{
 								"op": "morale",
-								"d": 6,
+								"d": 5,
 								"who": "side"
 							}
 						],
@@ -1607,7 +1607,7 @@
 				"effects": [
 					{
 						"op": "morale",
-						"d": 5,
+						"d": 7,
 						"who": "side"
 					},
 					{

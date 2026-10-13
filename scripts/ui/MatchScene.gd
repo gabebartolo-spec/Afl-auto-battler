@@ -83,6 +83,8 @@ var _run_len := 0
 var _press_said := [false, false]  # the Defensive press line, once a side
 var _duel_mem := {}             # the feed's memory of the key match-ups (MatchNotes.duel_feed_line)
 var _matchup_overlay: Control
+var _break_refresh := Callable()   # the one-line break: say each call's answer again after a pick
+var _break_sheets: Array = []      # the one-line break: open sheets, the top one last ({overlay, close})
 
 
 func _ready() -> void:
@@ -122,6 +124,7 @@ func _ready() -> void:
 		_duel_mem["first_goal"] = GameState.first_goal_candidates()
 	_pitch.event_played.connect(_on_event)
 	_pitch.finished.connect(_on_finished)
+	_pitch.ends_changed.connect(_on_ends_changed)
 	_update_scoreboard({"q": 1, "min": 0, "score": [0, 0], "kind": "info"})
 	if _interactive:
 		_show_coach_box()
@@ -492,6 +495,8 @@ func _close_moment() -> void:
 
 func _close_coach() -> void:
 	_close_sheet()
+	_close_break_sheets()
+	_break_refresh = Callable()
 	if _coach_overlay != null and is_instance_valid(_coach_overlay):
 		_coach_overlay.queue_free()
 		_coach_overlay = null
@@ -589,7 +594,21 @@ func _show_coach_box() -> void:
 	# How many from the game so far each player call shows before "Other
 	# player...": two on a wide screen, so every call fits without scrolling.
 	var quick := 0
-	if wide:
+	# From quarter time on the break is one line a call (director, 2026-10-14):
+	# every call is built as before, into a store, and laid out by
+	# _mount_one_line. The menu before the first ball-up is unchanged.
+	var one_line := q > 1
+	var store: VBoxContainer = null
+	if one_line:
+		quick = 2 if wide else 0
+		store = UiKit.vbox(6)
+		store.name = "CallStore"
+		store.visible = false
+		rep = store
+		col_a = store
+		col_b = store
+		col_c = store
+	if wide and not one_line:
 		var four := UiKit.view_width(self) >= 1200.0
 		quick = 2
 		cols = HBoxContainer.new()
@@ -655,6 +674,7 @@ func _show_coach_box() -> void:
 		if not did.is_empty():
 			rep.add_child(UiKit.spacer(UiKit.GAP))
 			var did_head := UiKit.section("What your calls did")
+			did_head.name = "CallsDidHeading"
 			did_head.set_meta("break_unit", true)
 			rep.add_child(did_head)
 			var dv := UiKit.vbox(4)
@@ -748,7 +768,11 @@ func _show_coach_box() -> void:
 	# Who goes to him is only a question once there is a him: hidden with no
 	# tag (the fullest PC break then still fits without scrolling).
 	var who_block: Array = []
+	var who_wb: Control = null
+	var who_hook: Array = [Callable()]
 	var sync_tag := func(_key: String) -> void:
+		if (who_hook[0] as Callable).is_valid():
+			(who_hook[0] as Callable).call()
 		var shown_before := who_block.any(func(b): return (b as Control).visible)
 		for b in who_block:
 			(b as Control).visible = str(calls["tag_id"]) != ""
@@ -765,7 +789,11 @@ func _show_coach_box() -> void:
 			tag_note.text = "%s, your tagger, tags %s." % [GameDB.player_display_name(who), target]
 		else:
 			tag_note.text = "%s tags %s. He gives up his own game." % [GameDB.player_display_name(who), target]
-	var tag := _player_choice("TagPicker", "No tag", opp, _in_the_game(opp, quick if quick > 0 else 4), calls, "tag_id",
+	# The names offered are their listed midfielders only (director, 2026-10-14):
+	# a ruck or a defender running through the middle is behind "Other player...",
+	# with every man the sim lets you tag, so "Tag which midfielder?" stays true.
+	var opp_listed := opp.filter(func(r): return _listed_midfielder(sim, r))
+	var tag := _player_choice("TagPicker", "No tag", opp, _in_the_game(opp_listed, quick if quick > 0 else 4), calls, "tag_id",
 			"Tag which midfielder?", sync_tag)
 	col_a.add_child(_call_block("Tag", tag))
 	if tagger != null and not others.is_empty():
@@ -785,7 +813,9 @@ func _show_coach_box() -> void:
 		var wb := _call_block("Who tags", who_tags)
 		# The follow-up to Tag: packed with its question, never ahead of it.
 		wb.set_meta("break_follow", true)
-		who_block.append(wb)
+		if not one_line:
+			who_block.append(wb)
+		who_wb = wb
 		col_a.add_child(wb)
 	sync_tag.call("")
 	col_a.add_child(tag_note)
@@ -1013,7 +1043,11 @@ func _show_coach_box() -> void:
 	# One primary action on the break; the way out is said as words.
 	var skip := UiKit.text_action("Skip to full time", UiKit.BODY)
 	skip.pressed.connect(_on_skip)
-	if wide:
+	if one_line:
+		_mount_one_line({"box": box, "store": store, "calls": calls, "wide": wide, "start": start, "skip": skip,
+				"stats_pc": stats_pc, "tagger": tagger, "my_mids": my_mids, "who_wb": who_wb, "who_hook": who_hook,
+				"opp_spare": opp_spare, "sim": sim, "syn": syn_label, "roam_note": roam_note})
+	elif wide:
 		# A PC sheet's actions sit together at the right, not as full-width bars.
 		var acts := UiKit.hbox(12)
 		acts.alignment = BoxContainer.ALIGNMENT_END
@@ -1039,8 +1073,468 @@ func _show_coach_box() -> void:
 	# A call the quarter broke brightens twice (Feel; never a nag).
 	for picker in MatchNotes.broken_calls(_res, sim.injuries, _my_side, q, _last_tactics):
 		var found := overlay.find_child(str(picker) + "*", true, false)
-		if found != null:
+		if found != null and one_line:
+			# The call's row brightens: its picker is behind the row.
+			var up: Node = found
+			while up != null and not str(up.name).begins_with("CallBody_"):
+				up = up.get_parent()
+			var row: Node = overlay.find_child("CallRow_" + str(up.name).trim_prefix("CallBody_"), true, false) if up != null else null
+			if row != null:
+				UiKit.attention(row as CanvasItem)
+		elif found != null:
 			UiKit.attention(found.get_parent() as CanvasItem)
+
+
+# ---------------------------------------------------------------------------
+# The break from quarter time on: one line a call (director, 2026-10-14)
+# ---------------------------------------------------------------------------
+## What a call's sheet is headed, and what its row says it is.
+const CALL_TITLES := {"plan": "Game plan", "pep": "Pep talk", "rot": "Rotations", "tag": "Tag", "mu": "Key match-ups",
+		"minder": "Defensive forward", "loose": "Loose interceptor", "pt": "Play through", "ruck": "Main ruck"}
+const CALL_ROW_LABELS := {"pt": "Play through (forward, midfield, back)"}
+
+
+## Lays the break out as one line a call. Every call was built by
+## _show_coach_box into c["store"]; here each becomes a body (its choices, its
+## follow-up and its words) behind a row that shows its answer. A phone opens a
+## call as its own sheet; a PC shows the chosen call beside the list, in room
+## kept for the tallest, so nothing appears or shoves the page. "Who tags" lives
+## inside the Tag call: a line with Change on a phone (its cards are their own
+## sheet), its cards in the pane on a PC, there from the start.
+func _mount_one_line(c: Dictionary) -> void:
+	var box: Dictionary = c["box"]
+	var v: VBoxContainer = box["body"]
+	var overlay: Control = box["overlay"]
+	var store: VBoxContainer = c["store"]
+	var calls: Dictionary = c["calls"]
+	var wide: bool = c["wide"]
+	var sim: MatchSim = c["sim"]
+	var take := func(nm: String, parent := false) -> Control:
+		var n: Control = store.find_child(nm, true, false)
+		if n != null and parent:
+			n = n.get_parent() as Control
+		return n
+	var bodies := {}
+	var order: Array = []
+	var body := func(key: String, parts: Array) -> void:
+		var b := UiKit.vbox(4 if wide else 6)
+		b.name = "CallBody_" + key
+		for p in parts:
+			if p == null:
+				continue
+			if (p as Node).get_parent() != null:
+				(p as Node).get_parent().remove_child(p)
+			b.add_child(p)
+		if b.get_child_count() == 0:
+			b.free()
+			return
+		# The sheet or the pane says what the call is: its own small heading goes.
+		if key != "pt":
+			var h: Node = b.find_child("CallHeading", true, false)
+			if h != null:
+				(h as Control).visible = false
+		bodies[key] = b
+		order.append(key)
+		store.add_child(b)
+
+	# Who tags, inside the Tag call from the start.
+	var who_wb: Control = c["who_wb"]
+	var who_line: HBoxContainer = null
+	var who_name: Label = null
+	var who_sub: Label = null
+	var who_change: Button = null
+	if who_wb != null and not wide:
+		who_line = UiKit.hbox(8)
+		who_line.name = "WhoTagsLine"
+		var wc := UiKit.vbox(0)
+		wc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		wc.add_child(UiKit.line("Who tags", UiKit.SECONDARY, UiKit.MUTED))
+		who_name = UiKit.ellipsis("", UiKit.NAME, UiKit.TEXT, true)
+		who_name.name = "WhoTagsName"
+		wc.add_child(who_name)
+		who_sub = UiKit.line("", UiKit.SECONDARY, UiKit.MUTED)
+		who_sub.name = "WhoTagsSub"
+		wc.add_child(who_sub)
+		who_line.add_child(wc)
+		who_change = UiKit.text_action("Change", UiKit.SECONDARY)
+		who_change.name = "WhoTagsChange"
+		who_change.pressed.connect(func():
+			_open_break_sheet("who", "Who tags %s?" % GameDB.player_display_name_by_id(str(calls["tag_id"]), "him"),
+					[who_wb], store))
+		who_line.add_child(who_change)
+		var wh: Node = who_wb.find_child("CallHeading", true, false)
+		if wh != null:
+			(wh as Control).visible = false
+	if who_wb != null:
+		who_wb.visible = true
+	(c["who_hook"] as Array)[0] = func() -> void:
+		var has_tag := str(calls["tag_id"]) != ""
+		if who_name != null and is_instance_valid(who_name):
+			var who = (c["my_mids"] as Dictionary).get(str(calls["tagger_id"]), c["tagger"])
+			who_name.text = GameDB.player_display_name(who) if has_tag and who != null else "Nobody"
+			who_sub.text = "There is no tag." if not has_tag else ("Your assistant's pick" if str(calls["tagger_id"]) == "" else "Your pick")
+			who_change.disabled = not has_tag
+		elif who_wb != null and is_instance_valid(who_wb):
+			who_wb.modulate.a = 1.0 if has_tag else 0.4
+			for b in who_wb.find_children("*", "Button", true, false):
+				(b as Button).disabled = not has_tag
+
+	var fact: Label = null
+	var fact_text := _tag_fact_line(sim)
+	if fact_text != "":
+		fact = UiKit.lbl(fact_text, UiKit.BODY, UiKit.TEXT)
+		fact.name = "TagFact"
+		fact.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var gap: Node = store.find_child("RotationsGap", true, false)
+	if gap != null:
+		(gap as Control).visible = false
+	var mu: Control = take.call("BreakMatchups")
+	if mu != null:
+		# Its spacer and its own heading: the sheet or the pane is headed already.
+		for i in range(mini(2, mu.get_child_count())):
+			(mu.get_child(i) as Control).visible = false
+	body.call("plan", [take.call("PlanPicker", true), take.call("PlanNote"), c["syn"]])
+	body.call("pep", [take.call("PepPicker", true), take.call("PepNote")])
+	body.call("rot", [take.call("RotationsBlock"), take.call("RotationNote")])
+	body.call("tag", [fact, take.call("TagPicker", true), who_wb if wide else who_line, take.call("TagNote")])
+	body.call("mu", [mu])
+	body.call("minder", [take.call("MinderBlock")])
+	body.call("loose", [take.call("LooseBlock"), c["roam_note"]])
+	var through: Array = []
+	for slot in MatchSim.FOCUS_SLOTS:
+		through.append(take.call("FocusPicker_" + str(slot), true))
+	body.call("pt", through)
+	body.call("ruck", [take.call("MainRuckPicker", true), take.call("MainRuckNote")])
+	((c["who_hook"] as Array)[0] as Callable).call()
+
+	# The rows: what each call is, and its answer now.
+	var rows := UiKit.vbox(0)
+	rows.name = "CallRows"
+	var row_of := {}
+	for key in order:
+		var r := _call_row(str(key), str(CALL_ROW_LABELS.get(key, CALL_TITLES[key])))
+		row_of[key] = r
+		rows.add_child(r)
+		rows.add_child(UiKit.rule())
+	var first := {}
+	for key in order:
+		first[key] = _call_answer(str(key), calls, c)
+	_break_refresh = func() -> void:
+		if not is_instance_valid(rows):
+			return
+		for key in order:
+			var r: Button = row_of[key]
+			var a := _call_answer(str(key), calls, c)
+			(r.get_meta("answer") as Label).text = a
+			var changed := a != str(first[key])
+			(r.get_meta("changed") as Label).visible = changed
+			(r.get_meta("rule") as ColorRect).color = UiKit.club_vivid(str(GameState.my_club), UiKit.SURFACE) if changed else Color.TRANSPARENT
+	_break_refresh.call()
+
+	var quarter_head: Control = take.call("QuarterHeading")
+	var facts: Control = take.call("QuarterFacts")
+	var did_head: Control = take.call("CallsDidHeading")
+	var did: Control = take.call("CallsDid")
+	var legs: Control = take.call("LegsView")
+	var best: Control = take.call("BestSoFar")
+	var start: Button = c["start"]
+	var skip: Button = c["skip"]
+	var put := func(to: Control, n: Control) -> void:
+		if n == null:
+			return
+		if n.get_parent() != null:
+			n.get_parent().remove_child(n)
+		to.add_child(n)
+	if not wide:
+		# A phone: the quarter, what your calls did, the rows. Best so far and
+		# the full numbers are one tap away, beside the heading.
+		var head := UiKit.hbox(8)
+		if quarter_head != null:
+			quarter_head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			put.call(head, quarter_head)
+		var stats: Control = take.call("BreakStats")
+		var open_best := UiKit.text_action("Best so far ›", UiKit.BODY)
+		open_best.name = "BestSoFarOpen"
+		open_best.pressed.connect(func(): _open_break_sheet("best", "", [best, stats], store))
+		head.add_child(open_best)
+		v.add_child(head)
+		for n in [facts, legs]:
+			put.call(v, n)
+		if did_head != null:
+			v.add_child(UiKit.spacer(2))
+		for n in [did_head, did]:
+			put.call(v, n)
+		v.add_child(rows)
+		for key in order:
+			var k := str(key)
+			(row_of[key] as Button).pressed.connect(func(): _open_break_sheet(k, str(CALL_TITLES[k]), [bodies[k]], store))
+		var one := UiKit.hbox(8)
+		start.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		skip.custom_minimum_size = Vector2(0, 48)
+		one.add_child(skip)
+		one.add_child(start)
+		box["footer"].add_child(one)
+	else:
+		# A PC: the quarter and Best so far, the rows, and the chosen call beside
+		# them. The pane keeps the room of its tallest call, so choosing another
+		# row never moves the sheet.
+		var cols := UiKit.hbox(28)
+		cols.name = "BreakColumns"
+		var left := UiKit.vbox(6)
+		var mid := UiKit.vbox(6)
+		var right := UiKit.vbox(6)
+		for col in [left, mid, right]:
+			col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			col.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			cols.add_child(col)
+		right.size_flags_stretch_ratio = 1.15
+		for n in [quarter_head, facts, legs]:
+			put.call(left, n)
+		if did_head != null:
+			left.add_child(UiKit.spacer(4))
+		for n in [did_head, did]:
+			put.call(left, n)
+		left.add_child(UiKit.spacer(4))
+		put.call(left, best)
+		var next_head := UiKit.section("Next quarter")
+		mid.add_child(next_head)
+		mid.add_child(rows)
+		var pane_title := UiKit.section("")
+		pane_title.name = "CallPaneTitle"
+		right.add_child(pane_title)
+		var pane := MarginContainer.new()
+		pane.name = "CallPane"
+		right.add_child(pane)
+		for key in order:
+			put.call(pane, bodies[key])
+		v.add_child(cols)
+		var plain := UiKit.style(Color.TRANSPARENT, 8, 0)
+		plain.set_border_width_all(0)
+		var chosen_sb := UiKit.style(Color.TRANSPARENT, 8, UiKit.RADIUS, UiKit.TEXT)
+		chosen_sb.set_border_width_all(2)
+		var select := func(key: String) -> void:
+			pane_title.text = str(CALL_TITLES[key])
+			pane.set_meta("call", key)
+			for k in order:
+				(bodies[k] as Control).visible = str(k) == key
+				# A flat button draws no surface: the chosen row needs its outline.
+				(row_of[k] as Button).flat = false
+				for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+					(row_of[k] as Button).add_theme_stylebox_override(state, chosen_sb if str(k) == key else plain)
+		for key in order:
+			var k := str(key)
+			(row_of[key] as Button).pressed.connect(func(): select.call(k))
+		var acts := UiKit.hbox(12)
+		acts.alignment = BoxContainer.ALIGNMENT_END
+		skip.custom_minimum_size = Vector2(220, 48)
+		start.custom_minimum_size = Vector2(300, 48)
+		var stats_pc: Button = c["stats_pc"]
+		if stats_pc != null:
+			stats_pc.custom_minimum_size = Vector2(180, 48)
+			acts.add_child(stats_pc)
+		acts.add_child(skip)
+		acts.add_child(start)
+		box["footer"].add_child(acts)
+		# A mouse, not a thumb: the choices sit a little shorter on the PC sheet.
+		for b in cols.find_children("*", "Button", true, false):
+			if (b as Button).custom_minimum_size.y == 44.0 and not str(b.name).begins_with("CallRow_"):
+				(b as Button).custom_minimum_size.y = 40.0
+		# Every call is laid out once, unseen, so the pane can keep the room of
+		# the tallest; then only the first shows.
+		pane.modulate.a = 0.0
+		_settle_call_pane.call_deferred(pane, select, str(order[0]) if not order.is_empty() else "")
+	v.add_child(store)
+	overlay.set_meta("one_line", true)
+
+
+## The PC pane measures every call once, keeps the tallest one's room and shows
+## the first call.
+func _settle_call_pane(pane: MarginContainer, select: Callable, first_key: String) -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not is_instance_valid(pane):
+		return
+	pane.custom_minimum_size.y = pane.get_combined_minimum_size().y
+	if first_key != "":
+		select.call(first_key)
+	pane.modulate.a = 1.0
+
+
+## One call as one row: what it is, quietly, and its answer in bold under it.
+## A call changed at this break carries your club's colour down its edge and
+## says so. The whole row is the tap.
+func _call_row(key: String, label: String) -> Button:
+	var b := UiKit.text_action("", UiKit.NAME)
+	b.name = "CallRow_" + key
+	b.custom_minimum_size = Vector2(0, 44)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var h := UiKit.hbox(8)
+	b.add_child(h)
+	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	h.offset_left = 2.0
+	h.offset_right = -6.0
+	var rule := ColorRect.new()
+	rule.name = "RowRule"
+	rule.custom_minimum_size = Vector2(4, 0)
+	rule.color = Color.TRANSPARENT
+	h.add_child(rule)
+	var col := UiKit.vbox(0)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var top := UiKit.hbox(6)
+	var what := UiKit.line(label, UiKit.SECONDARY, UiKit.MUTED)
+	what.name = "RowLabel"
+	top.add_child(what)
+	var changed := UiKit.line("· changed this break", UiKit.SECONDARY, UiKit.TEXT)
+	changed.name = "RowChanged"
+	changed.visible = false
+	top.add_child(changed)
+	col.add_child(top)
+	var answer := UiKit.ellipsis("", UiKit.NAME, UiKit.TEXT, true)
+	answer.name = "RowAnswer"
+	col.add_child(answer)
+	h.add_child(col)
+	var chev := UiKit.line("›", UiKit.HEADING, UiKit.MUTED)
+	chev.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	chev.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	h.add_child(chev)
+	for n in b.find_children("*", "Control", true, false):
+		(n as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.set_meta("answer", answer)
+	b.set_meta("changed", changed)
+	b.set_meta("rule", rule)
+	return b
+
+
+## "Max Gawn" as "M. Gawn": a row has one line for two names.
+static func _initial_name(full: String) -> String:
+	var parts := full.split(" ", false, 1)
+	return full if parts.size() < 2 else "%s. %s" % [parts[0].left(1), parts[1]]
+
+
+static func _surname(full: String) -> String:
+	var parts := full.split(" ", false, 1)
+	return full if parts.size() < 2 else parts[1]
+
+
+## A call's answer as its row says it, from the calls as they stand.
+func _call_answer(key: String, calls: Dictionary, c: Dictionary) -> String:
+	var sim: MatchSim = c["sim"]
+	var named := func(id: String, none: String) -> String:
+		return none if id == "" else _initial_name(GameDB.player_display_name_by_id(id, none))
+	match key:
+		"plan":
+			for g in GAMEPLANS:
+				if str(g[0]) == str(calls["gameplan"]):
+					return str(g[1])
+			return str(calls["gameplan"])
+		"pep":
+			for t in PEP_TALKS:
+				if str(t[0]) == str(calls["pep"]):
+					return str(t[1])
+			return str(calls["pep"])
+		"rot":
+			return str(ROTATION_SHORT.get(str(calls["rotation"]), str(calls["rotation"])))
+		"tag":
+			if str(calls["tag_id"]) == "":
+				return "No tag"
+			var target: String = named.call(str(calls["tag_id"]), "their player")
+			var who = (c["my_mids"] as Dictionary).get(str(calls["tagger_id"]), c["tagger"])
+			return target if who == null else "%s, by %s" % [target, _initial_name(GameDB.player_display_name(who))]
+		"mu":
+			var duels: Dictionary = sim.duels[_my_side]
+			var parts := PackedStringArray()
+			for fid in duels:
+				parts.append("%s on %s" % [_surname(MatchNotes._pname(str(duels[fid]))), _surname(MatchNotes._pname(str(fid)))])
+			if parts.is_empty():
+				return "None on their forwards"
+			return ", ".join(parts.slice(0, 2)) + ("" if parts.size() <= 2 else " +%d" % (parts.size() - 2))
+		"minder":
+			var spare: Dictionary = c["opp_spare"]
+			if spare.is_empty():
+				return "They have no loose defender"
+			var him := _initial_name(GameDB.player_display_name(spare))
+			if str(calls["minder_id"]) == "":
+				return "No one on %s" % him
+			return "%s on %s" % [named.call(str(calls["minder_id"]), "No one"), him]
+		"loose":
+			return named.call(str(calls["interceptor_id"]), "No loose defender")
+		"pt":
+			var who_through := PackedStringArray()
+			for slot in MatchSim.FOCUS_SLOTS:
+				if str(calls[slot]) != "":
+					who_through.append(named.call(str(calls[slot]), ""))
+			return "No one" if who_through.is_empty() else ", ".join(who_through)
+		"ruck":
+			return named.call(str(calls["main_ruck"]), "No main ruck")
+	return ""
+
+
+## The fact beside the tag: their busiest midfielder so far ("" before anyone
+## has had the ball). A fact, never a suggestion.
+func _tag_fact_line(sim: MatchSim) -> String:
+	var top := ""
+	var most := 0
+	for r in _roster_side(1 - _my_side):
+		if not _taggable_now(sim, r) or not _listed_midfielder(sim, r):
+			continue
+		var st: Dictionary = (_res.get("players", {}) as Dictionary).get(str(r["id"]), {})
+		var n := int(float(st.get("disposals", 0.0)))
+		if n > most:
+			most = n
+			top = GameDB.player_display_name(r)
+	return "" if top == "" else "%s has had %d disposals, the most of their midfielders." % [top, most]
+
+
+## A sheet over the break: one call (or who tags, or Best so far) with Done.
+## Its parts are the break's own blocks, lent to the sheet and handed back to
+## `home` when it closes, so a pick made here is the pick the quarter starts
+## with. Back closes the top sheet (handle_back).
+func _open_break_sheet(node_name: String, title: String, parts: Array, home: Node) -> void:
+	var box := UiKit.modal_box(self, 640.0, 0.0, _wash())
+	var ov: Control = box["overlay"]
+	ov.name = "CallSheet_" + node_name
+	var v: VBoxContainer = box["body"]
+	if title != "":
+		var t := UiKit.heading(title, UiKit.H1)
+		t.name = "CallSheetTitle"
+		v.add_child(t)
+	for p in parts:
+		if p == null or not is_instance_valid(p):
+			continue
+		if (p as Node).get_parent() != null:
+			(p as Node).get_parent().remove_child(p)
+		v.add_child(p)
+	var done := UiKit.btn("Done", UiKit.HEADING, true)
+	done.name = "CallDone"
+	done.custom_minimum_size = Vector2(0, 48)
+	done.pressed.connect(_close_top_break_sheet)
+	box["footer"].add_child(done)
+	var close := func() -> void:
+		for p in parts:
+			if p == null or not is_instance_valid(p):
+				continue
+			if (p as Node).get_parent() != null:
+				(p as Node).get_parent().remove_child(p)
+			if is_instance_valid(home):
+				home.add_child(p)
+		ov.queue_free()
+		if _break_refresh.is_valid():
+			_break_refresh.call()
+	_break_sheets.append({"overlay": ov, "close": close})
+
+
+func _close_top_break_sheet() -> void:
+	if _break_sheets.is_empty():
+		return
+	var s: Dictionary = _break_sheets.pop_back()
+	if is_instance_valid(s["overlay"]):
+		(s["close"] as Callable).call()
+
+
+func _close_break_sheets() -> void:
+	while not _break_sheets.is_empty():
+		_close_top_break_sheet()
 
 
 ## The PC break's call columns and its calls in the order it was built, so a
@@ -1628,7 +2122,9 @@ func _choice_grid(node_name: String, options: Array, calls: Dictionary, field: S
 	return UiKit.choice_grid(node_name, options, str(calls[field]), columns, func(key: String):
 		calls[field] = key
 		if on_change.is_valid():
-			on_change.call(key))
+			on_change.call(key)
+		if _break_refresh.is_valid():
+			_break_refresh.call())
 
 
 ## Three short words in one line (UiKit.segmented): the plan and the tag
@@ -1638,7 +2134,9 @@ func _segmented(node_name: String, options: Array, calls: Dictionary, field: Str
 	return UiKit.segmented(node_name, options, str(calls[field]), func(key: String):
 		calls[field] = key
 		if on_change.is_valid():
-			on_change.call(key))
+			on_change.call(key)
+		if _break_refresh.is_valid():
+			_break_refresh.call())
 
 
 ## A player call: "none", the few in the game so far, whoever is chosen,
@@ -1675,7 +2173,9 @@ func _player_choice(node_name: String, none_label: String, roster: Array, first:
 				calls[field] = id
 				if on_change.is_valid():
 					on_change.call(id)
-				self_ref.call(self_ref)))
+				self_ref.call(self_ref)
+				if _break_refresh.is_valid():
+					_break_refresh.call()))
 		grid.add_child(other)
 		if card.is_valid():
 			# Cards set their own facts (_dress_tagger_card): one to a line on
@@ -1884,6 +2384,21 @@ func _in_the_game(roster: Array, n: int) -> Array:
 ## the slot but not the position, so the sim's live copy decides).
 func _taggable_now(sim: MatchSim, r: Dictionary) -> bool:
 	return sim.tag_target_ok(1 - _my_side, str(r["id"]))
+
+
+## A listed midfielder of theirs: midfield is his own position, wherever he
+## lines up now. The break's tag names offer only these (director, 2026-10-14:
+## a ruck in a midfield slot and a defender with midfield second were offered
+## under "Tag which midfielder?"). The sim's own rule (MatchSim.tag_target_ok)
+## is untouched and still decides who "Other player..." lists.
+func _listed_midfielder(sim: MatchSim, r: Dictionary) -> bool:
+	var id := str(r["id"])
+	var p := sim._on_ground(1 - _my_side, id)
+	if p.is_empty():
+		for b in (sim.squads[1 - _my_side] as Squad).bench:
+			if str(b["id"]) == id:
+				p = b
+	return str(p.get("own_role", p.get("role", ""))) == "MID"
 
 
 func _roster_side(side: int) -> Array:
@@ -2388,6 +2903,16 @@ func _update_scoreboard(ev: Dictionary) -> void:
 	_paint_scoreboard()
 
 
+## The sides have changed ends: the next period is starting, so the clock shows
+## it from its first minute rather than the last minute of the one before.
+func _on_ends_changed(_period: int) -> void:
+	if _finished or _skipping:
+		return
+	_shown_q += 1
+	_shown_min = (_shown_q - 1) * QUARTER_MINUTES
+	_paint_scoreboard()
+
+
 func _paint_scoreboard() -> void:
 	if _score_home == null or _score_away == null:
 		return
@@ -2653,6 +3178,13 @@ func _ft_summary(v: VBoxContainer) -> void:
 
 	# What it means: finals, the ladder, who is next.
 	if mine:
+		# The quarter that turned a comeback win or a lost lead, and who did it.
+		var turned := ComebackTelling.turn_line(_res, me)
+		if turned != "":
+			var tl := UiKit.lbl(turned, UiKit.BODY, UiKit.MUTED)
+			tl.name = "Turned"
+			tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(tl)
 		var outlook := GameState.finals_outcome_line(_res)
 		if outlook != "":
 			var tag_now := str(_res.get("tag", ""))
@@ -2686,6 +3218,22 @@ func _ft_summary(v: VBoxContainer) -> void:
 					pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 					payoffs.add_child(pl)
 				v.add_child(payoffs)
+
+	# The Grand Final's best on ground, from either side.
+	var medal := GameState.norm_smith_for(_res)
+	if not medal.is_empty():
+		v.add_child(UiKit.spacer(UiKit.GAP))
+		v.add_child(UiKit.section("Norm Smith Medal"))
+		var mc := UiKit.club_ink(str(medal["club"]))
+		var ml := UiKit.lbl("%s (%s)" % [str(medal["name"]), GameDB.club_name(str(medal["club"]))],
+				UiKit.NAME, UiKit.club_name_colour(mc), true)
+		ml.name = "NormSmithMedal"
+		ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(ml)
+		var ms := UiKit.lbl(str(medal["line"]), UiKit.BODY, UiKit.TEXT)
+		ms.name = "NormSmithLine"
+		ms.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(ms)
 
 	# How it went: the few things that decided it, in football words.
 	v.add_child(UiKit.spacer(UiKit.GAP))
@@ -2851,6 +3399,10 @@ func handle_back() -> bool:
 	if _report_overlay != null and is_instance_valid(_report_overlay):
 		_close_report()
 		return true
+	# A call's sheet on the break closes next, the top one first; the break stays.
+	if not _break_sheets.is_empty():
+		_close_top_break_sheet()
+		return true
 	# In the full-time review, Stats and Report go back to Summary.
 	if _fulltime_shown and _ft_tab != "summary" and not _ft_box.is_empty() \
 			and is_instance_valid(_ft_box["overlay"]):
@@ -3000,6 +3552,8 @@ func _show_break_matchup(sim: MatchSim, fid: String, line: Label, q: int) -> voi
 		b.pressed.connect(func():
 			sim.coach_matchup(_my_side, fid, pid)
 			line.text = _matchup_text(fid, pid, 1).trim_suffix(".") + " from the next bounce."
+			if _break_refresh.is_valid():
+				_break_refresh.call()
 			_matchup_overlay.queue_free()
 			_matchup_overlay = null)
 		v.add_child(b)

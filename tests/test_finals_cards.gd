@@ -567,7 +567,7 @@ func _test_effects() -> void:
 			if id == "finals_second_chance":
 				_check(up == (0 if holds else -2), "%s: the group %s, the side's morale moves %d" % [id, "listens" if holds else "doesn't", up])
 			else:
-				_check(up == (6 if holds else 1), "%s: the group %s, the side's morale rises by %d" % [id, "listens" if holds else "doesn't", up])
+				_check(up == (5 if holds else 1), "%s: the group %s, the side's morale rises by %d" % [id, "listens" if holds else "doesn't", up])
 
 
 ## The small chances: one roll from the save's seed; the same save rolls the same; the rate is the card's.

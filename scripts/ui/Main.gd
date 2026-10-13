@@ -168,7 +168,8 @@ func _show_home() -> void:
 		col.add_child(cont)
 		var meta := GameState._save_meta() if live else GameState.saved_career_meta()
 		if str(meta.get("club", "")) != "":
-			var info := UiKit.lbl(_meta_line(meta), UiKit.SMALL, UiKit.MUTED)
+			# Which career Continue opens is what the coach decides on: TEXT, not MUTED.
+			var info := UiKit.lbl(_meta_line(meta), UiKit.BODY, UiKit.TEXT)
 			info.name = "CareerMeta"
 			info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			col.add_child(info)
