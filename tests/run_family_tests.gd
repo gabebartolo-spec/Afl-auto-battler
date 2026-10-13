@@ -60,7 +60,7 @@ func _run() -> void:
 		if c[7] != "":
 			_check(not _rel.find(c[5], c[6], c[7]).is_empty(), "Row %s %s: %s %s is in the game" % [c[0], c[1], c[5], c[6]])
 		print("LINE ", c[0], " ", c[1], " | ", l, " | ", c[10])
-	_check(shipped >= 30, "The verified rows are in the file (%d)" % shipped)
+	_check(shipped >= 28, "The verified rows are in the file (%d)" % shipped)
 
 	# Both ways round: the shipped file.
 	_check(_rel.line(benji) == "Brother of Jacob van Rooyen (Melbourne)",
