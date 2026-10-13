@@ -945,7 +945,7 @@ func _best_so_far(sz: Vector2i) -> void:
 	var ally_bad := []
 	for side in [me, 1 - me]:
 		var code := str(res["home"] if side == 0 else res["away"])
-		var bar: Node = block.find_child("BestBar_%d" % side, true, false)
+		var bar: Node = block.find_child("BestSide_%d" % side, true, false).find_child("ClubBar", true, false)
 		var nm: Label = block.find_child("BestClub_%d" % side, true, false)
 		if bar == null or nm == null:
 			ally_bad.append("side %d missing bar/name" % side)

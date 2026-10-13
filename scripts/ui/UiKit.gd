@@ -271,6 +271,58 @@ static func section(text: String) -> Label:
 	return lbl(text, H2, TEXT, true)
 
 
+## The club's colour as text on `surface` (the screen's ground by default):
+## its accent, else its second or first colour, whichever first reads at 4.5:1;
+## plain TEXT when none does (Carlton's navy, Sydney's black on dark). Use it for
+## a club's name or a figure that is the club's; never as body text.
+static func club_ink(code: String, surface := AUTO_COLOUR) -> Color:
+	if surface == AUTO_COLOUR:
+		surface = BG
+	return score_colour(code, surface)
+
+
+## A section's own club, at a glance (director 2026-10-13, for every screen with
+## two sides or a club's section): the club's guernsey and its name in bold,
+## in the club's readable colour, with `right` (a column heading, say) at the
+## end. The heading row only; pair it with club_section_body for the bar.
+static func club_heading(code: String, right: Control = null, fs := NAME) -> HBoxContainer:
+	var h := hbox(6)
+	h.add_child(club_marker(code, 22.0))
+	var n := ellipsis(GameDB.club_name(code), fs, club_ink(code), true)
+	n.name = "ClubName"
+	h.add_child(n)
+	if right != null:
+		h.add_child(right)
+	return h
+
+
+## `content` set beside a thin bar in the club's most vivid readable colour
+## (3:1 on the ground): a club's section reads as that club's down its whole
+## length. The bar is the club when its colour fails as text.
+static func club_section_body(code: String, content: Control) -> HBoxContainer:
+	var wrap := hbox(6)
+	var bar := ColorRect.new()
+	bar.name = "ClubBar"
+	bar.color = club_vivid(code, BG)
+	bar.custom_minimum_size = Vector2(3, 0)
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrap.add_child(bar)
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wrap.add_child(content)
+	return wrap
+
+
+## Emphasis roles: weight and size before colour. A person's or thing's name
+## leading a row is bold TEXT (NAME); what is said about him sits under it in
+## full TEXT at SECONDARY, never grey, so no line is overlooked.
+static func emphasis(text: String, fs := NAME) -> Label:
+	return ellipsis(text, fs, TEXT, true)
+
+
+static func detail(text: String, fs := SECONDARY) -> Label:
+	return ellipsis(text, fs, TEXT)
+
+
 static func spacer(px := 6) -> Control:
 	var c := Control.new()
 	c.custom_minimum_size = Vector2(0, px)
