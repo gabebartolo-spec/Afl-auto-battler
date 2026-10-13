@@ -138,7 +138,8 @@ static func ties(p: Dictionary) -> Array:
 					tie["note"] = "teammate"
 		elif str(t["club"]) != "":
 			tie["club"] = str(t["club"])
-			tie["former"] = true
+			# A club outside the AFL (West Perth) is named as it is, not "former".
+			tie["former"] = GameDB.clubs.has(str(t["club"]))
 		if int(t["games"]) > 0:
 			tie["games"] = int(t["games"])
 		out.append(tie)

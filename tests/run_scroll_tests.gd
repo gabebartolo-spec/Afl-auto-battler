@@ -53,6 +53,10 @@ func _run() -> void:
 		await _settle()
 		for key in SCREENS:
 			await _screen(str(key), size)
+	for size in SIZES:
+		root.size = size
+		await _settle()
+		await _hub_round1(size)
 	print("SCROLLTABLE")
 	for line in _table:
 		print(line)
@@ -392,3 +396,109 @@ func _resize(sc: ScrollContainer, label: String, res: Array) -> void:
 	for c in again:
 		seen.append("%d/%d" % [(c as ScrollContainer).scroll_vertical, int((c as ScrollContainer).get_v_scroll_bar().max_value - (c as ScrollContainer).get_v_scroll_bar().page)])
 	res.append("resize %d->%d (%s)" % [want, got, " ".join(seen)])
+
+
+## The hub before Round 1 (a contract card on the page, the whole ladder
+## below): every part is reachable by scrolling and ends fully inside the
+## visible page, and the card's answer takes a real tap at its position.
+func _hub_round1(size: Vector2i) -> void:
+	var tag := "hub round 1 %dx%d" % [size.x, size.y]
+	_state.reset()
+	_state.start_season("WBD", _db.club_list("WBD"))
+	_state.replay_seed = SUITE_SEED
+	_state.tutorials = false
+	# Last year's finish: the real 2026 ladder in a real-lists first season,
+	# nothing in a redrafted league or for a club that is not on that ladder.
+	_state.start_mode = "real"
+	var real_ladder: Array = _db.ladder_2026()
+	var first: String = str(real_ladder[0]["club"])
+	_check(_state.last_finish_of(first) == 1, "%s: the real champion finished 1st last year (%d)" % [tag, _state.last_finish_of(first)])
+	_state.start_mode = "redraft"
+	_check(_state.last_finish_of(first) == 0, "%s: a redrafted league has no last-year finish" % tag)
+	_state.start_mode = "real"
+	_check(_state.last_finish_of("TAS") == 0, "%s: an expansion club has no last-year finish" % tag)
+	var keep_club: String = _state.my_club
+	_state.my_club = "ZZZ"
+	_check(_state.last_finish_of(first) == 0, "%s: a created club has no last-year finish" % tag)
+	_state.my_club = keep_club
+	_router.stack = []
+	_router.go("main")
+	await _settle()
+	var p: Dictionary = _db.club_list("WBD")[0]
+	var card: Dictionary = _state.story_card("contracts_wants_to_extend", p)
+	_check(not card.is_empty(), "%s: the contract card builds" % tag)
+	_state.week_events = [card]
+	_router.go("hub")
+	for i in range(90):
+		var cs := current_scene as CanvasItem
+		if cs == null or cs.modulate.a >= 0.99:
+			break
+		await process_frame
+	await _settle(8)
+	var hub := current_scene
+	var found: Array = []
+	_scrollers(hub, found)
+	_check(not found.is_empty(), "%s: the page scrolls" % tag)
+	if found.is_empty():
+		return
+	var sc: ScrollContainer = found[0]
+	var bar := sc.get_v_scroll_bar()
+	# The week's opponent line before a game: last year's finish or nothing,
+	# never "no games yet" or a form.
+	var opp: Label = hub.find_child("OppFormLine", true, false)
+	_check(opp != null and opp.text.contains("finished") and opp.text.ends_with("last year"),
+			"%s: the opponent line gives last year's finish (%s)" % [tag, opp.text if opp else "-"])
+	_check(opp == null or (not opp.text.contains("no games yet") and not opp.text.contains("Form")
+			and not opp.text.contains("on the ladder")), "%s: no ladder spot or form before a game (%s)" % [tag, opp.text if opp else "-"])
+	var ev: Control = hub.find_child("WeekEvent", true, false)
+	_check(ev != null, "%s: the card is on the hub" % tag)
+	if ev != null:
+		var view := sc.get_global_rect()
+		_check(ev.get_global_rect().size.y <= view.size.y, "%s: the card is shorter than the page (%d v %d)" % [tag, ev.size.y, view.size.y])
+		# Scroll to the card, then it sits wholly inside the visible page.
+		sc.scroll_vertical = int(ev.get_global_rect().position.y - sc.get_global_rect().position.y + sc.scroll_vertical - 8)
+		await _settle(3)
+		if OS.get_environment("HUBSHOT") != "":
+			get_root().get_viewport().get_texture().get_image().save_png("%s_%s_%dx%d.png" % [OS.get_environment("HUBSHOT"), "card", size.x, size.y])
+		var r := ev.get_global_rect()
+		_check(view.grow(1).encloses(r), "%s: the card is fully inside the page once scrolled to (%s in %s)" % [tag, r, view])
+		# A real tap on its second answer, where the finger lands.
+		var b: Control = ev.find_child("Event_1", true, false)
+		_check(b != null and view.encloses(b.get_global_rect()), "%s: the answer is inside the page" % tag)
+		if b != null:
+			var at := b.get_global_rect().get_center()
+			await _mouse_button(at, true)
+			await _mouse_button(at, false)
+			await _settle(4)
+			_check(bool((_state.week_events[0] as Dictionary).get("resolved", false)),
+					"%s: a real tap on the card's answer answers it" % tag)
+	# At the end of the page the last ladder row is wholly visible.
+	# (The answer rebuilt the page: take the new one.)
+	# (The answer rebuilt the page: take the new one; a page that now fits has
+	# nothing to scroll and its last row is in view as it stands.)
+	var pages: Array = hub.find_children("*", "ScrollContainer", true, false)
+	_check(not pages.is_empty(), "%s: the page is still there after the answer" % tag)
+	if pages.is_empty():
+		return
+	sc = pages[0]
+	bar = sc.get_v_scroll_bar()
+	sc.scroll_vertical = int(bar.max_value)
+	await _settle(4)
+	var lad: Control = hub.find_child("LadderSection", true, false)
+	_check(lad != null, "%s: the ladder is on the hub" % tag)
+	if lad != null:
+		var last_row: Control = null
+		var stack: Array = [lad]
+		while not stack.is_empty():
+			var n: Node = stack.pop_back()
+			for c in n.get_children():
+				stack.append(c)
+			if n is VBoxContainer and (n as Control).get_child_count() >= 18 and n != lad:
+				last_row = (n as Control).get_child((n as Control).get_child_count() - 1)
+		_check(last_row != null, "%s: found the ladder's rows" % tag)
+		if last_row != null:
+			var view2 := sc.get_global_rect()
+			_check(view2.grow(1).encloses(last_row.get_global_rect()),
+					"%s: the last ladder row is fully inside the page at the end (%s in %s)" % [tag, last_row.get_global_rect(), view2])
+	if OS.get_environment("HUBSHOT") != "":
+		get_root().get_viewport().get_texture().get_image().save_png("%s_%s_%dx%d.png" % [OS.get_environment("HUBSHOT"), "end", size.x, size.y])
