@@ -11,6 +11,12 @@ extends RefCounted
 static var variant := "A"
 
 const WIDE := 760.0
+## The autoload by node, as UiKit does: a script with static vars is compiled before
+## the autoload names exist.
+static func _gs():
+	return Engine.get_main_loop().root.get_node("GameState")
+
+
 const PLATE := "res://assets/vignette/rooms/press_room_plate.png"
 
 
@@ -36,7 +42,7 @@ static func open(host: Control, on_close: Callable = Callable()) -> Control:
 			layers[0].visible = false
 			return true
 		return false)
-	var club := GameState.my_club
+	var club := _gs().my_club
 	var data := strands(club)
 	var wide := UiKit.view_width(host) >= WIDE
 	match variant:
@@ -56,8 +62,8 @@ static func strands(club: String) -> Array:
 	for s in Culture.STRANDS:
 		var id := str(s[0])
 		var label := str(s[1])
-		var t := Culture.value(GameState.relations, club, id)
-		var reasons := Culture.grouped(GameState.relations, club, id)
+		var t := Culture.value(_gs().relations, club, id)
+		var reasons := Culture.grouped(_gs().relations, club, id)
 		var words := Culture.words(id, t)
 		if words == "":
 			var latest := int(reasons[0]["latest"]) if not reasons.is_empty() else 0
@@ -69,7 +75,7 @@ static func strands(club: String) -> Array:
 
 ## The row on My list that opens it: an invitation, the three phrases in bold.
 static func entry_row() -> Button:
-	var club := GameState.my_club
+	var club := _gs().my_club
 	var b := UiKit.text_action("", UiKit.NAME)
 	b.name = "CultureOpen"
 	b.custom_minimum_size = Vector2(0, 92)
