@@ -1137,10 +1137,25 @@ func _test_broadcast_vignettes() -> void:
 			"An ordinary crowded mark is not silently promoted to a speccy")
 	_check(BroadcastVignette.pick_kind(mark, {}, {}, front) == BroadcastVignette.SPECCY_FRONT,
 			"A real speccy through the corridor gets the front-on speccy shot")
-	# The front-on shot is the low, tight staging (mark_f / brace_f strips in the sheet), frozen on the grab.
-	_check(BroadcastVignette._sf_ready(), "The sheets hold the front-on speccy moves (the low, tight staging, not the old one)")
-	_check(BroadcastVignette.DURATIONS[BroadcastVignette.SPECCY_FRONT] > BroadcastVignette.SF_FREEZE,
-			"The front-on speccy runs past the grab, so the still holds on it")
+	# The front-on shot is behind the "speccy_front" switch (director, 2026-10-14): off (the default) a speccy plays
+	# the earlier shot and runs as long as it did; on it is the low, tight staging frozen on the grab.
+	Features.clear("speccy_front")
+	_check(not BroadcastVignette._sf_ready() and is_equal_approx(BroadcastVignette.duration_for(BroadcastVignette.SPECCY_FRONT), 3.8),
+			"With the speccy_front switch off a speccy plays the earlier shot, 3.8 s")
+	Features.set_on("speccy_front", true)
+	_check(BroadcastVignette._sf_ready(), "With the switch on the sheets hold the front-on speccy moves (the low, tight staging)")
+	_check(BroadcastVignette.duration_for(BroadcastVignette.SPECCY_FRONT) > BroadcastVignette.SF_FREEZE,
+			"On, the front-on speccy runs past the grab, so the still holds on it")
+	var vig_on := BroadcastVignette.new()
+	vig_on.setup(BroadcastVignette.SPECCY_FRONT, {"kind": "mark", "side": 0, "num": 4, "speccy": true}, {}, {"home": "FRE", "away": "MEL"})
+	var on_figures := vig_on._sf_ready()
+	vig_on.free()
+	Features.clear("speccy_front")
+	var vig_off := BroadcastVignette.new()
+	vig_off.setup(BroadcastVignette.SPECCY_FRONT, {"kind": "mark", "side": 0, "num": 4, "speccy": true}, {}, {"home": "FRE", "away": "MEL"})
+	var off_figures := vig_off._sf_ready()
+	vig_off.free()
+	_check(on_figures and not off_figures, "The same speccy event draws the new shot with the switch on and the earlier one with it off")
 	_check(BroadcastVignette.pick_kind(mark, {}, {}, flank) == BroadcastVignette.SPECCY_SIDE,
 			"A crowded mark near the flank gets the side-sit speccy shot")
 	_check(BroadcastVignette.pick_kind(mark, {}, {}, defensive) == BroadcastVignette.SPECCY_DEFENSIVE,
