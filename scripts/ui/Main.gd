@@ -83,6 +83,10 @@ func _notification(what: int) -> void:
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	# The game boots onto this scene directly, not through the Router: put the
+	# menu at the bottom of the stack so a screen opened from it can step back.
+	if Router.stack.is_empty():
+		Router.stack.append("main")
 	if GameState.new_career_setup_requested:
 		GameState.new_career_setup_requested = false
 		_mode = "setup"

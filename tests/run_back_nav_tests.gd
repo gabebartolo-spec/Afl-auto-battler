@@ -53,6 +53,7 @@ func _run() -> void:
 	await _screens()
 	await _overlays()
 	await _main_menu()
+	await _cold_boot_forge()
 	await _draft()
 	await _match()
 	await _crawl()
@@ -409,6 +410,36 @@ func _main_menu() -> void:
 				if not still:
 					line += " | bare menu Escape FAIL"
 			_table.append("%s | %s | %s" % [label, way, line])
+
+
+# ---------------------------------------------------------------------------
+# Cold boot: the game starts on the menu scene itself (project.godot's main
+# scene), not through Router.go, so nothing is on the stack yet. Club Forge,
+# opened from that menu, must still step back to it (director, 2026-10-13:
+# "Back button in club forge still doesn't work").
+# ---------------------------------------------------------------------------
+func _cold_boot_forge() -> void:
+	for way in WAYS:
+		_state.reset()
+		_router.stack = []
+		change_scene_to_file("res://scenes/Main.tscn")
+		await _settle(8)
+		var menu := current_scene
+		var why: String = await _click_named(menu, "ClubForge")
+		await _settle(8)
+		var on_forge: bool = why == "" and _router.current() == "forge"
+		_check(on_forge, "cold boot: Club Forge opens from the menu (%s)" % why)
+		if not on_forge:
+			_table.append("cold boot forge | %s | did not open %s" % [way, why])
+			continue
+		var scene := current_scene
+		var btn: Control = scene.find_child("TopBarBack", true, false)
+		why = await _leave(way, btn)
+		await _settle(10)
+		var ok: bool = why == "" and _router.current() == "main" and current_scene != scene \
+				and current_scene != null and current_scene.find_child("ClubForge", true, false) != null
+		_check(ok, "cold boot: Club Forge Back by %s returns to the menu (%s; now %s, stack %s)" % [way, why, _router.current(), str(_router.stack)])
+		_table.append("cold boot forge | %s | %s" % [way, "ok" if ok else "FAIL %s now=%s stack=%s" % [why, _router.current(), str(_router.stack)]])
 
 
 # ---------------------------------------------------------------------------

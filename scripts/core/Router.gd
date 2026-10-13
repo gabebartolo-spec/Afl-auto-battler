@@ -65,6 +65,10 @@ func replace(key: String) -> void:
 
 func back() -> void:
 	if stack.size() <= 1:
+		# Nothing under this screen (the game boots straight onto the menu, so a
+		# screen opened from it can be alone on the stack): Back is the menu.
+		if current() != "main":
+			to_main_menu(false)
 		return
 	# Take both this screen and the one we return to off the stack: go()
 	# pushes the target again. Leaving it on made it appear twice, so every
