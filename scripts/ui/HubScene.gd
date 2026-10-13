@@ -455,7 +455,7 @@ func _news_card() -> Control:
 	row.add_child(v)
 	v.add_child(UiKit.lbl("League news", UiKit.BODY, UiKit.TEXT, true))
 	for item in GameState.news.slice(0, 2):
-		v.add_child(UiKit.ellipsis(str(item["text"]), 12, UiKit.TEXT))
+		v.add_child(UiKit.ellipsis(str(item["text"]), UiKit.SECONDARY, UiKit.TEXT))
 	var more := UiKit.btn("More", 14)
 	more.name = "NewsMore"
 	more.custom_minimum_size = Vector2(72, 44)
@@ -573,9 +573,10 @@ func _week_section(season: Season) -> Control:
 				nv.add_child(rivalry_detail)
 		var their := GameState.club_form_info(opp)
 		# Named: under the poster an unnamed "4th on the ladder" read as yours.
+		# "Form:" like your own line below, so the two read as parallel facts.
 		var standing := UiKit.lbl("%s are %s on the ladder  ·  %s" % [
 				GameDB.club_short(opp), GameState.ordinal(GameState.club_position(opp)),
-				GameState.form_line(their, "form").trim_prefix("form: ")], UiKit.SMALL, UiKit.MUTED)
+				GameState.form_line(their)], UiKit.SECONDARY, UiKit.MUTED)
 		standing.name = "OppFormLine"
 		nv.add_child(standing)
 		# Their list: the club's guernsey and name, then its line (TeamRating).
@@ -586,7 +587,7 @@ func _week_section(season: Season) -> Control:
 			var mark := UiKit.club_marker(opp, 18.0)
 			mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			row.add_child(mark)
-			var tl := UiKit.ellipsis("%s  %s" % [GameDB.club_short(opp), str(their_list["line"])], UiKit.SMALL, UiKit.MUTED)
+			var tl := UiKit.ellipsis("%s  %s" % [GameDB.club_short(opp), str(their_list["line"])], UiKit.SECONDARY, UiKit.MUTED)
 			tl.name = "OppTeamOutlook"
 			tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			row.add_child(tl)
@@ -674,7 +675,7 @@ func _form_row(form: Dictionary) -> Control:
 	var row := UiKit.hbox(0)
 	var last := str(form.get("last", ""))
 	var head := UiKit.line(GameState.form_line(form) if last == "" else
-			GameState.form_line(form).trim_suffix(last), UiKit.SMALL, _form_colour(float(form["value"])))
+			GameState.form_line(form).trim_suffix(last), UiKit.SECONDARY, _form_colour(float(form["value"])))
 	head.name = "FormLine"
 	row.add_child(head)
 	var streak := UiKit.hbox(1)
@@ -682,7 +683,7 @@ func _form_row(form: Dictionary) -> Control:
 	row.add_child(streak)
 	for ch in last:
 		var col := UiKit.GOOD if ch == "W" else (UiKit.BAD if ch == "L" else UiKit.MUTED)
-		var l := UiKit.line(ch, UiKit.SMALL, col, true)
+		var l := UiKit.line(ch, UiKit.SECONDARY, col, true)
 		l.name = "Result_%s" % ch
 		streak.add_child(l)
 	return row
