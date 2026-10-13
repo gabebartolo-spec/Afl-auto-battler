@@ -7,6 +7,11 @@ extends RefCounted
 ## Layout: three words about us, and how we got here (director, 2026-10-13).
 
 const WIDE := 760.0
+## The strand emblems: a square this size, tinted this far towards the club's colour.
+const ICON := 48.0
+const ICON_TINT := 0.55
+## Where the emblems live: <id>.png per strand (a test points this elsewhere).
+static var icon_dir := "res://assets/ui/culture"
 
 ## The autoloads by node, as UiKit does (their names are not known when this compiles).
 static func _gs():
@@ -152,19 +157,35 @@ static func _back(done: Callable) -> Button:
 	return b
 
 
-static func _icon(id: String) -> TextureRect:
-	var path := "res://assets/ui/culture/%s.png" % id
+## The strand's emblem (a whistle, a handshake, a cup): a grey render the club's
+## colour tints, over the strand's name. Null when the art is not there.
+static func _icon(id: String, club: String) -> TextureRect:
+	var path := "%s/%s.png" % [icon_dir, id]
 	if not ResourceLoader.exists(path):
 		return null
 	var t := TextureRect.new()
 	t.name = "StrandIcon"
 	t.texture = load(path)
-	t.custom_minimum_size = Vector2(36, 36)
+	t.custom_minimum_size = Vector2(ICON, ICON)
 	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	t.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	t.modulate = emblem_tint(club)
 	return t
+
+
+## A light wash of the club's colour over the grey emblem, so the three carry
+## the club: its hand-picked ink (UiKit.club_ink: the Bulldogs' blue), or its
+## second ink when the first is red (Melbourne's navy), because a red emblem
+## beside the words could read as a warning. A club with no ink but red and
+## white stays plain.
+static func emblem_tint(club: String) -> Color:
+	var ink := UiKit.club_name_colour(UiKit.club_ink(club))
+	if ink == UiKit.TEXT:
+		ink = UiKit.club_name_colour(UiKit.club_ink_second(club))
+	return Color.WHITE.lerp(ink, ICON_TINT)
 
 
 ## What moves the strand: one plain line under its headline. (What it does in
@@ -201,14 +222,24 @@ static func _build(root: Control, club: String, data: Array, wide: bool, done: C
 	for d in data:
 		var row := UiKit.hbox(14)
 		row.name = "Strand_" + str(d["id"])
-		# One icon per strand when the art exists: assets/ui/culture/<strand id>.png (none yet).
-		var icon := _icon(str(d["id"]))
-		if icon != null:
-			row.add_child(icon)
+		var icon := _icon(str(d["id"]), club)
 		var name := UiKit.lbl(str(d["label"]), UiKit.NAME if wide else UiKit.SECONDARY, ink, true)
 		name.custom_minimum_size.x = 130.0 if wide else 104.0
 		name.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		row.add_child(name)
+		if icon != null:
+			# The emblem sits over the name, in the name's own column, so the
+			# words keep the width and the place they have without it. The name is
+			# centred under it (director, 2026-10-14: "centre the text beneath the
+			# emblem so it doesnt look odd"): one centre line for the two.
+			var tag := UiKit.vbox(4)
+			tag.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			tag.add_child(icon)
+			tag.add_child(name)
+			row.add_child(tag)
+		else:
+			row.add_child(name)
 		var cell := UiKit.vbox(8 if wide else 4)
 		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var words := UiKit.heading(str(d["words"]), 30)
