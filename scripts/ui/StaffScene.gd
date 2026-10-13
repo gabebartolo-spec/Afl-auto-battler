@@ -42,7 +42,7 @@ func _build() -> void:
 	# the page, its ink. A dark club is carried by the guernsey alone.
 	var who_h := UiKit.hbox(8)
 	who_h.add_child(UiKit.club_marker(_club, 24.0))
-	var head := UiKit.lbl(GameDB.club_name(_club), UiKit.H2, UiKit.score_colour(_club, UiKit.BG), true)
+	var head := UiKit.ellipsis(GameDB.club_name(_club), UiKit.H2, UiKit.score_colour(_club, UiKit.BG), true)
 	head.name = "StaffClub"
 	who_h.add_child(head)
 	body.add_child(who_h)

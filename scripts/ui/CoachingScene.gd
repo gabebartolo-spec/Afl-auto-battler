@@ -82,7 +82,7 @@ func _head(text: String) -> Control:
 	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var col := UiKit.team_colour()
 	var warm := col == UiKit.ACCENT or col.h < 0.09 or col.h > 0.96
-	rule.color = Color(UiKit.TEXT, 0.4) if warm else col
+	rule.color = Color(UiKit.TEXT, 0.6) if warm else col
 	v.add_child(rule)
 	v.add_child(UiKit.section(text))
 	return v
