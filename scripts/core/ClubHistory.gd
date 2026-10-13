@@ -58,7 +58,7 @@ static func _parse(path: String) -> Dictionary:
 		var code := str(cells[0]).strip_edges()
 		if code == "":
 			continue
-		var d: Dictionary = out.get(code, {"years": [], "comps": {}, "none": false})
+		var d: Dictionary = out.get(code, {"years": [], "comps": {}, "also": {}, "none": false})
 		var year := str(cells[1]).strip_edges().to_int() if cells.size() > 1 else 0
 		var label := str(cells[4]).strip_edges() if cells.size() > 4 else ""
 		if year > 0 and label != "":
