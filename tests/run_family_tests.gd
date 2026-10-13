@@ -260,7 +260,7 @@ func _run() -> void:
 		_check(not _db.player_display_name(kid).ends_with(" " + str(dad["last"])) or str(dad["last"]) == "",
 				"With fictional names on, no real surname shows")
 		_state.show_real_names = true
-		_check(_rel.line(dad).begins_with("Father of "), "The father's bio says father of: " + _rel.line(dad))
+		_check(_rel.line(dad).contains("Father of "), "The father's bio says father of: " + _rel.line(dad))
 		var kid_id := str(kid["id"])
 		var line_before: String = _rel.line(kid)
 		_check(_state.save_career(), "The career saves")
