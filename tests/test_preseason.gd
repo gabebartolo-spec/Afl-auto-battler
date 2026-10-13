@@ -948,6 +948,7 @@ func _test_screens() -> void:
 	var scene: Control = await _open(tree)
 	_check(scene != null and scene.name == "PreSeasonScene" and Router.current() == "preseason",
 			"With a pre-season running, the game opens on the pre-season plan, not the hub")
+	_check(scene.find_child("TrialStopwatch", true, false) == null, "The plan has no stopwatch: it belongs to the time trial")
 	_check(_label(scene, "PreSeasonHero") == "Eight weeks to Round 1"
 			and _label(scene, "PreSeasonClub") == GameDB.club_name(CLUB),
 			"The plan screen says whose pre-season it is and how long it runs")
@@ -1032,6 +1033,26 @@ func _test_screens() -> void:
 	_check(scene != null and scene.name == "PreSeasonScene" and GameState.preseason_stop() == "trial"
 			and _label(scene, "PreSeasonHero") == "The time trial",
 			"Weeks 1 to 3 are trained and the game stops at the time trial")
+	# The stopwatch at the time trial: the real picture in the club's wash,
+	# never red, inside the header, clear of every word, and it takes no tap.
+	var watch := scene.find_child("TrialStopwatch", true, false) as TextureRect
+	var watch_tex: Texture2D = watch.texture if watch != null else null
+	_check(watch_tex != null and watch_tex.resource_path == "res://assets/ui/models/stopwatch.png"
+			and float(watch_tex.get_height()) >= 2.0 * watch.size.y and watch.size.y >= 44.0,
+			"The time trial stop shows the stopwatch's own picture, sharp at this size (%s)" % (watch_tex.resource_path if watch_tex != null else "missing"))
+	var watch_ok := watch != null and watch.mouse_filter == Control.MOUSE_FILTER_IGNORE \
+			and watch.modulate.is_equal_approx(CultureSheet.emblem_tint(CLUB)) \
+			and (watch.modulate.s < 0.08 or (watch.modulate.h > 0.08 and watch.modulate.h < 0.92))
+	var head := scene.find_child("PreSeasonHeader", true, false) as Control
+	if watch != null and head != null:
+		watch_ok = watch_ok and head.get_global_rect().grow(0.5).encloses(watch.get_global_rect())
+		for l in head.find_children("*", "Label", true, false):
+			var lab := l as Label
+			var need := lab.get_theme_font("font").get_string_size(lab.text, HORIZONTAL_ALIGNMENT_LEFT, -1, lab.get_theme_font_size("font_size")).x
+			var drawn := Rect2(lab.global_position, Vector2(minf(need, lab.size.x), lab.size.y))
+			if lab.text != "" and drawn.intersects(watch.get_global_rect()):
+				watch_ok = false
+	_check(watch_ok, "The stopwatch carries the club's wash, takes no tap and covers no word in the header")
 	var named := true
 	for i in range(5):
 		named = named and _label(scene, "TrialBest_%d" % i) != ""

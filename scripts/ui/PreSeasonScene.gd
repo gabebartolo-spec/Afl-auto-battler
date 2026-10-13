@@ -136,8 +136,25 @@ func _header(stop: String) -> Control:
 	else:
 		v.add_child(hero)
 		v.add_child(sub)
+	if stop == "trial":
+		# The stopwatch at the time trial (director, 2026-10-14), at the end of
+		# the club's row, where it takes no room from the words. Decoration: it
+		# takes no tap, and without the picture the header is as it was.
+		var watch := UiArt.view("stopwatch", WATCH_WIDE if _wide() else WATCH_NARROW, CultureSheet.emblem_tint(GameState.my_club))
+		if watch != null:
+			watch.name = "TrialStopwatch"
+			if not _wide():
+				# A phone: the club's row keeps its height; the watch hangs
+				# from its top into the space beside the big line.
+				watch.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			who.add_child(watch)
 	v.add_child(_club_rule())
 	return v
+
+
+## The stopwatch at the time trial stop: this tall on a phone and on a wide screen.
+const WATCH_NARROW := 44.0
+const WATCH_WIDE := 56.0
 
 
 func _hero(stop: String) -> String:
