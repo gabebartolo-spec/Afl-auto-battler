@@ -329,7 +329,7 @@ func _standing_card() -> Control:
 	# Your list as one number and where the club is in its cycle (TeamRating).
 	var outlook := GameState.team_outlook(GameState.my_club)
 	if not outlook.is_empty():
-		var tl := UiKit.ellipsis(str(outlook["line"]), UiKit.SECONDARY, UiKit.MUTED)
+		var tl := UiKit.lbl(str(outlook["line"]), UiKit.SECONDARY, UiKit.MUTED)
 		tl.name = "MyTeamOutlook"
 		cv.add_child(tl)
 	var form := GameState.club_form_info(GameState.my_club)
@@ -621,7 +621,7 @@ func _week_section(season: Season) -> Control:
 			var mark := UiKit.club_marker(opp, 18.0)
 			mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			row.add_child(mark)
-			var tl := UiKit.ellipsis("%s  %s" % [GameDB.club_short(opp), str(their_list["line"])], UiKit.SECONDARY, UiKit.MUTED)
+			var tl := UiKit.lbl("%s  %s" % [GameDB.club_short(opp), str(their_list["line"])], UiKit.SECONDARY, UiKit.MUTED)
 			tl.name = "OppTeamOutlook"
 			tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			row.add_child(tl)
