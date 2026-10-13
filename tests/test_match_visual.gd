@@ -1079,6 +1079,10 @@ func _test_broadcast_vignettes() -> void:
 			"An ordinary crowded mark is not silently promoted to a speccy")
 	_check(BroadcastVignette.pick_kind(mark, {}, {}, front) == BroadcastVignette.SPECCY_FRONT,
 			"A real speccy through the corridor gets the front-on speccy shot")
+	# The front-on shot is the low, tight staging (mark_f / brace_f strips in the sheet), frozen on the grab.
+	_check(BroadcastVignette._sf_ready(), "The sheets hold the front-on speccy moves (the low, tight staging, not the old one)")
+	_check(BroadcastVignette.DURATIONS[BroadcastVignette.SPECCY_FRONT] > BroadcastVignette.SF_FREEZE,
+			"The front-on speccy runs past the grab, so the still holds on it")
 	_check(BroadcastVignette.pick_kind(mark, {}, {}, flank) == BroadcastVignette.SPECCY_SIDE,
 			"A crowded mark near the flank gets the side-sit speccy shot")
 	_check(BroadcastVignette.pick_kind(mark, {}, {}, defensive) == BroadcastVignette.SPECCY_DEFENSIVE,
