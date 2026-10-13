@@ -124,6 +124,7 @@ func _ready() -> void:
 		_duel_mem["first_goal"] = GameState.first_goal_candidates()
 	_pitch.event_played.connect(_on_event)
 	_pitch.finished.connect(_on_finished)
+	_pitch.ends_changed.connect(_on_ends_changed)
 	_update_scoreboard({"q": 1, "min": 0, "score": [0, 0], "kind": "info"})
 	if _interactive:
 		_show_coach_box()
@@ -2899,6 +2900,16 @@ func _update_scoreboard(ev: Dictionary) -> void:
 		_shown_behinds = [int(b[0]), int(b[1])]
 	_shown_q = int(ev.get("q", _shown_q))
 	_shown_min = int(ev.get("min", _shown_min))
+	_paint_scoreboard()
+
+
+## The sides have changed ends: the next period is starting, so the clock shows
+## it from its first minute rather than the last minute of the one before.
+func _on_ends_changed(_period: int) -> void:
+	if _finished or _skipping:
+		return
+	_shown_q += 1
+	_shown_min = (_shown_q - 1) * QUARTER_MINUTES
 	_paint_scoreboard()
 
 

@@ -10,6 +10,8 @@ extends RefCounted
 ## the RNG, so the richer log costs nothing in calibration.
 
 var squads: Array = []                 # [Squad home, Squad away]
+## Each side's bench at the first bounce: [{id, num, name}]. Presentation only.
+var opening_bench: Array = []
 var rng := RandomNumberGenerator.new()
 var team_stats: Array = [{}, {}]
 ## Actual effort, accumulated only while a player is on the ground. Kept
@@ -278,6 +280,12 @@ const FORM_CONTEST := 0.010
 
 func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	squads = [home, away]
+	# Who starts on the bench, for the match view's bench strip (read only).
+	for sq in squads:
+		var rows := []
+		for p in (sq as Squad).bench:
+			rows.append({"id": str(p["id"]), "num": int(p["num"]), "name": GameDB.player_display_name(p)})
+		opening_bench.append(rows)
 	form = [clampf(home.form, -1.0, 1.0), clampf(away.form, -1.0, 1.0)]
 	rng.seed = seed
 	moment_rng.seed = seed * 7 + 13
@@ -3901,6 +3909,7 @@ func result() -> Dictionary:
 				q_goals[q][1] * 6 + q_behinds[q][1]])
 	return {
 		"roster": rosters(),
+		"bench": opening_bench.duplicate(true),
 		"stars": [(stars[0] as Dictionary).keys(), (stars[1] as Dictionary).keys()],
 		"score": [s0, s1],
 		"goals": [goals(0), goals(1)],
