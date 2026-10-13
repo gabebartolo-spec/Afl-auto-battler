@@ -1410,10 +1410,12 @@ func _test_press_shape(res: Dictionary) -> void:
 			"The zone eases in and out over 0.9 s, not linearly")
 	# The tint is the press club's own colour and shows on a phone (director,
 	# 2026-10-13: 0.12 moved a channel 8-11 of 255, a darker turf stripe). At full
-	# strength the mix with the turf must move a channel by a quarter of the range
-	# (64/255) and keep the club's hue, whatever the club (navy and brown included).
+	# strength the mix with the turf must move a channel by at least 12% of the range
+	# (30/255) and keep the club's hue, whatever the club (navy and brown included).
 	var turf: Color = pvs.PRESS_TURF
 	var pa := float(pvs.PRESS_ZONE_ALPHA)
+	# Director, 2026-10-13: "right colour, about half as strong" - 0.2, not 0.4.
+	_check(is_equal_approx(pa, 0.2), "The press tint is laid at half the first strength (0.2)")
 	var tint_ok := true
 	var tint_note := ""
 	for code in ["FRE", "MEL", "WBD", "STK", "CAR", "HAW"]:
@@ -1423,12 +1425,12 @@ func _test_press_shape(res: Dictionary) -> void:
 		var slot := 1 if code == "WBD" else 0
 		var club_h: float = (GameDB.club_colours(code)[slot] as Color).h * 360.0
 		var dh := absf(fposmod(mix.h * 360.0 - club_h + 180.0, 360.0) - 180.0)
-		if shift < 0.25 or dh > 30.0:
+		if shift < 0.12 or dh > 30.0:
 			tint_ok = false
 			tint_note += " %s shift %.0f/255 hue off %.0f" % [code, shift * 255.0, dh]
 	_check(tint_ok, "The press tint shows on a phone and is the press club's colour:" + tint_note)
 	var black: Color = pvs.press_zone_colour("COL")
-	_check(black.v < 0.2 and float(turf.g) - (turf.g * (1.0 - pa) + black.g * pa) >= 0.12,
+	_check(black.v < 0.2 and float(turf.g) - (turf.g * (1.0 - pa) + black.g * pa) >= 0.05,
 			"A club with no hue (Collingwood) gets a dark wash that still darkens the turf visibly")
 	d._tac[1] = {}
 	# The line, once: only the pressing side's opponents' disposals open it.

@@ -582,8 +582,14 @@ func _draw() -> void:
 ## oval's edge is untouched. At the full strength of the opponents' back
 ## third it has to read on a phone without the unpressed ground beside it
 ## (director, 2026-10-13: the first 0.12 moved a channel by 8-11 of 255 and
-## read as a darker turf stripe), so it is a 40% mix of the colour.
-const PRESS_ZONE_ALPHA := 0.4
+## read as a darker turf stripe), so it was a 40% mix of the colour; the
+## director then judged that too heavy ("right colour, about half as strong"),
+## so the same colour is laid at half that, 0.2, and the mowing stripes show
+## through.
+const PRESS_ZONE_ALPHA := 0.2
+## The strength the colour is worked out at (what the club colour would be at
+## a 40% mix); PRESS_ZONE_ALPHA then halves the effect without changing the hue.
+const PRESS_COLOUR_ALPHA := 0.4
 const PRESS_FADE_SECS := 0.9
 var _zone_fade := [0.0, 0.0]
 var _press_said := [false, false]
@@ -654,7 +660,7 @@ const PRESS_TARGET_V := 0.64
 const PRESS_NO_HUE := Color(0.02, 0.03, 0.07)
 
 
-## The colour to lay over the turf at PRESS_ZONE_ALPHA so the mix lands on the
+## The colour to lay over the turf at PRESS_COLOUR_ALPHA so the mix lands on the
 ## club's colour at turf lightness: the plain colour of a dark club (navy,
 ## brown, deep purple) would only darken the grass, and a plain blue or red
 ## drifts to teal or brown through the green beneath it. Worked back from the
@@ -677,7 +683,7 @@ static func press_zone_colour(code: String) -> Color:
 		if pick.a == 0.0:
 			return PRESS_NO_HUE
 	var target := Color.from_hsv(pick.h, clampf(pick.s, 0.6, 0.85), PRESS_TARGET_V)
-	var w := (Vector3(target.r, target.g, target.b) - Vector3(PRESS_TURF.r, PRESS_TURF.g, PRESS_TURF.b) * (1.0 - PRESS_ZONE_ALPHA)) / PRESS_ZONE_ALPHA
+	var w := (Vector3(target.r, target.g, target.b) - Vector3(PRESS_TURF.r, PRESS_TURF.g, PRESS_TURF.b) * (1.0 - PRESS_COLOUR_ALPHA)) / PRESS_COLOUR_ALPHA
 	return Color(clampf(w.x, 0.0, 1.0), clampf(w.y, 0.0, 1.0), clampf(w.z, 0.0, 1.0))
 
 
