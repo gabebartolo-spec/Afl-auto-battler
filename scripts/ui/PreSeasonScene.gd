@@ -3,15 +3,20 @@ extends Control
 ## One job per stop:
 ##   the plan       a load and a focus for each of the three blocks, then go;
 ##   the time trial who ran well and who did not, and the blocks still to come.
-## Every choice says what it gains and what it costs in words. Nothing is
-## recommended. The hub sends the coach here while a pre-season is running
-## and takes him back when Round 1 is next.
+## Every choice says what it gains and what it costs in words, and the fitness
+## base the training builds is pinned above the way on, so it answers each
+## change in view. Nothing is recommended. The hub sends the coach here while a
+## pre-season is running and takes him back when Round 1 is next.
 
 const WIDE := 900.0
+## A primary button's fill must stand off the page by at least this much, or
+## the club's readable ink carries it (Fremantle's purple on the dark page).
+const FILL_MIN_CONTRAST := 2.0
 
 var _root: VBoxContainer
 var _settings: Control
 var _lines := {}        # block index -> {"gain": Label, "cost": Label}
+var _choices := {}      # "Load0" / "Focus0" -> {key: Button}
 var _base_head: Label
 var _base_body: Label
 
@@ -47,12 +52,13 @@ func _wide() -> bool:
 func _build() -> void:
 	UiKit.clear(_root)
 	_lines = {}
+	_choices = {}
 	var stop: String = GameState.preseason_stop()
 	var settings := UiKit.btn("Settings", UiKit.SECONDARY)
 	settings.name = "PreSeasonSettings"
 	settings.flat = true
 	settings.custom_minimum_size = Vector2(64, 44)
-	settings.add_theme_color_override("font_color", UiKit.MUTED)
+	settings.add_theme_color_override("font_color", UiKit.TEXT)
 	settings.pressed.connect(func(): _settings = OptionsSheet.open(self, true))
 	_root.add_child(UiKit.top_bar("Pre-season", false, settings))
 
@@ -69,33 +75,23 @@ func _build() -> void:
 		var cols := UiKit.hbox(28)
 		var left := _trial_section()
 		left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		left.size_flags_stretch_ratio = 0.8
+		left.size_flags_stretch_ratio = 0.5
 		cols.add_child(left)
-		var right := UiKit.vbox(UiKit.SECTION)
+		var right := _blocks_section(first, true)
 		right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		right.add_child(_blocks_section(first, false))
-		right.add_child(_base_section())
 		cols.add_child(right)
 		page.add_child(cols)
 	else:
 		if stop == "trial":
 			page.add_child(_trial_section())
-		elif _wide():
-			var top := UiKit.hbox(28)
-			var plan := _season_plan_section()
-			plan.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			top.add_child(plan)
-			var base := _base_section(true)
-			base.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			top.add_child(base)
-			page.add_child(top)
 		else:
 			page.add_child(_season_plan_section())
-		page.add_child(_blocks_section(first, _wide(), not (_wide() and stop != "trial")))
-		if not (_wide() and stop != "trial"):
-			page.add_child(_base_section())
-	_refresh_words()
+		page.add_child(_blocks_section(first, _wide()))
+	# Air under the last row, so the page never ends hard against the footer.
+	page.add_child(UiKit.spacer(8))
+	_root.add_child(UiKit.rule())
 	_root.add_child(_actions(stop))
+	_refresh_words()
 
 
 ## Whose pre-season it is and where it stands: the club's marker and colour,
@@ -107,20 +103,32 @@ func _header(stop: String) -> Control:
 	who.add_child(UiKit.club_marker(GameState.my_club, 32.0))
 	var names := UiKit.vbox(0)
 	names.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var club := UiKit.lbl(GameDB.club_name(GameState.my_club), UiKit.NAME, UiKit.TEXT, true)
+	var club := UiKit.lbl(GameDB.club_name(GameState.my_club), UiKit.NAME, UiKit.club_ink(GameState.my_club), true)
 	club.name = "PreSeasonClub"
 	names.add_child(club)
-	names.add_child(UiKit.lbl("%d pre-season" % GameState.season_year, UiKit.SECONDARY, UiKit.MUTED))
+	names.add_child(UiKit.lbl("%d pre-season" % GameState.season_year, UiKit.SECONDARY, UiKit.TEXT))
 	who.add_child(names)
 	v.add_child(who)
 	var hero := UiKit.heading(_hero(stop), UiKit.TITLE)
 	hero.name = "PreSeasonHero"
 	hero.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(hero)
 	var sub := UiKit.lbl(_hero_sub(stop), UiKit.BODY, UiKit.TEXT)
 	sub.name = "PreSeasonSub"
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(sub)
+	if _wide():
+		# A PC is short: the club and the big line share one row.
+		names.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		for n in names.get_children():
+			(n as Label).autowrap_mode = TextServer.AUTOWRAP_OFF
+		who.add_theme_constant_override("separation", 14)
+		var words := UiKit.vbox(0)
+		words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		words.add_child(hero)
+		words.add_child(sub)
+		who.add_child(words)
+	else:
+		v.add_child(hero)
+		v.add_child(sub)
 	v.add_child(_club_rule())
 	return v
 
@@ -139,14 +147,14 @@ func _hero_sub(stop: String) -> String:
 		"plan":
 			return "Set the training for each block. Training runs until the time trial, after week 3."
 		"trial":
-			return "Two kilometres at the end of week 3. Weeks 4 to 8 are still to come."
+			return "Two kilometres at the end of week 3. This is the order they came home; it changes nothing by itself."
 	return "Training is under way."
 
 
 ## A 2 px rule in the club's colour: the section belongs to your club.
 func _club_rule() -> Control:
 	var r := ColorRect.new()
-	r.color = UiKit.club_vivid(GameState.my_club)
+	r.color = UiKit.club_ink(GameState.my_club)
 	r.custom_minimum_size = Vector2(0, 2)
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return r
@@ -157,20 +165,30 @@ func _section_head(text: String) -> Label:
 
 
 ## The season fitness plan (Conditioning): the pre-season is where it is set,
-## on the sheet the hub and Training already open.
+## on the sheet the hub and Training already open. One full-width row, its
+## chevron at its own right edge; the plan's name under it is at full strength
+## here, because this is the stop where it is chosen.
 func _season_plan_section() -> Control:
-	var v := UiKit.vbox(4)
+	var v: BoxContainer = UiKit.hbox(20) if _wide() else UiKit.vbox(4)
 	v.name = "PreSeasonSeasonPlan"
-	v.add_child(_section_head("Season fitness plan"))
+	var head := _section_head("Season fitness plan")
+	head.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.autowrap_mode = TextServer.AUTOWRAP_OFF
+	v.add_child(head)
 	var line := SeasonPlanSheet.line(self, func(): _build())
 	if line != null:
+		var sub := line.find_child("SeasonPlanSub", true, false) as Label
+		if sub != null:
+			sub.add_theme_color_override("font_color", UiKit.TEXT)
+		if _wide():
+			line.custom_minimum_size = Vector2(0, 44)
 		v.add_child(line)
 	return v
 
 
 ## The blocks from `first` on: on a phone one under another, on a PC side by
 ## side when `across`.
-func _blocks_section(first: int, across: bool, with_quiet := true) -> Control:
+func _blocks_section(first: int, across: bool) -> Control:
 	var v := UiKit.vbox(10)
 	v.name = "PreSeasonBlocks"
 	v.add_child(_section_head("Training blocks" if first == 0 else "The weeks to come"))
@@ -180,17 +198,12 @@ func _blocks_section(first: int, across: bool, with_quiet := true) -> Control:
 		var b := _block(i)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		holder.add_child(b)
-	if with_quiet:
-		v.add_child(_quiet_week())
-	return v
-
-
-func _quiet_week() -> Label:
 	var quiet := UiKit.lbl("Week 8 is a quiet week: no training choice, the side freshens up for Round 1.",
 			UiKit.SECONDARY, UiKit.TEXT)
 	quiet.name = "PreSeasonQuietWeek"
 	quiet.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	return quiet
+	v.add_child(quiet)
+	return v
 
 
 ## One block: its weeks, the load, the focus, and what the pair gains and
@@ -199,45 +212,77 @@ func _block(i: int) -> Control:
 	var row := UiKit.hbox(10)
 	row.name = "Block_%d" % i
 	var bar := ColorRect.new()
-	bar.color = UiKit.club_vivid(GameState.my_club)
+	bar.color = UiKit.club_ink(GameState.my_club)
 	bar.custom_minimum_size = Vector2(4, 0)
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(bar)
-	var v := UiKit.vbox(2)
+	var v := UiKit.vbox(6)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(v)
 	var title := UiKit.lbl(PreSeason.block_title(i), UiKit.NAME, UiKit.TEXT, true)
 	title.name = "BlockTitle_%d" % i
 	v.add_child(title)
 	var blocks: Array = GameState.preseason_blocks()
-	var load := str(blocks[i][0])
-	var focus := str(blocks[i][1])
 	var load_options := []
 	for k in PreSeason.loads():
 		load_options.append([str(k), str(PreSeason.LOAD_LABEL.get(k, k))])
 	var focus_options := []
 	for k in PreSeason.focuses():
 		focus_options.append([str(k), str(PreSeason.FOCUS_LABEL.get(k, k))])
-	v.add_child(_choice_row("Load", UiKit.segmented("Load%d" % i, load_options, load,
-			func(key: String): _pick(i, key, ""))))
-	v.add_child(_choice_row("Focus", UiKit.segmented("Focus%d" % i, focus_options, focus,
-			func(key: String): _pick(i, "", key))))
+	v.add_child(_choice_row("Load", "Load%d" % i, load_options, str(blocks[i][0]),
+			func(key: String): _pick(i, key, "")))
+	v.add_child(_choice_row("Focus", "Focus%d" % i, focus_options, str(blocks[i][1]),
+			func(key: String): _pick(i, "", key)))
 	var gain := _stake(v, "Gain:", "BlockGain_%d" % i)
 	var cost := _stake(v, "Cost:", "BlockCost_%d" % i)
 	_lines[i] = {"gain": gain, "cost": cost}
 	return row
 
 
-## "Load" or "Focus" in bold beside its options: what he is choosing is never
-## left in grey.
-func _choice_row(label: String, options: Control) -> Control:
+## "Load" or "Focus" in bold beside its options. These are the coach's
+## decisions, so no option is grey: every one is in full ink, and the chosen
+## one is bold inside a light outline (the kit's selection: an outline, never
+## a fill, never the club colour). Buttons are named "<node_name>_<key>".
+func _choice_row(label: String, node_name: String, options: Array, current: String,
+		on_pick: Callable) -> Control:
 	var h := UiKit.hbox(8)
 	var l := UiKit.lbl(label, UiKit.BODY, UiKit.TEXT, true)
 	l.custom_minimum_size = Vector2(52, 0)
 	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(l)
-	h.add_child(options)
+	var row := UiKit.hbox(6)
+	row.name = node_name
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(row)
+	var buttons := {}
+	for o in options:
+		var key := str(o[0])
+		var b := UiKit.btn(str(o[1]), UiKit.BODY)
+		b.name = "%s_%s" % [node_name, key]
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.pressed.connect(func():
+			for k in buttons:
+				_paint_choice(buttons[k], str(k) == key)
+			on_pick.call(key))
+		buttons[key] = b
+		_paint_choice(b, key == current)
+		# A thumb's height on a phone; a PC's pointer needs less, and its
+		# screen is short.
+		b.custom_minimum_size = Vector2(0, 34 if _wide() else 44)
+		row.add_child(b)
+	_choices[node_name] = buttons
 	return h
+
+
+func _paint_choice(b: Button, on: bool) -> void:
+	var sb := UiKit.style(UiKit.SURFACE, 8, UiKit.RADIUS, UiKit.TEXT if on else Color.TRANSPARENT)
+	sb.set_border_width_all(2 if on else 0)
+	for s in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		b.add_theme_stylebox_override(s, sb)
+	b.add_theme_font_override("font", UiKit.BOLD if on else UiKit.FONT)
+	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(k, UiKit.TEXT)
+	b.set_meta("chosen", on)
 
 
 ## A "Gain:" or "Cost:" line: the marker bold, the sentence regular, both at
@@ -265,12 +310,13 @@ func _pick(i: int, load: String, focus: String) -> void:
 	_refresh_words()
 
 
-## The fitness base the plan is heading for, and what that base does.
-func _base_section(with_quiet := false) -> Control:
-	var v := UiKit.vbox(4)
+## The fitness base the training builds, and what that base does: the result
+## of every choice above it, pinned over the way on.
+func _base_result() -> Control:
+	var v := UiKit.vbox(0)
 	v.name = "PreSeasonBase"
-	v.add_child(_section_head("Fitness base"))
-	_base_head = UiKit.lbl("", UiKit.NAME, UiKit.TEXT, true)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_base_head = UiKit.lbl("", UiKit.BODY, UiKit.TEXT, true)
 	_base_head.name = "PreSeasonBaseWord"
 	_base_head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(_base_head)
@@ -278,8 +324,6 @@ func _base_section(with_quiet := false) -> Control:
 	_base_body.name = "PreSeasonBaseEffect"
 	_base_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(_base_body)
-	if with_quiet:
-		v.add_child(_quiet_week())
 	return v
 
 
@@ -290,18 +334,18 @@ func _refresh_words() -> void:
 	for i in _lines:
 		var load := str(blocks[i][0])
 		var focus := str(blocks[i][1])
-		var last := PreSeason.is_last_block(int(i))
-		(_lines[i]["gain"] as Label).text = PreSeason.gain_line(load, focus, last)
-		(_lines[i]["cost"] as Label).text = PreSeason.cost_line(load, focus, last)
+		(_lines[i]["gain"] as Label).text = PreSeason.gain_line(load, focus, int(i))
+		(_lines[i]["cost"] as Label).text = PreSeason.cost_line(load, focus, int(i))
 	if _base_head != null and is_instance_valid(_base_head):
 		var base: String = GameState.preseason_base()
 		_base_head.text = "This training builds %s." % str(PreSeason.BASE_LABEL[base])
 		_base_body.text = str(PreSeason.BASE_EFFECT[base])
 
 
-## The time trial: the first five and the last three, by name.
+## The time trial: the order they came home, the first five and the last
+## three, by name.
 func _trial_section() -> Control:
-	var v := UiKit.vbox(6)
+	var v := UiKit.vbox(4)
 	v.name = "TimeTrial"
 	var trial: Dictionary = GameState.preseason_trial()
 	v.add_child(_section_head("First five home"))
@@ -316,38 +360,62 @@ func _trial_section() -> Control:
 	return v
 
 
-## One runner: his place (the first five), his name in bold, his position and
-## age under it.
+## One runner on one line: his place (the first five), his name in bold, where
+## he plays at the right.
 func _runner(id: String, place: String, node_name: String) -> Control:
 	var p: Dictionary = GameState.list_player(id)
-	var box := UiKit.vbox(4)
+	var box := UiKit.vbox(2)
 	var h := UiKit.hbox(10)
+	h.custom_minimum_size = Vector2(0, 22 if _wide() else 30)
 	if place != "":
 		var fig := UiKit.figure(place, UiKit.NUMBER)
 		fig.custom_minimum_size = Vector2(26, 0)
 		fig.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		fig.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(fig)
-	var names := UiKit.vbox(0)
-	names.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var n := UiKit.name_label(GameDB.player_display_name(p) if not p.is_empty() else "A player who has left")
 	n.name = node_name
-	names.add_child(n)
+	n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	n.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(n)
 	if not p.is_empty():
-		names.add_child(UiKit.lbl("%s, %d" % [str(UiKit.ROLE_LABEL.get(str(p.get("role", "")), str(p.get("role", "")))),
-				int(float(p.get("age", 0.0)))], UiKit.SECONDARY, UiKit.MUTED))
-	h.add_child(names)
+		var role := UiKit.lbl(str(UiKit.ROLE_LABEL.get(str(p.get("role", "")), str(p.get("role", "")))),
+				UiKit.SECONDARY, UiKit.TEXT)
+		role.autowrap_mode = TextServer.AUTOWRAP_OFF
+		role.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(role)
 	box.add_child(h)
 	box.add_child(UiKit.rule())
 	return box
 
 
-## The way on, pinned under the page: one primary action, and on the plan
-## stop the hands-off one beside the club's screens.
+## The primary action as the rest of the game makes it (the club's colour as
+## the fill). Where that fill would sink into the page, the club's readable
+## ink carries it instead, with dark type.
+func _primary(text: String) -> Button:
+	var b := UiKit.btn(text, UiKit.NAME, true)
+	var fill := UiKit.team_colour()
+	if UiKit.contrast(fill, UiKit.BG) >= FILL_MIN_CONTRAST:
+		return b
+	fill = UiKit.club_ink(GameState.my_club)
+	var ink := UiKit.ink_on(fill)
+	var shades := {"normal": fill, "hover": fill.lightened(0.08),
+			"pressed": fill.darkened(0.12), "hover_pressed": fill.darkened(0.12)}
+	for state in shades:
+		var sb := UiKit.style(shades[state], 8, UiKit.RADIUS)
+		sb.set_border_width_all(0)
+		b.add_theme_stylebox_override(str(state), sb)
+	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(k, ink)
+	return b
+
+
+## The way on, pinned under the page: what the training builds, then one
+## primary action with the quiet ones beside it.
 func _actions(stop: String) -> Control:
 	var v := UiKit.vbox(6)
 	v.name = "PreSeasonActions"
-	var go := UiKit.btn("Start the pre-season" if stop == "plan" else "Back to training", UiKit.NAME, true)
+	var go := _primary("Start the pre-season" if stop == "plan" else "Back to training")
 	go.name = "PreSeasonGo"
 	go.custom_minimum_size = Vector2(0, 48)
 	go.pressed.connect(_on_go)
@@ -366,20 +434,23 @@ func _actions(stop: String) -> Control:
 		var key := str(nav[1])
 		b.pressed.connect(func(): Router.go(key))
 		quiet.add_child(b)
+	var base := _base_result()
 	if _wide():
-		# A PC: the quiet actions at the left, the way on at the right, sized
-		# to its words (no full-width bar).
+		# A PC: the result at the left, every button together at the right
+		# with the way on last (no full-width bar).
 		var row := UiKit.hbox(8)
+		base.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(base)
+		quiet.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(quiet)
-		var gap := Control.new()
-		gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(gap)
-		go.custom_minimum_size = Vector2(260, 48)
+		go.custom_minimum_size = Vector2(240, 48)
+		go.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(go)
 		v.add_child(row)
 	else:
 		for c in quiet.get_children():
 			(c as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.add_child(base)
 		v.add_child(go)
 		v.add_child(quiet)
 	return v

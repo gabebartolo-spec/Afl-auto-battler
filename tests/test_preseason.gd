@@ -158,23 +158,52 @@ func _test_rules() -> void:
 func _test_words() -> void:
 	var clean := true
 	var said := {}
+	var repeats := false
 	for load in PreSeason.loads():
 		for focus in PreSeason.focuses():
-			for last in [false, true]:
-				for line in [PreSeason.gain_line(str(load), str(focus), last), PreSeason.cost_line(str(load), str(focus), last)]:
+			var gains := {}
+			var costs := {}
+			for i in range(PreSeason.block_count()):
+				var gain := PreSeason.gain_line(str(load), str(focus), i)
+				var cost := PreSeason.cost_line(str(load), str(focus), i)
+				for line in [gain, cost]:
 					clean = clean and line != "" and not line.contains("%") and not line.contains("{") \
-							and not line.contains("XP") and not line.contains("x1")
-				said["%s|%s|%s" % [load, focus, last]] = PreSeason.gain_line(str(load), str(focus), last) \
-						+ PreSeason.cost_line(str(load), str(focus), last)
+							and not line.contains("XP") and not line.contains("x1") \
+							and not line.to_lower().contains("ticks over") and not line.contains("as much work again")
+				# The work a block does is never said in the same words twice.
+				if gain.contains("sessions"):
+					repeats = repeats or gains.has(gain)
+					gains[gain] = true
+				if cost.contains("sessions"):
+					repeats = repeats or costs.has(cost)
+					costs[cost] = true
+				said["%s|%s|%d" % [load, focus, i]] = gain + " / " + cost
 	_check(clean, "Every load and focus says what it gains and costs in words: no percentages, no engine terms")
-	_check(said["heavy|running|true"] != said["heavy|running|false"]
-			and said["heavy|running|true"].contains("Round 1")
-			and said["light|skills|true"] != said["light|skills|false"],
+	_check(not repeats, "The same training on two blocks is not said in the same sentence twice")
+	_check(said["heavy|running|2"] != said["heavy|running|0"]
+			and said["heavy|running|2"].contains("Round 1")
+			and said["heavy|running|0"].contains("gone by Round 1")
+			and said["light|skills|2"] != said["light|skills|0"]
+			and said["light|skills|2"].contains("Round 1"),
 			"A heavy or light last block says what it does to Round 1; an earlier one says it is gone by then")
-	_check(said["solid|running|false"] != said["solid|skills|false"]
-			and said["solid|running|false"].contains("fitness base")
-			and said["solid|skills|false"].contains("develop"),
-			"Running says it builds the fitness base, skills that players develop")
+	_check(said["solid|running|0"] != said["solid|skills|0"]
+			and said["solid|running|0"].contains("fitness base")
+			and said["solid|skills|0"].contains("develop")
+			and PreSeason.cost_line("solid", "running", 0) == "None",
+			"Running says it builds the fitness base, skills that players develop, and a Solid block costs none")
+	# The words are the numbers in the data, said as football.
+	var b0 := PreSeason.block_weeks(0)
+	var n0 := float(int(b0[1]) - int(b0[0]) + 1)
+	_check(PreSeason.weeks_words(3.0) == "three weeks" and PreSeason.weeks_words(1.5) == "a week and a half"
+			and PreSeason.weeks_words(4.5) == "four and a half weeks" and PreSeason.weeks_words(1.0) == "one week"
+			and PreSeason.weeks_words(2.3) == "2.3 weeks",
+			"An amount of work is said in weeks: three weeks, a week and a half, four and a half weeks")
+	_check(PreSeason.gain_line("heavy", "running", 0).contains(PreSeason.weeks_words(n0 * PreSeason.work("heavy", "running", "running")))
+			and PreSeason.cost_line("light", "running", 0).contains(PreSeason.weeks_words(n0 * PreSeason.work("light", "running", "running")))
+			and PreSeason.gain_line("solid", "running", 0).contains(PreSeason.session_words(PreSeason.work("solid", "running", "skills")).capitalize() + " sessions of skills work")
+			and PreSeason.gain_line("heavy", "running", 0).contains("Three-quarter sessions of skills work")
+			and PreSeason.cost_line("light", "skills", 0).contains("Quarter sessions of running"),
+			"The work a block does is the size in the data: a Heavy three weeks is four and a half weeks of work, the other area gets half sessions at Solid")
 	_check(PreSeason.block_title(0) == "Weeks 1 to 3" and PreSeason.block_title(2) == "Weeks 6 to 7",
 			"A block is named by its weeks")
 
@@ -706,10 +735,30 @@ func _test_screens() -> void:
 				and _label(scene, "BlockGain_%d" % i) != "" and _label(scene, "BlockCost_%d" % i) != ""
 	_check(all_blocks, "All three blocks are on the plan, each saying what its training gains and costs")
 	_check(_fits(scene, 390.0), "Nothing on the plan runs off a phone's screen")
+	# The coach's choices are never grey, and the chosen one is marked.
+	var light0 := scene.find_child("Load0_light", true, false) as Button
+	var solid0 := scene.find_child("Load0_solid", true, false) as Button
+	_check(light0 != null and solid0 != null
+			and UiKit.contrast(light0.get_theme_color("font_color"), UiKit.SURFACE) >= 4.5
+			and bool(solid0.get_meta("chosen", false)) and not bool(light0.get_meta("chosen", false))
+			and solid0.get_theme_font("font") == UiKit.BOLD and light0.get_theme_font("font") == UiKit.FONT,
+			"Every load is in readable ink, and the chosen one is bold and outlined")
+	# The result of the choices is pinned above the way on, in view.
+	var base_word := scene.find_child("PreSeasonBaseWord", true, false) as Label
+	var go_btn := scene.find_child("PreSeasonGo", true, false) as Control
+	_check(base_word != null and go_btn != null and base_word.text.contains("sound fitness base")
+			and base_word.get_global_rect().end.y <= go_btn.global_position.y + 1.0
+			and go_btn.get_global_rect().end.y <= 844.0 and base_word.global_position.y > 422.0,
+			"The fitness base the training builds is pinned above the way on, in view without scrolling")
+	_check(UiKit.contrast((go_btn as Button).get_theme_stylebox("normal").bg_color, UiKit.BG) >= 2.0,
+			"The way on stands off the page in Fremantle's colours")
 	_check(await _tap(scene.find_child("Load0_heavy", true, false), "Heavy for weeks 1 to 3"),
 			"A finger's tap sets a Heavy load for weeks 1 to 3")
+	_check(bool((scene.find_child("Load0_heavy", true, false) as Button).get_meta("chosen", false))
+			and not bool(solid0.get_meta("chosen", false)),
+			"The outline moves to the load just picked")
 	_check(str(GameState.preseason_blocks()[0][0]) == "heavy"
-			and _label(scene, "BlockCost_0") == PreSeason.cost_line("heavy", "running", false)
+			and _label(scene, "BlockCost_0") == PreSeason.cost_line("heavy", "running", 0)
 			and _label(scene, "BlockCost_0").contains("gone by Round 1"),
 			"The block's cost line changes with the load: an early Heavy block is gone by Round 1")
 	_check(await _tap(scene.find_child("Focus1_running", true, false), "Running for weeks 4 to 5"),
@@ -812,8 +861,10 @@ func _test_screens() -> void:
 			and GameState.preseason_stop() == "plan",
 			"From the wrap the coach is at the pre-season plan")
 
-	# A PC: the three blocks side by side, the way on sized to its words.
-	tree.root.size = Vector2i(1280, 720)
+	# A PC: the three blocks side by side, the way on sized to its words. A
+	# 1280x720 window is laid out on the game's 960x540 canvas, so that is the
+	# size everything has to fit.
+	tree.root.size = Vector2i(960, 540)
 	await _frames(tree, 6)
 	scene = tree.current_scene as Control
 	var b0 := scene.find_child("Block_0", true, false) as Control
@@ -825,8 +876,21 @@ func _test_screens() -> void:
 			and b2.global_position.x > b1.global_position.x + 200.0,
 			"On a PC the three blocks sit side by side")
 	var go := scene.find_child("PreSeasonGo", true, false) as Control
-	_check(go != null and go.size.x < 500.0 and _fits(scene, 1280.0),
+	_check(go != null and go.size.x < 500.0 and _fits(scene, 960.0),
 			"On a PC the way on is sized to its words, and nothing runs off the screen")
+	var pc_foot := scene.find_child("PreSeasonActions", true, false) as Control
+	var pc_cost := scene.find_child("BlockCost_2", true, false) as Control
+	var pc_quiet := scene.find_child("PreSeasonQuietWeek", true, false) as Control
+	_check(pc_foot != null and pc_cost != null and pc_quiet != null
+			and pc_cost.get_global_rect().end.y <= pc_foot.global_position.y
+			and pc_quiet.get_global_rect().end.y <= pc_foot.global_position.y
+			and pc_foot.get_global_rect().end.y <= 540.0,
+			"On a PC the whole plan is in view above the buttons, nothing cut by them")
+	var plan_line := scene.find_child("SeasonPlanLine", true, false) as Control
+	var nav := scene.find_child("PreSeasonNav", true, false) as Control
+	_check(plan_line != null and plan_line.get_global_rect().end.x > 900.0
+			and nav != null and go.global_position.x - nav.get_global_rect().end.x < 20.0,
+			"On a PC the season plan row runs to the right edge, and the quiet buttons sit with the way on")
 	_check(await _tap(scene.find_child("Focus0_skills", true, false), "Skills on a PC"),
 			"A click reaches a block's focus on a PC")
 	_check(str(GameState.preseason_blocks()[0][1]) == "skills", "Weeks 1 to 3 are now on skills")
@@ -835,9 +899,15 @@ func _test_screens() -> void:
 	scene = tree.current_scene as Control
 	var trial := scene.find_child("TimeTrial", true, false) as Control
 	var to_come := scene.find_child("PreSeasonBlocks", true, false) as Control
-	_check(trial != null and to_come != null and to_come.global_position.x > trial.global_position.x + 300.0
-			and _fits(scene, 1280.0),
+	_check(trial != null and to_come != null and to_come.global_position.x > trial.global_position.x + 200.0
+			and _fits(scene, 960.0),
 			"On a PC the time trial sits beside the weeks to come")
+	var last_runner := scene.find_child("TrialWorst_2", true, false) as Control
+	var foot := scene.find_child("PreSeasonActions", true, false) as Control
+	_check(last_runner != null and foot != null
+			and last_runner.get_global_rect().end.y <= foot.global_position.y
+			and foot.get_global_rect().end.y <= 540.0,
+			"On a PC the whole time trial is in view above the buttons, nothing cut by them")
 	tree.root.size = Vector2i(390, 844)
 	Router.stack = []
 	if tree.current_scene != null:
