@@ -68,6 +68,7 @@ var start_note := ""
 var hint_extra := ""
 ## Controls that act on the side, set beside the "Interchange" word.
 var interchange_actions: Control = null
+var after_bench: Control = null
 ## With field_only: a line under each name in place of position and OVR
 ## (id -> text; the All-Australian team shows each player's club).
 var notes := {}
@@ -103,6 +104,8 @@ func _build() -> void:
 	# The screen's own actions outlive a rebuild: take them out before the clear.
 	if interchange_actions != null and interchange_actions.get_parent() != null:
 		interchange_actions.get_parent().remove_child(interchange_actions)
+	if after_bench != null and after_bench.get_parent() != null:
+		after_bench.get_parent().remove_child(after_bench)
 	UiKit.clear(self)
 	var field := UiKit.vbox(8)
 	field.name = "BuilderField"
@@ -163,6 +166,8 @@ func _build() -> void:
 			bc.custom_minimum_size.x = 0.0
 		bc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		bench.add_child(bc)
+	if after_bench != null:
+		field.add_child(after_bench)
 	_place_spots.call_deferred()
 	if field_only:
 		return

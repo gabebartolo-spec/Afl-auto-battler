@@ -81,20 +81,6 @@ func _build() -> void:
 			return
 		_apply_strategy(str(strategies[idx][0])))
 	var bar := UiKit.top_bar("Team selection", true, pick, _bar_back)
-	if not _wide:
-		# On a phone the two pages are the title: where you are is underlined.
-		var title := bar.get_child(1)
-		var tabs := UiKit.segmented("SelectionPage", [["side", "The side"], ["week", "This week"]], _page,
-				func(k):
-					_page = k
-					_build())
-		for b in tabs.get_children():
-			(b as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		bar.remove_child(title)
-		title.queue_free()
-		bar.add_child(tabs)
-		bar.move_child(tabs, 1)
 	_root.add_child(bar)
 	var auto := GameState.my_selection().is_empty()
 	# A side named before the wings existed: split its midfield once.
@@ -110,8 +96,6 @@ func _build() -> void:
 		right.size_flags_horizontal = Control.SIZE_FILL
 		right.custom_minimum_size.x = clampf(UiKit.view_width(self) * 0.4, WEEK_W_MIN, WEEK_W_MAX)
 		cols.add_child(right)
-	elif _page == "week":
-		_root.add_child(_scroller(_week_page(), "WeekScroll"))
 	else:
 		_root.add_child(_scroller(_side_page(auto), "SelectionScroll"))
 	UiKit.restore_places(_root, places)
@@ -169,6 +153,14 @@ func _side_page(auto: bool) -> Control:
 		_fill_actions(actions)
 		builder.interchange_actions = actions
 		builder.hint_extra = "Picked for you each week until you move someone." if auto else ""
+		if not _wide and not nxt.is_empty():
+			var row := UiKit.text_action("This week %s %s ›" % ["v" if str(nxt["venue"]) == "home" else "at",
+					GameDB.club_short(str(nxt["code"]))], UiKit.NAME)
+			row.name = "WeekRow"
+			row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			row.add_theme_color_override("font_color", UiKit.club_ink(GameState.my_club))
+			row.pressed.connect(_open_week_sheet)
+			builder.after_bench = row
 		page.add_child(builder)
 		builder.setup(GameState.current_side(), _wide)
 	builder.inspect.connect(_open_profile)
@@ -182,6 +174,21 @@ func _side_page(auto: bool) -> Control:
 			hint.add_theme_color_override("font_color", UiKit.GOOD)
 		_refresh_facts())
 	return page
+
+
+## Prototype B: the week as a sheet over the side page.
+func _open_week_sheet() -> void:
+	_close_synergies()
+	var box := UiKit.modal_box(self, 560.0, 0.0)
+	_synergy_overlay = box["overlay"]
+	_synergy_overlay.name = "WeekSheet"
+	var v: VBoxContainer = box["body"]
+	v.add_theme_constant_override("separation", 10)
+	_fill_week(v)
+	var close := UiKit.btn("Close", UiKit.NAME, true)
+	close.custom_minimum_size = Vector2(0, 48)
+	close.pressed.connect(_close_synergies)
+	box["footer"].add_child(close)
 
 
 ## Save as my Best 23 and Undo, beside the interchange they act on.

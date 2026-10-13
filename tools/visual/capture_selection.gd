@@ -42,7 +42,7 @@ func _run() -> void:
 			picked = true
 		if str(a[i]) == "--oval":
 			oval = true
-		if str(a[i]) in ["--opp", "--guide", "--report"]:
+		if str(a[i]) in ["--opp", "--guide", "--report", "--weeksheet"]:
 			mode = str(a[i]).trim_prefix("--")
 	await process_frame
 	var state = root.get_node("GameState")
@@ -63,6 +63,7 @@ func _run() -> void:
 	for i in range(6):
 		await process_frame
 	print("view ", root.get_visible_rect().size)
+	state.replay_seed = 2027
 	state.start_season(club, db.club_list(club))
 	for r in range(rounds):
 		state.advance()
@@ -82,6 +83,8 @@ func _run() -> void:
 			ui.call("_build")
 		"guide":
 			ui.call("_show_synergies")
+		"weeksheet":
+			ui.call("_open_week_sheet")
 		"report":
 			ui.call("_show_report", str(state.my_next_opponent().get("code", "")))
 	for i in range(8):
