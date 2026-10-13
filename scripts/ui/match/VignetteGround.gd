@@ -586,6 +586,8 @@ static func _mcg_towers(ci: CanvasItem, cam: Cam) -> void:
 ## the total, the quarter beneath. Lit, so it glows a little into the night. The MCG has
 ## one at each end (end -1: the other one).
 static func _screen(ci: CanvasItem, cam: Cam, home: Color, away: Color, board: Dictionary, end := 1) -> void:
+	if bool(board.get("off", false)):
+		return                                   # a shot too tight for it: half a screen read as a fault
 	var at := Vector2(0.0, (L + FENCE + 40.0) * end)
 	var c := cam.oval(at, 30.0)
 	if c.z <= 0.0:
