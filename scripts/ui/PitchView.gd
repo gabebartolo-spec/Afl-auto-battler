@@ -454,6 +454,9 @@ func _change_ends() -> void:
 ## when it wears its second hand-picked colour (UiKit.club_ink_second, the same
 ## clash colour its name takes on the break and the stats), if that is farther
 ## from the home base: the rule of UiKit.club_ink_pair, asked of the discs.
+## Where that second colour is still like the home base (West Coast's lifted
+## blue at the Bulldogs), the away kit's own pattern colour is the base instead
+## (West Coast in gold), if that is farther again.
 static func kits_for(home: String, away: String) -> Array:
 	var h: Dictionary = GameDB.club_guernsey(home)
 	var a: Dictionary = GameDB.club_guernsey(away)
@@ -461,6 +464,10 @@ static func kits_for(home: String, away: String) -> Array:
 	var ab: Color = a.get("base", Color.WHITE)
 	if UiKit.colour_distance(hb, ab) < DISC_CLASH:
 		var second := UiKit.club_ink_second(away)
+		var own: Color = a.get("pattern", Color.DIM_GRAY)
+		if UiKit.colour_distance(hb, second) < DISC_CLASH \
+				and UiKit.colour_distance(hb, own) > UiKit.colour_distance(hb, second):
+			second = own
 		if UiKit.colour_distance(hb, second) > UiKit.colour_distance(hb, ab):
 			a = a.duplicate()
 			a["base"] = second
