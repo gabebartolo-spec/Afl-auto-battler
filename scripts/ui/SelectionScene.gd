@@ -524,7 +524,12 @@ func _side_chip(code: String, text: String, tail := "") -> Control:
 ## A club's most vivid colour that reads on the page (3:1), else TEXT, so a
 ## dark club (Collingwood, Carlton) is carried by its guernsey instead.
 func _side_ink(code: String) -> Color:
-	return UiKit.club_vivid(code, UiKit.BG)
+	var col := UiKit.club_vivid(code, UiKit.BG)
+	# A red or orange club's ink would read as BAD or the primary action, and
+	# two red clubs could not be told apart by it: the guernsey carries it.
+	if col.s > 0.4 and (col.h < 0.09 or col.h > 0.96):
+		return UiKit.TEXT
+	return col
 
 
 func _side_name(code: String, fs: int, marker := 18.0) -> Control:

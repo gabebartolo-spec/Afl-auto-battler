@@ -42,7 +42,7 @@ func _build() -> void:
 	# the page, its ink. A dark club is carried by the guernsey alone.
 	var who_h := UiKit.hbox(8)
 	who_h.add_child(UiKit.club_marker(_club, 24.0))
-	var head := UiKit.ellipsis(GameDB.club_name(_club), UiKit.H2, UiKit.club_vivid(_club, UiKit.BG), true)
+	var head := UiKit.ellipsis(GameDB.club_name(_club), UiKit.H2, _ink(_club), true)
 	head.name = "StaffClub"
 	who_h.add_child(head)
 	body.add_child(who_h)
@@ -118,7 +118,7 @@ func _you_row() -> Control:
 	v.name = "StaffRow_SC"
 	v.custom_minimum_size.y = 64
 	v.add_child(UiKit.lbl("Senior coach", UiKit.SMALL, UiKit.TEXT, true))
-	v.add_child(UiKit.lbl("You", UiKit.BODY, UiKit.club_vivid(GameState.my_club, UiKit.BG), true))
+	v.add_child(UiKit.lbl("You", UiKit.BODY, _ink(GameState.my_club), true))
 	var l := UiKit.lbl("Selection, tactics and training are your calls.", UiKit.SMALL, UiKit.TEXT)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(l)
@@ -252,6 +252,15 @@ func _empty_row(job: String) -> Control:
 	v.add_child(UiKit.lbl(str(Coaches.JOB_LABEL[job]), UiKit.SMALL, UiKit.MUTED))
 	v.add_child(UiKit.lbl("Vacant", UiKit.BODY, UiKit.MUTED))
 	return _padded(v)
+
+
+## A club's colour as ink when it reads and is not red or orange (BAD, the
+## primary action); else TEXT, the guernsey beside it carrying the side.
+func _ink(code: String) -> Color:
+	var col := UiKit.club_vivid(code, UiKit.BG)
+	if col.s > 0.4 and (col.h < 0.09 or col.h > 0.96):
+		return UiKit.TEXT
+	return col
 
 
 func _padded(c: Control) -> Control:
