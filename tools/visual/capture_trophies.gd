@@ -45,7 +45,7 @@ func _run() -> void:
 				var fake := {}
 				fake[_club] = {"years": [1896, 1902, 1910, 1917, 1919, 1927, 1928, 1930, 1935, 1936, 1953, 1958, 1990, 2010, 2023],
 						"comps": {}, "none": false}
-				load("res://scripts/core/ClubHistory.gd").use(fake)
+				ClubHistory.use(fake)
 	await process_frame
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")

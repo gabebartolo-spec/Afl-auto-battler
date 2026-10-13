@@ -85,8 +85,11 @@ static func _parse(path: String) -> Dictionary:
 ## True for a club that was not in the league before the career began: an
 ## expansion club or one made in Club Forge.
 static func is_new_club(code: String) -> bool:
-	var c: Dictionary = GameDB.clubs.get(code, {})
-	return bool(c.get("custom", false)) or int(c.get("enter", 0)) > GameDB.DATA_SEASON
+	# The autoload is looked up at run time: this class is compiled before the
+	# autoloads exist when a test or tool script names it.
+	var db = (Engine.get_main_loop() as SceneTree).root.get_node("GameDB")
+	var c: Dictionary = db.clubs.get(code, {})
+	return bool(c.get("custom", false)) or int(c.get("enter", 0)) > int(db.DATA_SEASON)
 
 
 ## What is on record for a club before the career: {"known": bool, "years": [], "also": {label: [years]}}.
