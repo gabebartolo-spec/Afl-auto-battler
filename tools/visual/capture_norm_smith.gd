@@ -35,6 +35,8 @@ func _run() -> void:
 	while not gs.season.is_season_over() and guard < 60:
 		gs.advance()
 		guard += 1
+	# The awards walk-on would sit over the review: mark it seen.
+	gs.season_awards["presentation_seen"] = true
 	root.size = Vector2i(w, h)
 	DisplayServer.window_set_size(Vector2i(w, h))
 	var scene: Control = load("res://scenes/SeasonReviewScene.tscn").instantiate()
