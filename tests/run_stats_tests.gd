@@ -1126,7 +1126,7 @@ func _team_rating(sz: Vector2i) -> void:
 			var want: String = TV.phase(float(standing[0]), float(standing[1]), ages / float(maxi(1, both.size())))
 			var o: Dictionary = _state.team_outlook(code)
 			var words := {"contending": "Contender", "building": "Wildcard", "rebuilding": "Rebuilding"}
-			if str(o.get("phase", "")) != want or str(o.get("category", "")) != str(words[want]) 					or not str(o.get("line", "")).begins_with(str(words[want]) + " · %d, " % int(o["rating"])):
+			if str(o.get("phase", "")) != want or str(o.get("category", "")) != str(words[want]) 					or not str(o.get("line", "")).begins_with(str(words[want]) + " · rated %d, " % int(o["rating"])):
 				phase_ok = false
 		_check(rating_ok, "A club's rating is the mean OVR of the 22 the selector picks")
 		_check(phase_ok, "Its category is the phase the AI trades on, in words, for every club")
@@ -1192,7 +1192,7 @@ func _team_rating(sz: Vector2i) -> void:
 	await _settle()
 	var outlook: Label = s.find_child("TeamOutlook", true, false)
 	_check(outlook != null and outlook.text == str(_state.team_outlook(_state.my_club)["line"])
-			and outlook.text.contains("in three years"), "Its side says its list in full (%s: %s)" % [tag, outlook.text if outlook else "-"])
+			and (outlook.text.contains(", heading to ") or outlook.text.contains(", holding")), "Its side says its list in full (%s: %s)" % [tag, outlook.text if outlook else "-"])
 	s.queue_free()
 	await _settle()
 

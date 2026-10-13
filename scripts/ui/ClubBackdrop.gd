@@ -243,6 +243,29 @@ static func _rel_lum(c: Color) -> float:
 	return 0.2126 * ch.call(c.r) + 0.7152 * ch.call(c.g) + 0.0722 * ch.call(c.b)
 
 
+## A colour dark enough to vanish on the page, lifted until it shows with its
+## hue kept (OKLCH; chroma only shrinks to stay inside sRGB). Mixing toward
+## white instead turned Brisbane's maroon into magenta pink.
+static func lifted(c: Color, min_lum := 0.16) -> Color:
+	if c.get_luminance() >= min_lum:
+		return c
+	var lab := _to_oklab(c)
+	var chroma := Vector2(lab.y, lab.z).length()
+	var hue := atan2(lab.z, lab.y)
+	var l := lab.x
+	while l < 1.0:
+		l += 0.01
+		var cc := chroma
+		while cc >= 0.0:
+			var col := _from_oklab(Vector3(l, cc * cos(hue), cc * sin(hue)))
+			if col.a > 0.0:
+				if col.get_luminance() >= min_lum:
+					return col
+				break
+			cc -= 0.004
+	return c
+
+
 ## The club colour at its brightest the page can carry: its OKLCH hue and
 ## chroma kept (chroma only shrinks to stay inside sRGB; yellow leans to amber),
 ## lightness lowered

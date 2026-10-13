@@ -112,7 +112,10 @@ static func revise(rec: Dictionary, w: int, plan: String) -> Dictionary:
 	var out := rec.duplicate(true)
 	var changes: Array = out.get("changes", [])
 	changes = changes.filter(func(ch): return int(ch[0]) < w)
-	changes.append([w, plan])
+	# Keeping the plan already in force restarts nothing: only a real change
+	# costs part of the build.
+	if changes.is_empty() or str(changes[changes.size() - 1][1]) != plan:
+		changes.append([w, plan])
 	out["changes"] = changes
 	return out
 
@@ -228,3 +231,90 @@ static func revision_weeks(bye_w: int) -> Array:
 		out.append(bye_w)
 	out.sort()
 	return out
+
+
+# ---------------------------------------------------------------------------
+# In words (the plan screens): football words, no percentages.
+# ---------------------------------------------------------------------------
+## Where each month starts, in weeks (the first rounds are March; the finals
+## are September).
+const MONTH_STARTS := [[0, "March"], [3, "April"], [7, "May"], [11, "June"],
+		[15, "July"], [19, "August"], [24, "September"]]
+
+
+static func month_of_week(w: int) -> String:
+	var name := "March"
+	for m in MONTH_STARTS:
+		if w >= int(m[0]):
+			name = str(m[1])
+	return name
+
+
+## The week the plan in force at `w` really peaks (its aim and this season's
+## timing), or -1 for a plan with no peak.
+static func peak_week(rec: Dictionary, w: int) -> int:
+	var plan := plan_at(rec, w)
+	if not PEAK_WEEK.has(plan):
+		return -1
+	return int(PEAK_WEEK[plan]) + int(rec.get("offset", 0))
+
+
+## Where the club stands, in a line: "Building, peak due in August".
+static func status_words(rec: Dictionary, w: int) -> String:
+	var plan := plan_at(rec, w)
+	if plan == "develop":
+		return "Managing loads, developing the young players"
+	var pw := peak_week(rec, w)
+	if pw < 0:
+		return "Steady, no peak planned"
+	if w > pw + PLATEAU:
+		return "Peak is behind you"
+	if w >= pw - PLATEAU:
+		return "Peaking now"
+	var c := shape(plan, w, pw)
+	var when := "peak due in %s" % month_of_week(pw)
+	return ("Building, " if c <= 0.0 else "Coming into form, ") + when
+
+
+## What a coach may do at a revision week, said as when it is.
+static func revision_name(w: int, bye_w: int) -> String:
+	if w == 0:
+		return "the pre-season"
+	if w == bye_w:
+		return "the bye"
+	if w == ROUND_14:
+		return "round 14"
+	return "the last month"
+
+
+## When the plan can next be changed after week `w` ("" when there is no
+## chance left): "round 14", "the last month".
+static func next_revision_name(w: int, bye_w: int) -> String:
+	for rw in revision_weeks(bye_w):
+		if int(rw) > w:
+			return revision_name(int(rw), bye_w)
+	return ""
+
+
+## What choosing `plan` at week `w` costs, if it costs anything, in a line.
+static func late_cost(plan: String, w: int, bye_w: int) -> String:
+	if w <= 0:
+		return ""
+	if PEAK_WEEK.has(plan):
+		var share := build_share(int(PEAK_WEEK[plan]), w)
+		if share <= 0.0:
+			return "Too late to build a peak this year."
+		return "Changing now leaves less time to build, so the peak comes lower."
+	if plan == "develop" and w > maxi(0, bye_w):
+		return "A season of it earns the young players their extra room. From now it only speeds their development."
+	return ""
+
+
+## What each plan does, for the picker: how the legs and the list are
+## treated, nothing hidden.
+const PLAN_EFFECT := {
+	"peak": "Heavy legs through the home-and-away rounds, fresh ones for September. A little more soft-tissue risk while building, less at the peak.",
+	"steady": "The same load every week. No build and no peak.",
+	"fast": "Fresh legs in the opening rounds, heavier from winter on and again in September.",
+	"develop": "Loads managed all year so the young players get the minutes. Results suffer a little. Players 22 and under develop faster and have a little more room to grow this season.",
+}

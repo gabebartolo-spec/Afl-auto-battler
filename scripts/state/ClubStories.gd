@@ -44,11 +44,44 @@ static func club_facts(gs, week: int, ph: String) -> Dictionary:
 	for p in gs.my_list:
 		if int(p.get("injury_weeks", 0)) <= 0:
 			fit += 1
-	return {"club": GameDB.club_name(gs.my_club), "opp": _opponent_name(gs), "round": week,
+	var facts := {"club": GameDB.club_name(gs.my_club), "opp": _opponent_name(gs), "round": week,
 			"year": int(gs.season_year), "losing_run": int(gs.losing_streak), "winning_run": _winning_run(gs),
 			"ladder": gs.my_position(), "board": gs.board_confidence(), "fit_count": fit,
 			"run_games": MatchNotes.count_word(Backing.RUN_GAMES),
 			"finals_week": week - Season.REGULAR_ROUNDS if ph == "finals" else 0}
+	facts.merge(_leader_facts(gs), true)
+	return facts
+
+
+## Your captain, your best-rated vice-captain, and the young player a captain
+## would put forward (fewer than ten senior games, not in the side, the most
+## potential): names and ids for the captain's cards.
+static func _leader_facts(gs) -> Dictionary:
+	var rec: Dictionary = gs.captaincy_record(gs.my_club)
+	var cap := {}
+	var vice := {}
+	for p in gs.my_list:
+		var role := Captaincy.role_of(rec, str(p["id"]))
+		if role == "captain" and cap.is_empty():
+			cap = p
+		elif role == "vice" and (vice.is_empty() or Leadership.of(p) > Leadership.of(vice)):
+			vice = p
+	var in_side := {}
+	var side: Dictionary = gs.current_side()
+	for k in side:
+		for id in side[k]:
+			in_side[str(id)] = true
+	var kid := {}
+	for p in gs.my_list:
+		if in_side.has(str(p["id"])) or gs.games_played(p) >= 10 or float(p.get("age", 30.0)) > 21.0:
+			continue
+		if kid.is_empty() or int(p.get("potential", p.get("overall", 0))) > int(kid.get("potential", kid.get("overall", 0))):
+			kid = p
+	return {"captain_name": GameDB.player_display_name(cap) if not cap.is_empty() else "",
+			"vice_name": GameDB.player_display_name(vice) if not vice.is_empty() else "",
+			"vice_id": str(vice.get("id", "")), "has_vice": not vice.is_empty(),
+			"kid_name": GameDB.player_display_name(kid) if not kid.is_empty() else "",
+			"kid_id": str(kid.get("id", "")), "has_kid": not kid.is_empty()}
 
 
 static func _opponent_name(gs) -> String:
@@ -128,6 +161,9 @@ static func player_fact(gs, p: Dictionary, selected: bool, i: Dictionary, fit_ra
 	for x in recent:
 		form += int(x)
 	form = int(round(float(form) / float(recent.size()))) if not recent.is_empty() else 0
+	var lead := Leadership.of(p)
+	var band := Trust.band(t)
+	var holds: bool = lead >= StoryDeck.HOLDS_AT or (lead >= StoryDeck.HOLDS_WITH_TRUST and (band == "trusts" or band == "close"))
 	return {"id": id, "name": name, "first": name.split(" ")[0], "age": float(p.get("age", 25.0)),
 			"games": gs.games_played(p), "fit": fit, "selected": selected, "overall": ovr, "potential": pot,
 			"pot_gap": pot - ovr, "contract_years": int(p.get("contract_years", 2)), "morale": ClubLife.morale(p),
@@ -148,7 +184,11 @@ static func player_fact(gs, p: Dictionary, selected: bool, i: Dictionary, fit_ra
 			"extension_ok": ClubLife.extension_wanted(p, {}) and early - int(p.get("salary", 0)) <= cap_room,
 			# Shown under his real name: no card invents a private life or
 			# misconduct for a real person (story research §4).
-			"real_named": bool(gs.show_real_names) and str(p.get("real_name", "")).strip_edges() != ""}
+			"real_named": bool(gs.show_real_names) and str(p.get("real_name", "")).strip_edges() != "",
+			# A dispute left to the captain: held when his Leadership is high enough, or
+			# fairly high and he trusts you (the rule is printed on the choice).
+			"leadership": lead, "captain": Captaincy.role_of(gs.captaincy_record(gs.my_club), id) == "captain",
+			"delegate_holds": holds, "holds_at": StoryDeck.HOLDS_AT, "holds_trust_at": StoryDeck.HOLDS_WITH_TRUST}
 
 
 ## One card from the deck about `p` (or the club), built for this week whether
@@ -288,6 +328,41 @@ static func _apply(gs, e: Dictionary, p: Dictionary, facts: Dictionary, applied:
 			return gs._explain_outcome(name, facts)
 		"talk_note":
 			gs._note_talk(p, str(e.get("said", "")), str(facts.get("talk_case", "")))
+		"delegate":
+			# Left to the captain: his Leadership and his trust in you decide, by the
+			# rule the choice printed. No dice.
+			var held := bool(facts.get("delegate_holds", false))
+			var parts: PackedStringArray = []
+			for ne in (e.get("held" if held else "failed", []) as Array):
+				var said_line := _apply(gs, ne, p, facts, applied)
+				if said_line != "":
+					parts.append(said_line)
+			var res := StoryEngine.fill(str(e.get("held_result" if held else "failed_result", "")), facts)
+			return (res + " " + " ".join(parts)).strip_edges()
+		"back_kid":
+			var kid: Dictionary = gs.list_player(str(facts.get("kid_id", "")))
+			if kid.is_empty():
+				return "%s is no longer at the club." % str(facts.get("kid_name", "He"))
+			gs._start_backing(kid)
+			return "%s is told he has a run of %s games. Pick him this week." % [str(facts.get("kid_name", "")),
+					MatchNotes.count_word(Backing.RUN_GAMES)]
+		"captaincy_swap":
+			var vice: Dictionary = gs.list_player(str(facts.get("vice_id", "")))
+			if vice.is_empty() or p.is_empty():
+				return "The captaincy stays as it is."
+			# The card may be older than the captaincy: if you have changed it since, do nothing.
+			var now: Dictionary = gs.captaincy_record(gs.my_club)
+			if Captaincy.role_of(now, str(p["id"])) != "captain" or Captaincy.role_of(now, str(vice["id"])) != "vice":
+				return "The captaincy has changed since this came up, so nothing changes."
+			var slots := [{"id": str(vice["id"]), "role": "captain"}, {"id": str(p["id"]), "role": "vice"}]
+			for s in Captaincy.slots(gs.captaincy_record(gs.my_club)):
+				var sid := str((s as Dictionary)["id"])
+				if sid != str(vice["id"]) and sid != str(p["id"]) and slots.size() < Captaincy.MAX_LEADERS:
+					slots.append(s)
+			var pv: Dictionary = gs.set_captaincy(slots)
+			if not bool(pv.get("ok", false)):
+				return str(pv.get("why_not", "The captaincy can't change this week."))
+			return "%s takes the armband. %s hands it over and stays in the leadership group." % [str(facts.get("vice_name", "")), name]
 	return ""
 
 

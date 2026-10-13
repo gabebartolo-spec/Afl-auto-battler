@@ -54,8 +54,19 @@ func _run() -> void:
 	gs.start_season(club, db.club_list(club))
 	for i in range(3):
 		gs.advance()
+	# The canvas a player's screen gives the game (390x844 on a phone, 1280x720 on a PC):
+	# ScreenLayout would scale it by this machine's display density, so undo that.
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	DisplayServer.window_set_size(Vector2i(W, H))
-	root.size = Vector2i(W, H)
+	for i in range(10):
+		await process_frame
+	var layout = root.get_node("ScreenLayout")
+	layout.ui_scale = 1.0 / maxf(1.0, layout.desktop_density(Vector2(root.size), DisplayServer.screen_get_scale(),
+			DisplayServer.screen_get_dpi() if OS.get_name() == "Windows" else 0))
+	layout._update_scale()
+	for i in range(10):
+		await process_frame
+	print("canvas ", root.get_visible_rect().size)
 	for tid in ids.split(","):
 		gs.media_conference = {}
 		# A player card is about a player who fits it: the youngest for a kid's
@@ -65,6 +76,13 @@ func _run() -> void:
 		var who := {}
 		if str((t.get("subject", {}) as Dictionary).get("kind", "club")) != "club":
 			who = gs.my_list[0]
+			if str(tid).begins_with("captain_"):
+				var crec: Dictionary = gs.captaincy_record(gs.my_club)
+				for q in gs.my_list:
+					if Captaincy.role_of(crec, str(q["id"])) == "captain":
+						who = q
+				gs.losing_streak = 3
+				gs.season_log = gs.season_log
 			for q in gs.my_list:
 				if str(tid).contains("kid") and float(q.get("age", 30.0)) < float(who.get("age", 30.0)):
 					who = q
@@ -81,14 +99,16 @@ func _run() -> void:
 		gs.week_events = [e]
 		var scene: Control = load("res://scenes/HubScene.tscn").instantiate()
 		root.add_child(scene)
-		await _frames(8)
+		await _frames(60)  # the hub fades its cards in: wait it out, or contrast cannot be judged
 		await _show_card(scene)
+		await _frames(30)
 		root.get_viewport().get_texture().get_image().save_png("%s_%s_card.png" % [out, tid])
 		var b = scene.find_child("Event_%d" % CHOICE, true, false)
 		if b != null:
 			b.emit_signal("pressed")
-		await _frames(8)
+		await _frames(60)
 		await _show_card(scene)
+		await _frames(30)
 		root.get_viewport().get_texture().get_image().save_png("%s_%s_answered%d.png" % [out, tid, CHOICE])
 		scene.queue_free()
 		await _frames(2)
