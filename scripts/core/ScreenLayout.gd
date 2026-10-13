@@ -72,8 +72,10 @@ func _update_scale() -> void:
 	# 320 units into what is left would shrink the whole screen and change
 	# its width in units, and every screen would rebuild under the keyboard
 	# (and free the field being typed in). Same width in pixels while a text
-	# field has focus means a keyboard: keep the scale the screen had.
-	keyboard_up = _kept_density > 0.0 and int(pixels.x) == _kept_width and typing()
+	# field has focus means a keyboard: keep the scale the screen had. Not on
+	# a desktop, which has no such keyboard: there a window made shorter is
+	# just a shorter window.
+	keyboard_up = not is_desktop() and _kept_density > 0.0 			and int(pixels.x) == _kept_width and typing()
 	if keyboard_up:
 		density = _kept_density
 	else:

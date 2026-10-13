@@ -73,6 +73,7 @@ func _run() -> void:
 		await _screen_field(row, "list", "NicknameField", _open_nickname)
 
 	load("res://scripts/core/ScreenLayout.gd").force_web_phone = false
+	load("res://scripts/core/ScreenLayout.gd").force_web = false
 	print("Keyboard tests: %d checks, %d failures" % [_checks, _failures.size()])
 	for f in _failures:
 		print("  FAIL: " + f)
@@ -107,6 +108,13 @@ func _web_keyboard(text: String) -> void:
 			Input.parse_input_event(k)
 	Input.flush_buffered_events()
 	await process_frame
+
+
+## Stand in for the web build: a phone's browser, or a tablet's or PC's.
+func _platform(phone: bool) -> void:
+	var layout = load("res://scripts/core/ScreenLayout.gd")
+	layout.force_web_phone = phone
+	layout.force_web = not phone
 
 
 func _units() -> Vector2:
@@ -150,7 +158,7 @@ func _draft(row: Array) -> void:
 	var label := "Draft, %s" % str(row[0])
 	var full: Vector2i = row[2]
 	var up: Vector2i = row[3]
-	load("res://scripts/core/ScreenLayout.gd").force_web_phone = bool(row[1])
+	_platform(bool(row[1]))
 	root.size = full
 	await _settle()
 	var ui := _new_draft()
@@ -254,7 +262,7 @@ func _screen_field(row: Array, route: String, field_name: String, opener: Callab
 	var label := "%s, %s" % [route.capitalize(), str(row[0])]
 	var full: Vector2i = row[2]
 	var up: Vector2i = row[3]
-	load("res://scripts/core/ScreenLayout.gd").force_web_phone = bool(row[1])
+	_platform(bool(row[1]))
 	root.size = full
 	await _settle()
 	_fresh_career()
