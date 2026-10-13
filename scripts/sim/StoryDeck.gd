@@ -49,7 +49,7 @@ const PLAYER_FACTS := ["name", "first", "age", "games", "fit", "selected", "over
 		"pot_gap", "contract_years", "morale", "trust", "trust_band", "discipline", "backed",
 		"fit_rank", "talk_case", "kpi", "kpi_or_need", "explain_label", "talk_text", "sore_odds",
 		"ask", "early_price", "more_seasons", "extension_ok", "job", "real_named",
-		"form", "form_games", "has_role2", "starting",
+		"form", "form_games", "has_role2", "starting", "form_low", "trial_word", "trial_avg", "trial_par", "trial_tail",
 		"leadership", "captain", "delegate_holds", "holds_at", "holds_trust_at"]
 ## Facts about the club and the week (GameState._story_club_facts).
 const CLUB_FACTS := ["club", "opp", "round", "year", "losing_run", "winning_run", "ladder",
@@ -184,7 +184,7 @@ static func _check_card(t: Dictionary) -> Array:
 	# What's at risk, in one short line under the text (optional).
 	errs.append_array(_check_text(id, str(t.get("stakes", "")), player))
 	var choices: Array = t.get("choices", [])
-	if choices.size() < 2:
+	if choices.size() < 2 and not (bool(t.get("scripted", false)) and choices.size() == 1):
 		errs.append("%s: a card needs at least two choices" % id)
 	var d := int(t.get("default", -1))
 	if d < -1 or d >= choices.size():

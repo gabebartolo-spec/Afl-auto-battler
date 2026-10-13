@@ -345,7 +345,8 @@
 					{
 						"op": "trust",
 						"d": 2,
-						"why": "You let him front the group"
+						"why": "You let him front the group",
+						"line": "He trusts you a little more."
 					}
 				],
 				"result": "{name} takes the group through what he is working on."
@@ -361,7 +362,8 @@
 					{
 						"op": "trust",
 						"d": 4,
-						"why": "You kept it between you two"
+						"why": "You kept it between you two",
+						"line": "He trusts you more."
 					}
 				],
 				"result": "You talk it through with {name} alone."
@@ -386,7 +388,8 @@
 			"where": {
 				"fit": true,
 				"starting": true,
-				"has_role2": true
+				"has_role2": true,
+				"form_low": true
 			},
 			"pick": "random"
 		},
@@ -394,7 +397,7 @@
 			"They say {name} is in the wrong spot"
 		],
 		"text": [
-			"A former player on the radio says {name} should move to another role. He wants to know if you will."
+			"A former player on the radio says {name} should be playing as a {trial_word}. {first} wants to know if you will try it."
 		],
 		"choices": [
 			{
@@ -415,7 +418,7 @@
 			},
 			{
 				"key": "down",
-				"label": "Try him in a new role",
+				"label": "Try him as a {trial_word}",
 				"effects": [
 					{
 						"op": "role_trial",
@@ -435,7 +438,7 @@
 						"d": 5
 					}
 				],
-				"result": "You try {name} somewhere new."
+				"result": "You try {name} as a {trial_word}."
 			}
 		],
 		"cooldown": 40,
@@ -444,5 +447,61 @@
 			"board": -4,
 			"text": "You say nothing. The board wanted an answer."
 		}
+	},
+	{
+		"category": "media",
+		"scripted": true,
+		"cooldown": 0,
+		"subject_cooldown": 0,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"id": "media_trial_worked",
+		"title": [
+			"{name} passed his trial as a {trial_word}"
+		],
+		"text": [
+			"{first} averaged {trial_avg} as a {trial_word} over the three games. The average {trial_word} this year is {trial_par}. {trial_tail}"
+		],
+		"choices": [
+			{
+				"key": "ok",
+				"label": "Good to hear",
+				"effects": [],
+				"result": "{name} is back in his usual spot."
+			}
+		]
+	},
+	{
+		"category": "media",
+		"scripted": true,
+		"cooldown": 0,
+		"subject_cooldown": 0,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"id": "media_trial_not_yet",
+		"title": [
+			"{name}'s trial as a {trial_word} is over"
+		],
+		"text": [
+			"{first} averaged {trial_avg} as a {trial_word} over the three games. The average {trial_word} this year is {trial_par}. {trial_tail}"
+		],
+		"choices": [
+			{
+				"key": "ok",
+				"label": "Fair enough",
+				"effects": [],
+				"result": "{name} is back in his usual spot."
+			}
+		]
 	}
 ]

@@ -123,6 +123,8 @@ static func tier(t: Dictionary) -> String:
 static func eligible_subject(t: Dictionary, ctx: Dictionary, story: Dictionary, w: int,
 		rng: RandomNumberGenerator, skip_pid := "") -> Dictionary:
 	var id := str(t["id"])
+	if bool(t.get("scripted", false)):
+		return {}   # dealt by the game itself (the result of a role trial), never drawn
 	if not (t.get("phase", ["regular"]) as Array).has(str(ctx.get("phase", "regular"))):
 		return {}
 	if w - int(story["last"].get(id, NEVER)) < int(t.get("cooldown", 0)):
@@ -403,10 +405,12 @@ static func describe(c: Dictionary, facts: Dictionary) -> String:
 static func _trial_words(e: Dictionary) -> String:
 	var n := int(e.get("weeks", 3))
 	var word: String = ["one", "two", "three", "four", "five", "six"][clampi(n, 1, 6) - 1]
-	return "He plays his second position for the next %s %s." % [word, "game" if n == 1 else "games"]
+	return "He plays as a {trial_word} for the next %s %s, then goes back." % [word, "game" if n == 1 else "games"]
 
 
 static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
+	if str(e.get("line", "")) != "":
+		return str(e["line"])   # a card may word an effect itself (sizes read differently)
 	var d := effect_d(e, facts)
 	var who := str(e.get("who", "subject"))
 	match str(e.get("op", "")):

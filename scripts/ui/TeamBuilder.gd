@@ -261,6 +261,14 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 				sb.border_width_top = 3
 				sb.border_color = UiKit.team_colour()
 				b.add_theme_stylebox_override(st, sb)
+		if not field_only and _trial_note(id) != "":
+			# A role trial from a story card: how long he has in the new role.
+			var tr := UiKit.lbl(_trial_note(id), UiKit.TINY, UiKit.TEXT, true)
+			tr.name = "Trial_" + id
+			tr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			tr.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			face.add_child(tr)
+			b.custom_minimum_size.y = 58
 		if not field_only and Workload.value(p) >= Workload.CARRYING:
 			# How fresh he is, on the card: no profile needed to see it.
 			var ready := UiKit.lbl(Workload.label(p), UiKit.TINY, UiKit.BAD if Workload.value(p) >= Workload.NEEDS_BREAK else UiKit.MUTED)
@@ -285,6 +293,8 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 		face.add_child(UiKit.ellipsis("%s · %s · %d yo" % [Ratings.role_tag(p), PlayerProfile.player_type(p), age],
 				12, UiKit.MUTED))
 		var third: PackedStringArray = []
+		if _trial_note(id) != "":
+			third.append(_trial_note(id))
 		if not Ratings.available(p):
 			third.append(_why_out(p))
 		elif Workload.value(p) >= Workload.CARRYING:
@@ -326,6 +336,15 @@ func _player(id: String) -> Dictionary:
 		if str(p["id"]) == id:
 			return p
 	return {}
+
+
+## "Trial: 2 games left" beside the player a story card is trying in a new role.
+func _trial_note(id: String) -> String:
+	var t: Dictionary = GameState.role_trial
+	if t.is_empty() or str(t.get("id", "")) != id:
+		return ""
+	var n := int(t.get("left", 0))
+	return "Trial: %d %s left" % [n, "game" if n == 1 else "games"]
 
 
 func _why_out(p: Dictionary) -> String:
