@@ -1756,7 +1756,7 @@ func _trophies() -> void:
 	var brl_also: Dictionary = real["BRL"]["also"]
 	_check(real["COL"]["years"].size() == 16 and real["ESS"]["years"].size() == 16 and real["CAR"]["years"].size() == 16
 			and real["RIC"]["years"].size() == 13 and real["GEE"]["years"].size() == 10 and real["SYD"]["years"].size() == 5
-			and real["BRL"]["years"].size() == 5 and (brl_also.get("Fitzroy", []) as Array).size() == 8
+			and real["BRL"]["years"].size() == 6 and (brl_also.get("Fitzroy", []) as Array).size() == 8
 			and real["WBD"]["years"].size() == 2 and real["STK"]["years"].size() == 1 and real["PAD"]["years"].size() == 1,
 			"The shipped file gives each club its flags, Brisbane's own five and Fitzroy's eight apart")
 	_check(real["FRE"]["known"] and real["FRE"]["years"].is_empty() and real["GCS"]["known"] and real["GWS"]["years"].is_empty(),
