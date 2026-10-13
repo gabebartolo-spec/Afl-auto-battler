@@ -49,10 +49,13 @@ func _tap(c: Control) -> String:
 
 func _run() -> void:
 	var out := "/tmp/cult"
+	var club := "GEE"
 	var a := OS.get_cmdline_user_args()
 	for i in range(a.size() - 1):
 		if str(a[i]) == "--out":
 			out = str(a[i + 1])
+		if str(a[i]) == "--club":
+			club = str(a[i + 1])
 		if str(a[i]) == "--size":
 			var wh := str(a[i + 1]).split("x")
 			W = int(wh[0])
@@ -84,7 +87,7 @@ func _run() -> void:
 	print("canvas ", root.get_visible_rect().size)
 	for i in range(3):
 		await process_frame
-	state.start_season("GEE", db.club_list("GEE"))
+	state.start_season(club, db.club_list(club))
 	# Six reasons on Togetherness from the real movers, each with its own sign and
 	# never two opposed finishes in one season, so the PC sheet scrolls with Close pinned.
 	var y0: int = state.season_year
@@ -116,23 +119,62 @@ func _run() -> void:
 	for i in range(8):
 		await process_frame
 	await _shot(out + "_list.png")
-	# A real tap on the row, then on each Why.
-	for i in range(20):
+	# Each treatment (CultureSheet.variant): the way in by a real tap (phone), the
+	# screen, the reasons, then Back. Writes <out>_<V>_culture.png and <out>_<V>_reasons.png.
+	for v in ["A", "B", "C"]:
+		CultureSheet.variant = v
+		current_scene.queue_free()
 		await process_frame
-	var open_btn: Button = current_scene.find_child("CultureOpen", true, false)
-	# A real tap where the capture window maps touches true (the roles suite proves
-	# the tap on its own); else the press, so the shot is still taken.
-	var why: String = await _tap(open_btn) if W < 760 else "not tapped on the PC canvas"
-	if why != "" or current_scene.find_child("CultureSheet", true, false) == null:
-		print("tap not mapped here (", why, "): pressing instead")
-		open_btn.emit_signal("pressed")
-	await _shot(out + "_culture.png")
-	var whys := current_scene.find_children("StrandWhy", "Button", true, false)
-	for b in whys:
-		if is_instance_valid(b) and b.get_parent().get_parent().name == "Strand_together":
-			b.emit_signal("pressed")  # the roles suite proves the Why tap; only the row is tapped here
-	await _shot(out + "_why.png")
+		root.get_node("Router").go("list")
+		for i in range(20):
+			await process_frame
+		var open_btn: Button = current_scene.find_child("CultureOpen", true, false)
+		var why: String = await _tap(open_btn) if W < 760 else "not tapped on the PC canvas"
+		if why != "" or current_scene.find_child("CultureSheet", true, false) == null:
+			print(v, ": tap not mapped here (", why, "): pressing instead")
+			open_btn.emit_signal("pressed")
+		await _shot(out + "_" + v + "_culture.png")
+		print(v, " clipped text: ", _clipped(current_scene.find_child("CultureSheet", true, false)))
+		var all: Button = current_scene.find_child("CultureAllReasons", true, false)
+		if all != null:
+			all.emit_signal("pressed")
+		await _shot(out + "_" + v + "_reasons.png")
+		print(v, " clipped text (reasons): ", _clipped(current_scene.find_child("CultureSheet", true, false)))
+		var closed := false
+		for k in range(2):
+			if current_scene.find_child("CultureSheet", true, false) != null:
+				current_scene.handle_back()
+				await process_frame
+		closed = current_scene.find_child("CultureSheet", true, false) == null
+		print(v, " back closes: ", closed)
 	quit(0)
+
+
+## Labels whose text does not fit the box they were given, or that sit off the
+## screen (outside a scroll). 0 is the answer.
+func _clipped(sheet: Node) -> int:
+	var n := 0
+	if sheet == null:
+		return -1
+	var screen := Rect2(Vector2.ZERO, root.get_visible_rect().size).grow(1.0)
+	for l in sheet.find_children("*", "Label", true, false):
+		var lab := l as Label
+		if not lab.is_visible_in_tree() or lab.text == "":
+			continue
+		if lab.size.y + 1.0 < lab.get_combined_minimum_size().y:
+			n += 1
+			print("  clipped: ", lab.text)
+			continue
+		var in_scroll := false
+		var p := lab.get_parent()
+		while p != null and p != sheet:
+			if p is ScrollContainer:
+				in_scroll = true
+			p = p.get_parent()
+		if not in_scroll and not screen.encloses(lab.get_global_rect()):
+			n += 1
+			print("  off screen: ", lab.text)
+	return n
 
 
 func _first(steps: Array, strand: String):

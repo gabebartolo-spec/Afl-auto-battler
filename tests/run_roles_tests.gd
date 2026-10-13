@@ -711,31 +711,47 @@ func _culture_ui_tests() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.career_seed = SUITE_SEED
-	_state.start_season("COL", db.club_list("COL"))
+	_state.start_season("FRE", db.club_list("FRE"))
 	root.size = Vector2i(420, 860)
-	Culture.change(_state.relations, "COL", "together", 6, "A run of four losses", _state.season_year, "Round 6")
+	Culture.change(_state.relations, "FRE", "together", 6, "A run of four losses", _state.season_year, "Round 6")
 	for i in range(3):
-		Culture.change(_state.relations, "COL", "together", 6, "Played finals", _state.season_year, "Round 24")
-	var ls: Control = load("res://scenes/ListScene.tscn").instantiate()
-	root.add_child(ls)
-	await _settle()
-	var open_btn: Button = ls.find_child("CultureOpen", true, false)
-	_check(open_btn != null and open_btn.size.y >= 44, "My list has a thumb-sized way into Club culture")
-	var why: String = await Tap.tap(open_btn)
-	await _settle()
-	var sheet: Node = ls.find_child("CultureSheet", true, false)
-	_check(why == "" and sheet != null and _screen_text(sheet).contains("A tight group")
-			and _screen_text(sheet).contains("Nothing stands out yet"),
-			"The sheet says the strands in words, and what has nothing to say (%s)" % why)
-	var strand: Node = sheet.find_child("Strand_together", true, false) if sheet != null else null
-	var reasons: Control = strand.find_child("StrandReasons", true, false) if strand != null else null
-	_check(reasons != null and not reasons.visible, "The reasons start folded away")
-	why = await Tap.tap(strand.find_child("StrandWhy", true, false) if strand != null else null)
-	await _settle()
-	_check(why == "" and reasons.visible and _screen_text(reasons).contains("Played finals"),
-			"A tap on Why shows the reasons, in football words (%s)" % why)
-	ls.queue_free()
-	await _settle()
+		Culture.change(_state.relations, "FRE", "together", 6, "Played finals", _state.season_year, "Round 24")
+	# Each treatment (CultureSheet.variant) opens by a real tap, says the strands in
+	# words, gives the reasons (a tap on All reasons where they are folded away) and
+	# closes on Android Back.
+	for variant in ["A", "B", "C"]:
+		CultureSheet.variant = variant
+		var ls: Control = load("res://scenes/ListScene.tscn").instantiate()
+		root.add_child(ls)
+		await _settle()
+		var open_btn: Button = ls.find_child("CultureOpen", true, false)
+		_check(open_btn != null and open_btn.size.y >= 44, "%s: My list has a thumb-sized way into Club culture" % variant)
+		_check(open_btn != null and _screen_text(open_btn).contains("A tight group"),
+				"%s: the way in says the strands in bold words" % variant)
+		var why: String = await Tap.tap(open_btn)
+		await _settle()
+		var sheet: Node = ls.find_child("CultureSheet", true, false)
+		_check(why == "" and sheet != null and _screen_text(sheet).contains("A tight group")
+				and _screen_text(sheet).contains("Nothing stands out yet"),
+				"%s: the screen says the strands in words, and what has nothing to say (%s)" % [variant, why])
+		var all: Button = sheet.find_child("CultureAllReasons", true, false) if sheet != null else null
+		if all != null:
+			_check(all.size.y >= 44, "%s: All reasons is thumb-sized" % variant)
+			why = await Tap.tap(all)
+			await _settle()
+		var reasons: Node = sheet.find_child("CultureReasons", true, false) if sheet != null else null
+		_check(reasons != null and reasons.is_visible_in_tree() and _screen_text(reasons).contains("Played finals"),
+				"%s: the reasons are in football words, one tap away at most (%s)" % [variant, why])
+		ls.handle_back()
+		await _settle()
+		if all != null:
+			# A folded-away reasons layer closes first; the second Back leaves the screen.
+			ls.handle_back()
+			await _settle()
+		_check(ls.find_child("CultureSheet", true, false) == null, "%s: Android Back closes the culture screen" % variant)
+		ls.queue_free()
+		await _settle()
+	CultureSheet.variant = "A"
 
 
 func _open() -> Control:

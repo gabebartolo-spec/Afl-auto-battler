@@ -75,8 +75,7 @@ func _build() -> void:
 			"CaptaincyOpen")
 	cap_link.pressed.connect(func(): _open_captaincy())
 	_root.add_child(cap_link)
-	var culture_link := UiKit.section_link("Club culture", Culture.headline(GameState.relations, GameState.my_club) + " ›",
-			"CultureOpen")
+	var culture_link := CultureSheet.entry_row()
 	culture_link.pressed.connect(func(): _open_culture())
 	for link in [cap_link, culture_link]:
 		var value: Node = link.find_child("SectionLeadsTo", true, false)
@@ -311,6 +310,8 @@ func _close_profile() -> void:
 ## Android Back closes a profile before leaving the list.
 func handle_back() -> bool:
 	if _profile != null and is_instance_valid(_profile):
+		if _profile.has_meta("back") and bool((_profile.get_meta("back") as Callable).call()):
+			return true
 		_close_profile()
 		return true
 	return false
