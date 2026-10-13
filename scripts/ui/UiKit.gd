@@ -271,14 +271,29 @@ static func section(text: String) -> Label:
 	return lbl(text, H2, TEXT, true)
 
 
-## The club's colour as text on `surface` (the screen's ground by default):
-## its accent, else its second or first colour, whichever first reads at 4.5:1;
-## plain TEXT when none does (Carlton's navy, Sydney's black on dark). Use it for
-## a club's name or a figure that is the club's; never as body text.
+## The club's own colour as text on `surface` (the screen's ground by default):
+## its most saturated colour, lightened toward white only as far as it takes to
+## read at 4.5:1 (Carlton's navy comes out a clear blue, Port's teal stays
+## teal); plain TEXT for a club with no saturated colour (Collingwood, Sydney
+## on dark). For a club's name or a figure that is the club's; never body text.
 static func club_ink(code: String, surface := AUTO_COLOUR) -> Color:
 	if surface == AUTO_COLOUR:
 		surface = BG
-	return score_colour(code, surface)
+	var pick := Color(0, 0, 0, 0)
+	var best_s := 0.25
+	for c in GameDB.club_colours(code):
+		var col: Color = c
+		if col.s > best_s:
+			best_s = col.s
+			pick = col
+	if pick.a == 0.0:
+		return TEXT
+	var toward: Color = Color.WHITE if _relative_luminance(surface) < 0.4 else Color.BLACK
+	for i in 12:
+		if contrast(pick, surface) >= 4.5:
+			return pick
+		pick = pick.lerp(toward, 0.12)
+	return TEXT
 
 
 ## A section's own club, at a glance (director 2026-10-13, for every screen with
