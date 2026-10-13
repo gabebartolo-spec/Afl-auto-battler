@@ -1500,13 +1500,17 @@ func _my_result(v: VBoxContainer, res: Dictionary) -> void:
 	# FL-006: editorial flavour, only when the match's facts support it - quiet
 	# text under the facts, never coloured like a result.
 	var line := Headlines.for_match(res, me)
+	var turned := ComebackTelling.turn_line(res, me)
+	# The turn sentence says the comeback or the lost lead in full, so the headline that states
+	# the same ("From 29 points down at quarter time.", "Led by 37 at half-time.") is dropped.
+	if turned != "" and (line.begins_with("From ") or line.begins_with("Led by ")):
+		line = ""
 	if line != "":
 		var hl := UiKit.lbl(line, UiKit.BODY, UiKit.MUTED)
 		hl.name = "MyHeadline"
 		hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(hl)
 	# The quarter that turned a comeback win or a lost lead, and who did it.
-	var turned := ComebackTelling.turn_line(res, me)
 	if turned != "":
 		var tl := UiKit.lbl(turned, UiKit.BODY, UiKit.MUTED)
 		tl.name = "MyTurn"

@@ -3209,13 +3209,6 @@ func _ft_summary(v: VBoxContainer) -> void:
 
 	# What it means: finals, the ladder, who is next.
 	if mine:
-		# The quarter that turned a comeback win or a lost lead, and who did it.
-		var turned := ComebackTelling.turn_line(_res, me)
-		if turned != "":
-			var tl := UiKit.lbl(turned, UiKit.BODY, UiKit.MUTED)
-			tl.name = "Turned"
-			tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			v.add_child(tl)
 		var outlook := GameState.finals_outcome_line(_res)
 		if outlook != "":
 			var tag_now := str(_res.get("tag", ""))
