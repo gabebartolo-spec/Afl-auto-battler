@@ -270,6 +270,13 @@ func _test_hand_over() -> void:
 			and Conditioning.status_line(_rec("peak", "thin"), 0).ends_with("on a thin base")
 			and Conditioning.status_line(_rec("steady", "strong"), 0).ends_with("on a strong base"),
 			"The season plan's line names a thin or strong base in the same sentence, and says nothing new on a sound one")
+	var span := int(PreSeason.tune("strong_weeks"))
+	_check(Conditioning.status_line(_rec("steady", "strong"), span - 1).ends_with("on a strong base")
+			and Conditioning.status_line(_rec("steady", "strong"), span) == Conditioning.status_words(_rec("steady"), span)
+			and Conditioning.status_line(_rec("steady", "thin"), 20).ends_with("on a thin base"),
+			"A strong base is named only while it holds the legs; a thin one all season, for the lower peak it leaves")
+	_check(str(PreSeason.BASE_EFFECT["thin"]).contains("soft-tissue risk") and str(PreSeason.BASE_EFFECT["strong"]).contains("soft-tissue risk"),
+			"Both a thin and a strong base say what they do to soft-tissue risk")
 	_check(Conditioning.base_of({"base": "enormous"}) == "sound"
 			and Conditioning.base_of(Conditioning.revise(_rec("steady", "strong"), 0, "peak")) == "strong",
 			"An unknown base reads as sound, and changing the season plan keeps the base")
@@ -790,8 +797,11 @@ func _test_screens() -> void:
 	scene = await _open(tree)
 	_check(scene != null and scene.name == "PreSeasonScene" and _label(scene, "BlockCost_0").contains("gone by Round 1"),
 			"Continuing returns to the plan with its choices")
-	_check(await _tap(scene.find_child("PreSeasonGo", true, false), "Start the pre-season"),
-			"A finger's tap starts the pre-season")
+	var start := scene.find_child("PreSeasonGo", true, false) as Button
+	_check(start != null and start.text == "Start training"
+			and not _label(scene, "PreSeasonQuietWeek").contains("freshens"),
+			"The plan's button says what it does, in its own words, and week 8 promises no freshening")
+	_check(await _tap(start, "Start training"), "A finger's tap starts the training")
 	await _frames(tree, 6)
 	scene = tree.current_scene as Control
 	_check(scene != null and scene.name == "PreSeasonScene" and GameState.preseason_stop() == "trial"

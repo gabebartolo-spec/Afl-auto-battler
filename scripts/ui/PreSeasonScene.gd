@@ -198,7 +198,7 @@ func _blocks_section(first: int, across: bool) -> Control:
 		var b := _block(i)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		holder.add_child(b)
-	var quiet := UiKit.lbl("Week 8 is a quiet week: no training choice, the side freshens up for Round 1.",
+	var quiet := UiKit.lbl("Week 8 is a quiet week: no training and nothing to choose. What the last block leaves in the legs is still there in Round 1.",
 			UiKit.SECONDARY, UiKit.TEXT)
 	quiet.name = "PreSeasonQuietWeek"
 	quiet.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -352,9 +352,11 @@ func _trial_section() -> Control:
 	var best: Array = trial.get("best", [])
 	for i in range(best.size()):
 		v.add_child(_runner(str(best[i]), "%d" % (i + 1), "TrialBest_%d" % i))
-	v.add_child(UiKit.spacer(6))
-	v.add_child(_section_head("Last three home"))
 	var worst: Array = trial.get("worst", [])
+	if worst.is_empty():
+		return v   # a list too short for a tail: no heading over no names
+	v.add_child(UiKit.spacer(6))
+	v.add_child(_section_head("Last three home" if worst.size() == 3 else "Last home"))
 	for i in range(worst.size()):
 		v.add_child(_runner(str(worst[i]), "", "TrialWorst_%d" % i))
 	return v
@@ -415,7 +417,7 @@ func _primary(text: String) -> Button:
 func _actions(stop: String) -> Control:
 	var v := UiKit.vbox(6)
 	v.name = "PreSeasonActions"
-	var go := _primary("Start the pre-season" if stop == "plan" else "Back to training")
+	var go := _primary("Start training" if stop == "plan" else "Back to training")
 	go.name = "PreSeasonGo"
 	go.custom_minimum_size = Vector2(0, 48)
 	go.pressed.connect(_on_go)

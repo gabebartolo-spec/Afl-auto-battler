@@ -327,12 +327,18 @@ static func status_words(rec: Dictionary, w: int) -> String:
 	return ("Building, " if c <= 0.0 else "Coming into form, ") + when
 
 
-## The same line with the pre-season's base in it, when the base is not the
-## ordinary sound one: "Building, peak due in August, on a thin base".
+## The same line with the pre-season's base in it, while the base still does
+## something: "Building, peak due in August, on a thin base". A strong base
+## is named only for the rounds it holds the legs; a thin one all season,
+## because the lower peak it leaves lasts. A sound base is never named.
 static func status_line(rec: Dictionary, w: int) -> String:
 	var words := status_words(rec, w)
 	var b := base_of(rec)
-	return words if b == PreSeason.DEFAULT_BASE else "%s, on a %s base" % [words, b]
+	if b == PreSeason.DEFAULT_BASE:
+		return words
+	if is_zero_approx(base_curve(rec, w)) and is_equal_approx(base_peak_share(rec), 1.0):
+		return words
+	return "%s, on a %s base" % [words, b]
 
 
 ## What a coach may do at a revision week, said as when it is.

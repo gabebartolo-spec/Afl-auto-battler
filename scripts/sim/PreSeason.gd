@@ -337,7 +337,7 @@ static func cost_line(load: String, focus: String, i: int) -> String:
 
 const BASE_LABEL := {"thin": "a thin fitness base", "sound": "a sound fitness base", "strong": "a strong fitness base"}
 const BASE_EFFECT := {
-	"thin": "The side starts underdone and tires sooner for the first six rounds. A planned peak comes lower.",
+	"thin": "The side starts underdone: it tires sooner and carries more soft-tissue risk for the first six rounds. A planned peak comes lower.",
 	"sound": "The side starts the season level.",
 	"strong": "Fresher legs and a little less soft-tissue risk through the first month.",
 }
