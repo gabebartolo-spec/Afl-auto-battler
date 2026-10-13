@@ -217,17 +217,33 @@ static func pick_value(positions: Array, prospects: Array, phase: String) -> flo
 		var hi := mini(prospects.size() - 1, at + 1)
 		var sum := 0.0
 		for i in range(lo, hi + 1):
-			sum += float(value(prospects[i], {"phase": phase})["total"])
+			sum += float(value(_held(prospects[i]), {"phase": phase})["total"])
 		total += w * sum / float(hi - lo + 1)
 	return total / maxf(weight, 0.0001)
+
+
+## A pick is read by the player it buys, not by his lower first-year rating (director
+## 2026-10-14, "hold pick values where they are"): a draftee whose draft-night rating was
+## lowered (Prospects.DRAFT_NIGHT_SCALE, `night_drop`) is valued at the rating the old
+## curve gave him, with the same ceiling. Pick values, and the AI trades around them, do
+## not move with the scale.
+static func _held(p: Dictionary) -> Dictionary:
+	var drop := float(p.get("night_drop", 0.0))
+	if drop <= 0.0:
+		return p
+	var h: Dictionary = p.duplicate()
+	h["overall"] = int(p.get("overall", 50)) + int(round(drop))
+	if h.has("salary"):
+		h["salary"] = Ratings.salary_value(int(h["overall"]))
+	return h
 
 
 ## Prospects best first by what a club can see of them (projected rating).
 static func rank_prospects(pool: Array) -> Array:
 	var ranked := pool.duplicate()
 	ranked.sort_custom(func(a, b):
-		var fa := future_rating(a)
-		var fb := future_rating(b)
+		var fa := future_rating(_held(a))
+		var fb := future_rating(_held(b))
 		if fa != fb:
 			return fa > fb
 		return str(a["id"]) < str(b["id"]))
