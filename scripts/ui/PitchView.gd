@@ -575,11 +575,15 @@ func _draw() -> void:
 	_draw_press_banner()
 
 
-## The press zone: a faint wash over the part of the ground the press side is
-## hunting, under the lines, the players and the ball. Its strength is the
-## sim's own zone table (MatchDirector.press_zone_field, soft-edged); it eases
-## in and out over PRESS_FADE_SECS of real time; the oval's edge is untouched.
-const PRESS_ZONE_ALPHA := 0.12
+## The press zone: a wash of the press club's own colour over the part of the
+## ground it is hunting, under the lines, the players and the ball. Its
+## strength is the sim's own zone table (MatchDirector.press_zone_field,
+## soft-edged); it eases in and out over PRESS_FADE_SECS of real time; the
+## oval's edge is untouched. At the full strength of the opponents' back
+## third it has to read on a phone without the unpressed ground beside it
+## (director, 2026-10-13: the first 0.12 moved a channel by 8-11 of 255 and
+## read as a darker turf stripe), so it is a 40% mix of the colour.
+const PRESS_ZONE_ALPHA := 0.4
 const PRESS_FADE_SECS := 0.9
 var _zone_fade := [0.0, 0.0]
 var _press_said := [false, false]
@@ -605,7 +609,7 @@ func _draw_press_zone(c: Vector2, a: float, b: float) -> void:
 		var fade := ease_fade(float(_zone_fade[side]))
 		if fade <= 0.003:
 			continue
-		var base := _zone_colour(_kits[side] as Dictionary)
+		var base := press_zone_colour(home_code if side == 0 else away_code)
 		var dir := MatchDirector._dir(side)
 		# Slices across the oval, each a quad with a colour at both ends, so the
 		# strength varies smoothly with no seam and no snap to a turf stripe.
@@ -633,16 +637,48 @@ func _draw_press_zone(c: Vector2, a: float, b: float) -> void:
 			draw_polygon(q, cols)
 
 
-## The wash's colour: the club's livelier guernsey colour at a turf-like value,
-## so the grass stays grass (a hue shift, not a lift toward white). A club in
-## black and white gets a quiet cool tint: the zone's shape carries the meaning.
-func _zone_colour(kit: Dictionary) -> Color:
-	var a: Color = kit.get("base", Color.WHITE)
-	var b: Color = kit.get("pattern", a)
-	var pick := a if (a.s + 0.3 * a.v) >= (b.s + 0.3 * b.v) else b
+## The turf the wash sits on, for working out what colour to lay over it.
+const PRESS_TURF := Color(0.118, 0.333, 0.133)
+## Which of a club's colours it is known by, as UiKit.club_ink chooses it
+## (INK_SLOT on claude/break-best-so-far, PR #666): the first, except the
+## Bulldogs and Essendon, whose second is the one a supporter names; -1 is a
+## club with no hue (Collingwood). Kept here so the two can be unified once
+## #666 is on main; this file does not touch UiKit.
+const PRESS_INK_SLOT := {"WBD": 1, "ESS": 1, "COL": -1}
+## What the wash should look like once mixed with the turf: the club's hue,
+## saturated, at about the turf's own lightness, so the grass is still grass
+## and the colour still the club's.
+const PRESS_TARGET_V := 0.64
+## A club with no hue (Collingwood, or a custom club in black and white): a
+## dark, cool wash, the zone's shape carrying the rest.
+const PRESS_NO_HUE := Color(0.02, 0.03, 0.07)
+
+
+## The colour to lay over the turf at PRESS_ZONE_ALPHA so the mix lands on the
+## club's colour at turf lightness: the plain colour of a dark club (navy,
+## brown, deep purple) would only darken the grass, and a plain blue or red
+## drifts to teal or brown through the green beneath it. Worked back from the
+## mix, kept in range.
+static func press_zone_colour(code: String) -> Color:
+	var cols: Array = GameDB.club_colours(code)
+	var slot := int(PRESS_INK_SLOT.get(code, 0))
+	if slot < 0:
+		return PRESS_NO_HUE
+	var pick: Color = cols[slot]
 	if pick.s < 0.25:
-		return Color(0.30, 0.58, 0.78)
-	return Color.from_hsv(pick.h, clampf(pick.s, 0.45, 0.8), 0.62)
+		# A custom club whose first colour is black or white: its most saturated.
+		pick = Color(0, 0, 0, 0)
+		var best := 0.25
+		for c in cols:
+			var col: Color = c
+			if col.s > best:
+				best = col.s
+				pick = col
+		if pick.a == 0.0:
+			return PRESS_NO_HUE
+	var target := Color.from_hsv(pick.h, clampf(pick.s, 0.6, 0.85), PRESS_TARGET_V)
+	var w := (Vector3(target.r, target.g, target.b) - Vector3(PRESS_TURF.r, PRESS_TURF.g, PRESS_TURF.b) * (1.0 - PRESS_ZONE_ALPHA)) / PRESS_ZONE_ALPHA
+	return Color(clampf(w.x, 0.0, 1.0), clampf(w.y, 0.0, 1.0), clampf(w.z, 0.0, 1.0))
 
 
 ## A thin light ring on each of your players with a call on him or a run
