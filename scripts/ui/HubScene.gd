@@ -189,7 +189,7 @@ func _show_season_wrap() -> void:
 
 
 func _on_resize() -> void:
-	if not is_inside_tree() or GameState.season == null:
+	if not is_inside_tree() or GameState.season == null or UiKit.keyboard_resize(self):
 		return
 	_build()
 

@@ -41,7 +41,7 @@ func _ready() -> void:
 
 
 func _on_resize() -> void:
-	if is_inside_tree() and GameState.preseason_active():
+	if is_inside_tree() and GameState.preseason_active() and not UiKit.keyboard_resize(self):
 		_build()
 
 

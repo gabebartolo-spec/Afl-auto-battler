@@ -32,7 +32,7 @@ func _ready() -> void:
 	_root = UiKit.vbox(8)
 	margin.add_child(_root)
 	get_viewport().size_changed.connect(func():
-		if is_inside_tree():
+		if is_inside_tree() and not UiKit.keyboard_resize(self):
 			_build())
 	_build()
 
