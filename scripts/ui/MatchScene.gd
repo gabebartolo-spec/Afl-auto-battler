@@ -1927,7 +1927,7 @@ func _show_break_stats(players_first := false) -> void:
 # A PC break is tight (the fullest one, GWS with both loose men, has 8 px to
 # spare and Best so far may be at most ~213 px tall), so the rows sit 4 px apart
 # there; a phone scrolls and has room for more.
-const BEST_ROW_GAP_PC := 4
+const BEST_ROW_GAP_PC := 2
 
 
 func _best_so_far() -> Control:
