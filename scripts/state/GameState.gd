@@ -1673,6 +1673,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	pending_label = ""
 	_open_board_season()
 	_captaincy_refresh()
+	_culture_rollover()
 	_build_season_wrap(next_year)
 	autosave()
 
@@ -3730,6 +3731,7 @@ func _after_round(results: Array) -> void:
 			and int(season_awards.get("year", 0)) != season_year:
 		_close_season_awards()
 	_captaincy_week()
+	_culture_week()
 	_next_week_event()
 	_find_coach_approaches()
 
@@ -7358,6 +7360,7 @@ func _board_after_round(results: Array) -> void:
 			ClubLife.add_morale(p, -CoachEffects.softened(Backing.STING, float(soft.get(pid, 0.0))))
 			Trust.change(relations, Trust.player_key(pid), ClubStories.BROKEN_RUN_TRUST,
 					"You broke your word on his run of games", season_year, last_label)
+			_culture_move(my_club, "together", -2, "You broke your word on a player's run of games")
 		p.erase("expects_game")
 	# A player promised a game (a talk, or a kid given his chance): leaving
 	# him out fit sours it. Once: the promise ends with the round.
@@ -7369,6 +7372,7 @@ func _board_after_round(results: Array) -> void:
 				ClubLife.add_morale(p, -CoachEffects.softened(sting, float(soft.get(str(p["id"]), 0.0))))
 				Trust.change(relations, Trust.player_key(str(p["id"])), ClubStories.BROKEN_PROMISE_TRUST,
 						"You promised him a game and left him out", season_year, last_label)
+				_culture_move(my_club, "together", -2, "You promised a player a game and left him out")
 	_after_match_talks(played, int(res.get("round", season.round_index)))
 
 
@@ -8658,3 +8662,149 @@ func set_captaincy(new_slots: Array) -> Dictionary:
 	captaincy[my_club] = rec
 	mark_dirty()
 	return pv
+
+
+# ---------------------------------------------------------------------------
+# Club culture (Culture.gd): three strands per club, in words
+# ---------------------------------------------------------------------------
+## Once-a-season bookkeeping, kept beside the strands in `relations`
+## ("k:done"): the season closed, the rollover counted, the clubs already in
+## the league news this season.
+func _culture_marks() -> Dictionary:
+	var m: Dictionary = relations.get("k:done", {})
+	if m.is_empty():
+		m = {"t": 0, "log": [], "season": 0, "roll": 0, "news": {}}
+		relations["k:done"] = m
+	return m
+
+
+## Move a club's strand, with the reason. A rival whose strand crosses into a
+## new named band makes the league news (once a season, neutral words); yours
+## is on your Club culture page.
+func _culture_move(code: String, strand: String, d: int, why: String) -> void:
+	var before := Culture.value(relations, code, strand)
+	var when := "Off-season" if season == null or offseason_year == season_year else last_label
+	if Culture.change(relations, code, strand, d, why, season_year, when) == 0:
+		return
+	if code == my_club:
+		return
+	var after := Culture.value(relations, code, strand)
+	if Culture.band_key(strand, before) == Culture.band_key(strand, after) or not Culture.news_ok(strand, after):
+		return
+	var told: Dictionary = _culture_marks()["news"]
+	if int(told.get(code, 0)) == season_year:
+		return
+	told[code] = season_year
+	var line := "%s %s." % [GameDB.club_name(code), Culture.news_phrase(strand, after)]
+	# The season's close keeps the premiers on top of the feed: its news waits for
+	# the rollover.
+	if season != null and season.is_season_over():
+		var pending: Array = _culture_marks().get("pending", [])
+		pending.append(line)
+		_culture_marks()["pending"] = pending
+		return
+	add_news("culture", line)
+
+
+## After each round, every club: a run of losses or wins that has just reached
+## its mark moves Togetherness. When the season is over, its close.
+func _culture_week() -> void:
+	if season == null or my_club == "":
+		return
+	for code in season.lists:
+		var form: Array = season.club_results(str(code))
+		var losses := 0
+		var wins := 0
+		var i := form.size() - 1
+		while i >= 0 and str(form[i]) == "L":
+			losses += 1
+			i -= 1
+		i = form.size() - 1
+		while i >= 0 and str(form[i]) == "W":
+			wins += 1
+			i -= 1
+		var step := Culture.run_step(losses, wins)
+		if not step.is_empty():
+			_culture_move(str(code), str(step[0]), int(step[1]), str(step[2]))
+	if season.is_season_over():
+		_culture_season()
+
+
+## The season's close for every club: its finish, the age of its best 22 and
+## the discipline of its list against the league's.
+func _culture_season() -> void:
+	var marks := _culture_marks()
+	if int(marks["season"]) == season_year:
+		return
+	marks["season"] = season_year
+	var table := season.ladder_sorted()
+	var disc := {}
+	var league_sum := 0.0
+	var league_n := 0
+	for code in season.lists:
+		var sum := 0.0
+		var n := 0
+		for p in season.lists[code]:
+			var a: Dictionary = (p as Dictionary).get("attr", {})
+			if a.has("discipline"):
+				sum += float(a["discipline"])
+				n += 1
+		disc[str(code)] = sum / maxf(1.0, float(n))
+		league_sum += sum
+		league_n += n
+	var league_mean := league_sum / maxf(1.0, float(league_n))
+	var champion := premier()
+	var ages := {}
+	var age_sum := 0.0
+	for code in season.lists:
+		var best: Array = (season.lists[code] as Array).duplicate()
+		best.sort_custom(func(x, y): return int(x.get("overall", 0)) > int(y.get("overall", 0)))
+		var age := 0.0
+		var count := mini(22, best.size())
+		for j in range(count):
+			age += float(best[j].get("age", 25.0))
+		age /= maxf(1.0, float(count))
+		ages[str(code)] = age
+		age_sum += age
+	var age_mean := age_sum / maxf(1.0, float(ages.size()))
+	for k in range(table.size()):
+		var code := str(table[k]["code"])
+		for st in Culture.season_steps(k + 1, table.size(), code == champion,
+				float(ages.get(code, age_mean)) - age_mean, float(disc.get(code, league_mean)) - league_mean):
+			_culture_move(code, str(st["strand"]), int(st["d"]), str(st["why"]))
+		for s in Culture.STRANDS:
+			Culture.settle(relations, code, str(s[0]))
+
+
+## At the rollover, every club: how many new faces came from other clubs.
+func _culture_rollover() -> void:
+	if season == null:
+		return
+	var marks := _culture_marks()
+	if int(marks["roll"]) == season_year:
+		return
+	marks["roll"] = season_year
+	for line in marks.get("pending", []):
+		add_news("culture", str(line))
+	marks["pending"] = []
+	var faces := {}
+	var counts := []
+	for code in season.lists:
+		var n := 0
+		for p in season.lists[code]:
+			var c = (p as Dictionary).get("career")
+			if not (c is Dictionary):
+				continue
+			var stints: Array = (c as Dictionary).get("stints", [])
+			if not stints.is_empty() and str((stints[stints.size() - 1] as Array)[0]) != str(code):
+				n += 1
+		faces[str(code)] = n
+		counts.append(n)
+	counts.sort()
+	var median := 0.0
+	if not counts.is_empty():
+		var mid := counts.size() / 2
+		median = float(counts[mid]) if counts.size() % 2 == 1 else (float(counts[mid - 1]) + float(counts[mid])) / 2.0
+	for code in faces:
+		for st in Culture.new_faces_step(int(faces[code]), median):
+			_culture_move(str(code), str(st["strand"]), int(st["d"]), str(st["why"]))

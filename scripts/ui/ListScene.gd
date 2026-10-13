@@ -91,6 +91,13 @@ func _build() -> void:
 			(h as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		(cap_link.get_child(0) as BoxContainer).add_theme_constant_override("separation", 16)
 	_root.add_child(cap_link)
+	var culture_link := CultureSheet.entry_row()
+	culture_link.pressed.connect(func(): _open_culture())
+	for link in [cap_link, culture_link]:
+		var value: Node = link.find_child("SectionLeadsTo", true, false)
+		if value is Label:
+			(value as Label).add_theme_color_override("font_color", UiKit.TEXT)
+	_root.add_child(culture_link)
 
 	if _narrow():
 		var tabs := UiKit.hbox(2)
@@ -296,6 +303,13 @@ func _open_profile(id: String) -> void:
 	_profile = PlayerSheet.open(self, p, func(): _profile = null)
 
 
+func _open_culture() -> void:
+	_close_profile()
+	_profile = CultureSheet.open(self, func():
+		_profile = null
+		_build())
+
+
 func _open_captaincy() -> void:
 	_close_profile()
 	_profile = CaptaincySheet.open(self, func():
@@ -312,6 +326,8 @@ func _close_profile() -> void:
 ## Android Back closes a profile before leaving the list.
 func handle_back() -> bool:
 	if _profile != null and is_instance_valid(_profile):
+		if _profile.has_meta("back") and bool((_profile.get_meta("back") as Callable).call()):
+			return true
 		_close_profile()
 		return true
 	return false

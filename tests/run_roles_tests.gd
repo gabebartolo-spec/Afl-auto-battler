@@ -38,6 +38,7 @@ func _run() -> void:
 	await _team_changes_tests()
 	await _backing_ui_tests()
 	await _captaincy_ui_tests()
+	await _culture_ui_tests()
 	await _captain_card_ui_tests()
 	print("Roles + selection tests: %d checks, %d failures" % [_checks, _failures.size()])
 	_state.replay_seed = 0
@@ -768,6 +769,43 @@ func _captain_card_ui_tests() -> void:
 		await process_frame
 	_check(why == "" and bool((_state.week_events[0] as Dictionary).get("resolved", false)), "A real tap answers the card (%s)" % why)
 	hub.queue_free()
+	await _settle()
+
+
+## Club culture over My list, by real taps: the way in, the words, the reasons
+## one tap away.
+func _culture_ui_tests() -> void:
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.career_seed = SUITE_SEED
+	_state.start_season("FRE", db.club_list("FRE"))
+	root.size = Vector2i(420, 860)
+	Culture.change(_state.relations, "FRE", "together", 6, "A run of four losses", _state.season_year, "Round 6")
+	for i in range(3):
+		Culture.change(_state.relations, "FRE", "together", 6, "Played finals", _state.season_year, "Round 24")
+	# The way in is a real tap, the screen says the strands in words and what moves
+	# each, the dated reasons are football words, Android Back closes it.
+	var ls: Control = load("res://scenes/ListScene.tscn").instantiate()
+	root.add_child(ls)
+	await _settle()
+	var open_btn: Button = ls.find_child("CultureOpen", true, false)
+	_check(open_btn != null and open_btn.size.y >= 44, "My list has a thumb-sized way into Club culture")
+	_check(open_btn != null and _screen_text(open_btn).contains("A tight group"), "The way in says the strands in bold words")
+	var why: String = await Tap.tap(open_btn)
+	await _settle()
+	var sheet: Node = ls.find_child("CultureSheet", true, false)
+	_check(why == "" and sheet != null and _screen_text(sheet).contains("A tight group")
+			and _screen_text(sheet).contains("Nothing stands out yet"),
+			"The screen says the strands in words, and what has nothing to say (%s)" % why)
+	_check(sheet != null and not _screen_text(sheet).contains("No effect"), "The screen claims no effect it does not have")
+	_check(sheet != null and _screen_text(sheet).contains(Culture.moves_line("ambition")), "Each strand says what moves it")
+	var reasons: Node = sheet.find_child("CultureReasons", true, false) if sheet != null else null
+	_check(reasons != null and reasons.is_visible_in_tree() and _screen_text(reasons).contains("layed finals. Togetherness rose."),
+			"Each reason is one event in football words")
+	ls.handle_back()
+	await _settle()
+	_check(ls.find_child("CultureSheet", true, false) == null, "Android Back closes the culture screen")
+	ls.queue_free()
 	await _settle()
 
 
