@@ -637,10 +637,28 @@ func _coach_descriptions(sz: Vector2i) -> void:
 					break
 		_check(who_box != null and mine_btn != null, "You are offered who goes to the tag (%s)" % tag)
 		var dflt: Button = who_box.find_child("TaggerPickerGrid_", true, false) if who_box != null else null
-		var gives := func(t: String) -> bool: return t.contains("Gives up his own game") or t.contains("Hasn't played yet")
-		_check(dflt != null and gives.call(dflt.text) and dflt.text.contains("Your assistant's pick")
-				and mine_btn != null and gives.call(mine_btn.text),
-				"Your assistant's tagger shows what he gives up, like the others, marked as the pick (%s: %s)" % [tag, dflt.text if dflt else "-"])
+		# The card's words are kept on the button (its labels are children); the
+		# trade is his season Player rating, never his disposals (director, 2026-10-13).
+		var words := func(b: Button) -> String: return str(b.get_meta("card_text", b.text))
+		var gives := func(t: String) -> bool:
+			return t.contains("Gives up His own game (") and not t.contains("disposals") 					and (t.contains("season rating ") or t.contains("yet to play this season"))
+		_check(dflt != null and gives.call(words.call(dflt)) and words.call(dflt).contains("Your assistant's pick")
+				and mine_btn != null and gives.call(words.call(mine_btn)),
+				"Your assistant's tagger shows what he gives up, like the others, marked as the pick (%s: %s)" % [tag, words.call(dflt).replace("
+", " / ") if dflt else "-"])
+		# Name bold on top, three labelled facts, the pick a quiet label on his card, your club's rule.
+		var cards: Array = who_box.find_children("Card_TaggerPickerGrid_*", "Control", true, false) if who_box != null else []
+		var shaped := not cards.is_empty()
+		for cd in cards:
+			shaped = shaped and cd.find_child("CardName", true, false) != null and cd.find_child("ClubRule", true, false) != null 					and (cd.find_child("CardFacts", true, false) as Container).get_child_count() >= 3
+		_check(shaped, "Each Who tags card is a name, three labelled facts and your club's rule (%s)" % tag)
+		_check(dflt != null and dflt.get_parent().find_child("CardPick", true, false) != null
+				and cards.filter(func(cd): return cd.find_child("CardPick", true, false) != null).size() == 1,
+				"Only your assistant's pick carries the pick label (%s)" % tag)
+		if sz.x >= 800 and cards.size() >= 2:
+			# A narrow half of a column, so two to a row: the first two share one.
+			_check(absf((cards[1] as Control).global_position.y - (cards[0] as Control).global_position.y) < 2.0,
+					"On a PC the Who tags cards sit side by side, not in a phone column (%s)" % tag)
 		if sz.x < 800:
 			var short := []
 			for pk in ["TagPicker", "TaggerPicker"]:
@@ -652,13 +670,13 @@ func _coach_descriptions(sz: Vector2i) -> void:
 			_check(short.is_empty(), "Every Tag and Who tags button is a thumb's height on a phone (%s: %s)" % [tag, ", ".join(short)])
 		if mine_btn != null:
 			# The card's first line is his name; the facts sit under it.
-			var mine_name: String = mine_btn.text.split("\n")[0].strip_edges()
+			var mine_name: String = words.call(mine_btn).split("\n")[0].strip_edges()
 			var ww: String = await Tap.tap(mine_btn)
 			await _settle()
 			_check(ww == "" and tn.text.begins_with(mine_name), "The midfielder you tap is the one who goes (%s: %s; tapped %s)" % [tag, tn.text, mine_name])
 			var wd: String = await Tap.tap(who_box.find_child("TaggerPickerGrid_", true, false))
 			await _settle()
-			_check(wd == "" and not tn.text.begins_with(mine_name), "Back to your assistant's man (%s: %s)" % [tag, tn.text])
+			_check(wd == "" and not tn.text.begins_with(mine_name), "Back to your assistant's man (%s: %s; was %s)" % [tag, tn.text, mine_name])
 
 	# Play through, three calls: each offers only the men who fill its job, and
 	# its note says his job and what it does; with nobody, what that means. Real taps.

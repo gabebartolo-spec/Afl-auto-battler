@@ -2355,12 +2355,18 @@ func _test_tag_hold() -> void:
 	_check(str(MatchSim.tagger_for(sq.ground)["id"]) == str(MatchSim.tag_order(sq.ground)[0]["id"]),
 			"Your assistant sends the first man on that list")
 	var card := MatchNotes.tagger_card_detail(order[0], 60.0, false)
-	_check(card.contains("Pressure") and card.contains("Hasn't played yet: ") and card.contains("Tiring")
-			and card.contains("Tagger") == Roles.is_tagger(order[0]),
-			"A card shows his Pressure, his legs in words, Tagger only with the trait, and before a season his ratings, said so (%s)" % card.replace("\n", " / "))
-	var played := MatchNotes.tagger_card_detail(order[0], 60.0, false, 24.4)
-	_check(played.contains("Gives up his own game: 24 disposals a game"),
-			"Once he has a season, the card says what tagging costs in his own game (%s)" % played.replace("\n", " / "))
+	_check(card.contains("Pressure") and card.contains("Gives up his own game (yet to play this season)") and card.contains("Tiring")
+			and card.contains("Tagger") == Roles.is_tagger(order[0]) and not card.contains("disposals"),
+			"A card shows his Pressure, his legs in words, Tagger only with the trait, and before a season says he is yet to play (%s)" % card.replace("
+", " / "))
+	var played := MatchNotes.tagger_card_detail(order[0], 60.0, false, 71.38)
+	_check(played.contains("Gives up his own game (season rating 71.4)") and not played.contains("disposals"),
+			"Once he has a season, the card says what tagging costs: his season rating, the figure the Ratings screen shows (%s)" % played.replace("
+", " / "))
+	var parts := MatchNotes.tagger_card(order[0], 40.0, 71.38)
+	_check(parts["legs"] == "Running on empty" and bool(parts["legs_bad"]) and not bool(MatchNotes.tagger_card(order[0], 60.0)["legs_bad"])
+			and not bool(MatchNotes.tagger_card(order[0], 90.0)["legs_bad"]),
+			"Only running on empty is the bad state on a card, tiring and fresh are not")
 
 
 ## The coach's named tagger (#633) rotates like anyone, but he comes back on

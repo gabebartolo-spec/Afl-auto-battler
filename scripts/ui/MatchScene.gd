@@ -732,12 +732,15 @@ func _show_coach_box() -> void:
 	var press := func(r: Dictionary) -> float:
 		return float((my_mids.get(str(r["id"]), r) as Dictionary).get("attr", {}).get("pressure", 0.0))
 	others.sort_custom(func(a, b): return press.call(a) > press.call(b))
+	# What he gives up: his Player rating for the season so far, the figure the
+	# Ratings screen shows (a game's average); -1 before he has played.
+	var season_rating := func(id: String) -> float:
+		var book: Dictionary = GameState.season_stats.get(id, {})
+		var games := int(book.get("games", 0))
+		return StatsPlayers.season_rating(book.get("s", {}) as Dictionary) / float(games) if games > 0 else -1.0
 	var tag_detail := func(r: Dictionary, wide: bool) -> String:
 		var p: Dictionary = my_mids.get(str(r["id"]), r)
-		var book: Dictionary = GameState.season_stats.get(str(r["id"]), {})
-		var games := int(book.get("games", 0))
-		var per_game := float((book.get("s", {}) as Dictionary).get("disposals", 0.0)) / games if games > 0 else -1.0
-		return MatchNotes.tagger_card_detail(p, float(sim.energy.get(str(r["id"]), 100.0)), wide, per_game)
+		return MatchNotes.tagger_card_detail(p, float(sim.energy.get(str(r["id"]), 100.0)), wide, season_rating.call(str(r["id"])))
 	var tag_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	tag_note.name = "TagNote"
 	tag_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -769,9 +772,15 @@ func _show_coach_box() -> void:
 		# they can be compared card for card.
 		# On a PC two alternatives beside his card (two rows, so the fullest
 		# break still fits 1280x720); the rest are behind Other player....
+		var card := func(b: Button, id: String) -> void:
+			var who: Dictionary = tagger if id == "" else my_mids.get(id, {})
+			if who.is_empty():
+				return
+			var pid := str(who.get("id", ""))
+			_dress_tagger_card(b, _short_name(who), MatchNotes.tagger_card(who, float(sim.energy.get(pid, 100.0)), season_rating.call(pid)), id == "")
 		var who_tags := _player_choice("TaggerPicker", _card_text(tagger, tag_detail) + "\nYour assistant's pick", others,
 				others.slice(0, 2 if _pc_break else 3),
-				calls, "tagger_id", "Who goes to him?", sync_tag, tag_detail)
+				calls, "tagger_id", "Who goes to him?", sync_tag, tag_detail, card)
 		var wb := _call_block("Who tags", who_tags)
 		# The follow-up to Tag: packed with its question, never ahead of it.
 		wb.set_meta("break_follow", true)
@@ -1530,7 +1539,7 @@ func _segmented(node_name: String, options: Array, calls: Dictionary, field: Str
 ## ("" for none); wide is the list sheet's one-line form.
 func _player_choice(node_name: String, none_label: String, roster: Array, first: Array,
 		calls: Dictionary, field: String, sheet_title: String, on_change: Callable = Callable(),
-		detail: Callable = Callable()) -> Control:
+		detail: Callable = Callable(), card: Callable = Callable()) -> Control:
 	var box := UiKit.vbox(0)
 	box.name = node_name
 	var rebuild := func(self_ref: Callable) -> void:
@@ -1558,6 +1567,14 @@ func _player_choice(node_name: String, none_label: String, roster: Array, first:
 					on_change.call(id)
 				self_ref.call(self_ref)))
 		grid.add_child(other)
+		if card.is_valid():
+			# Cards set their own facts (_dress_tagger_card): one to a line on
+			# a phone, side by side on a PC, "Other player..." last.
+			grid.columns = 2 if _pc_break else 1
+			for gb in grid.get_children().duplicate():
+				if gb is Button and gb != other:
+					card.call(gb, str(gb.name).trim_prefix(node_name + "Grid_"))
+			return
 		# On a PC, cards with a detail line sit together in their own row and
 		# "Other player..." beside the none choice: two short buttons share a
 		# row instead of each standing beside a tall card.
@@ -1576,6 +1593,98 @@ func _card_text(r: Dictionary, detail: Callable) -> String:
 	var extra := str(detail.call(r, false)) if detail.is_valid() else ""
 	return _short_name(r) if extra == "" else "%s
 %s" % [_short_name(r), extra]
+
+
+## A "Who tags" card (director, 2026-10-13: it must read at a glance): his name
+## in bold with where he plays small beside it, then three short facts, one to
+## a line, label quiet and value clear (his Pressure, his legs, what he gives
+## up of his own game). Your club's colour is the rule down the left edge;
+## selection stays the button's own text outline. The button stays the card's
+## background and its tap target, under the words; its words are kept in the
+## "card_text" meta for the tests.
+func _dress_tagger_card(b: Button, who_name: String, c: Dictionary, is_pick: bool) -> void:
+	var gives_value := str(c["gives"]).left(1).to_upper() + str(c["gives"]).substr(1)
+	var plain := "%s\n%s\nPressure %s\nLegs %s\n%s %s" % [who_name, c["where"], c["pressure"], c["legs"],
+			c["gives_label"], gives_value]
+	if is_pick:
+		plain += "\nYour assistant's pick"
+	b.set_meta("card_text", plain)
+	b.text = ""
+	var grid := b.get_parent()
+	var at := b.get_index()
+	var wrap := MarginContainer.new()
+	wrap.name = "Card_" + str(b.name)
+	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.remove_child(b)
+	grid.add_child(wrap)
+	grid.move_child(wrap, at)
+	wrap.add_child(b)
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_left", 10)
+	pad.add_theme_constant_override("margin_right", 10)
+	pad.add_theme_constant_override("margin_top", 10)
+	pad.add_theme_constant_override("margin_bottom", 10)
+	wrap.add_child(pad)
+	var row := UiKit.hbox(10)
+	pad.add_child(row)
+	# Your side's colour, in the shade of it that reads on the card.
+	var rule := ColorRect.new()
+	rule.name = "ClubRule"
+	rule.color = UiKit.club_vivid(str(GameState.my_club), UiKit.SURFACE)
+	rule.custom_minimum_size = Vector2(4, 0)
+	row.add_child(rule)
+	var col := UiKit.vbox(6)
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(col)
+	var head := HFlowContainer.new()
+	head.add_theme_constant_override("h_separation", 8)
+	head.add_theme_constant_override("v_separation", 0)
+	var nm := UiKit.line(who_name, UiKit.NAME, UiKit.TEXT, true)
+	nm.name = "CardName"
+	head.add_child(nm)
+	var where := UiKit.line(str(c["where"]), UiKit.SECONDARY, UiKit.MUTED)
+	where.name = "CardWhere"
+	head.add_child(where)
+	col.add_child(head)
+	var rows := [["Pressure", str(c["pressure"]), false], ["Legs", str(c["legs"]), bool(c["legs_bad"])],
+			[str(c["gives_label"]), gives_value, false]]
+	# A phone card is wide: label and value in two columns. A PC's card is a
+	# narrow half of a column: the label above the long value instead.
+	var facts: Container = VBoxContainer.new() if _pc_break else GridContainer.new()
+	if _pc_break:
+		facts.add_theme_constant_override("separation", 2)
+	else:
+		(facts as GridContainer).columns = 2
+		facts.add_theme_constant_override("h_separation", 10)
+		facts.add_theme_constant_override("v_separation", 2)
+	for f in rows:
+		var k := UiKit.line(str(f[0]), UiKit.SECONDARY, UiKit.MUTED)
+		k.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		var v := UiKit.lbl(str(f[1]), UiKit.BODY, UiKit.BAD if bool(f[2]) else UiKit.TEXT)
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if _pc_break and str(f[0]) != str(c["gives_label"]):
+			var one := HBoxContainer.new()
+			one.add_theme_constant_override("separation", 8)
+			one.add_child(k)
+			one.add_child(v)
+			facts.add_child(one)
+		elif _pc_break:
+			facts.add_child(k)
+			facts.add_child(v)
+		else:
+			facts.add_child(k)
+			facts.add_child(v)
+	facts.name = "CardFacts"
+	col.add_child(facts)
+	if is_pick:
+		var pick := UiKit.line("Your assistant's pick", UiKit.SECONDARY, UiKit.MUTED)
+		pick.name = "CardPick"
+		pick.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		head.add_child(pick)
+	for n in wrap.find_children("*", "Control", true, false):
+		if n != b:
+			(n as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 func _short_name(r: Dictionary) -> String:

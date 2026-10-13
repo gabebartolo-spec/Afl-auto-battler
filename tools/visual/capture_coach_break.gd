@@ -99,8 +99,21 @@ func _run() -> void:
 		for sd in [0, 1]:
 			state.pending_sim.set_interceptor(sd, "", false)
 	UK.apply_appearance(mode)
-	root.size = Vector2i(_w, _h)
-	DisplayServer.window_set_size(Vector2i(_w, _h))
+	if _w >= 760:
+		# A PC window on the 1280x720 desktop canvas, as the game lays it out.
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(_w, _h))
+		for i in range(10):
+			await process_frame
+		var factor := float(_w) / maxf(1.0, root.get_visible_rect().size.x)
+		if factor > 1.05:
+			DisplayServer.window_set_size(Vector2i(int(_w * factor), int(_h * factor)))
+			for i in range(10):
+				await process_frame
+		print("visible ", root.get_visible_rect().size)
+	else:
+		root.size = Vector2i(_w, _h)
+		DisplayServer.window_set_size(Vector2i(_w, _h))
 	var scene = load("res://scenes/MatchScene.tscn").instantiate()
 	root.add_child(scene)
 	await _frames(10)

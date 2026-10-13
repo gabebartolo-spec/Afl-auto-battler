@@ -732,36 +732,41 @@ static func card_detail(p: Dictionary, trait_name: String, ratings: PackedString
 	return where + dot + dot.join(ratings) if wide else where + "\n" + dot.join(ratings)
 
 
-## A "Who tags" card (director, 2026-10-11): the facts the tag rule reads,
-## nothing else. Where he plays, his Pressure, "Tagger" with the trait, his
-## legs in the game's words (legs_word, no number), and what going to the tag
-## gives up of his own game (MatchSim.tag_give_up: disposal, and contested
-## ball unless he plays on a wing).
-## per_game: his disposals a game this season (-1 when he has not played):
-## what sending him to the tag costs, in words (BOSS, 2026-10-11: the trade-off
-## must read at the pick). Before he has a season, his ball-winning ratings.
-static func tagger_card_detail(p: Dictionary, legs: float, wide: bool, per_game := -1.0) -> String:
+## A "Who tags" card (director, 2026-10-11, reworked 2026-10-13): the facts
+## the tag rule reads, nothing else, as parts so the card can set each in its
+## own place. His position ("Tagger" with the trait), his Pressure, his legs
+## in the game's words (legs_word, no number; `legs_bad` only when he is
+## running on empty) and what going to the tag gives up of his own game: his
+## Player rating for the season so far, the figure the Ratings screen shows
+## (a game's average; `rating` is -1 before he has played).
+static func tagger_card(p: Dictionary, legs: float, rating := -1.0) -> Dictionary:
 	var places := PackedStringArray()
 	for r in Ratings.positions(p):
 		places.append(str(UiKit.ROLE_LABEL.get(str(r), str(r))))
+	var where := "/".join(places)
+	if Roles.is_tagger(p):
+		where += " · Tagger"
 	var a: Dictionary = p.get("attr", {})
+	var lw := legs_word(legs)
+	var gives := "his own game (yet to play this season)"
+	if rating >= 0.0:
+		gives = "his own game (season rating %.1f)" % rating
+	return {"where": where, "pressure": str(roundi(float(a.get("pressure", 0)))),
+			"legs": lw.left(1).to_upper() + lw.substr(1), "legs_bad": legs < TIRING,
+			"gives_label": "Gives up", "gives": gives}
+
+
+## The same card in one run of words, for the long list ("Other player...")
+## where each man is one tap row: wide puts it on one line.
+static func tagger_card_detail(p: Dictionary, legs: float, wide: bool, rating := -1.0) -> String:
+	var c := tagger_card(p, legs, rating)
 	# No-break spaces hold each "·" to the words either side, so a line
 	# never ends on one.
-	var dot := "\u00a0·\u00a0"
-	var first := "%s%sPressure\u00a0%d" % ["/".join(places), dot, roundi(float(a.get("pressure", 0)))]
-	if Roles.is_tagger(p):
-		first += dot + "Tagger"
-	var gives := "disposal %d" % roundi(float(a.get("disposal", 0)))
-	if not Roles.on_wing(p):
-		gives = "contested %d, %s" % [roundi(float(a.get("contested", 0))), gives]
-	# What he gives up: his disposals a game; before he has played, his
-	# ball-winning ratings, said as that.
-	var cost := "Hasn't played yet: %s" % gives
-	if per_game >= 0.0:
-		cost = "Gives up his own game: %d disposals a game" % roundi(per_game)
-	var lw := legs_word(legs)
-	var second := "%s%s%s%s" % [lw.left(1).to_upper(), lw.substr(1), dot, cost]
-	return (first + dot + second) if wide else (first + "\n" + second)
+	var dot := " · "
+	var first := "%s%sPressure %s" % [c["where"], dot, c["pressure"]]
+	var second := "%s%sGives up %s" % [c["legs"], dot, c["gives"]]
+	return (first + dot + second) if wide else (first + "
+" + second)
 
 
 ## The best few players of a side by influence: [{"id", "name", "line"}].
