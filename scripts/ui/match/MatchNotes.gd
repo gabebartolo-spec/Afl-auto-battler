@@ -732,6 +732,43 @@ static func card_detail(p: Dictionary, trait_name: String, ratings: PackedString
 	return where + dot + dot.join(ratings) if wide else where + "\n" + dot.join(ratings)
 
 
+## A "Who tags" card (director, 2026-10-11, reworked 2026-10-13): the facts
+## the tag rule reads, nothing else, as parts so the card can set each in its
+## own place. His position ("Tagger" with the trait), his Pressure, his legs
+## in the game's words (legs_word, no number; `legs_bad` only when he is
+## running on empty) and what going to the tag gives up of his own game: his
+## Player rating for the season so far, the figure the Ratings screen shows
+## (a game's average; `rating` is -1 before he has played).
+static func tagger_card(p: Dictionary, legs: float, rating := -1.0) -> Dictionary:
+	var places := PackedStringArray()
+	for r in Ratings.positions(p):
+		places.append(str(UiKit.ROLE_LABEL.get(str(r), str(r))))
+	var where := "/".join(places)
+	if Roles.is_tagger(p):
+		where += " · Tagger"
+	var a: Dictionary = p.get("attr", {})
+	var lw := legs_word(legs)
+	var gives := "his own game (yet to play this season)"
+	if rating >= 0.0:
+		gives = "his own game (season rating %.1f)" % rating
+	return {"where": where, "pressure": str(roundi(float(a.get("pressure", 0)))),
+			"legs": lw.left(1).to_upper() + lw.substr(1), "legs_bad": legs < TIRING,
+			"gives_label": "Gives up", "gives": gives}
+
+
+## The same card in one run of words, for the long list ("Other player...")
+## where each man is one tap row: wide puts it on one line.
+static func tagger_card_detail(p: Dictionary, legs: float, wide: bool, rating := -1.0) -> String:
+	var c := tagger_card(p, legs, rating)
+	# No-break spaces hold each "·" to the words either side, so a line
+	# never ends on one.
+	var dot := " · "
+	var first := "%s%sPressure %s" % [c["where"], dot, c["pressure"]]
+	var second := "%s%sGives up %s" % [c["legs"], dot, c["gives"]]
+	return (first + dot + second) if wide else (first + "
+" + second)
+
+
 ## The best few players of a side by influence: [{"id", "name", "line"}].
 static func standouts(res: Dictionary, side: int, n: int) -> Array:
 	var ranked := rated_players(res, side)
