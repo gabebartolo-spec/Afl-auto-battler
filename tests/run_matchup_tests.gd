@@ -42,6 +42,7 @@ func _run() -> void:
 	await _season_review_scrolls()
 	await _pre_match_scene()
 	_pre_match_captions()
+	_banner_scene_budget()
 	_state.replay_seed = 0
 	print("Matchup + hub tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
@@ -464,6 +465,41 @@ func _check(condition: bool, message: String) -> void:
 ## its own line. Only a real final counts as one: every final's label does, no
 ## home-and-away round does, and a missing label is not a final. (Only the
 ## selection is tested; the fixed words are not.)
+## The banner scene's frame budget (web build on a PC ran it slowly): what is the same
+## every frame is worked out once, not each frame - the stand ring, the oval's turf and
+## markings points - and the banner's tear times are the same as working each piece out.
+func _banner_scene_budget() -> void:
+	var VG = load("res://scripts/ui/match/VignetteGround.gd")
+	var a = VG._ring_columns(74.0, 86.0, 2.1875)
+	_check(is_same(a, VG._ring_columns(74.0, 86.0, 2.1875)), "The stand ring is made once, not every frame")
+	_check(is_same(VG._ellipse_ring(68.0, 80.0, 0.0, 0.0, 360), VG._ellipse_ring(68.0, 80.0, 0.0, 0.0, 360)),
+			"The boundary's points are made once")
+	_check(is_same(VG._band(0.0, 12.0), VG._band(0.0, 12.0)), "A mown stripe's points are made once")
+	_check(is_same(VG._arc(79.0, 1.0), VG._arc(79.0, 1.0)), "The 50 m arc's points are made once")
+	_check((a as Array).size() > 100 and float(a[a.size() - 1][0]) >= TAU - 0.0001, "The ring still closes round the ground")
+	var pm = load("res://scripts/ui/match/PreMatchVignette.gd")
+	var v = pm.new()
+	var crossings := []
+	for i in range(23):
+		crossings.append([(float(i) - 11.0) * 0.7, 1.0 + float(i) * 0.05])
+	var cached: PackedFloat64Array = v._tear_times(crossings)
+	_check(cached.size() == pm.BANNER_COLS * pm.BANNER_ROWS, "A tear time for every piece of the banner")
+	var cw: float = 2.0 * pm.BANNER_W / pm.BANNER_COLS
+	var ch: float = (pm.BANNER_TOP - pm.BANNER_LOW) / pm.BANNER_ROWS
+	var same := true
+	for c in range(pm.BANNER_COLS):
+		for r in range(pm.BANNER_ROWS):
+			var want: float = v._tear_time(-pm.BANNER_W + (c + 0.5) * cw, pm.BANNER_LOW + (r + 0.5) * ch, c * 31 + r * 7, crossings)
+			if cached[c * pm.BANNER_ROWS + r] != want:
+				same = false
+	_check(same, "The cached tear times are the piece-by-piece ones")
+	v.free()
+	var t0 := Time.get_ticks_usec()
+	for i in range(200):
+		VG._ring_columns(74.0, 86.0, 2.1875)
+	_check(Time.get_ticks_usec() - t0 < 50000, "200 frames of the stand ring take under 50 ms (a generous ceiling)")
+
+
 func _pre_match_captions() -> void:
 	var db = root.get_node("GameDB")
 	_reset()

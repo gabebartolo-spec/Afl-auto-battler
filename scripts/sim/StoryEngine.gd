@@ -130,6 +130,8 @@ static func tier(t: Dictionary) -> String:
 static func eligible_subject(t: Dictionary, ctx: Dictionary, story: Dictionary, w: int,
 		rng: RandomNumberGenerator, skip_pid := "") -> Dictionary:
 	var id := str(t["id"])
+	if bool(t.get("scripted", false)):
+		return {}   # dealt by the game itself (the result of a role trial), never drawn
 	if not (t.get("phase", ["regular"]) as Array).has(str(ctx.get("phase", "regular"))):
 		return {}
 	# A week off in the finals: only the cards written for it.
@@ -435,7 +437,7 @@ static func name_list(names: Array) -> String:
 static func describe(c: Dictionary, facts: Dictionary) -> String:
 	var out: PackedStringArray = []
 	for e in c.get("effects", []):
-		var s := _effect_words(e, facts)
+		var s := _trial_words(e) if str(e.get("op", "")) == "role_trial" else _effect_words(e, facts)
 		if s != "":
 			out.append(fill(s, facts))
 	return " ".join(out)
@@ -497,6 +499,8 @@ static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
 			return [["gain", PROMISE_WIN_GAIN], ["cost", PROMISE_WIN_COST]]
 		"extend_early":
 			return [["gain", EXTEND_GAIN], ["cost", EXTEND_COST]]
+		"role_trial":
+			return [["gain", _trial_words(e)]]
 	var kind := ""
 	match op:
 		"morale", "board", "trust":
@@ -522,6 +526,8 @@ const EXTEND_COST := "Locked in at {early_price} a season, whatever he does next
 
 
 static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
+	if str(e.get("line", "")) != "":
+		return str(e["line"])   # a card may word an effect itself (sizes read differently)
 	var d := effect_d(e, facts)
 	var who := str(e.get("who", "subject"))
 	match str(e.get("op", "")):
@@ -577,7 +583,16 @@ static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
 			return "A small chance %s starts its next final slowly." % ("the side" if who == "side" else "the whole list")
 		"loss_sting":
 			return "A small chance the side's morale falls instead if you lose that final."
+		"role_trial":
+			return _trial_words(e)
 	return ""
+
+
+## A role trial: where he plays and for how long.
+static func _trial_words(e: Dictionary) -> String:
+	var n := int(e.get("weeks", 3))
+	var word: String = ["one", "two", "three", "four", "five", "six"][clampi(n, 1, 6) - 1]
+	return "He plays as a {trial_word} for the next %s %s, then goes back to being a {trial_home}." % [word, "game" if n == 1 else "games"]
 
 
 ## Left to the captain: what happens if the group listens and what if it doesn't,
