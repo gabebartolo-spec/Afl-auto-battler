@@ -266,8 +266,8 @@ func _ready() -> void:
 	Feel.haptics = bool(cfg.get_value("ui", "haptics", true))
 	Feel.reduced = bool(cfg.get_value("ui", "reduced_motion", false))
 	ScreenLayout.set_screen_size(str(cfg.get_value("ui", "screen_size", "standard")))
-	if bool(cfg.get_value("ui", "fullscreen", false)):
-		ScreenLayout.set_fullscreen(true)
+	# A desktop opens fullscreen unless the player chose Window (director, 2026-10-12).
+	ScreenLayout.set_fullscreen(bool(cfg.get_value("ui", "fullscreen", true)))
 	_apply_battery_saver(bool(cfg.get_value("ui", "battery_saver", false)))
 
 
@@ -438,7 +438,7 @@ func set_screen_size(key: String) -> void:
 
 
 func fullscreen() -> bool:
-	return bool(get_setting("fullscreen", false))
+	return bool(get_setting("fullscreen", true))
 
 
 func set_fullscreen(on: bool) -> void:
@@ -802,8 +802,11 @@ func load_career() -> bool:
 	_sync_dual()
 	_recompute_ratings()
 	_migrate_money_units()
-	if int(state.get("career_version", 0)) < CAREER_VERSION:
+	var saved_version := int(state.get("career_version", 0))
+	if saved_version < 1:
 		_migrate_careers()
+	if saved_version < 2:
+		_migrate_player_clubs()
 	_migrate_train_plans()
 	_migrate_injury_logs()
 	_mark_unicorns()
@@ -856,8 +859,39 @@ func _mark_unicorns() -> void:
 	GameDB.mark_unicorns(all)
 
 
-## Career records (Career.gd) arrived with save format 1.
-const CAREER_VERSION := 1
+## Career records (Career.gd) arrived with save format 1; a listed player's
+## club field following his list (a league re-draft) with save format 2.
+const CAREER_VERSION := 2
+
+
+## A save from before format 2: a re-drafted player still carried his 2026
+## club. Each listed player takes the club of the list he is on, once. A
+## real-lists career already agrees, so nothing there changes.
+func _migrate_player_clubs() -> void:
+	if season == null:
+		return
+	# A run you promised was stamped with the club field he had then; it moves
+	# with him, or his "With us" line would drop it (Backing.memory_bits).
+	for code in season.lists:
+		for p in season.lists[code]:
+			if p is Dictionary:
+				_restamp_backed(p, str(code))
+	_rehome_players(season.lists)
+	for p in my_list:
+		if p is Dictionary and my_club != "":
+			_restamp_backed(p, my_club)
+			p["club"] = my_club
+
+
+## Runs made at the club field he carried before the migration now read as made
+## at `club`, where he is listed. Runs made at any other club stay as they are.
+func _restamp_backed(p: Dictionary, club: String) -> void:
+	var old := str(p.get("club", ""))
+	if old == club or not (p.get("backed") is Array):
+		return
+	for e in p["backed"]:
+		if e is Dictionary and str(e.get("club", "")) == old:
+			e["club"] = club
 
 
 ## A save from before career records: every player gets his dataset career
@@ -1079,7 +1113,13 @@ func _unlinked_lists(lists: Dictionary) -> Dictionary:
 func reset() -> void:
 	# Mid-career seasons mutate the loaded player dicts in place (intake,
 	# ageing, XP training). A new career must start from the pristine 2026
-	# dataset, so reload the data files before rebuilding anything.
+	# dataset, so reload the data files before rebuilding anything. The caches
+	# built from the players (prospect shapes, story cards) are dropped with it,
+	# so a new career never reads one built under the last. PlayerProfile's rating
+	# scale stays: matches on worker threads only read it (Season warms it first),
+	# and clearing it let a worker rebuild it and crash (CI 38237786675).
+	Prospects.forget_cache()
+	StoryDeck.reload()
 	GameDB.reload()
 	# Nothing of the last career's market or caches carries into this one
 	# (a second career in one process played its off-season differently).
@@ -1894,6 +1934,9 @@ func _next_jumper_number(list: Array) -> int:
 func start_season(club_code: String, list: Array) -> void:
 	my_club = club_code
 	var lists := {}
+	# A league re-draft moves players between clubs: each arrives carrying his
+	# 2026 club, and takes his new club's code once his record is written below.
+	var rehome := false
 	if start_mode == "real" and not league_lists.is_empty() and season == null:
 		# A real-lists career: each club's real list plus its 2026 draftees,
 		# already career copies (begin_real_lists).
@@ -1902,6 +1945,7 @@ func start_season(club_code: String, list: Array) -> void:
 				lists[code] = league_lists[code]
 	elif draft != null and draft.league_mode and draft.is_finished():
 		league_lists = draft.all_lists()
+		rehome = true
 		for code in GameDB.club_order:
 			lists[code] = _career_copies(league_lists.get(code, []))
 			# Drafted players arrive in their old clubs' numbers: two 35s can
@@ -1935,6 +1979,8 @@ func start_season(club_code: String, list: Array) -> void:
 			for p in lists[code]:
 				Career.add_season(p, GameDB.DATA_SEASON, str(p.get("data_club", p.get("club", ""))),
 						int(float(p.get("gm", 0.0))), int(float(p.get("gl", 0.0))))
+	if rehome:
+		_rehome_players(lists)
 	# Fixtures, ladders and finals cover only the clubs active this year.
 	season = Season.new(GameDB.active_clubs(season_year).duplicate(), lists,
 			_clock_seed(4))
@@ -3119,6 +3165,18 @@ func finals_outcome_line(res: Dictionary) -> String:
 			return ("%d PREMIERS" % season_year) if won \
 					else ("Runners-up in %d" % season_year)
 	return ""
+
+
+## A player's club is the list he is on (Develop's room and the coaches'
+## teaching read it). Returns how many players it changed.
+func _rehome_players(lists: Dictionary) -> int:
+	var changed := 0
+	for code in lists:
+		for p in lists[code]:
+			if p is Dictionary and str(p.get("club", "")) != str(code):
+				p["club"] = str(code)
+				changed += 1
+	return changed
 
 
 ## Deep copy so a career can raise attributes without mutating GameDB.
@@ -5215,7 +5273,7 @@ var _phase_cache := {}
 
 ## A club's list as the game sees it (TeamRating): its match-day side today on the
 ## OVR scale, the same list in three seasons, and its phase, with the line a
-## screen shows ("Contender · 78, 81 in three years").
+## screen shows ("Contender · rated 78, heading to 81").
 func team_outlook(club: String) -> Dictionary:
 	if season == null or not season.lists.has(club):
 		return {}

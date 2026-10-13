@@ -189,10 +189,19 @@ func _show_home() -> void:
 	col.add_child(forge)
 
 	_content.add_child(UiKit.spacer(18))
-	var quiet := UiKit.hbox(4)
-	quiet.alignment = BoxContainer.ALIGNMENT_CENTER
+	# A flow, so on a narrow window the last link wraps instead of leaving the screen.
+	var quiet := HFlowContainer.new()
+	quiet.add_theme_constant_override("h_separation", 4)
+	quiet.alignment = FlowContainer.ALIGNMENT_CENTER
 	quiet.add_child(_quiet_btn("How to play", "MenuHelp", _show_help))
 	quiet.add_child(_quiet_btn("Settings", "MenuSettings", _show_settings))
+	# Last in the row, desktop only (director, 2026-10-12): Android Back already leaves
+	# the app from this menu, iOS and the web have no quit of their own. The gate is the
+	# platform (ScreenLayout.is_desktop), never the window width.
+	if ScreenLayout.is_desktop():
+		var exit := _quiet_btn("Exit game", "ExitGame", func(): Router.quit_game())
+		exit.custom_minimum_size = Vector2(120, 48)
+		quiet.add_child(exit)
 	_content.add_child(quiet)
 	var build := UiKit.lbl("Build " + BuildInfo.label(), UiKit.SMALL, UiKit.MUTED)
 	build.name = "BuildLabel"

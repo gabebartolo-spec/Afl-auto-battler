@@ -99,8 +99,16 @@ editorial layouts: typography, alignment, spacing, restrained surfaces.
 
 **Colour.** A restrained warm-neutral palette so clubs, match information and
 real states provide the colour. Accent (red) only for the primary action;
-selection is a light outline; GOOD/BAD only for genuine state. Ordinary labels
-are TEXT or MUTED. Gold is not "important".
+selection is a light outline; GOOD/BAD only for genuine state. Gold is not
+"important".
+
+**Readability is a pillar (design bible, director 2026-10-13).** It applies to
+every screen. Sections feel distinct: club colours and strategic bold set them
+apart, because text that is all one colour and weight harms readability. A
+player's or club's allegiance is obvious at a glance, without reading the name.
+No text the coach needs is overlooked: nothing he decides on sits in uniform
+grey. Club colour must stay readable (check contrast for dark clubs on the dark
+page) and must not be mistaken for GOOD/BAD or the primary action.
 
 **Typography.** Weight and size before colour, from UiKit's type scale.
 Sentence case unless AFL convention says otherwise (OVR, POT, Grand Final). No

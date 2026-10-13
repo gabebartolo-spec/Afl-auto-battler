@@ -44,6 +44,8 @@ Nothing here starts until the boss assigns it. Reconciled 2026-10-10 against mai
 | 23 | This week: both sides' key-position heights and marking side by side | §1.11 matchup comparison | none | open |
 | 24 | Development manual-XP grid; Training compact card grid with roles and traits | §1.11 development, training; STYLE-01 | none | open |
 | 25 | Team builder: entry points share one side; headers from arranged fit; pre-game setup before Start | §1.11 team builder | none | verify |
+| 37 | **Audit the AI clubs' draft strategy**: do clubs that build their list from scratch (the AI drafting, trading and signing over seasons) end up on average weaker than the real 2026 lists, which real AFL professionals built? Measure over seeded 10-season careers: each AI club's list strength (best 23 and depth, by age bracket) against its real 2026 starting list and against the league's spread; where it drifts; and whether drafted players reach the OVR and roles the real list has. If the AI drafts notably worse teams than their real counterparts, buff its draft skill (needs, value, potential reads) until the gap closes, paired seeds, ± errors; balance is the director's call | director 2026-10-12 | dev-sim | open; audit first (tools/audit, CI), then a buff proposal with the numbers; AI-only change, W7 by qa |
+| 38 | **Live-3D vignette probe (LOW PRIORITY, explore later)**: one figure, the Tripo ruck rig, animated in real time inside Godot (glTF rig + clips from the existing Blender/Mixamo path) and judged by the same realism and motion critics against the sprite-sheet version at phone scale and frame time. The question: would real-time 3D vignettes (any camera angle, lighting, posture fixes on the rig instead of re-rendered sheets, no sheet growth) beat the approved 2.5D sheets for look, phone performance and pipeline cost? three.js is NOT the route (a playback stage with no authoring; Godot already renders 3D and exports to web) | director 2026-10-13 | none | open, unassigned, 0 credits; not before the current relaxed-arms slice lands |
 
 ## Stats, help, onboarding
 
@@ -60,6 +62,21 @@ Nothing here starts until the boss assigns it. Reconciled 2026-10-10 against mai
 | 29 | Run-of-goals cadence and efficacy; AI plan adaptation; blowout distribution; vignette reachability in close finishes | §1.11 observed failures | none | open |
 | 30 | Coleman goalkicking cap (defect found, balance-gated) | §1.11 Coleman | director | awaiting decision |
 | 31 | Native phone numbers: frame time, battery, loading | §1.11 performance | director's phone (probe build held) | waiting |
+
+## Story cards (director, 2026-10-12)
+
+| # | Requirement | Source | Owner | Status |
+|---|---|---|---|---|
+| 34 | **Audit every event card** (the 65 story cards and the older event cards): does any choice do nothing (no effect, no information, no follow-up)? Does any card never appear in a 10-season career? Can any be worded better (scrutable: a card keeps what it promises, football language, stakes true)? Found in play: "The fitness staff want a time trial" promised to tell the coach who is fit and named nobody (fix: claude/story-time-trial) | director 2026-10-12 | story | open; seeded audit over 10-season careers (card appearance counts per id, zero-effect choices listed), then a copy pass to the director as one sheet |
+| 35 | **A whole bespoke set of finals events**: cards that only fire in finals week (the elimination/qualifying week, the week after a loss that ends the season, the preliminary final build-up, the bye week, the club's first final in years, a veteran's last final), with real stakes and the finals mood in the copy | director 2026-10-12 | story | open; design sheet (ids, triggers, choices, effects, copy) to the director before any code |
+| 36 | **A small set of Grand Final events that make each Grand Final feel unique and memorable**: a handful of cards keyed to what is true of this Grand Final (the opponent, a captain's last game, a kid's first season, an injured star's fitness test, the parade, the week's press, the result's aftermath), so no two Grand Final weeks read the same | director 2026-10-12 | story | open; after 35, same sheet-first rule; the aftermath cards must handle both the win and the loss |
+
+## Pre-season (director, 2026-10-13)
+
+| # | Requirement | Source | Owner | Status |
+|---|---|---|---|---|
+| 39 | **A pre-season.** Director: "a glaring hole in our game: pre season, a period of development, narratives, media speculation, fitness building, game-plan honing etc". A phase between the off-season and round 1 in which the coach develops players, builds fitness, hones the game plan and lives the summer's stories and media speculation, so the season starts with decisions already made and felt | director 2026-10-13 | none | open, unassigned; design sheet to the director before any code (what the coach does each week, what it changes in round 1, how it ties to the season fitness plan, training, story cards and the press) |
+| 40 | **Create your own game plan (stretch goal).** Director: "stretch goal, create your own gameplan". The coach builds a game plan of his own rather than choosing only from the set ones | director 2026-10-13 | none | open, unassigned, stretch; after 39; design sheet first |
 
 ## Platforms and grounds
 

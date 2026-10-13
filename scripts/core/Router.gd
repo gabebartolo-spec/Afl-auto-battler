@@ -133,7 +133,7 @@ func handle_back(from_os := false) -> void:
 	match current():
 		"main", "":
 			if from_os:
-				get_tree().quit()
+				quit_game()
 		"hub":
 			to_main_menu(false)
 		"draft":
@@ -148,6 +148,22 @@ func handle_back(from_os := false) -> void:
 				back()
 			else:
 				to_main_menu(false)
+
+
+## A test stands in here for leaving the app (it cannot quit the test run).
+var quit_hook := Callable()
+
+
+## Leave the game: save first if there is anything unsaved (the same save a
+## close request or the OS pausing the app makes), then quit. Nothing is lost:
+## every step of a career saves as it happens, and a match half played keeps
+## the save from before it, as on any other way out.
+func quit_game() -> void:
+	GameState.autosave_if_dirty()
+	if quit_hook.is_valid():
+		quit_hook.call()
+	else:
+		get_tree().quit()
 
 
 ## Clears history and returns to the main menu, resetting the season.
