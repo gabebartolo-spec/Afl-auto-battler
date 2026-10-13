@@ -402,7 +402,7 @@ func _event_card(index: int) -> Control:
 			sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(sl)
 		var opts: Array = e.get("options", [])
-		var row: BoxContainer = UiKit.vbox(16) if _narrow() else UiKit.hbox(8)
+		var row: BoxContainer = UiKit.vbox(22) if _narrow() else UiKit.hbox(8)
 		v.add_child(row)
 		for i in range(opts.size()):
 			var o: Dictionary = opts[i]
@@ -410,6 +410,10 @@ func _event_card(index: int) -> Control:
 			b.name = "Event_%d" % i
 			b.custom_minimum_size = Vector2(0, 48)
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			if not _narrow():
+				# Side by side, every choice gets an equal share and wraps its own words.
+				b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				b.custom_minimum_size = Vector2(0, 48)
 			b.pressed.connect(func():
 				GameState.resolve_card(index, i)
 				_build())
@@ -426,16 +430,38 @@ func _event_card(index: int) -> Control:
 			col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			col.add_child(b)
 			for line in lines:
-				var cl := UiKit.lbl(line, UiKit.SECONDARY, UiKit.TEXT)
-				var kind := "Gain" if line.begins_with(StoryEngine.GAIN_MARK) else ("Cost" if line.begins_with(StoryEngine.COST_MARK) else "Note")
+				var mark := ""
+				var kind := "Note"
+				if line.begins_with(StoryEngine.GAIN_MARK):
+					mark = "Gain:"
+					kind = "Gain"
+				elif line.begins_with(StoryEngine.COST_MARK):
+					mark = "Cost:"
+					kind = "Cost"
+				var cl := UiKit.lbl(line.substr(mark.length()).strip_edges() if mark != "" else line, UiKit.SECONDARY, UiKit.TEXT)
 				cl.name = "Event%s_%d_%d" % [kind, index, i]
 				cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-				col.add_child(cl)
+				if mark == "":
+					col.add_child(cl)
+					continue
+				# The marker is bold (weight, not colour); the sentence stays regular.
+				var item := UiKit.hbox(6)
+				var mk := UiKit.lbl(mark, UiKit.SECONDARY, UiKit.TEXT, true)
+				mk.name = "Event%sMark_%d_%d" % [kind, index, i]
+
+				mk.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+				mk.autowrap_mode = TextServer.AUTOWRAP_OFF
+				mk.custom_minimum_size = Vector2(40, 0)
+				item.add_child(mk)
+				cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				item.add_child(cl)
+				col.add_child(item)
 			# The exact rule behind a line is one deliberate tap away.
 			if rule_text != "":
 				var more := UiKit.text_action("See the rule", UiKit.SMALL)
 				more.name = "EventRule_%d" % i
 				more.alignment = HORIZONTAL_ALIGNMENT_LEFT
+				more.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 				more.pressed.connect(func(): _show_rule(rule_text))
 				col.add_child(more)
 			row.add_child(col)
