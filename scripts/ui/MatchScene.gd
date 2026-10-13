@@ -1257,7 +1257,11 @@ func _mount_one_line(c: Dictionary) -> void:
 		open_best.pressed.connect(func(): _open_break_sheet("best", "", [best, stats], store))
 		head.add_child(open_best)
 		v.add_child(head)
-		for n in [facts, legs, did_head, did]:
+		for n in [facts, legs]:
+			put.call(v, n)
+		if did_head != null:
+			v.add_child(UiKit.spacer(2))
+		for n in [did_head, did]:
 			put.call(v, n)
 		v.add_child(rows)
 		for key in order:
@@ -1283,8 +1287,14 @@ func _mount_one_line(c: Dictionary) -> void:
 			col.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 			cols.add_child(col)
 		right.size_flags_stretch_ratio = 1.15
-		for n in [quarter_head, facts, did_head, did, legs, best]:
+		for n in [quarter_head, facts, legs]:
 			put.call(left, n)
+		if did_head != null:
+			left.add_child(UiKit.spacer(4))
+		for n in [did_head, did]:
+			put.call(left, n)
+		left.add_child(UiKit.spacer(4))
+		put.call(left, best)
 		var next_head := UiKit.section("Next quarter")
 		mid.add_child(next_head)
 		mid.add_child(rows)
@@ -1306,6 +1316,8 @@ func _mount_one_line(c: Dictionary) -> void:
 			pane.set_meta("call", key)
 			for k in order:
 				(bodies[k] as Control).visible = str(k) == key
+				# A flat button draws no surface: the chosen row needs its outline.
+				(row_of[k] as Button).flat = false
 				for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
 					(row_of[k] as Button).add_theme_stylebox_override(state, chosen_sb if str(k) == key else plain)
 		for key in order:

@@ -299,10 +299,15 @@ func _phone_match(sz: Vector2i) -> void:
 	var qh: Label = box.find_child("QuarterHeading", true, false)
 	_check(qh != null and qh.text == "First quarter" and not bt.contains("What's happening"),
 			"Quarter time leads with the quarter just played, by name (%s)" % tag)
-	_check(box.find_child("MoreCallsToggle", true, false) == null and box.find_child("PlanPicker", true, false).is_visible_in_tree()
-			and box.find_child("TagPicker", true, false).is_visible_in_tree()
-			and box.find_child("PepPicker", true, false).is_visible_in_tree()
-			and box.find_child("RotationPicker", true, false).is_visible_in_tree(),
+	# One line a call from quarter time on: each call's row is in view, its
+	# choices one tap behind it (the pickers are still on the break).
+	var rows_seen := true
+	for rk in ["plan", "tag", "pep", "rot"]:
+		var call_row: Control = box.find_child("CallRow_" + rk, true, false)
+		rows_seen = rows_seen and call_row != null and call_row.is_visible_in_tree()
+	_check(box.find_child("MoreCallsToggle", true, false) == null and rows_seen
+			and box.find_child("PlanPicker", true, false) != null and box.find_child("TagPicker", true, false) != null
+			and box.find_child("PepPicker", true, false) != null and box.find_child("RotationPicker", true, false) != null,
 			"Every call is in view at the break, with no More calls button (%s)" % tag)
 	_check((box.find_child("BreakColumns", true, false) != null) == bool(m.call("_wide_break")),
 			"A wide PC window lays the break out in columns; a phone keeps one (%s)" % tag)
@@ -323,6 +328,7 @@ func _phone_match(sz: Vector2i) -> void:
 		# Real taps from here (tests/tap.gd): a touch on the screen, not a call
 		# to the handler. First, the tool itself: a sheet over the button must
 		# take the tap.
+		await _open_call_of(m, ch)
 		var cover := ColorRect.new()
 		cover.color = Color(0, 0, 0, 0)
 		cover.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -393,7 +399,7 @@ func _phone_match(sz: Vector2i) -> void:
 	if best_open_h != null:
 		_check((await Tap.tap(best_open_h)) == "", "Best so far opens from the half-time break with a real tap (%s)" % tag)
 		await _settle()
-	var stats_b: Button = box.find_child("BreakStats", true, false) if box != null else null
+	var stats_b: Button = m.find_child("BreakStats", true, false) if box != null else null
 	_check(stats_b != null and box.find_child("HalfTimeReport", true, false) == null,
 			"Half time offers the match stats, not a prose report (%s)" % tag)
 	if stats_b != null:
@@ -1481,7 +1487,7 @@ func _loose_interceptor(sz: Vector2i) -> void:
 				"The line says his intercepts this match, %d (%s: %s)" % [n, tag, tally.text if tally else "-"])
 		var ask: Label = block.find_child("LooseQuestion", true, false)
 		_check(ask != null and ask.text == notes.loose_question(), "The call asks who plays loose behind the ball (%s)" % tag)
-		_check(_text(box).contains("He leaves his direct man to attack aerial balls. Another defender covers where possible; if he flies and loses, space opens behind him."),
+		_check(_text(m).contains("He leaves his direct man to attack aerial balls. Another defender covers where possible; if he flies and loses, space opens behind him."),
 				"The cost line stays word for word (%s)" % tag)
 		var bad := []
 		var shown := 0

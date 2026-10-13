@@ -4,7 +4,7 @@ extends SceneTree
 ##   gh workflow run capture.yml --ref <branch> -f tool=capture_break_one_line \
 ##       -f args="--size 390x844 --club FRE --vs MEL"
 ##   --size WxH   window (default 390x844; 760 wide and up is the PC sheet)
-##   --club CODE  your club (default FRE)   --vs CODE  the opponent ("" = as drawn, never COL)
+##   --club CODE  your club (default FRE)   --vs CODE  the opponent ("any" = the first drawn that is not COL)
 ## Plays a first half with Defensive press, then writes, at half time:
 ##   phone: <out>_1_break.png, _2_tag.png (the Tag sheet, a tag picked), _3_who.png (who tags),
 ##          _4_changed.png (back on the break, the Tag row marked), _5_best.png (Best so far)
@@ -36,7 +36,7 @@ func _run() -> void:
 			"--club":
 				club = str(a[i + 1])
 			"--vs":
-				vs = str(a[i + 1])
+				vs = "" if str(a[i + 1]) == "any" else str(a[i + 1])
 	await process_frame
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
