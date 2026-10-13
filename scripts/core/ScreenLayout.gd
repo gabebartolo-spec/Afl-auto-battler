@@ -116,6 +116,13 @@ static func roomy(w: float, h: float) -> bool:
 	return not is_phone() and w >= 760.0 and w > h * 1.2
 
 
+## The PC layouts (side panels, columns) for a screen of at least min_w units,
+## landscape when asked. Never on a phone or its browser: a phone browser inside
+## a wide frame (itch's 1280x720) would otherwise get the PC layout, cropped.
+static func wide_view(w: float, h: float, min_w: float, landscape := true) -> bool:
+	return not is_phone() and w >= min_w and (not landscape or w > h)
+
+
 ## Desktop only: a phone's density already comes from its screen.
 static func is_desktop() -> bool:
 	if force_web or force_web_phone:
