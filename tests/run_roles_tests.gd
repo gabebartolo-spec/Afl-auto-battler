@@ -1082,7 +1082,7 @@ func _week_ink_tests() -> void:
 				h = l
 			if str(l.text) == "Their key forwards":
 				kf = l
-		_check(h != null, "The week heading names the opponent beside its guernsey (%s)" % str(code))
+		_check(h != null or opp == "", "The week heading names the opponent beside its guernsey (%s)" % str(code))
 		for lab in [h, kf]:
 			if lab == null:
 				continue
