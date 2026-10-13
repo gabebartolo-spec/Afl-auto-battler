@@ -17,11 +17,12 @@
 			"The papers want {name} dropped"
 		],
 		"text": [
-			"Gary Haddon has {name} on the back page after a poor few weeks and says he should make way. The board is watching what you do."
+			"Gary Haddon has {name} on the back page after a poor few weeks and says he should make way. {first} has averaged a Player rating of {form} over his last three games. Players who started as a {role_word} this year average a Player rating of {role_avg}."
 		],
 		"unanswered": {
-			"board": -4,
-			"text": "You say nothing. The board wanted an answer."
+			"trust": -2,
+			"why": "You said nothing when the papers went after him",
+			"text": "You say nothing. {first} reads the back page on his own."
 		},
 		"choices": [
 			{
@@ -39,10 +40,6 @@
 						"op": "trust",
 						"d": -6,
 						"why": "You dropped him after the papers pushed"
-					},
-					{
-						"op": "board",
-						"d": 4
 					}
 				],
 				"result": "{name} sits out this week."
@@ -59,10 +56,6 @@
 						"op": "trust",
 						"d": 10,
 						"why": "You kept him in when the papers wanted him out"
-					},
-					{
-						"op": "board",
-						"d": -4
 					},
 					{
 						"op": "flag",
@@ -338,32 +331,43 @@
 				"label": "Let him front the group",
 				"effects": [
 					{
-						"op": "morale",
-						"d": 3,
-						"who": "others"
+						"op": "trust",
+						"d": 4,
+						"why": "You let him front the group",
+						"line": "He trusts you more."
 					},
 					{
-						"op": "trust",
-						"d": 2,
-						"why": "You let him front the group",
-						"line": "He trusts you a little more."
+						"op": "delegate",
+						"held": [
+							{
+								"op": "morale",
+								"d": 3,
+								"who": "others"
+							}
+						],
+						"failed": [
+							{
+								"op": "morale",
+								"d": -3,
+								"who": "others"
+							}
+						],
+						"held_result": "{name} takes the group through it and they hear him out.",
+						"failed_result": "It does not land with the group."
 					}
 				],
-				"result": "{name} answers the papers' story in front of the group."
+				"result": "",
+				"rule": "The group listens to a player with Leadership {holds_at} or more, or {holds_trust_at} or more if he trusts you. {name}: Leadership {leadership}."
 			},
 			{
 				"key": "private",
 				"label": "Keep it between you two",
 				"effects": [
 					{
-						"op": "morale",
-						"d": 2
-					},
-					{
 						"op": "trust",
-						"d": 4,
-						"why": "You kept it between you two",
-						"line": "He trusts you more."
+						"d": -2,
+						"why": "You kept it between you two when he asked for the group",
+						"line": "He trusts you a little less."
 					}
 				],
 				"result": "You talk it through with {name} alone."
@@ -406,12 +410,8 @@
 				"effects": [
 					{
 						"op": "trust",
-						"d": 6,
-						"why": "You left him in his role"
-					},
-					{
-						"op": "board",
-						"d": -6
+						"d": -4,
+						"why": "You said no when he asked to try the move"
 					}
 				],
 				"result": "{name} stays in his role."
@@ -425,17 +425,9 @@
 						"weeks": 3
 					},
 					{
-						"op": "morale",
-						"d": -8
-					},
-					{
 						"op": "trust",
-						"d": -10,
-						"why": "You moved him after the criticism"
-					},
-					{
-						"op": "board",
-						"d": 5
+						"d": 4,
+						"why": "You tried him in the role he asked about"
 					}
 				],
 				"result": "You try {name} as a {trial_word}."
@@ -444,8 +436,9 @@
 		"cooldown": 40,
 		"subject_cooldown": 30,
 		"unanswered": {
-			"board": -4,
-			"text": "You say nothing. The board wanted an answer."
+			"trust": -2,
+			"why": "You said nothing when he asked about the move",
+			"text": "You say nothing. {first} is left waiting for an answer."
 		}
 	},
 	{
@@ -465,7 +458,7 @@
 			"{name} passed his trial as a {trial_word}"
 		],
 		"text": [
-			"{first} averaged {trial_avg} as a {trial_word} over the three games. Players who started as a {trial_word} this year average {trial_par}. {trial_tail}"
+			"{first} averaged a Player rating of {trial_avg} as a {trial_word} over the three games. Players who started as a {trial_word} this year average a Player rating of {trial_par}. {trial_tail}"
 		],
 		"choices": [
 			{
@@ -493,7 +486,7 @@
 			"{name}'s trial as a {trial_word} is over"
 		],
 		"text": [
-			"{first} averaged {trial_avg} as a {trial_word} over the three games. Players who started as a {trial_word} this year average {trial_par}. {trial_tail}"
+			"{first} averaged a Player rating of {trial_avg} as a {trial_word} over the three games. Players who started as a {trial_word} this year average a Player rating of {trial_par}. {trial_tail}"
 		],
 		"choices": [
 			{
