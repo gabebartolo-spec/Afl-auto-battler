@@ -160,6 +160,10 @@ static func _value(rec: Dictionary, w: int, offset: int, height: float) -> float
 # No base on the record is sound, which is exactly the game without one.
 # ---------------------------------------------------------------------------
 static func base_of(rec: Dictionary) -> String:
+	# With the pre-season switched off (Features) a base already on a record
+	# is left there and not read: the season plays as it did before bases.
+	if not Features.on("preseason"):
+		return PreSeason.DEFAULT_BASE
 	var b := str(rec.get("base", PreSeason.DEFAULT_BASE))
 	return b if PreSeason.BASES.has(b) else PreSeason.DEFAULT_BASE
 

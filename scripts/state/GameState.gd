@@ -186,10 +186,9 @@ var conditioning := {}
 ## "clubs": {code: {"blocks": [[load, focus] x3], "run"}}, "trial", "trial_seen",
 ## "done"}. Empty means none is running: a career saved before pre-seasons
 ## existed plays on as it was and gets its first at the next rollover.
+## The whole feature sits behind Features.on("preseason"): with the switch
+## off none is ever opened and one already in a save is left alone, unread.
 var preseason := {}
-## Off only in tests and audits that measure the game without a pre-season
-## (never saved).
-var preseason_on := true
 ## Who leads each club (Captaincy.gd): club code -> its record. A club with
 ## no entry has named no one; an older save has none for anyone.
 var captaincy := {}
@@ -2445,7 +2444,7 @@ func _stamp_conditioning() -> void:
 ## career's first season is made; start_season itself stays the plain "build
 ## the season" step tests and tools use. Once a year; never mid-season.
 func open_preseason() -> void:
-	if season == null or not preseason_on or season.round_index != 0 or season.is_regular_done():
+	if season == null or not Features.on("preseason") or season.round_index != 0 or season.is_regular_done():
 		return
 	if int(preseason.get("year", 0)) == season_year:
 		return
@@ -2493,7 +2492,7 @@ func preseason_injury_lines(from := 1, to := 99) -> Array:
 
 ## A pre-season is running: opened this year, not finished, Round 1 unplayed.
 func preseason_active() -> bool:
-	return season != null and not preseason.is_empty() \
+	return Features.on("preseason") and season != null and not preseason.is_empty() \
 			and int(preseason.get("year", 0)) == season_year \
 			and not bool(preseason.get("done", true)) \
 			and season.round_index == 0 and not season.is_regular_done()

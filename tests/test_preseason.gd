@@ -15,6 +15,9 @@ const CLUB := "FRE"
 
 func run() -> void:
 	GameState.replay_seed = SUITE_SEED
+	_test_switch_default()
+	# Everything below is the feature itself: switched on for this suite.
+	Features.set_on("preseason", true)
 	_test_rules()
 	_test_words()
 	_test_hand_over()
@@ -26,8 +29,9 @@ func run() -> void:
 	_test_training_injuries()
 	_test_old_saves()
 	await _test_screens()
+	await _test_switch_off()
 	PreSeason.reload()
-	GameState.preseason_on = true
+	Features.clear("preseason")
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	print("Preseason tests: %d checks, %d failures" % [checks, failures.size()])
@@ -749,12 +753,12 @@ func _test_old_saves() -> void:
 	# to Round 1 as it always did.
 	GameState.load_career()
 	GameState.replay_seed = SUITE_SEED
-	GameState.preseason_on = false
+	Features.set_on("preseason", false)
 	_roll()
 	_save_as_old()
 	_play(1)
 	var wrap_straight := _sig()
-	GameState.preseason_on = true
+	Features.set_on("preseason", true)
 	_check(GameState.load_career() and GameState.needs_season_wrap() and not GameState.preseason_active(),
 			"A save from before pre-seasons loads at the off-season wrap, with no pre-season waiting")
 	GameState.replay_seed = SUITE_SEED
@@ -787,6 +791,104 @@ func _roll() -> void:
 		GameState.finish_intake_draft()
 	else:
 		GameState.start_next_season()
+
+
+## The switch as it ships: off, unless the command line or the project says so.
+func _test_switch_default() -> void:
+	Features.clear("preseason")
+	_check(not bool(ProjectSettings.get_setting("features/preseason", false))
+			and FileAccess.get_file_as_string("res://project.godot").contains("preseason=false")
+			and not Features.on("preseason"),
+			"The pre-season switch ships off: an exported build, and any run that does not ask for it, has no pre-season")
+	Features.set_on("preseason", true)
+	_check(Features.on("preseason"), "A test or tool turns the switch on for itself")
+	Features.set_on("preseason", false)
+	_check(not Features.on("preseason"), "...and off again")
+	Features.clear("preseason")
+
+
+## Switched off, the game is the game without a pre-season: none opens, no
+## state is written, a save made with it on loads and plays with its
+## pre-season left alone, and turning it back on finds that state intact.
+func _test_switch_off() -> void:
+	PreSeason.reload()
+	var tree := Engine.get_main_loop() as SceneTree
+	tree.root.size = Vector2i(390, 844)
+	# The reference: a season that never had a pre-season.
+	_career(false)
+	_play(2)
+	var plain := _sig()
+	Features.set_on("preseason", false)
+	_career()
+	_check(GameState.preseason.is_empty() and not GameState.preseason_active() and GameState.preseason_stop() == "",
+			"Switched off, a new career opens no pre-season and writes none of its state")
+	_check(not GameState.set_preseason_block(0, "heavy", "running") and GameState.preseason_advance() == "done"
+			and GameState.preseason.is_empty(),
+			"...and none of its controls does anything")
+	GameState.save_career()
+	var saved := CareerSave.read(GameState.save_path)
+	_check((saved.get("preseason", {}) as Dictionary).is_empty(), "...nor does its save hold any")
+	_play(2)
+	_check(_sig() == plain, "Switched off, the first two rounds are exactly the game's without a pre-season")
+	# The screens: straight to the hub, and the wrap begins the season.
+	_career()
+	GameState.set_setting("seen_weekly_loop_intro", true)
+	GameState.season_wrap = {"year": GameState.season_year, "seen": false, "ins": [], "outs": [],
+			"staff": [], "goal": "Make the finals", "reason": "The board sees a list good enough to play finals."}
+	var scene: Control = await _open(tree)
+	var begin := scene.find_child("BeginSeason", true, false) as Button if scene != null else null
+	_check(scene != null and scene.name == "HubScene" and begin != null and begin.text == "Begin season",
+			"Switched off, the game opens on the hub and the off-season wrap says Begin season")
+	_check(await _tap(begin, "Begin season"), "A finger's tap begins the season")
+	await _frames(tree, 8)
+	scene = tree.current_scene as Control
+	_check(scene != null and scene.name == "HubScene" and scene.find_child("WeekActions", true, false) != null,
+			"...and Round 1 is there to play, with no pre-season screen in between")
+
+	# A save made with it ON, at the time trial after a Heavy block.
+	Features.set_on("preseason", true)
+	PreSeason.data()["heavy_week_injury"] = 0.1
+	_career()
+	_set_blocks([["heavy", "running"], ["heavy", "running"], ["solid", "running"]])
+	GameState.preseason_advance()
+	var kept: Dictionary = GameState.preseason.duplicate(true)
+	GameState.save_career()
+	Features.set_on("preseason", false)
+	_check(GameState.load_career(), "A save made with the pre-season on loads with it off")
+	GameState.replay_seed = SUITE_SEED
+	_check(not GameState.preseason_active() and GameState.preseason_stop() == ""
+			and int(GameState.preseason.get("week", -1)) == int(kept["week"])
+			and str(GameState.preseason_blocks()) == str(kept["clubs"][CLUB]["blocks"]),
+			"...its pre-season is not running, and its saved state is still there, untouched")
+	scene = await _open(tree)
+	_check(scene != null and scene.name == "HubScene", "...and the game opens on the hub at Round 1")
+	_play(1)
+	_check(GameState.season.round_index == 1 and int(GameState.preseason.get("week", -1)) == int(kept["week"])
+			and not bool(GameState.preseason.get("done", false)),
+			"...Round 1 plays, and the pre-season was neither finished nor wiped")
+	# A finished one with a strong base: the base is on the record, unread.
+	Features.set_on("preseason", true)
+	_career()
+	_set_blocks([["solid", "running"], ["solid", "running"], ["solid", "running"]])
+	GameState.preseason_sim_to_round1()
+	_check(Conditioning.base_of(GameState.fitness_record(CLUB)) == "strong", "(setup) a strong base with it on")
+	GameState.save_career()
+	Features.set_on("preseason", false)
+	GameState.load_career()
+	GameState.replay_seed = SUITE_SEED
+	var rec: Dictionary = GameState.fitness_record(CLUB)
+	_check(str(rec.get("base", "")) == "strong" and Conditioning.base_of(rec) == "sound"
+			and Conditioning.base_curve(rec, 0) == 0.0 and not GameState.fitness_status_line().contains("base"),
+			"Switched off, a base already saved stays on the record and is not read: the season plan is as it was before bases")
+	Features.set_on("preseason", true)
+	GameState.load_career()
+	_check(Conditioning.base_of(GameState.fitness_record(CLUB)) == "strong",
+			"Switched back on, the same save has its strong base again: nothing was lost")
+	PreSeason.reload()
+	Router.stack = []
+	if tree.current_scene != null:
+		tree.current_scene.queue_free()
+	await _frames(tree, 3)
 
 
 func _frames(tree: SceneTree, n: int) -> void:

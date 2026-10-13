@@ -16,6 +16,8 @@ func _initialize() -> void:
 
 func _run() -> void:
 	await process_frame
+	# The pre-season is behind a feature switch that ships off: on for this tool.
+	load("res://scripts/core/Features.gd").set_on("preseason", true)
 	var runs := 20
 	var club := "FRE"
 	var a := OS.get_cmdline_user_args()
