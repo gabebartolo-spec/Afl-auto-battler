@@ -51,6 +51,7 @@ var _form := ""   # "", "player" or "club"
 var _problem: Label
 var _scroll: ScrollContainer
 var _scroll_form := ""
+var _built_width := 0.0
 
 
 ## The looks the figures don't draw yet stay off the form until they do.
@@ -65,8 +66,14 @@ func _ready() -> void:
 	_root = UiKit.vbox(10)
 	margin.add_child(_root)
 	_spec = GameState.forge_player()
-	get_viewport().size_changed.connect(_build)
+	get_viewport().size_changed.connect(_on_resize)
 	_build()
+
+
+func _on_resize() -> void:
+	# A phone keyboard shrinks the height only; rebuilding would drop the field.
+	if not UiKit.keyboard_resize(self, _built_width):
+		_build()
 
 
 ## Back closes the form first, then leaves the Forge.
@@ -84,7 +91,8 @@ func _build() -> void:
 	if not is_inside_tree():
 		return
 	# A pick rebuilds the form; keep the thumb where it was on the same form.
-	var keep := _scroll.scroll_vertical if is_instance_valid(_scroll) and _scroll_form == _form else 0
+	_built_width = UiKit.view_width(self)
+	var keep := UiKit.scroll_place(_scroll) if is_instance_valid(_scroll) and _scroll_form == _form else 0
 	UiKit.clear(_root)
 	_root.add_child(UiKit.top_bar("Club Forge", true, null, func(): return handle_back()))
 	var body := UiKit.vbox(UiKit.GAP)
@@ -94,7 +102,7 @@ func _build() -> void:
 		_player_form(body)
 	elif _form == "club":
 		_club_form(body)
-	elif UiKit.view_width(self) >= 760.0 and UiKit.view_width(self) > UiKit.view_height(self):
+	elif ScreenLayout.wide_view(UiKit.view_width(self), UiKit.view_height(self), 760.0):
 		# A wide screen: your player and your club side by side, not two
 		# bars stretched across the page (director: no full-width bars on PC).
 		var cols := UiKit.hbox(40)
@@ -117,13 +125,7 @@ func _build() -> void:
 	else:
 		_root.add_child(_scroll)
 	if keep > 0:
-		_restore_scroll.call_deferred(_scroll, keep)
-
-
-func _restore_scroll(sc: ScrollContainer, value: int) -> void:
-	await get_tree().process_frame
-	if is_instance_valid(sc):
-		sc.scroll_vertical = value
+		UiKit.restore_scroll(_scroll, keep)
 
 
 func _home(body: VBoxContainer) -> void:
@@ -176,7 +178,7 @@ func _home(body: VBoxContainer) -> void:
 ## and from behind, with his name and what he plays, changing as you build him.
 ## Beside the form on a wide screen.
 func _player_workspace(form: ScrollContainer) -> Control:
-	var wide := UiKit.view_width(self) >= 760.0 and UiKit.view_width(self) > UiKit.view_height(self)
+	var wide := ScreenLayout.wide_view(UiKit.view_width(self), UiKit.view_height(self), 760.0)
 	var preview := PlayerPreview.new()
 	preview.name = "ForgePlayerPreview"
 	preview.spec = _spec
@@ -628,7 +630,7 @@ func _club_form(body: VBoxContainer) -> void:
 ## on a wide screen, above it on a phone. Save sits with it, so it is always
 ## one tap away.
 func _club_workspace(form: ScrollContainer) -> Control:
-	var wide := UiKit.view_width(self) >= 760.0 and UiKit.view_width(self) > UiKit.view_height(self)
+	var wide := ScreenLayout.wide_view(UiKit.view_width(self), UiKit.view_height(self), 760.0)
 	var crest := GuernseyCrest.make(Color.WHITE, Color.WHITE, Color.WHITE, "plain", "", 200.0 if wide else 84.0)
 	crest.name = "ForgePreview"
 	var name_l := UiKit.lbl("", UiKit.H1 if wide else UiKit.H2, UiKit.TEXT, true)
@@ -784,7 +786,7 @@ func _rebuild_paint() -> void:
 	if not is_instance_valid(_colour_box):
 		return
 	UiKit.clear(_colour_box)
-	var wide := UiKit.view_width(self) >= 760.0 and UiKit.view_width(self) > UiKit.view_height(self)
+	var wide := ScreenLayout.wide_view(UiKit.view_width(self), UiKit.view_height(self), 760.0)
 	var grid := GridContainer.new()
 	grid.name = "ForgePalette"
 	var room := UiKit.view_width(self) - 40.0 - (280.0 if wide else 0.0)

@@ -1027,11 +1027,65 @@ func _test_oval_people(res: Dictionary) -> void:
 	_check(pv3.caption_text() == "", "A tackle alone is not a turnover")
 	pv3._cue_turnover({"kind": "pressure", "side": 1, "num": away})
 	_check(pv3.caption_text() == "Turnover", "A forced turnover always says so")
-	_check(pv3.shaking(), "With Screen shake on, a turnover shakes the oval")
-	for i in range(10):
-		pv3._process(0.05)
-	_check(not pv3.shaking(), "...for a quarter of a second at most")
+	_check(not pv3.shaking(), "A turnover is an ordinary event: no shake")
+	# The club banner's light (UiKit.drift) is smooth: a pure function of time, monotone,
+	# near-constant change per unit time, the same position at 30 and 60 fps.
+	for fps in [30.0, 60.0]:
+		var prev := 0.0
+		var prev_step := -1.0
+		var smooth := true
+		var mono := true
+		for f in range(1, 61):
+			var v := UiKit.drift_at(float(f) / fps, 12.0)
+			var step := v - prev
+			if step < 0.0:
+				mono = false
+			if prev_step > 0.0 and absf(step - prev_step) > prev_step * 0.05:
+				smooth = false
+			prev = v
+			prev_step = step
+		_check(mono and smooth, "The banner light moves monotonically and smoothly across 60 frames at %d fps" % int(fps))
+	_check(is_equal_approx(UiKit.drift_at(1.0, 12.0), UiKit.drift_at(30.0 / 30.0, 12.0)),
+			"The light's place depends on time, not on the frame rate")
+	# A layout refresh mid-sweep does not reset it.
+	var duel := ClubDuel.new().setup("COL", "CAR")
+	duel.size = Vector2(390, 120)
+	duel._settle = 0.5
+	duel.resized.emit()
+	duel.size = Vector2(380, 120)
+	_check(is_equal_approx(duel._settle, 0.5), "A layout refresh mid-sweep leaves the light where it is")
+	duel.free()
+	# The goal shake: the only one. Capped at a share of the oval's height at any screen
+	# size (about 4 px on a phone), replaced and not stacked, and zero with it off.
 	var was := GameState.screen_shake_on()
+	GameState.set_screen_shake_on(true)
+	for sz in [Vector2(390, 844), Vector2(1920, 1080)]:
+		var pv4 := PitchView.new()
+		pv4.size = sz
+		pv4.setup(res)
+		var sc := -1
+		for t in pv4.director.tokens:
+			if sc < 0:
+				sc = int(t["num"])
+		var cap := minf(pv4.pitch_rect().size.y * PitchView.SHAKE_SHARE, PitchView.SHAKE_MAX_PX)
+		var worst := 0.0
+		pv4._name_the_scorer({"kind": "goal", "side": 0, "num": sc})
+		pv4._name_the_scorer({"kind": "goal", "side": 0, "num": sc})
+		_check(pv4.shaking(), "A goal shakes the oval at %s" % [sz])
+		for i in range(200):
+			worst = maxf(worst, pv4.shake_offset().length())
+			pv4._shake = maxf(0.0, pv4._shake - 0.001)
+		_check(worst <= cap + 0.001 and worst > 0.0, "Shake offset %.2f px stays within the cap %.2f at %s" % [worst, cap, sz])
+		_check(PitchView.SHAKE_TIME <= 0.2, "The shake lasts under a fifth of a second")
+		if sz.x < 500:
+			_check(cap <= 4.5, "On a phone the cap is about 4 px (%.2f)" % cap)
+		else:
+			_check(cap <= 4.0, "On a big monitor the cap stays small (%.2f)" % cap)
+		pv4._shake = PitchView.SHAKE_TIME
+		GameState.set_screen_shake_on(false)
+		pv4._name_the_scorer({"kind": "goal", "side": 0, "num": sc})
+		_check(pv4.shake_offset() == Vector2.ZERO, "With Screen shake off the offset is zero at %s" % [sz])
+		GameState.set_screen_shake_on(true)
 	GameState.set_screen_shake_on(false)
 	pv3._cue_turnover({"kind": "rebound", "side": 0, "num": home})
 	_check(pv3.caption_text() == "Turnover" and not pv3.shaking(), "With it off, the label shows and the screen stays still")

@@ -47,8 +47,7 @@
 				],
 				"result": "{name} plays. Fingers crossed."
 			}
-		],
-		"stakes": "Play him sore and there's {sore_odds} chance he breaks down for weeks."
+		]
 	},
 	{
 		"id": "health_veteran_load",
@@ -149,8 +148,7 @@
 			"regular",
 			"finals"
 		],
-		"default": 1,
-		"stakes": "Play him sore and there's {sore_odds} chance he breaks down for weeks."
+		"default": 1
 	},
 	{
 		"id": "health_finals_light_week",
@@ -197,8 +195,7 @@
 		"phase": [
 			"finals"
 		],
-		"cooldown": 45,
-		"stakes": "Train as normal and they carry heavy legs into the final."
+		"cooldown": 45
 	},
 	{
 		"id": "health_veteran_rehab_mentor",
