@@ -84,7 +84,7 @@ func _build() -> void:
 	if not is_inside_tree():
 		return
 	# A pick rebuilds the form; keep the thumb where it was on the same form.
-	var keep := _scroll.scroll_vertical if is_instance_valid(_scroll) and _scroll_form == _form else 0
+	var keep := UiKit.scroll_place(_scroll) if is_instance_valid(_scroll) and _scroll_form == _form else 0
 	UiKit.clear(_root)
 	_root.add_child(UiKit.top_bar("Club Forge", true, null, func(): return handle_back()))
 	var body := UiKit.vbox(UiKit.GAP)
@@ -117,13 +117,7 @@ func _build() -> void:
 	else:
 		_root.add_child(_scroll)
 	if keep > 0:
-		_restore_scroll.call_deferred(_scroll, keep)
-
-
-func _restore_scroll(sc: ScrollContainer, value: int) -> void:
-	await get_tree().process_frame
-	if is_instance_valid(sc):
-		sc.scroll_vertical = value
+		UiKit.restore_scroll(_scroll, keep)
 
 
 func _home(body: VBoxContainer) -> void:

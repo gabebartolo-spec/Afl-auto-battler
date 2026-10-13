@@ -29,7 +29,9 @@ func _ready() -> void:
 	margin.add_child(_root)
 	get_viewport().size_changed.connect(func():
 		if is_inside_tree():
-			_build())
+			var places := UiKit.scroll_places(_root)
+			_build()
+			UiKit.restore_places(_root, places))
 	if not GameState.player_names_changed.is_connected(_on_names):
 		GameState.player_names_changed.connect(_on_names)
 	_build()
