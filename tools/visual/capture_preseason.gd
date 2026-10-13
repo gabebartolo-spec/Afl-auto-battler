@@ -158,23 +158,23 @@ func _run() -> void:
 	# The draft card of a prospect seen in the intra-club match, at the
 	# National Draft that follows (the season itself is not played here).
 	var seen_id := ""
-	for p in state.draftee_pool:
-		if seen_id == "" and (p.get("seen", {}) as Dictionary).has(club):
-			seen_id = str(p["id"])
+	for prospect in state.draftee_pool:
+		if seen_id == "" and (prospect.get("seen", {}) as Dictionary).has(club):
+			seen_id = str(prospect["id"])
 	state.season.round_index = state.season.fixture.size()
 	if seen_id != "" and state.begin_intake_draft():
 		root.get_node("Router").go("draft")
 		await _frames(12)
 		current_scene.call("_open_player", seen_id)
 		await _frames(6)
-		var line: Node = current_scene.find_child("SeenIntraClub", true, false)
-		print("draft card ", seen_id, " line ", (line as Label).text if line != null else "MISSING")
-		if line != null:
-			var lp: Node = line.get_parent()
+		var seen_lbl: Node = current_scene.find_child("SeenIntraClub", true, false)
+		print("draft card ", seen_id, " line ", (seen_lbl as Label).text if seen_lbl != null else "MISSING")
+		if seen_lbl != null:
+			var lp: Node = seen_lbl.get_parent()
 			while lp != null and not (lp is ScrollContainer):
 				lp = lp.get_parent()
 			if lp != null:
-				(lp as ScrollContainer).ensure_control_visible(line as Control)
+				(lp as ScrollContainer).ensure_control_visible(seen_lbl as Control)
 		await _shot(out + "_draft_card.png")
 	quit(0)
 
