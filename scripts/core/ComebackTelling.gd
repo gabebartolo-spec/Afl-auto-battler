@@ -207,7 +207,7 @@ static func go_ahead_id(res: Dictionary) -> String:
 ## The turning side's player in quarter q: {"id", "text"} where text reads
 ## "Logan Morris kicked three in the quarter" or "Andrew Brayshaw had 9 touches in the
 ## quarter", or {} when nobody has a goal, 6 clearances or 9 disposals. The go-ahead
-## goal's kicker is preferred when he qualifies; otherwise the best by influence.
+## goal's kicker is preferred when he kicked two or more in the quarter; otherwise the best by influence.
 static func _turner(res: Dictionary, q: int, side: int) -> Dictionary:
 	var snaps: Array = res.get("quarter_teams", [])
 	var roster: Array = res.get("roster", [[], []])
@@ -231,7 +231,8 @@ static func _turner(res: Dictionary, q: int, side: int) -> Dictionary:
 		if int(d.get("goals", 0.0)) < 1 and int(d.get("clearances", 0.0)) < 6 \
 				and int(d.get("disposals", 0.0)) < 9:
 			continue
-		var inf := CoachReport.influence(d) + (1000.0 if id == key else 0.0)
+		# The go-ahead goal's kicker is the story only if he kicked two or more in the quarter.
+		var inf := CoachReport.influence(d) + (1000.0 if id == key and int(d.get("goals", 0.0)) >= 2 else 0.0)
 		if inf > best_inf:
 			best_inf = inf
 			best_id = id
