@@ -1086,9 +1086,9 @@ func _week_ink_tests() -> void:
 		for lab in [h, kf]:
 			if lab == null:
 				continue
-			# The side ink is the club's vivid colour at 3:1 (the bold heading size), or plain TEXT.
+			# The club's readable ink: 4.5:1 on the dark page, for every club.
 			var ratio: float = uk.contrast(lab.get_theme_color("font_color"), uk.BG)
-			if ratio < 3.0:
+			if ratio < 4.5:
 				bad.append("%s %s %.1f" % [code, lab.text, ratio])
 		if str(code) == "FRE":
 			_check(ui.find_child("LineStandings", true, false) == null and ui.find_child("H2H_midfield", true, false) != null,
@@ -1101,5 +1101,5 @@ func _week_ink_tests() -> void:
 			_check(not long_tag, "No oval tile lists three positions")
 		ui.queue_free()
 		await _settle()
-	_check(bad.is_empty(), "Every club's week headings read at 3:1 or better on the dark page (%s)" % str(bad))
+	_check(bad.is_empty(), "Every club's week headings read at 4.5:1 or better on the dark page (%s)" % str(bad))
 	_check(codes.size() >= 18, "All the clubs were checked (%d)" % codes.size())
