@@ -1,5 +1,5 @@
 {
-  "measured_on": "2026-10-06",
+  "measured_on": "2026-10-14",
   "source_run": 37460575183,
   "seconds": {
     "intake": 22,
@@ -46,6 +46,7 @@
     "scroll": 30,
     "keyboard": 30,
     "preseason": 150,
-    "plan_know": 60
+    "plan_know": 60,
+    "planpane": 40
   }
 }
