@@ -724,6 +724,9 @@ func _show_coach_box() -> void:
 	var loose_was := str(calls["interceptor_id"])
 	var narrow := UiKit.view_width(self) < 560.0
 
+	var plan_known := UiKit.lbl("", UiKit.SECONDARY, UiKit.TEXT, true)
+	plan_known.name = "PlanKnown"
+	plan_known.visible = false
 	# The plan under the buttons, in short separate lines: what it does, what
 	# it gains and costs, what it beats, and who makes it work.
 	var plan_note := UiKit.vbox(5)
@@ -757,11 +760,16 @@ func _show_coach_box() -> void:
 			who.add_child(_plan_row("Best for it:", str(fit["names"]), "PlanBest"))
 			plan_note.add_child(UiKit.spacer(2))
 			plan_note.add_child(who)
+		# How well the side knows it (plan familiarity): a decision, so at full strength.
+		var known := GameState.plan_known_line(key)
+		plan_known.text = known
+		plan_known.visible = known != ""
 	var plan := _choice_grid("PlanPicker", GAMEPLANS, calls, "gameplan", 2 if narrow else 3, sync_note)
 	# The heading and the plan under it stay together.
 	var plan_block := _call_block("Gameplan", plan)
 	plan_block.remove_meta("break_unit")
 	col_a.add_child(plan_block)
+	col_a.add_child(plan_known)
 	col_a.add_child(plan_note)
 	sync_note.call(str(calls["gameplan"]))
 
