@@ -1699,6 +1699,12 @@ func _test_finals_card_taps() -> void:
 	var card: Control = current_scene.find_child("WeekEvent", true, false)
 	var ids: Array = _state.week_events.map(func(c): return str(c["tid"]))
 	_check(card != null and ids == ["finals_week_off"], "A club on its week off sees the week-off card on the hub (%s)" % str(ids))
+	var play_btn: Button = null
+	for b in current_scene.find_children("*", "Button", true, false):
+		if (b as Button).text == "Play the wildcard":
+			play_btn = b
+	_check(play_btn != null and play_btn.get_combined_minimum_size().x <= play_btn.size.x + 0.5,
+			"The wildcard week's Play button reads whole on a 390 phone (%s)" % (str(play_btn.size) if play_btn != null else "missing"))
 	var rest: Button = card.find_child("Event_0", true, false) if card != null else null
 	_check(card != null and card.find_child("Event_2", true, false) == null, "Week one of the finals: two choices, no semi to watch")
 	var tap_why: String = await Tap.tap(rest) if rest != null else "missing"

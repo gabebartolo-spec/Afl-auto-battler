@@ -1587,13 +1587,7 @@
 								"who": "side"
 							}
 						],
-						"failed": [
-							{
-								"op": "morale",
-								"d": 1,
-								"who": "side"
-							}
-						],
+						"failed": [],
 						"held_result": "You say your piece early. {name} sends them out, and the group hangs on every word.",
 						"failed_result": "You say your piece early. {name} sends them out, but the group has its mind on the game."
 					}

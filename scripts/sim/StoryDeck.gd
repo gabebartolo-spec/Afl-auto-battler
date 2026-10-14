@@ -276,10 +276,10 @@ static func _check_effect(where: String, e, player: bool) -> Array:
 	if op == "flag" and str(e.get("name", "")) == "":
 		errs.append("%s: a flag needs a name" % where)
 	if op == "delegate":
+		if (e.get("held", []) as Array).is_empty() and (e.get("failed", []) as Array).is_empty():
+			errs.append("%s: a dispute left to the captain needs an outcome" % where)
 		for side in ["held", "failed"]:
 			var nested: Array = e.get(side, [])
-			if nested.is_empty():
-				errs.append("%s: a dispute left to the captain needs a '%s' outcome" % [where, side])
 			for ne in nested:
 				if str((ne as Dictionary).get("op", "")) == "delegate":
 					errs.append("%s: a delegated outcome cannot delegate again" % where)

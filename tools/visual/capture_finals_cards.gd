@@ -114,8 +114,8 @@ func _run() -> void:
 		["finals_family_tickets", "", {}, {}, "", 2],
 		["finals_club_greats", "", {}, {}, "", 2],
 		["finals_captain_last_word", "captain", {}, {"delegate_holds": true}, "", 2],
-		["gf_the_opponent", "", {"finals_week": 5, "gf_run": 3, "gf_run_word": "third", "gf_again": "won", "rival": true, "opp": "Collingwood"}, {}, "", 5],
-		["gf_the_opponent", "", {"finals_week": 5, "gf_run": 1, "gf_again": "", "rival": false, "opp": "Sydney"}, {}, "_plain", 5],
+		["gf_the_opponent", "", {"finals_week": 5}, {}, "", 5],
+		["gf_the_opponent", "", {"finals_week": 5}, {}, "_plain", 5],
 		["gf_last_game", "captain", {"finals_week": 5}, {"told_players": true}, "", 5],
 		["gf_debut_year", "kid", {"finals_week": 5}, {}, "", 5],
 		["gf_racing_the_clock", "star", {"finals_week": 5}, {}, "", 5],
@@ -139,6 +139,11 @@ func _run() -> void:
 			elif wk == 5:
 				var rival := "ESS" if club != "ESS" else "COL"
 				sea.finals["slots"] = {"W_PF1": club, "W_PF2": rival}
+				# The history is the save's own: a real honour roll, so the card reads what the game would say.
+				state.honour_roll = []
+				if id == "gf_the_opponent" and str(sh[4]) == "":
+					state.honour_roll = [{"year": state.season_year - 2, "premier": rival, "runner_up": club},
+							{"year": state.season_year - 1, "premier": club, "runner_up": rival}]
 			elif wk >= 4:
 				sea.finals["slots"] = {}
 		var rec: Dictionary = state.captaincy_record(club)

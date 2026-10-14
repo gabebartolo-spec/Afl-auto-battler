@@ -584,9 +584,12 @@ static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
 			return "%s %s" % [RUSH_GAIN, RUSH_COST]
 		"slow_start":
 			# Never "a flat start": what happens, and how likely, in the coach's words.
+			# In Grand Final week there is no next final: it is Saturday that he starts slowly.
+			var when := "Saturday" if str(e.get("on", "")) == "grand_final" else "his next final"
 			if who == "subject":
-				return "A small chance he starts his next final slowly."
-			return "A small chance %s starts its next final slowly." % ("the side" if who == "side" else "the whole list")
+				return "A small chance he starts %s slowly." % when
+			return "A small chance %s starts %s slowly." % [("the side" if who == "side" else "the whole list"),
+					"Saturday" if when == "Saturday" else "its next final"]
 		"loss_sting":
 			return "A small chance the side's morale falls instead if you lose that final."
 		"role_trial":

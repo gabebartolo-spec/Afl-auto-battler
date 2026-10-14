@@ -25,6 +25,7 @@ func run(suite) -> void:
 	_test_determinism_and_no_finals()
 	_test_old_save()
 	_test_copy()
+	_test_director_fixes()
 
 
 func _check(c: bool, m: String) -> void:
@@ -567,7 +568,7 @@ func _test_effects() -> void:
 			if id == "finals_second_chance":
 				_check(up == (0 if holds else -2), "%s: the group %s, the side's morale moves %d" % [id, "listens" if holds else "doesn't", up])
 			else:
-				_check(up == (5 if holds else 1), "%s: the group %s, the side's morale rises by %d" % [id, "listens" if holds else "doesn't", up])
+				_check(up == (5 if holds else 0), "%s: the group %s, the side's morale rises by %d" % [id, "listens" if holds else "doesn't", up])
 
 
 ## The small chances: one roll from the save's seed; the same save rolls the same; the rate is the card's.
@@ -841,3 +842,60 @@ func _test_copy() -> void:
 				dup.append("%s/%s: %s" % [t["id"], grams[g], g])
 			grams[g] = str(t["id"])
 	_check(dup.is_empty(), "No finals card shares a four-word phrase with another card: %s" % " | ".join(PackedStringArray(dup.slice(0, 4))))
+
+
+## The director's fixes (2026-10-14): a captain the group would not listen to changes no morale; a
+## Grand Final card says Saturday, and the flag is on the side when the Grand Final is played; the
+## Grand Final card names the club you actually meet.
+func _test_director_fixes() -> void:
+	_finals_game(3070)
+	var cap: Dictionary = {}
+	for q in GameState.my_list:
+		if Captaincy.role_of(GameState.captaincy_record("GEE"), str(q["id"])) == "captain":
+			cap = q
+	var card := GameState.story_card("finals_captain_last_word", cap)
+	var give: Dictionary = card["options"][0]
+	card["facts"]["delegate_holds"] = false
+	var lines := " ".join(StoryEngine.stakes_lines(give["effects"], card["facts"]))
+	_check(not lines.contains("If it doesn't"), "Last word, group not listening: no line promises a morale change (%s)" % lines)
+	for q in GameState.my_list:
+		q["morale"] = 50
+	ClubStories.apply_choice(GameState, card, 0)
+	var moved := 0
+	for q in GameState.my_list:
+		moved += absi(ClubLife.morale(q) - 50)
+	_check(moved == 0, "Last word, group not listening: nobody's morale moves (%d)" % moved)
+	# Saturday, not "next final".
+	for id in ["gf_the_opponent", "gf_debut_year"]:
+		var c2 := GameState.story_card(id, GameState.my_list[3])
+		var text := ""
+		for o in c2["options"]:
+			text += " ".join(StoryEngine.stakes_lines(o["effects"], c2["facts"]))
+		_check(text.contains("starts Saturday slowly") and not text.contains("next final"), "%s: the cost says Saturday (%s)" % [id, text])
+	var wk := GameState.story_card("finals_week_off")
+	var wtext := " ".join(StoryEngine.stakes_lines(wk["options"][0]["effects"], wk["facts"]))
+	_check(wtext.contains("next final"), "The week off still says 'next final' (%s)" % wtext)
+	# The Grand Final: the club you meet, named; the flag is on the side when it is played.
+	var sea: Season = GameState.season
+	sea.finals["week"] = 5
+	sea.finals["weeks"] = [[], [], [], []]
+	sea.finals["slots"] = {"W_PF1": "GEE", "W_PF2": "ESS"}
+	var club: Dictionary = ClubStories.context(GameState)["club"]
+	_check(str(club["opp"]) == GameDB.club_name("ESS") and int(club["finals_week"]) == 5, "The Grand Final week's opponent is the club in the other slot (%s)" % str(club["opp"]))
+	var gf := GameState.story_card("gf_the_opponent")
+	_check(str(gf["title"]).begins_with(GameDB.club_name("ESS")) and not str(gf["text"]).contains("Collingwood"),
+			"The Grand Final card names Essendon, the club you meet (%s)" % gf["title"])
+	var hit := -1
+	for sd in range(300):
+		if StoryEngine.risk_hit(sd, GameState.season_year, 29, "gf_the_opponent|slow|side|", 20):
+			hit = sd
+			break
+	GameState.season.seed = hit
+	gf["facts"]["round"] = 29
+	ClubStories.apply_choice(GameState, gf, 0)
+	var slow := 0
+	var squad := GameState.my_squad()
+	for p in squad.ground:
+		if bool(p.get("slow_start", false)) and MatchSim._start_energy(p) == ClubLife.SLOW_LEGS:
+			slow += 1
+	_check(slow == squad.ground.size() and slow > 0, "Make it about them (rolled): the side that runs out in the Grand Final starts on slow legs (%d of %d)" % [slow, squad.ground.size()])

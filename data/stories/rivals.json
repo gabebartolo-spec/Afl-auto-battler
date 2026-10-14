@@ -194,7 +194,8 @@
 					{
 						"op": "slow_start",
 						"who": "side",
-						"chance": 20
+						"chance": 20,
+						"on": "grand_final"
 					}
 				],
 				"result": "Their names go up on the whiteboard all week. The players want them badly."

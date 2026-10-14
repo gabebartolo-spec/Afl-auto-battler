@@ -588,7 +588,8 @@
 					{
 						"op": "slow_start",
 						"who": "subject",
-						"chance": 20
+						"chance": 20,
+						"on": "grand_final"
 					}
 				],
 				"result": "{first} does the radio, the TV and the newspaper photo. He's loving every minute."
