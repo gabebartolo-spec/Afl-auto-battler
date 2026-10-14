@@ -33,7 +33,7 @@ const GROUPS := [
 ]
 
 const TOPICS := [
-	["Overall (OVR)", "A player's rating, mostly the stats his position relies on. It decides selection and draft price."],
+	["Overall (OVR)", "A player's rating, mostly from the stats his position relies on. Clubs value players by it at the draft and the trade table."],
 	["Potential (POT)", "Where he is projected to peak. A projection, not a limit; growth slows as he nears it."],
 	["Team strengths", "Contest is your stoppages, attack your forwards and carry, defence your pressure and intercept."],
 	["Traits and synergies", "A standout stat earns a trait. The right mix in a line switches on a synergy; the Team screen shows yours, and says when one is a single player short (\"Lockdown unit: 1 lockdown player short\")."],
