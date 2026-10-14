@@ -113,6 +113,8 @@ var clash := false
 ## side do (Fremantle's purple and Melbourne's navy are 26.6 apart and read as one
 ## side in a pack: audit frame fre_mel_phone 005).
 const DISC_CLASH := 40.0
+## Two sides of one club whose strips are this close in base colour (Gold Coast's two reds) take the club's farthest colour instead.
+const SIDE_CLASH := 30.0
 ## Discs that would overlap are drawn apart, so both numbers show. Drawing only:
 ## the players stay where the match has them. NUDGE_GAP is the distance two drawn
 ## centres are pushed toward, in disc diameters; each frame the nudge eases back
@@ -496,7 +498,12 @@ static func kits_for(home: String, away: String) -> Array:
 	# body) and wears the one farthest from the home side's disc.
 	var best: Dictionary = a
 	var best_d := disc_distance(h, a)
-	for c in clash_options(away, a):
+	var options := clash_options(away, a)
+	if GameDB.side_base(home) == GameDB.side_base(away):
+		# A club against itself (an intra-club match): the strip is only its own
+		# two colours changed over, so a side's ink matches the strip it wears.
+		options = options.slice(0, 1) if UiKit.colour_distance(a.get("base", Color.WHITE), a.get("pattern", Color.WHITE)) > 12.0 else []
+	for c in options:
 		var d := disc_distance(h, c)
 		if d > best_d + 0.01:
 			best = c
@@ -698,7 +705,7 @@ static func dress_sides(base: String) -> void:
 	var home: Dictionary = GameDB.club_guernsey(base)
 	var second: Dictionary = kits_for(base, base)[1]
 	var hb: Color = home.get("base", Color.WHITE)
-	if UiKit.colour_distance(hb, second.get("base", Color.WHITE)) < DISC_CLASH:
+	if UiKit.colour_distance(hb, second.get("base", Color.WHITE)) < SIDE_CLASH:
 		# The kit's two colours are too alike to tell two sides apart (Gold
 		# Coast's two reds): the second side takes the club's own colour that
 		# is farthest from the first side's, still one of the club's colours.

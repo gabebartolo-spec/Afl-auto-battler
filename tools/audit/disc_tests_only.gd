@@ -16,6 +16,7 @@ func _run() -> void:
 	var suite = load("res://tests/test_match_visual.gd").new()
 	suite._test_clash_kit()
 	suite._test_label_overlap()
+	suite._test_sides()
 	print("checks %d, failures %d" % [suite.checks, suite.failures.size()])
 	for f in suite.failures:
 		print("FAIL ", f)
