@@ -73,3 +73,5 @@ committing all my comments to the roadmap". An item leaves this chapter only whe
 |---|---|---|---|
 | E1 | "footy is too big" (hub match poster, the red ball between the guernseys) | ballsize: claude/smaller-hub-ball | building (look-gated) |
 | E2 | "id love to distill our workflow and game dev system into a skill i can boot up whenever i need"; ruling: one boot-up lead skill that calls the existing skills | leadskill: ~/.claude/skills/game-studio-lead | drafting |
+| E3 | Interview 23:32: Adelaide players' names in text: "Gold" (were red like Melbourne and Essendon) | clubnames: claude/crows-gold-ink (after #751) | queued |
+| E4 | Interview 23:29: Godot test runs "No limit" (one while gaming); team "up to ~8 builders" | lead: shared rules updated | done |
