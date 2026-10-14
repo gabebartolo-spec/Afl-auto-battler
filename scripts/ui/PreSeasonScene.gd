@@ -243,26 +243,24 @@ func _papers_story() -> Control:
 		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(none)
 		return v
-	var title := UiKit.heading(str(card.get("title", "")), UiKit.HEADING)
+	# Every name in the story wears his club's colour (NameInk).
+	var names := NameInk.from_lists(GameState.season.lists)
+	var title := NameInk.label(str(card.get("title", "")), names, UiKit.HEADING, UiKit.TEXT, true)
 	title.name = "PapersTitle"
-	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(title)
-	var text := UiKit.lbl(str(card.get("text", "")), UiKit.BODY, UiKit.TEXT)
+	var text := NameInk.label(str(card.get("text", "")), names, UiKit.BODY, UiKit.TEXT)
 	text.name = "PapersText"
-	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(text)
 	if bool(rec.get("answered", false)):
 		v.add_child(UiKit.spacer(4))
-		var said := UiKit.lbl(str(rec.get("result", "")), UiKit.BODY, UiKit.TEXT, true)
+		var said := NameInk.label(str(rec.get("result", "")), names, UiKit.BODY, UiKit.TEXT, true)
 		said.name = "PapersResult"
-		said.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(said)
 		return v
 	var silence := str((card.get("unanswered", {}) as Dictionary).get("hint", ""))
 	if silence != "":
-		var sl := UiKit.lbl(silence, UiKit.SECONDARY, UiKit.TEXT)
+		var sl := NameInk.label(silence, names, UiKit.SECONDARY, UiKit.TEXT)
 		sl.name = "PapersSilence"
-		sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(sl)
 	var opts: Array = card.get("options", [])
 	for i in range(opts.size()):
@@ -288,9 +286,8 @@ func _papers_story() -> Control:
 			elif line.begins_with(StoryEngine.COST_MARK):
 				mark = "Cost:"
 				kind = "Cost"
-			var cl := UiKit.lbl(line.substr(mark.length()).strip_edges() if mark != "" else line, UiKit.SECONDARY, UiKit.TEXT)
+			var cl := NameInk.label(line.substr(mark.length()).strip_edges() if mark != "" else line, names, UiKit.SECONDARY, UiKit.TEXT)
 			cl.name = "Papers%s_%d" % [kind, i]
-			cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			if mark == "":
 				col.add_child(cl)
 				continue

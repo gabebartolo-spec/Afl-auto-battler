@@ -361,6 +361,19 @@ func _test_screen() -> void:
 			"A finger's tap goes on to Round 1")
 	await _frames(tree, 6)
 	_check(not GameState.preseason_active() and Router.current() == "hub", "...and the hub is next")
+	# The tipped player's name wears his club's colour.
+	_career("STK")
+	_to_papers()
+	_force("breakout")
+	Router.stack = ["main"]
+	Router.go("hub")
+	await _frames(tree, 8)
+	scene = tree.current_scene as Control
+	var who: Dictionary = GameState.list_player(str(GameState.papers_record()["pid"]))
+	var head := scene.find_child("PapersTitle", true, false) as Control
+	_check(head is RichTextLabel and NameInk.plain(head).contains(GameDB.player_display_name(who))
+			and (head as RichTextLabel).text.contains("[color="),
+			"The breakout's name in the headline is in his club's colour")
 	# Wide.
 	_career("STK")
 	_to_papers()
@@ -400,5 +413,5 @@ func _tap(b: Control, what: String) -> bool:
 
 
 func _label(scene: Node, node_name: String) -> String:
-	var l := scene.find_child(node_name, true, false) as Label if scene != null else null
-	return l.text if l != null else ""
+	var l := scene.find_child(node_name, true, false) as Control if scene != null else null
+	return NameInk.plain(l) if l != null else ""
