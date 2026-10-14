@@ -564,7 +564,18 @@ func _finals_status_paths() -> void:
 		await _settle()
 		var you: Label = fb.find_child("FinalsYou", true, false)
 		var text := you.text if you != null else "-"
-		_check(text.contains(str(c[3])), "Finals status, %s: reads %s (%s)" % [c[0], c[3], text])
+		if str(c[3]) == "Premiers":
+			# The premiers' cup says it (#736): one "Premiers" over the club's name, and
+			# the status line under it stays silent rather than saying it twice.
+			var said := ""
+			for n in fb.find_children("*", "Label", true, false):
+				if (n as Label).text == "Premiers":
+					said = (n as Label).text
+			_check(said == "Premiers", "Finals status, %s: the cup reads Premiers (%s)" % [c[0], said])
+			_check(fb.find_child("FinalsPremier", true, false) != null, "Finals status, %s: the cup names the club" % c[0])
+			_check(you == null, "Finals status, %s: the line under it does not say it twice (%s)" % [c[0], text])
+		else:
+			_check(text.contains(str(c[3])), "Finals status, %s: reads %s (%s)" % [c[0], c[3], text])
 		if str(c[3]) == "Still alive":
 			_check(not text.contains("ended"), "Finals status, %s: never says the season ended" % c[0])
 		host.queue_free()
