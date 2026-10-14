@@ -50,6 +50,8 @@ func _run() -> void:
 			await _training(club, sz)
 	await _hub_tribunal(Vector2i(390, 844))
 	await _hub_tribunal(Vector2i(1280, 720))
+	await _inked_lines(Vector2i(390, 844))
+	await _inked_lines(Vector2i(1280, 720))
 	await _drag_over_name(Vector2i(390, 844))
 	print("Name link tests: %d checks, %d failures" % [_checks, _failures.size()])
 	for f in _failures:
@@ -252,4 +254,41 @@ func _hub_tribunal(sz: Vector2i) -> void:
 		await _settle()
 		_check(_sheet(scene) == null and is_instance_valid(scene) and scene.is_inside_tree(), "%s: Back closes it and stays on the hub" % tag)
 	scene.queue_free()
+	await _settle()
+
+
+## A name tinted by NameInk (match feed, breaks, full time, hub lines) is a tap too;
+## inside a button it is not, so the button keeps its own tap.
+func _inked_lines(sz: Vector2i) -> void:
+	var tag := "inked %dx%d" % [sz.x, sz.y]
+	var ink: GDScript = load("res://scripts/ui/NameInk.gd")
+	_gs.reset()
+	_gs.start_season("FRE", _db.club_list("FRE"))
+	root.size = sz
+	var p: Dictionary = _gs.my_list[4]
+	var who: String = _db.player_display_name(p)
+	var index: Dictionary = ink.from_squads([_gs.my_list], ["FRE"])
+	var page := Control.new()
+	page.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(page)
+	current_scene = page
+	var v := VBoxContainer.new()
+	page.add_child(v)
+	var line: Control = ink.label("Early in the second, %s snaps a goal." % who, index, 16)
+	v.add_child(line)
+	var held := Button.new()
+	held.text = "Pick %s" % who
+	held.custom_minimum_size = Vector2(300, 60)
+	v.add_child(held)
+	var inside: Control = ink.label("%s" % who, index, 16)
+	held.add_child(inside)
+	await _settle()
+	_check(line is RichTextLabel and line.mouse_filter == Control.MOUSE_FILTER_PASS, "%s: a tinted line takes taps on its names" % tag)
+	_check(inside is RichTextLabel and inside.mouse_filter == Control.MOUSE_FILTER_IGNORE, "%s: a tinted name inside a button leaves the tap to the button" % tag)
+	var opened := await _tap_scan(line, page)
+	_check(opened and _sheet_name(_sheet(page)) == who, "%s: a tap on the tinted name opens %s (got '%s')" % [tag, who, _sheet_name(_sheet(page))])
+	_router.handle_back()
+	await _settle()
+	_check(_sheet(page) == null, "%s: Back closes it" % tag)
+	page.queue_free()
 	await _settle()
