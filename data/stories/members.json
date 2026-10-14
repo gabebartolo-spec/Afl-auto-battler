@@ -267,5 +267,117 @@
 				"result": "The players stay in."
 			}
 		]
+	},
+	{
+		"id": "finals_in",
+		"category": "members",
+		"phase": [
+			"regular"
+		],
+		"subject": {
+			"kind": "club"
+		},
+		"when": {
+			"finals_math": "in"
+		},
+		"per_season": 1,
+		"weight": 3,
+		"title": [
+			"We're in"
+		],
+		"text": [
+			"It's mathematical now: we can't drop out of the ten. The club's been buzzing all weekend."
+		],
+		"choices": [
+			{
+				"key": "enjoy",
+				"label": "Let them enjoy tonight",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 5,
+						"who": "all"
+					}
+				],
+				"result": "A few quiet ones at the club. They turn up on Monday walking taller."
+			},
+			{
+				"key": "hold",
+				"label": "Nothing's won yet",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 6,
+						"who": "all"
+					},
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "all"
+					}
+				],
+				"result": "No celebrations. Recovery at seven on Monday, and a hard week after it."
+			}
+		]
+	},
+	{
+		"id": "gf_milestone",
+		"category": "members",
+		"phase": [
+			"finals"
+		],
+		"subject": {
+			"kind": "player",
+			"where": {
+				"milestone_next_min": 100,
+				"fit": true,
+				"selected": true
+			},
+			"pick": "random"
+		},
+		"when": {
+			"finals_week": 5
+		},
+		"priority": true,
+		"weight": 3,
+		"cooldown": 0,
+		"subject_cooldown": 0,
+		"title": [
+			"{name}'s {milestone_next}th game is a Grand Final"
+		],
+		"text": [
+			"Most players never get a milestone like it. The cheer squad want his name on the banner."
+		],
+		"choices": [
+			{
+				"key": "banner",
+				"label": "His name goes on the banner",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 8,
+						"who": "subject"
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You let the cheer squad put his name on the Grand Final banner"
+					}
+				],
+				"result": "His name runs across the bottom of the banner. He'll keep a piece of it forever."
+			},
+			{
+				"key": "club",
+				"label": "The banner is for the club",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "side"
+					}
+				],
+				"result": "The banner is all club. His milestone gets its moment after the siren."
+			}
+		]
 	}
 ]
