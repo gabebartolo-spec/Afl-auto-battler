@@ -69,6 +69,7 @@ func _run() -> void:
 		await process_frame
 	state.start_season(club, db.club_list(club))
 	state.set_club_plan("attacking")
+	_vs(state, club, "STK" if club == "FRE" else "WBD")
 	state.open_preseason()
 	# For the look: a side that knows its plans unevenly.
 	state.plan_known[club]["contest"] = 0
@@ -102,6 +103,26 @@ func _run() -> void:
 		await _scroll_to("PlanNote")
 		await _shot(out + "_break.png")
 	quit(0)
+
+
+## Round 1 against a coloured club (never Collingwood on a capture): swap the
+## opponent with whoever plays `opp`.
+func _vs(state, club: String, opp: String) -> void:
+	var mine: Dictionary = {}
+	var theirs: Dictionary = {}
+	for m in state.season.fixture[0]:
+		if str(m["home"]) == club or str(m["away"]) == club:
+			mine = m
+		if str(m["home"]) == opp or str(m["away"]) == opp:
+			theirs = m
+	if mine.is_empty() or theirs.is_empty() or mine == theirs:
+		return
+	var old := str(mine["away"]) if str(mine["home"]) == club else str(mine["home"])
+	for k in ["home", "away"]:
+		if str(theirs[k]) == opp:
+			theirs[k] = old
+		if str(mine[k]) == old:
+			mine[k] = opp
 
 
 func _frames(n: int) -> void:
