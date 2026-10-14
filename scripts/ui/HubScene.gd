@@ -748,8 +748,8 @@ func _tribunal_card() -> Control:
 			sanction = "MRO fine"
 		var stage := str(row.get("stage", "tribunal"))
 		var hearing := "Appeals Board" if stage == "appeal" else "Tribunal"
-		var line := UiKit.lbl("%s — %s. %s case: %s." % [
-				name, sanction, hearing, str(row.get("case", "Difficult"))], 13, UiKit.TEXT, true)
+		var line := NameInk.label("%s — %s. %s case: %s." % [
+				name, sanction, hearing, str(row.get("case", "Difficult"))], _league_names(), 13, UiKit.TEXT, true)
 		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(line)
 		var status := UiKit.lbl("Brownlow: ineligible unless the %s succeeds." % (
