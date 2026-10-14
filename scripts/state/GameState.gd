@@ -2853,7 +2853,7 @@ func _finish_drills() -> String:
 			(plan_known[code] as Dictionary)[plan] = now
 			(plan_idle[code] as Dictionary)[plan] = 0
 			if code == my_club and now != was:
-				line += " Their fluency in %s is now %s." % [CoachReport.plan_label(str(plan)), PreSeason.fluency_word(now)]
+				line += " The side's fluency in %s is now %s." % [CoachReport.plan_label(str(plan)), PreSeason.fluency_word(now)]
 	return line
 
 

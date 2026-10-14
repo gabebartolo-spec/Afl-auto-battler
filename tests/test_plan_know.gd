@@ -192,7 +192,7 @@ func _test_words() -> void:
 			and PreSeason.known_line(0) == "Plan fluency: low", "The three lines, in the director's words")
 	var g := PreSeason.gain_line("solid", "plan", 1, ["defensive"])
 	var c := PreSeason.cost_line("solid", "plan", 1)
-	_check(g.begins_with("Drills Defensive press") and "step" in g, "A Game plan block says what it drills and what that gains")
+	_check(g.begins_with("Fluency in Defensive press") and "step" in g, "A Game plan block says what it drills and what that gains")
 	_check(c == "Running and skills work both get half the time.",
 			"...and costs the time its running and skills would have had")
 	var pair := PreSeason.gain_line("solid", "plan", 0, ["contest", "attacking"])
@@ -438,7 +438,7 @@ func _test_screens() -> void:
 	_check(focus != null and focus.text == "Game plan", "A block's focus offers Game plan")
 	_check(await _tap(focus, "Game plan on block 1"), "A finger sets block 1 to Game plan")
 	_check(GameState.preseason_blocks()[0][1] == "plan" and drill_row.visible, "...and the drill choice appears")
-	_check(_label(scene, "BlockGain_0").begins_with("Drills Attack corridor"), "...the gain says what it drills")
+	_check(_label(scene, "BlockGain_0").begins_with("Fluency in Attack corridor"), "...the gain says what it drills")
 	_check("half the time" in _label(scene, "BlockCost_0"), "...and the cost, the time")
 	var contest := scene.find_child("Drill0_contest", true, false) as Button
 	_check(contest != null and contest.text == "Win contest\nmedium", "Each plan says how well the side knows it")

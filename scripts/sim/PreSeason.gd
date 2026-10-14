@@ -589,7 +589,7 @@ static func with_plan_block(blocks: Array, phase: String, usual: String) -> Arra
 	return out
 
 
-## "Drills Defensive press and Win contest, sharing the weeks."
+## "Fluency in Defensive press rises a step for every 2 weeks on it."
 static func drill_sentence(plans: Array) -> String:
 	var names := []
 	for p in clean_drills(plans):
@@ -597,5 +597,5 @@ static func drill_sentence(plans: Array) -> String:
 	if names.is_empty():
 		return "Drills a game plan."
 	if names.size() == 1:
-		return "Drills %s: the side knows it a step better for every %d weeks on it." % [names[0], int(tune("drill_step_weeks"))]
-	return "Drills %s and %s, sharing the weeks between them." % [names[0], names[1]]
+		return "Fluency in %s rises a step for every %d weeks on it." % [names[0], int(tune("drill_step_weeks"))]
+	return "Fluency in %s and %s rises a step for every %d weeks on each, sharing the weeks between them." % [names[0], names[1], int(tune("drill_step_weeks"))]
