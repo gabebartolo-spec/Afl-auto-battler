@@ -29,6 +29,8 @@ const WORDS := ["no", "one", "two", "three", "four", "five", "six", "seven", "ei
 
 static var _rx := {}
 static var _codes := {}
+## Players by name (NameInk), so names in plain lines wear their club's ink.
+static var _names := {}
 
 
 # ---------------------------------------------------------------------------
@@ -252,11 +254,15 @@ static func all_stories(page: Dictionary) -> Array:
 # Drawing
 # ---------------------------------------------------------------------------
 static func _ink(code: String) -> Color:
-	return UiKit.club_name_colour(UiKit.club_ink(code)) if code != "" else UiKit.TEXT
+	return UiKit.club_ink(code) if code != "" else UiKit.TEXT
 
 
-static func _headline(st: Dictionary, fs: int) -> Label:
-	var l := UiKit.lbl(str(st["headline"]), fs, _ink(str(st["club"])), true)
+static func _headline(st: Dictionary, fs: int) -> Control:
+	var l: Control
+	if str(st["name"]) == "" and str(st["club"]) == "":
+		l = NameInk.label(str(st["headline"]), _names, fs, UiKit.TEXT, true)
+	else:
+		l = UiKit.lbl(str(st["headline"]), fs, _ink(str(st["club"])), true)
 	l.name = "Headline"
 	return l
 
@@ -320,7 +326,11 @@ static func _brief_row(st: Dictionary, key: String) -> Control:
 	var row := UiKit.vbox(0)
 	row.name = "BriefRow"
 	var t := str(st["headline"]) if str(st["standfirst"]) != "" else str(st["text"])
-	var l := UiKit.lbl(t, UiKit.SECONDARY, _ink(club) if str(st["name"]) != "" else UiKit.TEXT, str(st["name"]) != "")
+	var l: Control
+	if str(st["name"]) != "":
+		l = UiKit.lbl(t, UiKit.SECONDARY, _ink(club), true)
+	else:
+		l = NameInk.label(t, _names, UiKit.SECONDARY, UiKit.TEXT)
 	row.add_child(l)
 	if str(st["standfirst"]) != "" and key != _FIRST_GOAL:
 		row.add_child(UiKit.lbl(str(st["standfirst"]), UiKit.SMALL, UiKit.TEXT))
@@ -328,7 +338,8 @@ static func _brief_row(st: Dictionary, key: String) -> Control:
 
 
 ## One round as a front page into `body`. `wide` lays it out in columns.
-static func fill(body: Container, items: Array, my_club: String, wide: bool) -> void:
+static func fill(body: Container, items: Array, my_club: String, wide: bool, names := {}) -> void:
+	_names = names
 	var page := build(items, my_club)
 	var head := UiKit.hbox(8)
 	var title := UiKit.heading("League news", UiKit.H1)
@@ -410,8 +421,11 @@ static func _earlier_line(st: Dictionary) -> Control:
 	var row := UiKit.vbox(0)
 	row.name = "EarlierLine"
 	var named := str(st["name"]) != ""
-	row.add_child(UiKit.lbl(str(st["headline"]) if str(st["standfirst"]) != "" else str(st["text"]),
-			UiKit.SECONDARY, _ink(str(st["club"])) if named else UiKit.TEXT, named))
+	var t := str(st["headline"]) if str(st["standfirst"]) != "" else str(st["text"])
+	if named:
+		row.add_child(UiKit.lbl(t, UiKit.SECONDARY, _ink(str(st["club"])), true))
+	else:
+		row.add_child(NameInk.label(t, _names, UiKit.SECONDARY, UiKit.TEXT))
 	return row
 
 
@@ -423,7 +437,8 @@ static func _wash(club: String) -> Color:
 
 ## The hub's small front page: the lead and up to three more headlines, the
 ## whole card one tap (the button named NewsMore sits behind the words).
-static func mini(items: Array, my_club: String, on_open: Callable) -> Control:
+static func mini(items: Array, my_club: String, on_open: Callable, names := {}) -> Control:
+	_names = names
 	var page := build(latest_round(items), my_club)
 	var card := MarginContainer.new()
 	card.name = "NewsCard"

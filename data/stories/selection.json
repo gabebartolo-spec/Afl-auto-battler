@@ -406,5 +406,194 @@
 			"finals"
 		],
 		"cooldown": 45
+	},
+	{
+		"id": "finals_gone",
+		"category": "selection",
+		"phase": [
+			"regular"
+		],
+		"subject": {
+			"kind": "player",
+			"where": {
+				"age_max": 21,
+				"fit": true,
+				"selected": false
+			},
+			"pick": "highest:potential"
+		},
+		"when": {
+			"finals_math": "out",
+			"round_max": 22
+		},
+		"per_season": 1,
+		"title": [
+			"No finals this year"
+		],
+		"text": [
+			"Pride and next year are all that's left. {name} has been banging on the door in the twos."
+		],
+		"choices": [
+			{
+				"key": "run",
+				"label": "Give {name} the run home",
+				"effects": [
+					{
+						"op": "start_backing"
+					},
+					{
+						"op": "trust",
+						"d": 6,
+						"why": "You gave him the run home when the finals were gone"
+					}
+				],
+				"result": "{name} gets the run home."
+			},
+			{
+				"key": "best",
+				"label": "Play the best side to the end",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "side"
+					},
+					{
+						"op": "morale",
+						"d": -4,
+						"who": "subject"
+					}
+				],
+				"result": "{name} stays down in the twos. The seniors play for pride."
+			}
+		]
+	},
+	{
+		"id": "finals_first_final",
+		"category": "selection",
+		"phase": [
+			"finals"
+		],
+		"subject": {
+			"kind": "player",
+			"where": {
+				"selected": true,
+				"fit": true,
+				"finals_games_max": 0,
+				"save_debut": true,
+				"games_min": 5,
+				"games_max": 40,
+				"age_max": 22
+			},
+			"pick": "highest:potential"
+		},
+		"when": {
+			"finals_week_max": 4
+		},
+		"cooldown": 8,
+		"subject_cooldown": 40,
+		"title": [
+			"{name}'s first final"
+		],
+		"text": [
+			"Named for his first final, with {games} senior games behind him. He hasn't stopped bouncing all week."
+		],
+		"choices": [
+			{
+				"key": "minder",
+				"label": "Put a senior player with him all week",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 6,
+						"who": "subject"
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You looked after him in his first finals week"
+					}
+				],
+				"result": "He shadows a senior player all week: meetings, recovery, the walk-through."
+			},
+			{
+				"key": "alone",
+				"label": "Let him find his own way",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 7,
+						"who": "subject"
+					}
+				],
+				"result": "Nobody makes a fuss. {first} backs himself."
+			}
+		]
+	},
+	{
+		"id": "gf_debut_year",
+		"category": "selection",
+		"phase": [
+			"finals"
+		],
+		"subject": {
+			"kind": "player",
+			"where": {
+				"debut_year": true,
+				"fit": true,
+				"selected": true
+			},
+			"pick": "random"
+		},
+		"when": {
+			"finals_week": 5
+		},
+		"priority": true,
+		"weight": 3,
+		"cooldown": 0,
+		"subject_cooldown": 0,
+		"title": [
+			"A Grand Final in his debut season"
+		],
+		"text": [
+			"{name} made his debut this season. On Saturday he plays in a Grand Final."
+		],
+		"choices": [
+			{
+				"key": "away",
+				"label": "Keep him away from the cameras",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "subject"
+					},
+					{
+						"op": "trust",
+						"d": 5,
+						"why": "You kept the Grand Final circus away from him"
+					}
+				],
+				"result": "No interviews for {first} this week. Train, eat, sleep."
+			},
+			{
+				"key": "enjoy",
+				"label": "Let him enjoy the week",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 10,
+						"who": "subject"
+					},
+					{
+						"op": "slow_start",
+						"who": "subject",
+						"chance": 20,
+						"on": "grand_final"
+					}
+				],
+				"result": "{first} does the radio, the TV and the newspaper photo. He's loving every minute."
+			}
+		]
 	}
 ]

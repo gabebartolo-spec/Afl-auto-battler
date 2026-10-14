@@ -56,6 +56,8 @@ func _round_one() -> Array:
 func _texts(node: Node, out: Array) -> void:
 	if node is Label:
 		out.append((node as Label).text)
+	elif node is RichTextLabel:
+		out.append((node as RichTextLabel).get_parsed_text())
 	for c in node.get_children():
 		_texts(c, out)
 
@@ -165,9 +167,34 @@ func _page() -> void:
 		if str(t).contains("first AFL goal"):
 			firsts += 1
 	_check(firsts == 0, "No 'first AFL goal' line repeats on the page")
-	var head: Label = body.find_child("Headline", true, false)
+	var head: Control = body.find_child("Headline", true, false)
 	_check(head != null and head.get_theme_color("font_color") != _ui.TEXT, "The lead headline is in the club's colour")
 	body.queue_free()
+
+	# Names wear their club's ink everywhere, red clubs included; plain lines go through NameInk.
+	var ade: String = _db.player_display_name(_db.club_list("ADE")[0])
+	var melp: String = _db.player_display_name(_db.club_list("MEL")[0])
+	var ink_items := [
+		_item("mro", "%s (%s) has been suspended for 2 matches for rough conduct." % [melp, _db.club_name("MEL")]),
+		_item("milestone", "%s reached 100 career goals." % ade),
+		_item("development", "%s (%s) has lifted to OVR 88, up 2 this season." % [ade, _db.club_name("ADE")]),
+	]
+	var idx = load("res://scripts/ui/NameInk.gd").from_clubs(["ADE", "MEL"])
+	var b2 := VBoxContainer.new()
+	root.add_child(b2)
+	_nf.fill(b2, ink_items, "COL", true, idx)
+	await _settle()
+	var coloured := 0
+	for rl in b2.find_children("*", "RichTextLabel", true, false):
+		if (rl as RichTextLabel).text.contains("[color"):
+			coloured += 1
+	_check(coloured >= 2, "Names in milestone and league lines are in their club's ink (%d)" % coloured)
+	var mro_row: Label = null
+	for lb in b2.find_children("*", "Label", true, false):
+		if (lb as Label).text.contains(melp) and (lb as Label).text.contains("suspended"):
+			mro_row = lb
+	_check(mro_row != null and mro_row.get_theme_color("font_color") == _ui.club_ink("MEL"), "A red club's player is in the club's red, not plain white")
+	b2.queue_free()
 
 
 func _hub(size: Vector2i, wide: bool) -> void:

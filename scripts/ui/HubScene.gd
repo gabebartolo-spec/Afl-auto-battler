@@ -1,6 +1,7 @@
 extends Control
 ## Season hub: your next match, the ladder snapshot, and the round controls.
 
+var _name_index := {}
 var _settled := false   # the hub has shown once this visit; no more entrances
 ## Where your club sat the last time the hub showed it (this run of the game
 ## only; presentation, never saved): {"key": season instance, "pos": n}.
@@ -204,6 +205,7 @@ func _narrow() -> bool:
 
 func _build() -> void:
 	UiKit.clear(_root)
+	_name_index = {}
 	GameState.ensure_finals()
 	var season: Season = GameState.season
 	var settings := UiKit.btn("Settings", 14)
@@ -536,10 +538,19 @@ func _sacked_card() -> Control:
 	return card
 
 
+## Every club's players by name, from the season's lists (they follow trades),
+## so a name in a sentence wears his club's colour (NameInk). Built once per
+## build of the hub; a name two clubs share is left plain.
+func _league_names() -> Dictionary:
+	if _name_index.is_empty() and GameState.season != null:
+		_name_index = NameInk.from_lists(GameState.season.lists)
+	return _name_index
+
+
 ## The league's front page in small: the lead story and a few headlines; a
 ## tap opens the whole page.
 func _news_card() -> Control:
-	return NewsFront.mini(GameState.news, GameState.my_club, _show_news)
+	return NewsFront.mini(GameState.news, GameState.my_club, _show_news, _league_names())
 
 
 func _show_news() -> void:
@@ -547,7 +558,7 @@ func _show_news() -> void:
 	var box := UiKit.modal_box(self, 1080.0 if wide else 620.0, 0.0 if wide else 560.0)
 	_news_overlay = box["overlay"]
 	_news_overlay.name = "NewsFeed"
-	NewsFront.fill(box["body"], GameState.news, GameState.my_club, wide)
+	NewsFront.fill(box["body"], GameState.news, GameState.my_club, wide, _league_names())
 	var ok := UiKit.btn("Close", UiKit.NAME, true)
 	ok.custom_minimum_size = Vector2(0, 44)
 	ok.pressed.connect(func(): _news_overlay.queue_free())
@@ -679,11 +690,11 @@ func _week_section(season: Season) -> Control:
 		# rest follow in body copy, so three lines are not three equals.
 		for i in range(facts.size()):
 			var f: Dictionary = facts[i]
-			var fl := UiKit.lbl(str(f["text"]), UiKit.NAME if i == 0 else UiKit.BODY, UiKit.TEXT, i == 0)
+			var fl := NameInk.label(str(f["text"]), _league_names(), UiKit.NAME if i == 0 else UiKit.BODY, UiKit.TEXT, i == 0)
 			fl.name = "Fact_%d" % i
 			nv.add_child(fl)
 		for i in range(notes.size()):
-			var nl := UiKit.lbl(str(notes[i]["text"]), UiKit.BODY,
+			var nl := NameInk.label(str(notes[i]["text"]), _league_names(), UiKit.BODY,
 					UiKit.BAD if str(notes[i].get("key", "")) == "own_injury" else UiKit.TEXT)
 			nl.name = "OwnNote_%d" % i
 			nv.add_child(nl)
@@ -798,7 +809,7 @@ func _week_actions(season: Season) -> Control:
 	elif _upcoming_match().is_empty() and GameState.my_finals_status() == "bye":
 		# Still alive: sim only this week, never past your own final.
 		buttons.append(_nav_button("Team", func(): Router.go("selection")))
-		buttons.append(_nav_button("Play %s" % _finals_label(), _on_sim_round, true))
+		buttons.append(_nav_button(_finals_play_label(), _on_sim_round, true))
 	elif _upcoming_match().is_empty():
 		# Out of the finals, the league still plays them week by week: each
 		# week's results come up before the next, and the rest of the series
@@ -806,7 +817,7 @@ func _week_actions(season: Season) -> Control:
 		var skip := _nav_button("Play to Grand Final", _on_sim_to_end)
 		skip.name = "SimToGrandFinal"
 		buttons.append(skip)
-		var week := _nav_button("Play %s" % _finals_label(), _on_sim_round, true)
+		var week := _nav_button(_finals_play_label(), _on_sim_round, true)
 		week.name = "SimFinalsWeek"
 		buttons.append(week)
 	else:
@@ -985,6 +996,14 @@ func _nav_button(text: String, cb: Callable, primary := false) -> Button:
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	b.pressed.connect(cb)
 	return b
+
+
+## The button that plays the week: short enough for half a phone's width beside Team
+## ("Play Wildcard Round" ran off the edge at 390).
+func _finals_play_label() -> String:
+	var w := int(GameState.season.finals.get("week", 1))
+	return ["Play the wildcard", "Play the finals", "Play semi finals",
+			"Play the prelims", "Play Grand Final"][clampi(w - 1, 0, 4)]
 
 
 func _finals_label() -> String:
@@ -1346,41 +1365,81 @@ func _show_media_conference() -> void:
 		return
 	if _media_overlay != null and is_instance_valid(_media_overlay):
 		return
-	var box := UiKit.modal_box(self, 560.0, 0.0)
+	# A PC (director, 2026-10-14: "post match interview screen is so small"): the
+	# sheet takes most of the screen, the press room on the left, the question and
+	# the answers in a column on the right. A phone keeps the stacked sheet.
+	var vw := UiKit.view_width(self)
+	var vh := UiKit.view_height(self)
+	var wide := ScreenLayout.roomy(vw, vh)
+	var box := UiKit.modal_box(self, vw * 0.88 if wide else 560.0, vh * 0.88 if wide else 0.0)
 	_media_overlay = box["overlay"]
 	_media_overlay.name = "MediaConference"
 	var v: VBoxContainer = box["body"]
-	# Vignettes off (Settings): no stage, the question straight away.
+	var footer: VBoxContainer = box["footer"]
+	# The room's picture keeps its proportions: a fixed ratio on a PC, the
+	# phone's strip otherwise.
+	var stage: Control = null
 	var scene: MediaConferenceVignette = null
-	if GameState.vignettes_on():
-		var stage := Control.new()
+	var answers: VBoxContainer = footer
+	var prompt := UiKit.vbox(10 if wide else 6)
+	var row: HBoxContainer = null
+	if wide:
+		row = UiKit.hbox(24)
+		row.name = "MediaRow"
+		v.add_child(row)
+		answers = UiKit.vbox(16)
+		answers.name = "MediaAnswers"
+		answers.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		answers.add_child(prompt)
+		# Vignettes off (Settings): no stage, the column fills the sheet.
+		if GameState.vignettes_on():
+			var stage_w := minf(vw * 0.88 * 0.56, (vh * 0.88 - 60.0) * 1.6)
+			stage = Control.new()
+			stage.name = "MediaConferenceStage"
+			stage.custom_minimum_size = Vector2(stage_w, stage_w / 1.6)
+			stage.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			stage.clip_contents = true
+			row.add_child(stage)
+			scene = MediaConferenceVignette.open(stage, GameState.my_club)
+		row.add_child(answers)
+		footer.visible = false
+	elif GameState.vignettes_on():
+		stage = Control.new()
 		stage.name = "MediaConferenceStage"
-		stage.custom_minimum_size = Vector2(0, minf(300.0, get_viewport_rect().size.y * 0.38))
+		stage.custom_minimum_size = Vector2(0, minf(300.0, vh * 0.38))
 		v.add_child(stage)
 		scene = MediaConferenceVignette.open(stage, GameState.my_club)
-	var prompt := UiKit.vbox(6)
+	if not wide:
+		v.add_child(prompt)
 	prompt.visible = scene == null
-	v.add_child(prompt)
-	var by := UiKit.lbl(str(GameState.media_conference.get("by", "Journalist")), UiKit.SMALL, UiKit.MUTED, true)
+	var by := UiKit.lbl(str(GameState.media_conference.get("by", "Journalist")),
+			UiKit.H2 if wide else UiKit.SMALL, UiKit.MUTED, true)
 	by.name = "MediaByline"
 	prompt.add_child(by)
-	var q := UiKit.lbl(str(GameState.media_conference.get("question", "")), 16, UiKit.TEXT)
+	var q := UiKit.lbl(str(GameState.media_conference.get("question", "")), UiKit.H1 if wide else 16, UiKit.TEXT, wide)
 	q.name = "MediaQuestion"
 	q.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	prompt.add_child(q)
-	var footer: VBoxContainer = box["footer"]
-	footer.visible = false
 	var opts: Array = GameState.media_conference.get("options", [])
 	# Each answer and its line are one group, clearly apart from the next.
-	footer.add_theme_constant_override("separation", 15)
+	var group_gap := 16 if wide else 15
+	if wide:
+		answers.add_theme_constant_override("separation", group_gap)
+	else:
+		footer.add_theme_constant_override("separation", group_gap)
+		footer.visible = false
+	var shown_items: Array = [prompt]
 	for i in range(opts.size()):
-		var group := UiKit.vbox(3)
+		var group := UiKit.vbox(4 if wide else 3)
 		group.name = "MediaAnswerGroup_%d" % i
-		footer.add_child(group)
-		var b := UiKit.btn(str((opts[i] as Dictionary).get("label", "")), 15)
+		group.visible = scene == null
+		answers.add_child(group)
+		shown_items.append(group)
+		var b := UiKit.btn(str((opts[i] as Dictionary).get("label", "")), UiKit.H2 if wide else 15)
 		b.name = "MediaAnswer_%d" % i
-		b.custom_minimum_size = Vector2(0, 48)
+		b.custom_minimum_size = Vector2(0, 56 if wide else 48)
 		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var choice := i
 		b.pressed.connect(func():
 			GameState.resolve_media_conference(choice)
@@ -1388,27 +1447,36 @@ func _show_media_conference() -> void:
 			_media_overlay = null
 			_build())
 		group.add_child(b)
-		# What the answer does, under it: the board, the players, no numbers.
-		var effect := UiKit.lbl(MediaConference.effect_line(opts[i]), UiKit.SMALL, UiKit.MUTED)
+		# What the answer does, under it: the board, the players, no numbers. In
+		# the page's own ink, not faint grey: the coach is deciding on it.
+		var effect := UiKit.lbl(MediaConference.effect_line(opts[i]), UiKit.BODY if wide else UiKit.SMALL, UiKit.TEXT)
 		effect.name = "MediaAnswerLine_%d" % i
 		effect.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		group.add_child(effect)
 	var skip := UiKit.btn("Skip press conference", 14)
 	skip.name = "MediaSkip"
-	skip.flat = true
-	skip.custom_minimum_size = Vector2(0, 44)
+	if wide:
+		skip.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		skip.custom_minimum_size = Vector2(240, 44)
+		skip.visible = scene == null
+		answers.add_child(skip)
+		shown_items.append(skip)
+	else:
+		skip.flat = true
+		skip.custom_minimum_size = Vector2(0, 44)
+		footer.add_child(skip)
 	skip.pressed.connect(func():
 		GameState.skip_media_conference()
 		_media_overlay.queue_free()
 		_media_overlay = null
 		_build())
-	footer.add_child(skip)
 	if scene == null:
-		footer.visible = true
+		footer.visible = not wide
 		return
 	scene.ready_for_question.connect(func():
-		prompt.visible = true
-		footer.visible = true)
+		for it in shown_items:
+			(it as Control).visible = true
+		footer.visible = not wide)
 
 
 func _show_results(results: Array) -> void:
