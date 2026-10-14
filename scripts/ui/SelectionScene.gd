@@ -15,6 +15,8 @@ extends Control
 const WEEK_W_MIN := 460.0
 const WEEK_W_MAX := 600.0
 
+var _name_index := {}
+var _name_key := ""
 var _root: VBoxContainer
 var _notice := ""
 var _synergy_overlay: Control
@@ -532,7 +534,25 @@ func _strength_line() -> Control:
 	return l
 
 
-func _para(text: String, size: int, colour: Color) -> Label:
-	var l := UiKit.lbl(text, size, colour)
+func _para(text: String, size: int, colour: Color) -> Control:
+	var l := NameInk.label(text, _names(), size, colour)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
+
+
+## Your players and this week's opponent's, by name, so a name in a sentence
+## wears his club's colour (NameInk). Built from the lists, never from the text.
+func _names() -> Dictionary:
+	var nxt := GameState.my_next_opponent()
+	var opp := str(nxt.get("code", ""))
+	var key := "%s|%s|%d|%s" % [GameState.my_club, opp, GameState.my_list.size(), str(GameState.show_real_names)]
+	if key != _name_key:
+		_name_key = key
+		var codes := [GameState.my_club]
+		if opp != "" and opp != GameState.my_club:
+			codes.append(opp)
+		if GameState.season != null and GameState.season.lists.has(GameState.my_club):
+			_name_index = NameInk.from_lists(GameState.season.lists, codes)
+		else:
+			_name_index = NameInk.from_squads([GameState.my_list], [GameState.my_club])
+	return _name_index
