@@ -299,7 +299,7 @@ func _test_ovr_overrides() -> void:
 	Ratings.derive_all(raw)
 	for i in range(1, rows.size()):
 		var c: Array = rows[i]
-		if str(c[3]).begins_with("+"):
+		if str(c[3]).ends_with("%"):
 			continue
 		var who: Dictionary = _find(c)
 		if who.is_empty():

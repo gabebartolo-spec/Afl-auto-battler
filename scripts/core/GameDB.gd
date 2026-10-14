@@ -1151,9 +1151,9 @@ func _apply_ovr_overrides(list: Array) -> void:
 		var before_pot := int(p.get("potential", p["overall"]))
 		var mult := 1.0
 		var target := 0
-		if text.begins_with("+") and text.ends_with("%"):
-			# A relative row: his computed OVR and the POT he had both scale.
-			mult = 1.0 + float(text.substr(1, text.length() - 2)) / 100.0
+		if (text.begins_with("+") or text.begins_with("-")) and text.ends_with("%"):
+			# A relative row (+10% or -10%): his computed OVR and the POT he had both scale.
+			mult = 1.0 + text.trim_suffix("%").to_float() / 100.0
 			target = int(round(float(p["overall"]) * mult))
 		else:
 			target = int(text)
