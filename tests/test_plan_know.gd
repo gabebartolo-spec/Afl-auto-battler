@@ -188,8 +188,8 @@ func _test_rules() -> void:
 
 func _test_words() -> void:
 	PreSeason.reload()
-	_check(PreSeason.known_line(2) == "Knows this plan: well" and PreSeason.known_line(1) == "Knows this plan: partly"
-			and PreSeason.known_line(0) == "Knows this plan: barely", "The three lines, in the director's words")
+	_check(PreSeason.known_line(2) == "Plan fluency: high" and PreSeason.known_line(1) == "Plan fluency: medium"
+			and PreSeason.known_line(0) == "Plan fluency: low", "The three lines, in the director's words")
 	var g := PreSeason.gain_line("solid", "plan", 1, ["defensive"])
 	var c := PreSeason.cost_line("solid", "plan", 1)
 	_check(g.begins_with("Drills Defensive press") and "step" in g, "A Game plan block says what it drills and what that gains")
@@ -274,7 +274,7 @@ func _test_drilling() -> void:
 	var news := ""
 	for n in GameState.news:
 		news += str(n).to_lower() + " "
-	_check("know win contest well now" in news, "...and the club's news says which")
+	_check("fluency in win contest is now high" in news, "...and the club's news says which")
 	GameState._refresh_coach_tactics()
 	var sq := Squad.new("A", GameDB.club_list(CLUB), true, CLUB)
 	CoachEffects.apply(sq)
@@ -441,18 +441,18 @@ func _test_screens() -> void:
 	_check(_label(scene, "BlockGain_0").begins_with("Drills Attack corridor"), "...the gain says what it drills")
 	_check("half the time" in _label(scene, "BlockCost_0"), "...and the cost, the time")
 	var contest := scene.find_child("Drill0_contest", true, false) as Button
-	_check(contest != null and contest.text == "Win contest\npartly", "Each plan says how well the side knows it")
+	_check(contest != null and contest.text == "Win contest\nmedium", "Each plan says how well the side knows it")
 	_check(await _tap(contest, "Win contest to drill"), "A finger adds a plan to drill")
 	_check(GameState.preseason_drills(0) == ["attacking", "contest"], "...two at most")
 	var through := scene.find_child("Drill0_through_stars", true, false) as Button
 	_check(await _tap(through, "a third plan"), "A third takes the first's place")
 	_check(GameState.preseason_drills(0) == ["contest", "through_stars"], "...so the block drills the last two chosen")
-	_check(contest.text == "Win contest\npartly", "Three weeks shared by two plans: neither is lifted")
+	_check(contest.text == "Win contest\nmedium", "Three weeks shared by two plans: neither is lifted")
 	await _tap(scene.find_child("Drill0_through_stars", true, false) as Button, "let a plan go")
 	_check(GameState.preseason_drills(0) == ["contest"], "A tap on a chosen plan lets it go")
-	_check(contest.text == "Win contest\npartly, then well", "...and with one plan drilled the button says where it ends up")
-	_check((scene.find_child("Drill0_attacking", true, false) as Button).text == "Attack corridor\nwell",
-			"The plan you play is known well")
+	_check(contest.text == "Win contest\nmedium, then high", "...and with one plan drilled the button says where it ends up")
+	_check((scene.find_child("Drill0_attacking", true, false) as Button).text == "Attack corridor\nhigh",
+			"The plan you play has high fluency")
 	_check(_fits(scene, 390.0), "...and nothing runs off a phone's width")
 	GameState.preseason_sim_to_round1()
 	GameState.plan_known["FRE"]["controlled"] = 0
@@ -461,8 +461,8 @@ func _test_screens() -> void:
 	await _frames(tree, 2)
 	var t_c := tiles.find_child("ClubPlan_controlled", true, false)
 	var t_a := tiles.find_child("ClubPlan_attacking", true, false)
-	_check(t_c != null and (t_c.find_child("Known", true, false) as Label).text == "Knows this plan: barely"
-			and (t_a.find_child("Known", true, false) as Label).text == "Knows this plan: well",
+	_check(t_c != null and (t_c.find_child("Known", true, false) as Label).text == "Plan fluency: low"
+			and (t_a.find_child("Known", true, false) as Label).text == "Plan fluency: high",
 			"The pre-match plan tiles carry the same line, in the same words")
 	tiles.queue_free()
 	Features.set_on("preseason", false)
@@ -484,12 +484,12 @@ func _test_screens() -> void:
 	var pick_stars := match_scene.find_child("PlanPicker_through_stars", true, false) as Button if match_scene != null else null
 	_check(note != null and pick_stars != null, "The break has the plan call and a line for how well the side knows it")
 	if note != null and pick_stars != null:
-		_check(note.text == "Knows this plan: well", "...on the plan the side opens on: " + note.text)
+		_check(note.text == "Plan fluency: high", "...on the plan the side opens on: " + note.text)
 		_check(await _tap(pick_stars, "Through stars at the break"), "A finger picks another plan")
-		_check(note.text == "Knows this plan: barely" and note.visible and note.get_theme_color("font_color") == UiKit.TEXT,
+		_check(note.text == "Plan fluency: low" and note.visible and note.get_theme_color("font_color") == UiKit.TEXT,
 				"...and the line follows it, at full strength: " + note.text)
 		await _tap(match_scene.find_child("PlanPicker_defensive", true, false) as Button, "Defensive press at the break")
-		_check(note.text == "Knows this plan: partly", "...in the same three words: " + note.text)
+		_check(note.text == "Plan fluency: medium", "...in the same three words: " + note.text)
 
 
 func _frames(tree: SceneTree, n: int) -> void:

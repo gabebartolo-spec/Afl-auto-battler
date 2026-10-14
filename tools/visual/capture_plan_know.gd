@@ -3,9 +3,9 @@ extends SceneTree
 ##   godot --path . --script tools/visual/capture_plan_know.gd -- --out /tmp/pk --club FRE [--size 1280x720]
 ## Writes <out>_drill.png (a Game plan block and the plans it can drill, with how
 ## well the side knows each), <out>_drill_two.png (two plans drilled),
-## <out>_tiles.png (the pre-match plan tiles, "Knows this plan"), <out>_break.png
+## <out>_tiles.png (the pre-match plan tiles, "Plan fluency"), <out>_break.png
 ## (the break's plan call and the line under it). The levels shown are set by this
-## tool for the look (contest barely, controlled partly); it is not a balance read.
+## tool for the look (contest low, controlled medium); it is not a balance read.
 
 var W := 390
 var H := 844

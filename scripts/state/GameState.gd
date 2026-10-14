@@ -2812,7 +2812,7 @@ func plan_level(club: String, plan: String) -> int:
 	return int((plan_known.get(club, {}) as Dictionary).get(plan, PreSeason.WELL))
 
 
-## Your side's plan under its words: "Knows this plan: partly". "" with the switch off.
+## Your side's plan under its words: "Plan fluency: medium". "" with the switch off.
 func plan_known_line(plan: String) -> String:
 	if not Features.on("preseason") or season == null or my_club == "":
 		return ""
@@ -2825,7 +2825,7 @@ func plan_level_after_drills(plan: String) -> int:
 	return PreSeason.drilled_level(plan_level(my_club, plan), float(credit.get(plan, 0.0)))
 
 
-## Whether the plans carry a "Knows this plan" line at all (the switch is on).
+## Whether the plans carry a "Plan fluency" line at all (the switch is on).
 func plan_known_shown() -> bool:
 	return Features.on("preseason") and season != null and my_club != ""
 
@@ -2853,7 +2853,7 @@ func _finish_drills() -> String:
 			(plan_known[code] as Dictionary)[plan] = now
 			(plan_idle[code] as Dictionary)[plan] = 0
 			if code == my_club and now != was:
-				line += " They know %s %s now." % [CoachReport.plan_label(str(plan)), PreSeason.level_word(now)]
+				line += " Their fluency in %s is now %s." % [CoachReport.plan_label(str(plan)), PreSeason.fluency_word(now)]
 	return line
 
 

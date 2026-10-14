@@ -464,7 +464,7 @@ const BASE_EFFECT := {
 
 # ---------------------------------------------------------------------------
 # Plan familiarity (director, 2026-10-13: "Drill a plan, it works better",
-# shown as "Knows this plan: well / partly / barely"). A side knows each
+# shown as "Plan fluency: high / medium / low"). A side knows each
 # game plan at one of three levels. Drilling a plan in the pre-season moves it
 # up a step; every plan slips a step over the off-season; a plan not played
 # fades a step slowly through the year. A plan known less than well gives
@@ -484,9 +484,17 @@ static func level_word(level: int) -> String:
 	return str(LEVELS[clamp_level(level)])
 
 
-## "Knows this plan: well".
+## What the coach reads (director, 2026-10-14): high / medium / low.
+const FLUENCY := ["low", "medium", "high"]
+
+
+static func fluency_word(level: int) -> String:
+	return str(FLUENCY[clamp_level(level)])
+
+
+## "Plan fluency: high".
 static func known_line(level: int) -> String:
-	return "Knows this plan: %s" % level_word(level)
+	return "Plan fluency: %s" % fluency_word(level)
 
 
 ## How much of a plan's upside a side at this level keeps (1.0 = all of it).
