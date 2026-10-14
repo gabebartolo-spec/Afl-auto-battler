@@ -26,4 +26,4 @@ Includes the genuine rebounders (Ash, Roberts, Milera, Florent, Houston, Clark, 
 
 ## Match impact
 
-Wing and Inside midfielder labels feed auto-selection of the two wing spots (Roles.mark_wings), and the identity shown. Paired-seed 400-match comparison of league scoring and clearances, main against this branch (`statint_impl`, AUDIT_SEED 7000): results in the PR description. Balance is the director's call.
+Wing and Inside midfielder labels feed auto-selection of the two wing spots (Roles.mark_wings), and the identity shown. Paired-seed 400-match comparison of league scoring and clearances, main against this branch (`statint_impl`, AUDIT_SEED 7000): run 38535905841 (main) against 38535909603 (this branch), 400 matches each, same seeds: every STATINT line is identical (total score 178.84, clearances 37.81, contested possessions 88.28, tackles 59.05, goals 13.29). Expected: the labels do not enter the engine (wings are picked by centre_fit/wing_fit, not is_wing), and list additions are not in `club_list`. Zero sim effect. Balance is the director's call.
