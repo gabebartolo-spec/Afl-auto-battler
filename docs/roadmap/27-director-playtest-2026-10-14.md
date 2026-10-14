@@ -48,3 +48,9 @@ committing all my comments to the roadmap". An item leaves this chapter only whe
 | C1 | "we should have international players in the generated drafts, not many, but 1-2 each draft like, USA, African countries, New Zealand, Ireland"; "their names must make sense for their origin countries" | intl: claude/international-prospects (switch international_prospects) | building |
 | C2 | "bespoke events and story beats for international players" | intl: claude/international-stories (second PR) | after C1 |
 | C3 | Pre-season slice 3: one practice match against another club ("Trial players and plans, no ladder", ch. 26) | practice: #747 | look-gated; CI running |
+
+## D. Parked by the director (recorded, not to be built yet)
+
+| # | His words | Status |
+|---|---|---|
+| D1 | "\"wet\", could be replaced with an icon, unique icon for each weather condition (not high priority, dont build it now)" (match header "Away · Engie Stadium · Wet") | parked; not assigned |
