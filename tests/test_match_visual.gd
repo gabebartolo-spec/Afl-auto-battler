@@ -2135,4 +2135,17 @@ func _test_upright_oval(res: Dictionary) -> void:
 			outside += 1
 	_check(spots.size() == 10 and on_turf == 0 and outside == 0,
 			"Upright, the bench's ten discs sit in the view and off the turf (%d, %d on the turf, %d outside)" % [spots.size(), on_turf, outside])
+	_check(absf(float(spots[0]["r"]) - pv2.token_radius()) < 0.5, "Upright, a bench disc is as big as a player's on the ground")
+	# A goal's ring at either end: never past the view's edge, never over the bench.
+	var bad := []
+	for gx in [MatchMotion.GOAL_X, -MatchMotion.GOAL_X]:
+		var at: Vector2 = pv2._w2s(Vector2(gx, 0.0))
+		var biggest := minf(MatchMotion.HALF_LEN * s, MatchMotion.HALF_WID * s) * 0.42
+		var r := minf(biggest, pv2.flash_room(at, pv2.token_radius()))
+		if at.y - r < 0.0 or at.y + r > pv2.size.y or at.x - r < 0.0 or at.x + r > pv2.size.x:
+			bad.append("off the view at %s" % str(at))
+		for sp in spots:
+			if (sp["pos"] as Vector2).distance_to(at) < r + float(sp["r"]):
+				bad.append("over bench disc %d" % int(sp["num"]))
+	_check(bad.is_empty(), "Upright, a goal's ring stays in the view and off the bench at both ends (%s)" % ", ".join(bad))
 	pv2.free()

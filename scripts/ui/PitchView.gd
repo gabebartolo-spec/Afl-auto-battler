@@ -134,7 +134,9 @@ var _disc := PackedVector2Array()   # where each token is drawn, in pixels
 ## The bench: each side's five as small discs, along the bottom of the view (the
 ## stand's dark band on a phone) or down the sides of the ground when the window
 ## is wider than the oval (a PC). BENCH_SHARE is a bench disc's size in token radii.
-const BENCH_SHARE := 0.85
+## Full size on a phone, where a smaller disc's number was too small to read
+## (lead, 2026-10-14).
+const BENCH_SHARE := 1.0
 ## The stand beyond the fence and the turf's edge in shadow, so the oval sits
 ## in a ground rather than floating on black (audit §8 Phase 3.2).
 const STAND_COLOUR := Color(0.125, 0.11, 0.095)
@@ -756,7 +758,9 @@ func _draw() -> void:
 		var rad2 := lerpf(tr, minf(a, b) * 0.42, t)
 		var col := Color(1.0, 0.92, 0.35) if fl["goal"] else Color(0.85, 0.9, 1.0)
 		col.a = (1.0 - t) * 0.85
-		draw_arc(_w2s(fl["pos"]), rad2, 0, TAU, 48, col, 4.0, antialias)
+		var at := _w2s(fl["pos"])
+		rad2 = minf(rad2, flash_room(at, tr))
+		draw_arc(at, rad2, 0, TAU, 48, col, 4.0, antialias)
 	_draw_role_labels(tr)
 	_draw_caption(tr)
 	_draw_press_banner()
@@ -1059,6 +1063,17 @@ func _draw_ball(tr: float, s: float) -> void:
 			Color(0.98, 0.93, 0.75))
 	draw_polyline(_ellipse_points(lift, tr * 0.42 * grow, tr * 0.30 * grow, 12),
 			Color(0.25, 0.12, 0.08), 1.0, antialias)
+
+
+## How big the goal's ring may grow at `at` and stay in the view and off the
+## bench: upright, a goal is a few pixels from the top or bottom edge, and a ring
+## sized for the ground ran off the screen and over the bench in the corners.
+func flash_room(at: Vector2, tr: float) -> float:
+	var room := minf(minf(at.x, size.x - at.x), minf(at.y, size.y - at.y)) - 3.0
+	for sp in bench_spots(tr):
+		var r: float = sp["r"]
+		room = minf(room, (sp["pos"] as Vector2).distance_to(at) - r - 6.0)
+	return maxf(tr, room)
 
 
 ## The radius a player's disc is drawn at, in pixels.
