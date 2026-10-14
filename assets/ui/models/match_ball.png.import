@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://nm00rkcpfhqpj"
-path="res://.godot/imported/hanger.png-b46065490bccf48258774e632cfe4a14.ctex"
+uid="uid://cwrlybceevdyo"
+path="res://.godot/imported/match_ball.png-80920fc64c6e1eba7b5e5eb073e799ee.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/models/hanger.png"
-dest_files=["res://.godot/imported/hanger.png-b46065490bccf48258774e632cfe4a14.ctex"]
+source_file="res://assets/ui/models/match_ball.png"
+dest_files=["res://.godot/imported/match_ball.png-80920fc64c6e1eba7b5e5eb073e799ee.ctex"]
 
 [params]
 

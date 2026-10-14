@@ -51,8 +51,19 @@ func _run() -> void:
 	var won := str(gs.season.finals.get("premier", ""))
 	if premier != "" and won != "" and premier != won:
 		gs.season.finals = _swap(gs.season.finals, won, premier)
-	root.size = Vector2i(W, H)
+	# The canvas a player's screen gives the game, whatever this machine's display density.
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	DisplayServer.window_set_size(Vector2i(W, H))
+	for i in range(10):
+		await process_frame
+	var layout = root.get_node("ScreenLayout")
+	var density: float = layout.desktop_density(Vector2(root.size), DisplayServer.screen_get_scale(),
+			DisplayServer.screen_get_dpi() if OS.get_name() == "Windows" else 0)
+	layout.ui_scale = 1.0 / maxf(1.0, density)
+	layout._update_scale()
+	for i in range(10):
+		await process_frame
+	print("canvas ", root.get_visible_rect().size)
 	var kit = load("res://scripts/ui/UiKit.gd")
 	var bg := ColorRect.new()
 	bg.color = kit.BG

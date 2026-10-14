@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://r6wdarlt58ebr"
-path="res://.godot/imported/lectern.png-9674d0488a80d1ec796f87b75c203774.ctex"
+uid="uid://cgv2ky7xb3f7q"
+path="res://.godot/imported/stopwatch.png-bacd3079a9152dd420104cba9890f0d3.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/models/lectern.png"
-dest_files=["res://.godot/imported/lectern.png-9674d0488a80d1ec796f87b75c203774.ctex"]
+source_file="res://assets/ui/models/stopwatch.png"
+dest_files=["res://.godot/imported/stopwatch.png-bacd3079a9152dd420104cba9890f0d3.ctex"]
 
 [params]
 
