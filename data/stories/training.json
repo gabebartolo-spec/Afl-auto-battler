@@ -476,5 +476,90 @@
 		},
 		"cooldown": 0,
 		"subject_cooldown": 0
+	},
+	{
+		"id": "finals_week_off",
+		"category": "training",
+		"phase": [
+			"finals"
+		],
+		"subject": {
+			"kind": "club"
+		},
+		"bye": true,
+		"priority": true,
+		"when": {
+			"finals_bye": true
+		},
+		"cooldown": 2,
+		"per_season": 2,
+		"title": [
+			{
+				"when": {
+					"finals_week": 3
+				},
+				"text": "Straight through to a preliminary final"
+			},
+			"A week off while the wildcards play"
+		],
+		"text": [
+			{
+				"when": {
+					"finals_week": 3
+				},
+				"text": "Qualifying final won, a week off, and a home preliminary final to come."
+			},
+			"A top-six finish buys a week off. The old argument is back: rest or rust?"
+		],
+		"choices": [
+			{
+				"key": "rest",
+				"label": "Rest them",
+				"effects": [
+					{
+						"op": "fresh",
+						"who": "all"
+					},
+					{
+						"op": "slow_start",
+						"who": "side",
+						"chance": 20
+					}
+				],
+				"result": "Two light sessions and a few days away from the club."
+			},
+			{
+				"key": "hard",
+				"label": "A hard match-practice hit-out",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 6,
+						"who": "all"
+					},
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "all"
+					}
+				],
+				"result": "Match practice on Thursday, full contact. Not everyone's thrilled."
+			},
+			{
+				"key": "semi",
+				"label": "Watch the semi together",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 4,
+						"who": "all"
+					}
+				],
+				"result": "Everyone watches the semi together in the theatrette. They know who's coming.",
+				"when": {
+					"finals_week": 3
+				}
+			}
+		]
 	}
 ]
