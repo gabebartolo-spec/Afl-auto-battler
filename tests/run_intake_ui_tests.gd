@@ -107,7 +107,7 @@ func _run() -> void:
 	again.queue_free()
 	await _settle()
 	var cap: Label = ui.find_child("SalaryCap", true, false)
-	_check(cap != null and cap.text.begins_with("Rounds "), "Intake swaps the cap line for rounds")
+	_check(cap != null and cap.text.contains("prospects left"), "Intake swaps the cap line for prospects left")
 
 	var board0 = draft.board("", "", "", "overall", true)
 	if not draft.is_user_turn():
@@ -229,9 +229,71 @@ func _run() -> void:
 			all_landed = false
 	_check(all_landed, "Every intake signing is on the new list")
 	ui.queue_free()
+	await _settle()
+	await _pass_and_pick_for_me(Vector2i(390, 844))
+	await _pass_and_pick_for_me(Vector2i(1280, 720))
 	print("Intake UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
+
+
+## Real taps on "Pick for me" and "Pass" at one screen size.
+func _pass_and_pick_for_me(size: Vector2i) -> void:
+	var tag := "%dx%d" % [size.x, size.y]
+	_state.reset()
+	_state.replay_seed = SUITE_SEED
+	_state.start_season("COL", _db.club_list("COL"))
+	_state.season.round_index = _state.season.fixture.size()
+	_state.open_offseason()
+	if not _state.begin_intake_draft():
+		_check(false, "The draft opens for the pick buttons test (%s)" % tag)
+		return
+	var draft = _state.draft
+	root.size = size
+	var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
+	root.add_child(ui)
+	await _settle()
+	var meeting: Control = ui.find_child("DraftMeeting", true, false)
+	if meeting != null:
+		var skip: Button = ui.find_child("MeetingDone", true, false)
+		if skip != null:
+			await _press(skip, "the recruiting panel")
+	# Get to the coach's own turn.
+	var guard := 0
+	while not draft.is_user_turn() and not draft.is_finished() and guard < 200:
+		guard += 1
+		draft.auto_until_user_turn()
+	ui.call("_refresh")
+	await _settle()
+	var pick_me: Button = ui.find_child("PickForMe", true, false)
+	var pass_b: Button = ui.find_child("PassPick", true, false)
+	_check(pick_me != null and pass_b != null, "Both buttons are on the draft screen (%s)" % tag)
+	if pick_me == null or pass_b == null:
+		ui.queue_free()
+		return
+	_check(pick_me.text == "Pick for me" and pass_b.text == "Pass", "The buttons read Pick for me and Pass (%s)" % tag)
+	_check(not pick_me.disabled and not pass_b.disabled, "Both buttons are live on your turn (%s)" % tag)
+	var expect: String = str(draft._best_ai_pick(draft.user_club)["id"])
+	var before: int = draft.count()
+	await _press(pick_me, "Pick for me (%s)" % tag)
+	await _settle()
+	_check(draft.count() == before + 1 and str(draft.list()[-1]["id"]) == expect,
+			"A tap on Pick for me signs the assistant's choice, once (%s)" % tag)
+	guard = 0
+	while not draft.is_user_turn() and not draft.is_finished() and guard < 200:
+		guard += 1
+		draft.auto_until_user_turn()
+	ui.call("_refresh")
+	await _settle()
+	if draft.is_user_turn():
+		var taken: int = draft.count()
+		await _press(pass_b, "Pass (%s)" % tag)
+		await _settle()
+		_check(draft.count() == taken and draft.passed_clubs.has(draft.user_club),
+				"A tap on Pass signs nobody and leaves the draft (%s)" % tag)
+		_check(draft.is_finished() or not draft.is_user_turn(), "A passed coach is not asked again (%s)" % tag)
+	ui.queue_free()
+	await _settle()
 
 
 func _has_sandringham(draft) -> bool:

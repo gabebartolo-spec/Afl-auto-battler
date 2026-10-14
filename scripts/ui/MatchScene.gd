@@ -724,6 +724,9 @@ func _show_coach_box() -> void:
 	var loose_was := str(calls["interceptor_id"])
 	var narrow := UiKit.view_width(self) < 560.0
 
+	var plan_known := UiKit.lbl("", UiKit.SECONDARY, UiKit.TEXT, true)
+	plan_known.name = "PlanKnown"
+	plan_known.visible = false
 	var plan_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	plan_note.name = "PlanNote"
 	plan_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -735,11 +738,16 @@ func _show_coach_box() -> void:
 		if fit != "":
 			t += " " + fit
 		plan_note.text = t
+		# How well the side knows it (plan familiarity): a decision, so at full strength.
+		var known := GameState.plan_known_line(key)
+		plan_known.text = known
+		plan_known.visible = known != ""
 	var plan := _choice_grid("PlanPicker", GAMEPLANS, calls, "gameplan", 2 if narrow else 3, sync_note)
 	# The heading and the plan under it stay together.
 	var plan_block := _call_block("Gameplan", plan)
 	plan_block.remove_meta("break_unit")
 	col_a.add_child(plan_block)
+	col_a.add_child(plan_known)
 	col_a.add_child(plan_note)
 	sync_note.call(str(calls["gameplan"]))
 
@@ -785,12 +793,10 @@ func _show_coach_box() -> void:
 	var sync_tag := func(_key: String) -> void:
 		if (who_hook[0] as Callable).is_valid():
 			(who_hook[0] as Callable).call()
-		var shown_before := who_block.any(func(b): return (b as Control).visible)
 		for b in who_block:
 			(b as Control).visible = str(calls["tag_id"]) != ""
-		var shown_now := who_block.any(func(b): return (b as Control).visible)
-		if _pc_break and shown_now != shown_before and not _break_pack_cols.is_empty():
-			_balance_break_columns.call_deferred(_break_pack_cols)
+		# The columns are dealt once, with Who tags counted in its room (see
+		# _unit_heights): a call never changes column when it expands.
 		var who = my_mids.get(str(calls["tagger_id"]), tagger)
 		var target := GameDB.player_display_name_by_id(str(calls["tag_id"]), "")
 		if str(calls["tag_id"]) == "":
@@ -1030,7 +1036,9 @@ func _show_coach_box() -> void:
 	# Who is playing well, on the break (director, 2026-10-11): on a PC in the
 	# report column; on a phone below the choices, so nothing the next quarter
 	# depends on is pushed under the pinned Start button.
-	(rep if rep != v else tail).add_child(_best_so_far())
+	# Before the first ball-up nobody has played: no zeros (director, 2026-10-14).
+	if q > 1:
+		(rep if rep != v else tail).add_child(_best_so_far())
 
 	var start := UiKit.btn("Start quarter" if q > 1 else "Ball it up", UiKit.HEADING, true)
 	start.name = "StartQuarter"
@@ -1710,8 +1718,9 @@ func _unit_heights(units: Array, sep: float) -> Array:
 	for u in units:
 		var t := 0.0
 		for n in u:
-			# A hidden call (Who tags with no tag) takes no room in the column.
-			if (n as Control).visible:
+			# Who tags keeps its room hidden or not, so showing it later never
+			# moves a call to another column (director, 2026-10-14).
+			if (n as Control).visible or (n as Node).has_meta("break_follow"):
 				t += (n as Control).get_combined_minimum_size().y + sep
 		h.append(t)
 	return h
