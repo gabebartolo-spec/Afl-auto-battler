@@ -22,6 +22,9 @@ var _ball: TextureRect
 var _ball_shadow: TextureRect
 var _versus: Label
 var _crest_box: Control
+var _crest_other: Control
+## The ball keeps at least this far from each guernsey, however narrow the phone.
+const BALL_CLEAR := 8.0
 
 static var _shadow_tex: GradientTexture2D
 
@@ -72,7 +75,9 @@ func setup(my_club: String, opp: String, is_home: bool, line: String, narrow: bo
 		row.sort_children.connect(_place_ball)
 		v.sort_children.connect(_place_ball)
 		resized.connect(_place_ball)
-	row.add_child(_side(opp, crest, narrow))
+	var theirs := _side(opp, crest, narrow)
+	_crest_other = theirs.get_child(0)
+	row.add_child(theirs)
 	# The opponent's full name for screen readers and tests, as before.
 	var who := UiKit.lbl(GameDB.club_name(opp), UiKit.SMALL, Color(1, 1, 1, 0.0))
 	who.name = "Opponent"
@@ -93,19 +98,35 @@ func _place_ball() -> void:
 	if _ball == null or _versus == null or _crest_box == null:
 		return
 	var bs := _ball.custom_minimum_size
+	# Never closer than BALL_CLEAR to a guernsey: on a narrow phone the ball
+	# gives way, the guernseys do not.
+	var mine := _guernsey_rect(_crest_box)
+	var theirs := _guernsey_rect(_crest_other)
+	var room := theirs.position.x - mine.end.x - 2.0 * BALL_CLEAR
+	if room > 0.0 and bs.x > room:
+		bs *= room / bs.x
 	var centre := Vector2(_versus.global_position.x + _versus.size.x / 2.0,
 			_crest_box.global_position.y + _crest_box.size.y / 2.0) - global_position
 	_ball.size = bs
 	_ball.position = (centre - bs / 2.0).round()
-	_ball_shadow.size = Vector2(bs.x * 0.9, bs.y * 0.34)
-	_ball_shadow.position = Vector2(centre.x - bs.x * 0.42, centre.y + bs.y * 0.34).round()
+	_ball_shadow.size = Vector2(bs.x * 0.96, bs.y * 0.36)
+	_ball_shadow.position = Vector2(centre.x - bs.x * 0.46, centre.y + bs.y * 0.33).round()
+
+
+## Where a side's guernsey is drawn (its marker, centred in its box).
+func _guernsey_rect(box: Control) -> Rect2:
+	if box != null:
+		for c in box.get_children():
+			if c is Control:
+				return (c as Control).get_global_rect()
+	return Rect2(global_position + Vector2(size.x / 2.0, 0), Vector2.ZERO)
 
 
 ## A soft shadow, dark at the centre fading to nothing.
 static func _shadow() -> GradientTexture2D:
 	if _shadow_tex == null:
 		var g := Gradient.new()
-		g.set_color(0, Color(0, 0, 0, 0.42))
+		g.set_color(0, Color(0, 0, 0, 0.62))
 		g.set_color(1, Color(0, 0, 0, 0.0))
 		_shadow_tex = GradientTexture2D.new()
 		_shadow_tex.gradient = g

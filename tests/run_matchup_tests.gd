@@ -454,11 +454,11 @@ func _poster_ball() -> void:
 		var crests := poster.find_children("ClubMarker", "", true, false)
 		var clear := poster.get_global_rect().grow(0.5).encloses(ball.get_global_rect())
 		for c in crests:
-			clear = clear and not (c as Control).get_global_rect().intersects(ball.get_global_rect())
+			clear = clear and not (c as Control).get_global_rect().grow(7.5).intersects(ball.get_global_rect())
 		var venue: Label = poster.find_child("MatchVenue", true, false)
 		clear = clear and not venue.get_global_rect().intersects(ball.get_global_rect())
 		_check(crests.size() == 2 and clear and absf(ball.get_global_rect().get_center().x - poster.get_global_rect().get_center().x) <= 1.0,
-				"%s: the ball sits between the two guernseys, on the poster's centre, touching neither them nor the fixture line" % tag)
+				"%s: the ball sits between the two guernseys, on the poster's centre, at least 8 from each and clear of the fixture line" % tag)
 		var names_fit := true
 		var name_places := []
 		for l in poster.find_children("*", "Label", true, false):

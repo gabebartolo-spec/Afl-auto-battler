@@ -632,26 +632,8 @@ func _show_coach_box() -> void:
 	ClubDuel.on_colour(title)
 	bv.add_child(title)
 	if q == 1:
-		# The match ball between the two clubs, where the "v" was (director,
-		# 2026-10-14). Without the picture the one line says it, as before.
-		var ball := UiArt.view("match_ball", 40.0)
-		var where_text := "%s  ·  %s v %s  ·  %s" % [str(_res.get("label", "Match")),
-				GameDB.club_short(str(_res["home"])), GameDB.club_short(str(_res["away"])), _venue()]
-		if ball != null:
-			where_text = "%s  ·  %s" % [str(_res.get("label", "Match")), _venue()]
-			var pair := UiKit.hbox(8)
-			pair.name = "BandClubs"
-			pair.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			for side in ["home", "away"]:
-				var club := UiKit.line(GameDB.club_short(str(_res[side])), UiKit.NAME, UiKit.TEXT, true)
-				club.name = "Band_" + side
-				ClubDuel.on_colour(club)
-				pair.add_child(club)
-				if side == "home":
-					pair.add_child(ball)
-			bv.add_child(pair)
-		var where := UiKit.ellipsis(where_text, UiKit.BODY, UiKit.TEXT, true)
-		where.name = "BandWhere"
+		var where := UiKit.ellipsis("%s  ·  %s v %s  ·  %s" % [str(_res.get("label", "Match")),
+				GameDB.club_short(str(_res["home"])), GameDB.club_short(str(_res["away"])), _venue()], UiKit.BODY, UiKit.TEXT, true)
 		ClubDuel.on_colour(where)
 		if wide:
 			where.size_flags_horizontal = Control.SIZE_EXPAND_FILL

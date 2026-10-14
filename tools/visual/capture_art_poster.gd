@@ -1,10 +1,8 @@
 extends SceneTree
-## The match ball on the hub's match poster and on the first coach box's band,
-## for the director's look. Needs a real renderer:
+## The match ball on the hub's match poster, for the director's look. Needs a real renderer:
 ##   godot --path . --script tools/visual/capture_art_poster.gd -- --out /tmp/ball [--club FRE] [--size 1280x720] [--art off]
-## Writes <out>_hub.png (the hub, the poster at its head) and <out>_band.png
-## (the box before the first ball-up). --art off shows both without the
-## picture, as they were. On the CI workflow a phone also needs
+## Writes <out>_hub.png (the hub, the poster at its head). --art off shows it
+## without the picture, as it was. On the CI workflow a phone also needs
 ## -f resolution=390x844.
 
 var W := 390
@@ -80,13 +78,6 @@ func _run() -> void:
 	await _frames(40)
 	await _shot(out + "_hub.png")
 	_report(current_scene)
-	state.prepare_interactive_match()
-	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
-	root.add_child(m)
-	current_scene.visible = false
-	await _frames(30)
-	await _shot(out + "_band.png")
-	_report(m)
 	quit(0)
 
 
