@@ -132,9 +132,8 @@ func _premiers(prem: String) -> Control:
 	# The premiers' ribbons on the handles, in the club's two colours (director,
 	# 2026-10-14: the silver cup with the premier's ribbon). Drawn in the cup
 	# art's own square, so they lie straight over it.
-	if HonoursArt.has_art("premiership_ribbons"):
-		var ribbons := HonoursArt.view("premiership_ribbons", HERO_CUP_WIDE if wide else HERO_CUP_NARROW, prem, 0, "")
-		ribbons.name = "FinalsRibbons"
+	var ribbons := _ribbons(prem, HERO_CUP_WIDE if wide else HERO_CUP_NARROW)
+	if ribbons != null:
 		cup.add_child(ribbons)
 	cup.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	row.add_child(cup)
@@ -185,6 +184,47 @@ func _cup(height: float) -> Control:
 			_cup_mat.shader = sh
 		art.material = _cup_mat
 	return cup
+
+
+## The premiers' ribbons: not an honour, so not in honours.json. Drawn in the
+## cup art's own 512 square (same foot line), coloured by the honours tint
+## shader: R of the mask takes the club's first colour, G its second.
+const RIBBONS := "res://assets/honours/premiership_ribbons.png"
+const RIBBONS_MASK := "res://assets/honours/premiership_ribbons_mask.png"
+const RIBBONS_SHADER := "res://assets/honours/honours_tint.gdshader"
+
+
+## The ribbons at the cup's height in `club`'s colours, laid exactly over the
+## cup's picture; null without the files.
+func _ribbons(club: String, height: float) -> Control:
+	if not (ResourceLoader.exists(RIBBONS) and ResourceLoader.exists(RIBBONS_MASK) and ResourceLoader.exists(RIBBONS_SHADER)):
+		return null
+	var tex: Texture2D = load(RIBBONS)
+	var cup_tex := HonoursArt.texture("premiership_cup")
+	var scale := height / float(maxi(1, tex.get_height()))
+	var art := TextureRect.new()
+	art.name = "Art_premiership_ribbons"
+	art.texture = tex
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	art.size = Vector2(round(tex.get_width() * scale), height)
+	# The cup's picture sits with its foot on the slot's edge (HonoursArt's base_y).
+	var base_y := float(HonoursArt.entry("premiership_cup").get("base_y", tex.get_height()))
+	art.position.y = (float(tex.get_height()) - base_y) * scale if cup_tex != null else 0.0
+	var colours := GameDB.club_colours(club)
+	var m := ShaderMaterial.new()
+	m.shader = load(RIBBONS_SHADER)
+	m.set_shader_parameter("mask_tex", load(RIBBONS_MASK))
+	m.set_shader_parameter("primary", colours[0])
+	m.set_shader_parameter("secondary", colours[1])
+	art.material = m
+	var slot := Control.new()
+	slot.name = "FinalsRibbons"
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.add_child(art)
+	return slot
 
 
 ## The premier's colour as the room the cup stands in: full at the head,
