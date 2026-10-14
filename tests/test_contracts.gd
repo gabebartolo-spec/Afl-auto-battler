@@ -1548,6 +1548,8 @@ func _test_trade_market() -> void:
 		# side, and sell him as the fringe player he now is. Phases are judged
 		# as they stood at the deal: a phase ranks a list against the league's,
 		# so earlier trades (anyone's) can move it.
+		# A club that has dealt (bought or sold) earlier in this pass has a different
+		# side from the snapshot, so a starter it sells may now be a fringe player.
 		var bought := {}
 		for e in GameState.offseason_log.filter(func(x): return str(x.get("kind", "")) == "ai_trade"):
 			var named := asked_before.has(str(e["in"][0])) \
@@ -1559,6 +1561,7 @@ func _test_trade_market() -> void:
 				if not fine:
 					offenders.append("%s (%s) from %s (%s): %s" % [e["club"], ph[0], e["with"], ph[1], str(e["in"][0])])
 			bought[str(e["club"])] = true
+			bought[str(e["with"])] = true
 		GameState._make_trade_offers(GameState.trade_prospects())
 		GameState._freeze_league(false)
 		replay.append(_market_snapshot())

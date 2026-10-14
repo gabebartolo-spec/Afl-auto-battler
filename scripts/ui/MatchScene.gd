@@ -724,6 +724,9 @@ func _show_coach_box() -> void:
 	var loose_was := str(calls["interceptor_id"])
 	var narrow := UiKit.view_width(self) < 560.0
 
+	var plan_known := UiKit.lbl("", UiKit.SECONDARY, UiKit.TEXT, true)
+	plan_known.name = "PlanKnown"
+	plan_known.visible = false
 	var plan_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	plan_note.name = "PlanNote"
 	plan_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -735,11 +738,16 @@ func _show_coach_box() -> void:
 		if fit != "":
 			t += " " + fit
 		plan_note.text = t
+		# How well the side knows it (plan familiarity): a decision, so at full strength.
+		var known := GameState.plan_known_line(key)
+		plan_known.text = known
+		plan_known.visible = known != ""
 	var plan := _choice_grid("PlanPicker", GAMEPLANS, calls, "gameplan", 2 if narrow else 3, sync_note)
 	# The heading and the plan under it stay together.
 	var plan_block := _call_block("Gameplan", plan)
 	plan_block.remove_meta("break_unit")
 	col_a.add_child(plan_block)
+	col_a.add_child(plan_known)
 	col_a.add_child(plan_note)
 	sync_note.call(str(calls["gameplan"]))
 
@@ -785,12 +793,10 @@ func _show_coach_box() -> void:
 	var sync_tag := func(_key: String) -> void:
 		if (who_hook[0] as Callable).is_valid():
 			(who_hook[0] as Callable).call()
-		var shown_before := who_block.any(func(b): return (b as Control).visible)
 		for b in who_block:
 			(b as Control).visible = str(calls["tag_id"]) != ""
-		var shown_now := who_block.any(func(b): return (b as Control).visible)
-		if _pc_break and shown_now != shown_before and not _break_pack_cols.is_empty():
-			_balance_break_columns.call_deferred(_break_pack_cols)
+		# The columns are dealt once, with Who tags counted in its room (see
+		# _unit_heights): a call never changes column when it expands.
 		var who = my_mids.get(str(calls["tagger_id"]), tagger)
 		var target := GameDB.player_display_name_by_id(str(calls["tag_id"]), "")
 		if str(calls["tag_id"]) == "":
@@ -863,8 +869,19 @@ func _show_coach_box() -> void:
 		ask.name = "MinderQuestion"
 		ask.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		minder_box.add_child(ask)
+		# From the first break on there is a match to read: how the two are
+		# going (director, 2026-10-14). It follows the pick.
+		var df_how: VBoxContainer = null
+		if q > 1:
+			df_how = UiKit.vbox(4)
+			df_how.name = "DfHowItsGoing"
+			minder_box.add_child(df_how)
+			_fill_df_duel(df_how, sim, calls, opp_spare)
 		minder_box.add_child(_player_choice("SpareMinderPicker", "No defensive forward assigned", fwds,
-				fwds.slice(0, mini(quick if quick > 0 else 3, fwds.size())), calls, "minder_id", "Who covers him?", Callable(),
+				fwds.slice(0, mini(quick if quick > 0 else 3, fwds.size())), calls, "minder_id", "Who covers him?",
+				func(_id: String) -> void:
+					if df_how != null:
+						_fill_df_duel(df_how, sim, calls, opp_spare),
 				func(p: Dictionary, wide: bool) -> String: return MatchNotes.minder_card_detail(p, wide)))
 		var minder_note := UiKit.lbl(MatchNotes.minder_cost_line(), UiKit.SMALL, UiKit.MUTED)
 		minder_note.name = "MinderNote"
@@ -1030,7 +1047,9 @@ func _show_coach_box() -> void:
 	# Who is playing well, on the break (director, 2026-10-11): on a PC in the
 	# report column; on a phone below the choices, so nothing the next quarter
 	# depends on is pushed under the pinned Start button.
-	(rep if rep != v else tail).add_child(_best_so_far())
+	# Before the first ball-up nobody has played: no zeros (director, 2026-10-14).
+	if q > 1:
+		(rep if rep != v else tail).add_child(_best_so_far())
 
 	var start := UiKit.btn("Start quarter" if q > 1 else "Ball it up", UiKit.HEADING, true)
 	start.name = "StartQuarter"
@@ -1106,6 +1125,52 @@ func _show_coach_box() -> void:
 const CALL_TITLES := {"plan": "Game plan", "pep": "Pep talk", "rot": "Rotations", "tag": "Tag", "mu": "Key match-ups",
 		"minder": "Defensive forward", "loose": "Loose interceptor", "pt": "Play through", "ruck": "Main ruck"}
 const CALL_ROW_LABELS := {"pt": "Play through (forward, midfield, back)"}
+
+
+## "How it's going" for the Defensive forward and their loose defender, this
+## match so far: both ratings side by side in the scoreboard face under their
+## names in club colour, then the contests between them and his intercepts.
+func _fill_df_duel(box: VBoxContainer, sim: MatchSim, calls: Dictionary, roamer: Dictionary) -> void:
+	UiKit.clear(box)
+	var df_id := str(calls["minder_id"])
+	var roamer_id := str(roamer.get("id", ""))
+	var d := MatchNotes.df_duel(_res, df_id, roamer_id)
+	var inks := UiKit.club_ink_pair(str(_res["home"]), str(_res["away"]))
+	var head := UiKit.lbl("How it's going", UiKit.SMALL, UiKit.TEXT, true)
+	head.name = "DfHeading"
+	box.add_child(head)
+	var row := UiKit.hbox(12)
+	row.name = "DfRatings"
+	var who := [[df_id, _my_side], [roamer_id, 1 - _my_side]]
+	for w in who:
+		if str(w[0]) == "":
+			continue
+		var col := UiKit.vbox(0)
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var nm := UiKit.ellipsis(_surname(GameDB.player_display_name_by_id(str(w[0]), "Player")), UiKit.NAME,
+				UiKit.club_name_colour(inks[int(w[1])]), true)
+		nm.name = "DfName_" + str(w[0])
+		col.add_child(nm)
+		var rr := UiKit.figure(MatchNotes.rating_text(MatchNotes.match_rating(_res, str(w[0]))), UiKit.NUMBER)
+		rr.name = "DfRating_" + str(w[0])
+		var rrow := UiKit.hbox(6)
+		rrow.add_child(rr)
+		var rtag := UiKit.lbl("rating", UiKit.SECONDARY, UiKit.MUTED)
+		rtag.size_flags_vertical = Control.SIZE_SHRINK_END
+		rrow.add_child(rtag)
+		col.add_child(rrow)
+		row.add_child(col)
+	box.add_child(row)
+	var lines := MatchNotes.df_duel_lines(d,
+			_surname(GameDB.player_display_name_by_id(df_id, "")),
+			_surname(GameDB.player_display_name_by_id(roamer_id, "")))
+	for i in range(lines.size()):
+		if str(lines[i]) == "":
+			continue
+		var l := UiKit.lbl(str(lines[i]), UiKit.BODY, UiKit.TEXT)
+		l.name = "DfLine_%d" % i
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(l)
 
 
 ## Lays the break out as one line a call. Every call was built by
@@ -1710,8 +1775,9 @@ func _unit_heights(units: Array, sep: float) -> Array:
 	for u in units:
 		var t := 0.0
 		for n in u:
-			# A hidden call (Who tags with no tag) takes no room in the column.
-			if (n as Control).visible:
+			# Who tags keeps its room hidden or not, so showing it later never
+			# moves a call to another column (director, 2026-10-14).
+			if (n as Control).visible or (n as Node).has_meta("break_follow"):
 				t += (n as Control).get_combined_minimum_size().y + sep
 		h.append(t)
 	return h
