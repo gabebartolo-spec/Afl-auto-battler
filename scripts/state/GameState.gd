@@ -63,6 +63,11 @@ var form_log := {}               # your player id -> his last three Player Ratin
 ## One player plays his second position for `left` more of your games (see
 ## start_role_trial); optional in a save, absent means no trial.
 var role_trial := {}
+## The monthly training report (TrainingReport.gd; behind Features
+## "training_report"): the ratings at the start of the 4-round block in
+## progress, and the latest report built. Optional in a save, absent = {}.
+var training_block := {}
+var training_report := {}
 var trial_result := {}          # the last trial's result until its card is dealt: {id, role, word, avg, par, ok, trained}
 var pos_ratings := {}           # this season, the league's starters' ratings by position: role -> [sum, games]
 var season_team := {}            # club -> {"games": n, stat: season total}
@@ -681,6 +686,9 @@ func save_career() -> bool:
 		# Players carry p["career"]; saves without this mark predate it.
 		"career_version": CAREER_VERSION,
 	}
+	if Features.on("training_report"):
+		state["training_block"] = training_block
+		state["training_report"] = training_report
 	var ok := CareerSave.write(state, _save_meta(), save_path)
 	if ok:
 		_dirty = false
@@ -826,6 +834,8 @@ func load_career() -> bool:
 	career_seed = int(state.get("career_seed", 0))
 	conditioning = state.get("conditioning", {})
 	preseason = state.get("preseason", {})
+	training_block = state.get("training_block", {}) if state.get("training_block") is Dictionary else {}
+	training_report = state.get("training_report", {}) if state.get("training_report") is Dictionary else {}
 	captaincy = state.get("captaincy", {})
 	class_tiers = state.get("class_tiers", {})
 	custom_prospect_id = str(state.get("custom_prospect_id", ""))
@@ -1191,6 +1201,8 @@ func reset() -> void:
 	club_plan = "balanced"
 	form_log = {}
 	role_trial = {}
+	training_block = {}
+	training_report = {}
 	trial_result = {}
 	pos_ratings = {}
 	season_team = {}
@@ -1658,6 +1670,8 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	season_stats_from = 0
 	form_log = {}
 	role_trial = {}
+	training_block = {}
+	training_report = {}
 	trial_result = {}
 	pos_ratings = {}
 	season_team = {}
@@ -4008,10 +4022,14 @@ func _grant_match_xp(res: Dictionary) -> void:
 	if key == _xp_grant_key:
 		return
 	_xp_grant_key = key
+	if Features.on("training_report"):
+		TrainingReport.before_game(self)
 	last_training_report = grant_match_xp(res)
 	# Training plans spend the fresh XP straight away.
 	last_training_report["auto"] = apply_train_plans()
 	last_training_report["projects"] = _advance_projects()
+	if Features.on("training_report"):
+		TrainingReport.after_game(self)
 
 
 ## Every player on the list is paid. Named players and good games earn more;
@@ -4240,6 +4258,13 @@ func learnable_jobs(p: Dictionary) -> Array:
 	var out := []
 	if active_projects() >= PROJECT_MAX:
 		return out
+	return _jobs_open(p)
+
+
+## The positions he could learn, whatever the club is already running (the
+## training report lists these; the Training menu offers them only while the
+## club has a free project).
+func open_jobs(p: Dictionary) -> Array:
 	return _jobs_open(p)
 
 
