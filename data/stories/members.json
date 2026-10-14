@@ -379,5 +379,64 @@
 				"result": "The banner is all club. His milestone gets its moment after the siren."
 			}
 		]
+	},
+	{
+		"id": "pre_members_open",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"Open training for the members"
+		],
+		"text": [
+			"The club wants to open a session to the members before Round 1."
+		],
+		"choices": [
+			{
+				"key": "open",
+				"label": "Open the gates",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": 2
+					},
+					{
+						"op": "culture",
+						"strand": "standards",
+						"d": -1,
+						"why": "A pre-season session played to the crowd"
+					}
+				],
+				"result": "A few thousand members line the fence, and the session is a light one."
+			},
+			{
+				"key": "closed",
+				"label": "Keep it closed",
+				"effects": [
+					{
+						"op": "culture",
+						"strand": "standards",
+						"d": 1,
+						"why": "A full pre-season session behind closed gates"
+					},
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "A full session behind closed gates. The members hear about it."
+			}
+		],
+		"category": "members",
+		"phase": [
+			"preseason"
+		],
+		"cooldown": 20,
+		"per_season": 1
 	}
 ]
