@@ -105,7 +105,7 @@ var _trail: Array = []
 ## design, not just its colours, so the two sides read apart at a glance.
 var _kits: Array = [{}, {}]
 ## True when the two home kits looked alike on a disc and the away side wears its
-## second colour (kits_for).
+## clash strip, its own kit's two colours changed over (kits_for).
 var clash := false
 ## Two disc bases this close (UiKit.colour_distance, the measure the club inks
 ## use) are alike on the turf. A little wider than UiKit.INK_CLASH (25): a disc is
@@ -127,9 +127,6 @@ const DISC_CLASH := 30.0
 const NUDGE_GAP := 1.0
 const NUDGE_CAP := 0.5
 static var nudge_full := false
-## For a comparison capture only: on a clash the away side swaps its own kit's two
-## colours (base and pattern) instead of taking UiKit's second ink.
-static var clash_kit_swap := false
 const NUDGE_EASE := 0.85
 const NUDGE_PASSES := 24
 var _nudge := PackedVector2Array()
@@ -476,35 +473,64 @@ func _change_ends() -> void:
 
 
 ## The two kits the discs wear. The home side wears its own. The away side does
-## too unless its base colour looks like the home side's on a disc (DISC_CLASH),
-## when it wears its second hand-picked colour (UiKit.club_ink_second, the same
-## clash colour its name takes on the break and the stats), if that is farther
-## from the home base: the rule of UiKit.club_ink_pair, asked of the discs.
-## Where that second colour is still like the home base (West Coast's lifted
-## blue at the Bulldogs), the away kit's own pattern colour is the base instead
-## (West Coast in gold), if that is farther again.
+## too unless its base colour looks like the home side's on a disc (DISC_CLASH,
+## UiKit.colour_distance between the two bases): then it wears its clash strip,
+## its own kit with the two colours changed over (Melbourne red with a navy yoke,
+## Richmond yellow with a black sash, West Coast gold), as the real clubs do.
+## Only the club's own kit colours are ever used (lead, 2026-10-14: UiKit's
+## second inks are lifted for text and on a disc were not the club's colours). A
+## kit whose pattern colour is no farther from the home base than its base
+## (a created club, say) is left as it is: no colour is invented.
 static func kits_for(home: String, away: String) -> Array:
+	if GameDB.is_side(home) or GameDB.is_side(away):
+		dress_sides(GameDB.side_base(home))
+		dress_sides(GameDB.side_base(away))
 	var h: Dictionary = GameDB.club_guernsey(home)
 	var a: Dictionary = GameDB.club_guernsey(away)
 	var hb: Color = h.get("base", Color.WHITE)
 	var ab: Color = a.get("base", Color.WHITE)
-	if UiKit.colour_distance(hb, ab) < DISC_CLASH:
-		var second := UiKit.club_ink_second(away)
-		var own: Color = a.get("pattern", Color.DIM_GRAY)
-		if clash_kit_swap:
-			second = own
-		if UiKit.colour_distance(hb, second) < DISC_CLASH \
-				and UiKit.colour_distance(hb, own) > UiKit.colour_distance(hb, second):
-			second = own
-		if UiKit.colour_distance(hb, second) > UiKit.colour_distance(hb, ab):
-			a = a.duplicate()
-			a["base"] = second
-			# The design must still show on the new base.
-			var pat: Color = a.get("pattern", Color.DIM_GRAY)
-			if UiKit.colour_distance(pat, second) < DISC_CLASH:
-				a["pattern"] = ab
-			a["clash"] = true
+	var ap: Color = a.get("pattern", Color.DIM_GRAY)
+	if UiKit.colour_distance(hb, ab) < DISC_CLASH and UiKit.colour_distance(hb, ap) > UiKit.colour_distance(hb, ab):
+		a = a.duplicate()
+		a["base"] = ap
+		a["pattern"] = ab
+		a["clash"] = true
 	return [h, a]
+
+
+## An intra-club match: the side in the home strip wears the club's kit colour,
+## and the side in the clash strip the colour the oval gives that club as an
+## away side against a home side in its own colours (kits_for of the club
+## against itself: its kit's two colours changed over), so no colour is
+## invented here. Harmless to call again.
+static func dress_sides(base: String) -> void:
+	var codes: Array = GameDB.side_codes(base)
+	if not GameDB.is_side(str(codes[1])) or (GameDB.clubs[codes[1]] as Dictionary).has("kit"):
+		return
+	var home: Dictionary = GameDB.club_guernsey(base)
+	var second: Dictionary = kits_for(base, base)[1]
+	var hb: Color = home.get("base", Color.WHITE)
+	if UiKit.colour_distance(hb, second.get("base", Color.WHITE)) < DISC_CLASH:
+		# The kit's two colours are too alike to tell two sides apart (Gold
+		# Coast's two reds): the second side takes the club's own colour that
+		# is farthest from the first side's, still one of the club's colours.
+		var far: Color = hb
+		for c in GameDB.club_colours(base):
+			if UiKit.colour_distance(hb, c) > UiKit.colour_distance(hb, far):
+				far = c
+		second = home.duplicate()
+		second["base"] = far
+		second["pattern"] = hb
+		second["clash"] = true
+	# Each side wears its strip's colour plain, like training bibs: with the
+	# design kept, a kit that is half one colour and half the other (Melbourne's
+	# yoke) gives two sides that are mirror images of each other on a disc and
+	# cannot be told apart at match size. The colours are still the club's own.
+	for kit in [home, second]:
+		kit["pattern"] = kit.get("base", Color.WHITE)
+		kit["pattern2"] = kit.get("base", Color.WHITE)
+	GameDB.set_side_kit(str(codes[0]), home)
+	GameDB.set_side_kit(str(codes[1]), second)
 
 
 ## +1 when the home side kicks to the right of the screen, -1 when it kicks
@@ -830,7 +856,7 @@ const PRESS_NO_HUE := Color(0.02, 0.03, 0.07)
 ## mix, kept in range.
 static func press_zone_colour(code: String) -> Color:
 	var cols: Array = GameDB.club_colours(code)
-	var slot := int(PRESS_INK_SLOT.get(code, 0))
+	var slot := int(PRESS_INK_SLOT.get(GameDB.side_base(code), 0))
 	if slot < 0:
 		return PRESS_NO_HUE
 	var pick: Color = cols[slot]
@@ -940,9 +966,7 @@ func _draw_caption(tr: float) -> void:
 	var fs := clampi(int(tr * (2.1 if turnover else 1.6)), 15 if turnover else 11, 20 if turnover else 15)
 	var width := UiKit.BOLD.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	var p := _disc_at(tok)
-	var origin := p + Vector2(-width * 0.5, -tr * 2.4)
-	origin.x = clampf(origin.x, 4.0, maxf(4.0, size.x - width - 4.0))
-	origin.y = maxf(origin.y, float(fs) + 2.0)
+	var origin := caption_origin(p, width, fs, tr)
 	_caption_rect = Rect2(origin - Vector2(4, float(fs)), Vector2(width + 8.0, float(fs) + 10.0))
 	# It fades over its last third of a second.
 	var fade := clampf(float(_caption["left"]) / 0.3, 0.0, 1.0)
@@ -957,6 +981,60 @@ func _draw_caption(tr: float) -> void:
 		# A light edge round the club bar so a dark kit colour still shows on the grass.
 		draw_rect(Rect2(origin + Vector2(-2, 3), Vector2(width + 4, 6)), Color(RING_COLOUR, 0.85 * fade))
 		draw_rect(Rect2(origin + Vector2(-1, 4), Vector2(width + 2, 4)), Color(bar, fade))
+
+
+## Where a caption (a scorer's name, "Turnover") is written for the player at
+## `p`: above him, and above every disc it would otherwise cover, with a clear
+## gap, so the call never hides the players round the ball (lead, 2026-10-14). If
+## the pack reaches the top of the view it goes below the pack instead. Returns
+## the text's baseline origin; the caption's box is CAPTION_BOX_BELOW deeper
+## (the underline) and its own height taller.
+const CAPTION_GAP := 4.0
+const CAPTION_BOX_BELOW := 10.0
+func caption_origin(p: Vector2, width: float, fs: int, tr: float) -> Vector2:
+	var x := clampf(p.x - width * 0.5, 4.0, maxf(4.0, size.x - width - 4.0))
+	var up := _caption_clear(Vector2(x, p.y - tr * 2.4), width, fs, tr, -1.0)
+	if up.y >= float(fs) + 2.0:
+		return up
+	var down := _caption_clear(Vector2(x, p.y + tr * 2.4 + float(fs)), width, fs, tr, 1.0)
+	if down.y + CAPTION_BOX_BELOW <= size.y - 2.0:
+		return down
+	return Vector2(x, maxf(up.y, float(fs) + 2.0))
+
+
+## Move a caption up (dir -1) or down (dir 1) until its box touches no disc.
+func _caption_clear(origin: Vector2, width: float, fs: int, tr: float, dir: float) -> Vector2:
+	for pass_no in range(12):
+		var box := Rect2(origin.x - 4.0, origin.y - float(fs), width + 8.0, float(fs) + CAPTION_BOX_BELOW)
+		var grown := box.grow(tr + CAPTION_GAP)
+		var moved := false
+		for d in _disc:
+			if not grown.has_point(d):
+				continue
+			if dir < 0.0:
+				origin.y = minf(origin.y, d.y - tr - CAPTION_GAP - CAPTION_BOX_BELOW - 0.5)
+			else:
+				origin.y = maxf(origin.y, d.y + tr + CAPTION_GAP + float(fs) + 0.5)
+			moved = true
+		if not moved:
+			break
+	return origin
+
+
+## The caption's box as it would be drawn now, or an empty rect: for tests.
+func caption_box() -> Rect2:
+	if _caption.is_empty():
+		return Rect2()
+	var tok := int(_caption["tok"])
+	var text := str(_caption["text"])
+	if text == "" or tok < 0 or tok >= director.tokens.size():
+		return Rect2()
+	var tr := token_radius()
+	var turnover := bool(_caption.get("turnover", false))
+	var fs := clampi(int(tr * (2.1 if turnover else 1.6)), 15 if turnover else 11, 20 if turnover else 15)
+	var width := UiKit.BOLD.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var origin := caption_origin(_disc_at(tok), width, fs, tr)
+	return Rect2(origin - Vector2(4, float(fs)), Vector2(width + 8.0, float(fs) + CAPTION_BOX_BELOW))
 
 
 func _draw_ball(tr: float, s: float) -> void:

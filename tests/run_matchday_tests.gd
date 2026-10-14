@@ -206,16 +206,21 @@ func _phone_match(sz: Vector2i) -> void:
 	var tag_choices := tag_box.find_children("TagPickerGrid_*", "Button", true, false)
 	_check(tag_choices.size() >= 3 and tag_choices.size() <= 6, "Tag shows a few players, not a wall (%d, %s)" % [tag_choices.size(), tag])
 	var tag_other: Button = tag_box.find_child("TagPickerOther", true, false)
-	_check(tag_other != null, "Every tag_other player is a tap away (%s)" % tag)
-	# A tag is a midfield job: the list is their midfielders on the ground.
+	# A tag is a midfield job, offered on their listed midfielders only: each
+	# is a name here or behind "Other midfielder...", which is not drawn when
+	# every one of them is already a name.
+	var tag_sim = _state.pending_sim
 	var opp_side: Array = (m.get("_res")["roster"][1 - int(m.get("_my_side"))] as Array).filter(
-			func(r): return str(r["role"]) == "MID")
+			func(r): return bool(m.call("_taggable_now", tag_sim, r)) and bool(m.call("_listed_midfielder", tag_sim, r)))
+	var named := tag_choices.size() - 1
+	_check((tag_other != null and tag_other.text == "Other midfielder…") or named == opp_side.size(),
+			"Every listed midfielder is a name or behind Other midfielder (%s: %d of %d named)" % [tag, named, opp_side.size()])
 	if tag_other != null:
 		tag_other.emit_signal("pressed")
 		await _settle()
 		var sheet: Node = m.find_child("PlayerSheet", true, false)
-		_check(sheet != null and sheet.find_children("Sheet_*", "Button", true, false).size() == opp_side.size(),
-				"The full list has every one of their midfielders (%s)" % tag)
+		_check(sheet != null and sheet.find_children("Sheet_*", "Button", true, false).size() == opp_side.size() - named,
+				"The list behind it has their other listed midfielders, each once (%s)" % tag)
 		var backed: bool = m.call("handle_back")
 		await _settle()
 		_check(backed and m.find_child("PlayerSheet", true, false) == null
@@ -835,20 +840,39 @@ func _tag_targets(sz: Vector2i) -> void:
 			wrong.append(id)
 	_check(wrong.is_empty(), "The suggestions are all midfielders (%s: %s)" % [tag, str(wrong)])
 	var other: Button = tag_box.find_child("TagPickerOther", true, false)
-	var why: String = await Tap.tap(other)
-	_check(why == "", "A finger opens Other player (%s: %s)" % [tag, why])
-	await _settle()
-	var sheet: Node = m.find_child("PlayerSheet", true, false)
-	var rows: Array = sheet.find_children("Sheet_*", "Button", true, false) if sheet != null else []
-	var bad := []
-	for b in rows:
-		if not eligible.has(str(b.name).trim_prefix("Sheet_")):
-			bad.append(str(b.name))
-	_check(not rows.is_empty() and bad.is_empty() and rows.size() == eligible.size(),
-			"The full list is every midfielder and nobody else (%s: %d of %d, off: %s)" % [tag, rows.size(), eligible.size(), str(bad)])
-	_check(sheet != null and sheet.find_child("Sheet_" + ruck_id, true, false) == null, "Their ruck is not on the list (%s)" % tag)
-	var pick: Button = rows.back() if not rows.is_empty() else null
-	var picked := str(pick.name).trim_prefix("Sheet_") if pick != null else ""
+	var named_ids := {}
+	for b in tag_box.find_children("TagPickerGrid_*", "Button", true, false):
+		if str(b.name) != "TagPickerGrid_":
+			named_ids[str(b.name).trim_prefix("TagPickerGrid_")] = true
+	var listed_ids := {}
+	for id in eligible:
+		if bool(m.call("_listed_midfielder", sim, {"id": id})):
+			listed_ids[id] = true
+	_check(other != null or named_ids.size() == listed_ids.size(),
+			"Every listed midfielder is a name or behind Other midfielder (%s: %d of %d named)" % [tag, named_ids.size(), listed_ids.size()])
+	var pick: Button = null
+	if other != null:
+		var why: String = await Tap.tap(other)
+		_check(why == "" and other.text == "Other midfielder…", "A finger opens Other midfielder (%s: %s %s)" % [tag, other.text, why])
+		await _settle()
+		var sheet: Node = m.find_child("PlayerSheet", true, false)
+		var rows: Array = sheet.find_children("Sheet_*", "Button", true, false) if sheet != null else []
+		var bad := []
+		for b in rows:
+			var rid := str(b.name).trim_prefix("Sheet_")
+			if not listed_ids.has(rid) or named_ids.has(rid):
+				bad.append(rid)
+		_check(not rows.is_empty() and bad.is_empty() and rows.size() == listed_ids.size() - named_ids.size(),
+				"The list is their other listed midfielders and nobody else (%s: %d of %d, off: %s)" % [tag, rows.size(), listed_ids.size() - named_ids.size(), str(bad)])
+		_check(sheet != null and sheet.find_child("Sheet_" + ruck_id, true, false) == null, "Their ruck is not on the list (%s)" % tag)
+		pick = rows.back() if not rows.is_empty() else null
+	else:
+		# Every listed midfielder is already a name: no button, pick a name.
+		_check(tag_box.find_child("TagPickerGrid_" + ruck_id, true, false) == null, "Their ruck is not among the names (%s)" % tag)
+		for b in tag_box.find_children("TagPickerGrid_*", "Button", true, false):
+			if str(b.name) != "TagPickerGrid_":
+				pick = b
+	var picked := str(pick.name).trim_prefix("Sheet_").trim_prefix("TagPickerGrid_") if pick != null else ""
 	var pw: String = await Tap.tap(pick)
 	await _settle()
 	_check(pw == "" and box.find_child("TagPickerGrid_" + picked, true, false) != null,
@@ -1210,17 +1234,53 @@ func _one_line_break(sz: Vector2i) -> void:
 		var offered := through.filter(func(id): return tp.find_child("TagPickerGrid_" + str(id), true, false) != null)
 		_check(not through.is_empty() and offered.is_empty(),
 				"A ruck or defender running through the middle is not among the tag names (%s: %d such, %d offered)" % [tag, through.size(), offered.size()])
+		# "Other midfielder..." lists their listed midfielders not already
+		# named, and is not drawn when none is left: nobody running through
+		# the middle is behind it either.
+		var listed_n := 0
+		for r in (m.call("_roster_side", 1 - me) as Array):
+			if bool(m.call("_taggable_now", sim, r)) and bool(m.call("_listed_midfielder", sim, r)):
+				listed_n += 1
 		var other: Button = tp.find_child("TagPickerOther", true, false)
-		var w_other: String = await Tap.tap(other)
-		await _settle()
-		var listed_all := true
-		for id in through:
-			listed_all = listed_all and m.find_child("Sheet_" + str(id), true, false) != null
-		_check(w_other == "" and listed_all, "Other player still lists them, so anyone the game lets you tag can be (%s%s)" % [tag, (": " + w_other) if w_other != "" else ""])
-		m.call("handle_back")
-		await _settle()
+		if other != null:
+			var w_other: String = await Tap.tap(other)
+			await _settle()
+			var psheet: Node = m.find_child("PlayerSheet", true, false)
+			var rest: Array = psheet.find_children("Sheet_*", "Button", true, false) if psheet != null else []
+			var stray := []
+			for b in rest:
+				var rid := str(b.name).trim_prefix("Sheet_")
+				if through.has(rid) or tp.find_child("TagPickerGrid_" + rid, true, false) != null:
+					stray.append(rid)
+			_check(w_other == "" and other.text == "Other midfielder…" and stray.is_empty() and rest.size() == listed_n - names.size(),
+					"Other midfielder lists only their listed midfielders not already named (%s: %d listed, %d named, %d behind, off %s%s)"
+					% [tag, listed_n, names.size(), rest.size(), str(stray), (", " + w_other) if w_other != "" else ""])
+			m.call("handle_back")
+			await _settle()
+		else:
+			_check(names.size() == listed_n, "With every listed midfielder named there is no Other midfielder button (%s: %d of %d)" % [tag, names.size(), listed_n])
 	else:
 		_check(false, "(setup) seed 2050 draws Fremantle v Melbourne (%s: drew %s)" % [tag, them])
+	var uk = load("res://scripts/ui/UiKit.gd")
+	var grey := []
+	for grid_name in ["PlanPicker", "TagPickerGrid", "InterceptorPickerGrid"]:
+		var grid: Node = m.find_child(grid_name, true, false)
+		var outlined := 0
+		var seen := 0
+		for b in (grid.get_children() if grid != null else []):
+			if not (b is Button) or str(b.name).ends_with("Other"):
+				continue
+			seen += 1
+			if (b as Button).get_theme_color("font_color") != uk.TEXT:
+				grey.append("%s is not body ink" % b.name)
+			if ((b as Button).get_theme_stylebox("normal") as StyleBoxFlat).border_width_left >= 2:
+				outlined += 1
+		if seen < 2 or outlined != 1:
+			grey.append("%s: %d choices, %d outlined" % [grid_name, seen, outlined])
+	_check(grey.is_empty(), "Game plan, Tag and Loose interceptor choices all read at body strength, only the chosen one outlined (%s: %s)" % [tag, str(grey)])
+	var other_tagger: Button = m.find_child("TaggerPickerOther", true, false)
+	_check(other_tagger == null or other_tagger.text == "Other tagger…",
+			"Who tags names its own list Other tagger (%s: %s)" % [tag, other_tagger.text if other_tagger != null else "-"])
 	var who: Control = (m.find_child("TaggerPicker", true, false) if pc else m.find_child("WhoTagsLine", true, false)) as Control
 	var has_who := m.find_child("TaggerPicker", true, false) != null
 	if has_who and pick != null:

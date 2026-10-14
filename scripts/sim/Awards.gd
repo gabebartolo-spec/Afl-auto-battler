@@ -305,4 +305,38 @@ static func update_records(records: Dictionary, awards: Dictionary, season_log: 
 			var margin := int(s[side]) - int(s[1 - side])
 			if margin > int((records.get("biggest_win", {}) as Dictionary).get("value", -1)):
 				records["biggest_win"] = {"value": margin, "club": code, "opp": opp, "year": year}
+		_comeback_records(records, res, year)
 	return records
+
+
+## The greatest comeback (the biggest deficit at a break a side then won from) and the biggest
+## lead lost (the biggest lead at a break a side then lost from), over the career. Only from the
+## break scores, and only past the bars Headlines uses for a comeback headline, so a record is
+## never claimed for an ordinary game. Extra time (quarters that do not add up) says nothing.
+## "at" is the break (0 quarter time, 1 half time, 2 three-quarter time).
+static func _comeback_records(records: Dictionary, res: Dictionary, year: int) -> void:
+	var s: Array = res.get("score", [0, 0])
+	if int(s[0]) == int(s[1]):
+		return
+	var winner := 0 if int(s[0]) > int(s[1]) else 1
+	var leads: Array = Headlines._break_leads(res, winner)
+	if leads.is_empty():
+		return
+	var worst := 0
+	var worst_at := -1
+	var best := 0
+	var best_at := -1
+	for i in range(leads.size()):
+		if int(leads[i]) < worst:
+			worst = int(leads[i])
+			worst_at = i
+		if int(leads[i]) > best:
+			best = int(leads[i])
+			best_at = i
+	var win_code := str(res["home"] if winner == 0 else res["away"])
+	var lose_code := str(res["away"] if winner == 0 else res["home"])
+	if -worst >= Headlines.COMEBACK and -worst > int((records.get("biggest_comeback", {}) as Dictionary).get("value", -1)):
+		records["biggest_comeback"] = {"value": -worst, "club": win_code, "opp": lose_code, "year": year, "at": worst_at}
+	# The loser's biggest lead at a break is the winner's biggest deficit.
+	if -worst >= Headlines.LED and -worst > int((records.get("biggest_blown", {}) as Dictionary).get("value", -1)):
+		records["biggest_blown"] = {"value": -worst, "club": lose_code, "opp": win_code, "year": year, "at": worst_at}

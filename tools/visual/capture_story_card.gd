@@ -83,6 +83,25 @@ func _run() -> void:
 						who = q
 				gs.losing_streak = 3
 				gs.season_log = gs.season_log
+			# The papers go after the poorest recent form among the fit players picked, as the game does.
+			if str(tid) == "media_in_the_papers":
+				var low := 99999.0
+				var side: Dictionary = gs.current_side()
+				for q in gs.my_list:
+					var last: Array = (gs.form_log.get(str(q["id"]), {}) as Dictionary).get("last", [])
+					var picked := false
+					for k in side:
+						if k != "BENCH" and (side[k] as Array).has(str(q["id"])):
+							picked = true
+					if last.size() < 3 or not picked or int(q.get("injury_weeks", 0)) > 0:
+						continue
+					var avg := 0.0
+					for x in last:
+						avg += float(x)
+					avg /= float(last.size())
+					if avg < low:
+						low = avg
+						who = q
 			for q in gs.my_list:
 				if str(tid).contains("kid") and float(q.get("age", 30.0)) < float(who.get("age", 30.0)):
 					who = q
