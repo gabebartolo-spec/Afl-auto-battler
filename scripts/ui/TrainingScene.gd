@@ -551,6 +551,12 @@ func _name_header(p: Dictionary) -> Control:
 	b.name = "PlayerNameLink"
 	b.flat = true
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		var flat := UiKit.style(Color.TRANSPARENT, 0, 0)
+		flat.set_border_width_all(0)
+		flat.content_margin_top = 6
+		flat.content_margin_bottom = 6
+		b.add_theme_stylebox_override(state, flat)
 	b.clip_text = true
 	b.custom_minimum_size.y = 44
 	b.add_theme_color_override("font_color", UiKit.TEXT)

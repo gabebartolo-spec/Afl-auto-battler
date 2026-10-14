@@ -67,7 +67,8 @@ static func line(text: String, ids: Dictionary, size: int, colour: Color) -> Ric
 	r.add_theme_font_size_override("normal_font_size", size)
 	r.add_theme_color_override("default_color", colour)
 	r.text = markup(text, ids)
-	wire(r)
+	# One colour for the whole line, so its names are underlined to read as taps.
+	wire(r, true)
 	return r
 
 
@@ -77,8 +78,8 @@ static func _escape(t: String) -> String:
 
 ## Make this label's player links open profiles. Names stay as coloured as the
 ## line made them (no underline); a drag that starts on a name still scrolls.
-static func wire(label: RichTextLabel) -> void:
-	label.meta_underlined = false
+static func wire(label: RichTextLabel, underline := false) -> void:
+	label.meta_underlined = underline
 	label.mouse_filter = Control.MOUSE_FILTER_PASS
 	if label.has_meta("name_link_wired"):
 		return
