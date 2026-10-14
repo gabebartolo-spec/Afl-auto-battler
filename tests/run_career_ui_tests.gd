@@ -1639,6 +1639,7 @@ func _run() -> void:
 	await _test_names_fit()
 	_state.delete_saved_career()
 	await _new_career_keeps_the_save()
+	await _new_career_canberra_choice()
 	await _pc_hub_and_list_layout()
 	print("Career UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	_state.replay_seed = 0
@@ -1836,6 +1837,45 @@ func _find_named(n: Node, named: String, out: Array) -> void:
 		out.append(n)
 	for c in n.get_children():
 		_find_named(c, named, out)
+
+
+## The Canberra choice on New career (director, 2026-10-14), behind the feature
+## switch expansion_package: absent with the switch off; with it on, off by
+## default, and a real tap on "Joins in 2030" puts Canberra in the career.
+func _new_career_canberra_choice() -> void:
+	var features = load("res://scripts/core/Features.gd")
+	_state.delete_saved_career()
+	_state.reset()
+	_router.stack = []
+	_router.go("main")
+	await _settle()
+	await Tap.tap(current_scene.find_child("NewCareer", true, false))
+	await _settle()
+	_check(current_scene.find_child("Canberra_in", true, false) == null and _db.active_clubs(2030).has("CANB"),
+			"Switch off: New career has no Canberra choice and Canberra joins as it always did")
+	features.set_on("expansion_package", true)
+	for pick_it in [false, true]:
+		_state.reset()
+		_router.stack = []
+		_router.go("main")
+		await _settle()
+		await Tap.tap(current_scene.find_child("NewCareer", true, false))
+		await _settle()
+		var t1 := ""
+		if pick_it:
+			t1 = await Tap.tap(current_scene.find_child("Canberra_in", true, false))
+			await _settle()
+		var t2: String = await Tap.tap(current_scene.find_child("StartCareer", true, false))
+		await _settle()
+		await _settle()
+		_check(t1 == "" and t2 == "" and _router.current() == "draft" and bool(_state.canberra_on) == pick_it
+				and _db.active_clubs(2030).has("CANB") == pick_it,
+				("A tap on Joins in 2030 puts Canberra in the new career (%s %s)" if pick_it
+				else "Left alone, the new career has no Canberra (%s %s)") % [t1, t2])
+	features.clear("expansion_package")
+	_state.reset()
+	_router.stack = []
+	_check(_db.active_clubs(2030).has("CANB"), "The switch back off, Canberra joins again")
 
 
 ## qa web pass, 2026-10-12: starting a new career must not cost the player the
