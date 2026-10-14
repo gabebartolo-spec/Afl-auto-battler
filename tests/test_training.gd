@@ -285,8 +285,9 @@ func _test_reserves_development() -> void:
 	_check(counted > 0 and int(report["reserves_count"]) == counted
 			and int(report["reserves_total"]) == counted * res_xp,
 			"The report counts the reserves (%d at %d)" % [counted, res_xp])
-	_check(GameState.reserves_summary_line().contains("+%d XP each" % res_xp),
-			"The results screens get a reserves line")
+	_check(GameState.reserves_summary_line() == "%d %s developing in the reserves." % [counted, "player kept" if counted == 1 else "players kept"]
+			and not GameState.reserves_summary_line().contains("XP"),
+			"The results screens get a reserves line, with no XP in it (%s)" % GameState.reserves_summary_line())
 
 	# 7: the same match cannot pay twice.
 	var once := int(GameState.list_player(depth)["xp"])

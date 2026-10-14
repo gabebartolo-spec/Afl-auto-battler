@@ -816,7 +816,7 @@ func _week_actions(season: Season) -> Control:
 	elif _upcoming_match().is_empty() and GameState.my_finals_status() == "bye":
 		# Still alive: sim only this week, never past your own final.
 		buttons.append(_nav_button("Team", func(): Router.go("selection")))
-		buttons.append(_nav_button("Play %s" % _finals_label(), _on_sim_round, true))
+		buttons.append(_nav_button(_finals_play_label(), _on_sim_round, true))
 	elif _upcoming_match().is_empty():
 		# Out of the finals, the league still plays them week by week: each
 		# week's results come up before the next, and the rest of the series
@@ -824,7 +824,7 @@ func _week_actions(season: Season) -> Control:
 		var skip := _nav_button("Play to Grand Final", _on_sim_to_end)
 		skip.name = "SimToGrandFinal"
 		buttons.append(skip)
-		var week := _nav_button("Play %s" % _finals_label(), _on_sim_round, true)
+		var week := _nav_button(_finals_play_label(), _on_sim_round, true)
 		week.name = "SimFinalsWeek"
 		buttons.append(week)
 	else:
@@ -1003,6 +1003,14 @@ func _nav_button(text: String, cb: Callable, primary := false) -> Button:
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	b.pressed.connect(cb)
 	return b
+
+
+## The button that plays the week: short enough for half a phone's width beside Team
+## ("Play Wildcard Round" ran off the edge at 390).
+func _finals_play_label() -> String:
+	var w := int(GameState.season.finals.get("week", 1))
+	return ["Play the wildcard", "Play the finals", "Play semi finals",
+			"Play the prelims", "Play Grand Final"][clampi(w - 1, 0, 4)]
 
 
 func _finals_label() -> String:
