@@ -241,6 +241,9 @@ static func reason(p: Dictionary) -> String:
 	var where := str(p.get("draft_league", ""))
 	var h := int(p.get("height_cm", 0))
 	var why := ""
+	if InternationalProspects.is_international(p):
+		var c := InternationalProspects.country(str(p["intl"]))
+		return "%s: %d cm, %s. Raw, but the ceiling is high." % [name, h, str(c.get("reason", "new to the game"))]
 	match str(p.get("role", "MID")):
 		"FWD":
 			if float(p.get("u18_gl", 0.0)) >= 1.5:

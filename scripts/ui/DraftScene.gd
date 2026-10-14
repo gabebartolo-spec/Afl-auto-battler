@@ -903,6 +903,8 @@ func _player_row(p: Dictionary) -> Control:
 	var read := ""
 	if bool(p.get("projected", false)):
 		where = str(p.get("draft_team", p["club"]))
+		if InternationalProspects.is_international(p):
+			where = "%s, %s" % [where, str(p.get("draft_state", ""))]
 		if _draft.intake_mode:
 			var scout := DraftScouting.projection(p, _club, _draft.seed,
 					_draft.scouting_mult_for(_club))
@@ -1133,6 +1135,12 @@ func _open_player(id: String) -> void:
 		var pl := UiKit.lbl(ped, UiKit.SECONDARY, UiKit.MUTED)
 		pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(pl)
+	var intl_note := InternationalProspects.note(p)
+	if intl_note != "":
+		var il := UiKit.lbl(intl_note, UiKit.SECONDARY, UiKit.MUTED)
+		il.name = "DetailInternational"
+		il.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(il)
 	var family := FamilyLine.make(p, self)
 	if family != null:
 		v.add_child(family)

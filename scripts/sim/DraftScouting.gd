@@ -35,6 +35,8 @@ static func projection(p: Dictionary, club: String, seed: int, uncertainty_mult 
 	# A club that saw him in its intra-club match reads him more tightly
 	# (seen_mult; 1.0 for everyone else, and with the switch off).
 	var u := maxf(0.25, float(uncertainty_mult) * seen_mult(p, club))
+	if p.has("intl"):
+		u *= InternationalProspects.SCOUT_UNCERTAINTY   # raw and unfamiliar: a wider read
 	var ov_mid := clampi(int(round(float(ov) + _normal(_key(p, club, seed, "ovr")) * OVR_SD * certainty * u)), 1, 99)
 	var pot_mid := clampi(int(round(float(pot) + _normal(_key(p, club, seed, "pot")) * POT_SD * certainty * u)), ov_mid, 99)
 	var base_ov_half := 2 if certainty < 0.82 else 3
