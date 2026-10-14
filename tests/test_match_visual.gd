@@ -52,6 +52,7 @@ func run() -> void:
 	_test_sides()
 	_test_bench_strip()
 	_test_ends_change_at_restart(res)
+	_test_upright_oval(res)
 	GameState.replay_seed = 0
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -2041,4 +2042,110 @@ func _test_ends_change_at_restart(res: Dictionary) -> void:
 	pv2.skip_to_end()
 	_check(pv2.period == 4, "A skipped match ends at the fourth quarter's ends (%d)" % pv2.period)
 	pv.free()
+	pv2.free()
+
+
+## The oval upright (a phone held upright): the same picture as the ground lying
+## flat, turned a quarter turn, the whole ground in view, the home side kicking
+## up the screen first and down it after the change of ends, the bench clear of
+## the turf, and a point on a disc finding that player, upright and flat.
+func _test_upright_oval(res: Dictionary) -> void:
+	var up := PitchView.new()
+	up.size = Vector2(370, 490)
+	up.camera_enabled = false
+	up.upright = true
+	var flat := PitchView.new()
+	flat.size = Vector2(490, 370)
+	flat.camera_enabled = false
+	var turn := func(q: Vector2) -> Vector2:
+		var v := q - flat.size * 0.5
+		return up.size * 0.5 + Vector2(v.y, -v.x)
+	var ends := []
+	up.ends_changed.connect(func(_p): ends.append(up._w2s(Vector2(MatchMotion.GOAL_X, 0.0)).y < up.size.y * 0.5))
+	up.setup(res)
+	flat.setup(res)
+	var gr: Rect2 = up.pitch_rect()
+	_check(Rect2(Vector2.ZERO, up.size).encloses(gr) and gr.size.y > gr.size.x * 1.2
+			and is_equal_approx(gr.size.x, flat.pitch_rect().size.y) and is_equal_approx(gr.size.y, flat.pitch_rect().size.x),
+			"Upright, the whole ground is in view and runs top to bottom (%s)" % str(gr))
+	var home_goal: Vector2 = up._w2s(Vector2(MatchMotion.GOAL_X, 0.0))
+	_check(home_goal.y < up.size.y * 0.5 and absf(home_goal.x - up.size.x * 0.5) < 0.5,
+			"In the first quarter the home side kicks up the screen, the goal on the centre line")
+	up.set_speed(8.0)
+	flat.set_speed(8.0)
+	up.play()
+	flat.play()
+	var worst := 0.0
+	var ball_worst := 0.0
+	var wrong_hit := 0
+	var carrier_missed := 0
+	var guard := 0
+	while up.playing and guard < 200000:
+		guard += 1
+		up._process(1.0 / 30.0)
+		flat._process(1.0 / 30.0)
+		if guard % 5 != 0:
+			continue
+		for i in range(up.director.tokens.size()):
+			var a2: Vector2 = up._w2s(up.director.tokens[i]["pos"])
+			var b2: Vector2 = turn.call(flat._w2s(flat.director.tokens[i]["pos"]))
+			worst = maxf(worst, a2.distance_to(b2))
+		ball_worst = maxf(ball_worst, up._w2s(up.director.ball["pos"]).distance_to(turn.call(flat._w2s(flat.director.ball["pos"]))))
+		if guard % 50 != 0:
+			continue
+		for pv in [up, flat]:
+			var drawn: PackedVector2Array = pv.disc_positions()
+			var tr: float = pv.token_radius()
+			for i in range(drawn.size()):
+				var hit: int = pv.disc_at_point(drawn[i])
+				if hit < 0 or drawn[hit].distance_to(drawn[i]) > tr * 1.25:
+					wrong_hit += 1
+			var holder := int(pv.director.ball.get("holder", -1))
+			if holder >= 0 and pv.disc_at_point(drawn[holder]) != holder:
+				carrier_missed += 1
+	_check(not up.playing and worst < 0.01 and ball_worst < 0.01,
+			"Every player and the ball are in the same place upright as flat, turned (%.3f px, ball %.3f px)" % [worst, ball_worst])
+	_check(ends == [false, true, false], "Upright, the home side kicks down, up, then down the screen after each change of ends (%s)" % str(ends))
+	_check(wrong_hit == 0, "A point on a disc finds a player drawn there, upright and flat (%d misses)" % wrong_hit)
+	_check(carrier_missed == 0, "A point on the ball carrier's disc finds him, upright and flat (%d misses)" % carrier_missed)
+	up.free()
+	flat.free()
+	# The bench, upright: five a side in the bottom corners, inside the view, off the turf.
+	var bres := _sim(31, "FRE", "MEL").run()
+	bres["home"] = "FRE"
+	bres["away"] = "MEL"
+	var pv2 := PitchView.new()
+	pv2.size = Vector2(370, 490)
+	pv2.camera_enabled = false
+	pv2.upright = true
+	pv2.setup(bres)
+	var spots := pv2.bench_spots(pv2.token_radius())
+	var s := pv2._scale()
+	var on_turf := 0
+	var outside := 0
+	for sp in spots:
+		var q: Vector2 = (sp["pos"] as Vector2) - pv2.size * 0.5
+		var r: float = sp["r"]
+		var ex := (absf(q.x) - r) / (MatchMotion.HALF_WID * s)
+		var ey := (absf(q.y) - r) / (MatchMotion.HALF_LEN * s)
+		if ex * ex + ey * ey < 1.0:
+			on_turf += 1
+		var at: Vector2 = sp["pos"]
+		if at.x - r < 0.0 or at.y - r < 0.0 or at.x + r > pv2.size.x or at.y + r > pv2.size.y:
+			outside += 1
+	_check(spots.size() == 10 and on_turf == 0 and outside == 0,
+			"Upright, the bench's ten discs sit in the view and off the turf (%d, %d on the turf, %d outside)" % [spots.size(), on_turf, outside])
+	_check(absf(float(spots[0]["r"]) - pv2.token_radius()) < 0.5, "Upright, a bench disc is as big as a player's on the ground")
+	# A goal's ring at either end: never past the view's edge, never over the bench.
+	var bad := []
+	for gx in [MatchMotion.GOAL_X, -MatchMotion.GOAL_X]:
+		var at: Vector2 = pv2._w2s(Vector2(gx, 0.0))
+		var biggest := minf(MatchMotion.HALF_LEN * s, MatchMotion.HALF_WID * s) * 0.42
+		var r := minf(biggest, pv2.flash_room(at, pv2.token_radius()))
+		if at.y - r < 0.0 or at.y + r > pv2.size.y or at.x - r < 0.0 or at.x + r > pv2.size.x:
+			bad.append("off the view at %s" % str(at))
+		for sp in spots:
+			if (sp["pos"] as Vector2).distance_to(at) < r + float(sp["r"]):
+				bad.append("over bench disc %d" % int(sp["num"]))
+	_check(bad.is_empty(), "Upright, a goal's ring stays in the view and off the bench at both ends (%s)" % ", ".join(bad))
 	pv2.free()
