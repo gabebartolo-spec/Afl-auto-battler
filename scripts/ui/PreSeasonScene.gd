@@ -498,7 +498,7 @@ func _club_rule() -> Control:
 func _report_head(text: String) -> Control:
 	var v := UiKit.vbox(4)
 	v.add_child(_club_rule())
-	v.add_child(UiKit.lbl(text, UiKit.HEADING, UiKit.club_name_colour(UiKit.club_ink(GameState.my_club)), true))
+	v.add_child(UiKit.lbl(text, UiKit.HEADING, UiKit.club_ink(GameState.my_club), true))
 	return v
 
 
@@ -806,7 +806,7 @@ func _runner(id: String, place: String, node_name: String) -> Control:
 		h.add_child(fig)
 	# His name wears his club's colour, and where he plays sits beside it.
 	var n := UiKit.lbl(GameDB.player_display_name(p) if not p.is_empty() else "A player who has left",
-			UiKit.NAME, UiKit.club_name_colour(UiKit.club_ink(GameState.my_club)), true)
+			UiKit.NAME, UiKit.club_ink(GameState.my_club), true)
 	n.name = node_name
 	n.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	n.size_flags_vertical = Control.SIZE_SHRINK_CENTER
