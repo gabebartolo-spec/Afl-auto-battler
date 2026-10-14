@@ -25,7 +25,7 @@ func _ready() -> void:
 	_root = UiKit.vbox(9)
 	margin.add_child(_root)
 	get_viewport().size_changed.connect(func():
-		if is_inside_tree() and GameState.season != null:
+		if is_inside_tree() and GameState.season != null and not UiKit.keyboard_resize(self):
 			var places := UiKit.scroll_places(_root)
 			_build()
 			UiKit.restore_places(_root, places))
@@ -206,7 +206,7 @@ func _build() -> void:
 	page.add_child(ctrl)
 
 	# The season ends the way the real AFL year does: with the national draft.
-	var draft_btn := UiKit.btn("%d NATIONAL DRAFT" % GameState.season_year, UiKit.HEADING, true)
+	var draft_btn := UiKit.btn("%d National Draft" % GameState.season_year, UiKit.HEADING, true)
 	draft_btn.name = "NationalDraft"
 	draft_btn.custom_minimum_size = Vector2(0, 48)
 	draft_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL

@@ -30,6 +30,21 @@ var camera_enabled := true
 ## Smooth the edges of the lines and outlines drawn here (the oval, arcs,
 ## rings, token outlines). Fills stay as they are.
 var antialias := true
+## The ground runs top to bottom (director, 2026-10-14: "turn the oval upright" on
+## a phone in portrait), goals at the top and the bottom, the whole ground in
+## view. It is the same picture turned a quarter turn: the home side kicks up
+## the screen in the first quarter where it kicked to the right. Everything is
+## worked out as it is for the ground lying flat (the "flat" frame: _flat_size,
+## _w2s_flat) and turned at the end (_to_screen); names, numbers and the ball's
+## height stay upright. The match screen sets it; PC and landscape leave it off.
+var upright := false:
+	set(v):
+		if v != upright:
+			upright = v
+			_nudge = PackedVector2Array()
+			_disc = PackedVector2Array()
+			_cam = _clamp_cam(_cam)
+			queue_redraw()
 
 var director := MatchDirector.new()
 var _cam := Vector2.ZERO
@@ -90,7 +105,7 @@ var _trail: Array = []
 ## design, not just its colours, so the two sides read apart at a glance.
 var _kits: Array = [{}, {}]
 ## True when the two home kits looked alike on a disc and the away side wears its
-## second colour (kits_for).
+## clash strip, its own kit's two colours changed over (kits_for).
 var clash := false
 ## Two disc bases this close (UiKit.colour_distance, the measure the club inks
 ## use) are alike on the turf. A little wider than UiKit.INK_CLASH (25): a disc is
@@ -112,9 +127,6 @@ const DISC_CLASH := 30.0
 const NUDGE_GAP := 1.0
 const NUDGE_CAP := 0.5
 static var nudge_full := false
-## For a comparison capture only: on a clash the away side swaps its own kit's two
-## colours (base and pattern) instead of taking UiKit's second ink.
-static var clash_kit_swap := false
 const NUDGE_EASE := 0.85
 const NUDGE_PASSES := 24
 var _nudge := PackedVector2Array()
@@ -122,7 +134,9 @@ var _disc := PackedVector2Array()   # where each token is drawn, in pixels
 ## The bench: each side's five as small discs, along the bottom of the view (the
 ## stand's dark band on a phone) or down the sides of the ground when the window
 ## is wider than the oval (a PC). BENCH_SHARE is a bench disc's size in token radii.
-const BENCH_SHARE := 0.85
+## Full size on a phone, where a smaller disc's number was too small to read
+## (lead, 2026-10-14).
+const BENCH_SHARE := 1.0
 ## The stand beyond the fence and the turf's edge in shadow, so the oval sits
 ## in a ground rather than floating on black (audit §8 Phase 3.2).
 const STAND_COLOUR := Color(0.125, 0.11, 0.095)
@@ -453,43 +467,72 @@ func _track_quarter(ev: Dictionary) -> void:
 func _change_ends() -> void:
 	_flip_pending = false
 	period += 1
-	# The picture mirrors, and so does each disc's nudge.
+	# The picture mirrors along the ground's length, and so does each disc's nudge.
 	for i in range(_nudge.size()):
-		_nudge[i] = Vector2(-_nudge[i].x, _nudge[i].y)
+		_nudge[i] = Vector2(_nudge[i].x, -_nudge[i].y) if upright else Vector2(-_nudge[i].x, _nudge[i].y)
 	ends_changed.emit(period)
 	queue_redraw()
 
 
 ## The two kits the discs wear. The home side wears its own. The away side does
-## too unless its base colour looks like the home side's on a disc (DISC_CLASH),
-## when it wears its second hand-picked colour (UiKit.club_ink_second, the same
-## clash colour its name takes on the break and the stats), if that is farther
-## from the home base: the rule of UiKit.club_ink_pair, asked of the discs.
-## Where that second colour is still like the home base (West Coast's lifted
-## blue at the Bulldogs), the away kit's own pattern colour is the base instead
-## (West Coast in gold), if that is farther again.
+## too unless its base colour looks like the home side's on a disc (DISC_CLASH,
+## UiKit.colour_distance between the two bases): then it wears its clash strip,
+## its own kit with the two colours changed over (Melbourne red with a navy yoke,
+## Richmond yellow with a black sash, West Coast gold), as the real clubs do.
+## Only the club's own kit colours are ever used (lead, 2026-10-14: UiKit's
+## second inks are lifted for text and on a disc were not the club's colours). A
+## kit whose pattern colour is no farther from the home base than its base
+## (a created club, say) is left as it is: no colour is invented.
 static func kits_for(home: String, away: String) -> Array:
+	if GameDB.is_side(home) or GameDB.is_side(away):
+		dress_sides(GameDB.side_base(home))
+		dress_sides(GameDB.side_base(away))
 	var h: Dictionary = GameDB.club_guernsey(home)
 	var a: Dictionary = GameDB.club_guernsey(away)
 	var hb: Color = h.get("base", Color.WHITE)
 	var ab: Color = a.get("base", Color.WHITE)
-	if UiKit.colour_distance(hb, ab) < DISC_CLASH:
-		var second := UiKit.club_ink_second(away)
-		var own: Color = a.get("pattern", Color.DIM_GRAY)
-		if clash_kit_swap:
-			second = own
-		if UiKit.colour_distance(hb, second) < DISC_CLASH \
-				and UiKit.colour_distance(hb, own) > UiKit.colour_distance(hb, second):
-			second = own
-		if UiKit.colour_distance(hb, second) > UiKit.colour_distance(hb, ab):
-			a = a.duplicate()
-			a["base"] = second
-			# The design must still show on the new base.
-			var pat: Color = a.get("pattern", Color.DIM_GRAY)
-			if UiKit.colour_distance(pat, second) < DISC_CLASH:
-				a["pattern"] = ab
-			a["clash"] = true
+	var ap: Color = a.get("pattern", Color.DIM_GRAY)
+	if UiKit.colour_distance(hb, ab) < DISC_CLASH and UiKit.colour_distance(hb, ap) > UiKit.colour_distance(hb, ab):
+		a = a.duplicate()
+		a["base"] = ap
+		a["pattern"] = ab
+		a["clash"] = true
 	return [h, a]
+
+
+## An intra-club match: the side in the home strip wears the club's kit colour,
+## and the side in the clash strip the colour the oval gives that club as an
+## away side against a home side in its own colours (kits_for of the club
+## against itself: its kit's two colours changed over), so no colour is
+## invented here. Harmless to call again.
+static func dress_sides(base: String) -> void:
+	var codes: Array = GameDB.side_codes(base)
+	if not GameDB.is_side(str(codes[1])) or (GameDB.clubs[codes[1]] as Dictionary).has("kit"):
+		return
+	var home: Dictionary = GameDB.club_guernsey(base)
+	var second: Dictionary = kits_for(base, base)[1]
+	var hb: Color = home.get("base", Color.WHITE)
+	if UiKit.colour_distance(hb, second.get("base", Color.WHITE)) < DISC_CLASH:
+		# The kit's two colours are too alike to tell two sides apart (Gold
+		# Coast's two reds): the second side takes the club's own colour that
+		# is farthest from the first side's, still one of the club's colours.
+		var far: Color = hb
+		for c in GameDB.club_colours(base):
+			if UiKit.colour_distance(hb, c) > UiKit.colour_distance(hb, far):
+				far = c
+		second = home.duplicate()
+		second["base"] = far
+		second["pattern"] = hb
+		second["clash"] = true
+	# Each side wears its strip's colour plain, like training bibs: with the
+	# design kept, a kit that is half one colour and half the other (Melbourne's
+	# yoke) gives two sides that are mirror images of each other on a disc and
+	# cannot be told apart at match size. The colours are still the club's own.
+	for kit in [home, second]:
+		kit["pattern"] = kit.get("base", Color.WHITE)
+		kit["pattern2"] = kit.get("base", Color.WHITE)
+	GameDB.set_side_kit(str(codes[0]), home)
+	GameDB.set_side_kit(str(codes[1]), second)
 
 
 ## +1 when the home side kicks to the right of the screen, -1 when it kicks
@@ -519,7 +562,7 @@ func _clamp_cam(c: Vector2) -> Vector2:
 	var s := _scale()
 	if s <= 0.0:
 		return Vector2.ZERO
-	var half := size * 0.5 / s
+	var half := _flat_size() * 0.5 / s
 	var lx := maxf(0.0, MatchMotion.HALF_LEN + 4.0 - half.x)
 	var ly := maxf(0.0, MatchMotion.HALF_WID + 4.0 - half.y)
 	return Vector2(clampf(c.x, -lx, lx), clampf(c.y, -ly, ly))
@@ -528,29 +571,60 @@ func _clamp_cam(c: Vector2) -> Vector2:
 # ---------------------------------------------------------------------------
 # Geometry
 # ---------------------------------------------------------------------------
-## The rect the whole oval fills at zoom 1.
-func pitch_rect() -> Rect2:
+## The view's size with the ground lying flat (left to right): the control's own
+## size, or that turned when the ground is upright.
+func _flat_size() -> Vector2:
+	return Vector2(size.y, size.x) if upright else size
+
+
+## A point of the flat frame on the screen: itself, or turned a quarter turn
+## about the view's centre (what was to the right is up).
+func _to_screen(p: Vector2) -> Vector2:
+	if not upright:
+		return p
+	var v := p - _flat_size() * 0.5
+	return size * 0.5 + Vector2(v.y, -v.x)
+
+
+## The rect the whole oval fills at zoom 1, with the ground lying flat.
+func _flat_rect() -> Rect2:
+	var fsz := _flat_size()
 	var margin := 10.0
-	var avail := size - Vector2(margin, margin) * 2.0
+	var avail := fsz - Vector2(margin, margin) * 2.0
 	if avail.x <= 0.0 or avail.y <= 0.0:
-		return Rect2(Vector2.ZERO, size)
+		return Rect2(Vector2.ZERO, fsz)
 	var w := avail.x
 	var h := w / ASPECT
 	if h > avail.y:
 		h = avail.y
 		w = h * ASPECT
-	return Rect2((size - Vector2(w, h)) * 0.5, Vector2(w, h))
+	return Rect2((fsz - Vector2(w, h)) * 0.5, Vector2(w, h))
+
+
+## The rect the whole oval fills at zoom 1, on the screen.
+func pitch_rect() -> Rect2:
+	var r := _flat_rect()
+	if not upright:
+		return r
+	var turned := Vector2(r.size.y, r.size.x)
+	return Rect2((size - turned) * 0.5, turned)
 
 
 ## Pixels per metre at the current zoom.
 func _scale() -> float:
-	return pitch_rect().size.x / (2.0 * MatchMotion.HALF_LEN) * _zoom
+	return _flat_rect().size.x / (2.0 * MatchMotion.HALF_LEN) * _zoom
 
 
-## Ground metres to pixels.
+## Ground metres to pixels on the screen.
 func _w2s(p: Vector2) -> Vector2:
+	return _to_screen(_w2s_flat(p))
+
+
+## Ground metres to pixels with the ground lying flat (the ground's own lines are
+## drawn in this frame and turned as one).
+func _w2s_flat(p: Vector2) -> Vector2:
 	var m := end_sign(period)
-	return size * 0.5 + Vector2((p.x - _cam.x) * m, p.y - _cam.y) * _scale()
+	return _flat_size() * 0.5 + Vector2((p.x - _cam.x) * m, p.y - _cam.y) * _scale()
 
 
 func _ellipse_points(c: Vector2, a: float, b: float, n: int) -> PackedVector2Array:
@@ -592,12 +666,17 @@ func _draw() -> void:
 	_drawn_cam = _cam
 	_drawn_zoom = _zoom
 	var s := _scale()
-	var c := _w2s(Vector2.ZERO)
+	var c := _w2s_flat(Vector2.ZERO)
 	var a := MatchMotion.HALF_LEN * s
 	var b := MatchMotion.HALF_WID * s
 
 	# The stand, dark, beyond the fence; the fence a band at the turf's edge.
 	draw_rect(Rect2(Vector2.ZERO, size), STAND_COLOUR, true)
+	# The ground itself (turf, lines, posts) is drawn lying flat and, upright,
+	# turned as one piece: a quarter turn about the view's centre.
+	var jolt := shake_offset() if _shake > 0.0 else Vector2.ZERO
+	if upright:
+		draw_set_transform_matrix(Transform2D(Vector2(0, -1), Vector2(1, 0), Vector2(0, size.y) + jolt))
 	var fence := maxf(3.0, 2.0 * s)
 	draw_colored_polygon(_ellipse_points(c, a + fence, b + fence, 128), FENCE_COLOUR)
 
@@ -633,7 +712,7 @@ func _draw() -> void:
 
 	# 50m arcs and goal squares at each end
 	for sgn in [-1.0, 1.0]:
-		var goal := _w2s(Vector2(sgn * GOAL_LINE_M, 0.0))
+		var goal := _w2s_flat(Vector2(sgn * GOAL_LINE_M, 0.0))
 		var rad := 50.0 * s
 		var span := _arc_span(c, a, b, goal, rad)
 		draw_arc(goal, rad, span.x, span.y, 48, line_col, lw, antialias)
@@ -648,6 +727,8 @@ func _draw() -> void:
 			draw_circle(goal + Vector2(0, py * 3.2 * s), maxf(2.0, 0.55 * s), Color(1, 1, 1, 0.95))
 			draw_circle(goal + Vector2(0, py * 9.6 * s), maxf(1.5, 0.4 * s), Color(1, 1, 1, 0.7))
 
+	if upright:
+		draw_set_transform(jolt)
 	# Rain falls and wind blows over the ground, under the players and the ball.
 	var now := float(Time.get_ticks_msec()) / 1000.0
 	VignetteWeather.draw_air(self, r, now, weather)
@@ -677,7 +758,9 @@ func _draw() -> void:
 		var rad2 := lerpf(tr, minf(a, b) * 0.42, t)
 		var col := Color(1.0, 0.92, 0.35) if fl["goal"] else Color(0.85, 0.9, 1.0)
 		col.a = (1.0 - t) * 0.85
-		draw_arc(_w2s(fl["pos"]), rad2, 0, TAU, 48, col, 4.0, antialias)
+		var at := _w2s(fl["pos"])
+		rad2 = minf(rad2, flash_room(at, tr))
+		draw_arc(at, rad2, 0, TAU, 48, col, 4.0, antialias)
 	_draw_role_labels(tr)
 	_draw_caption(tr)
 	_draw_press_banner()
@@ -739,8 +822,8 @@ func _draw_press_zone(c: Vector2, a: float, b: float) -> void:
 			var k1 := MatchDirector.press_zone_field(wx1 * dir)
 			if k0 <= 0.002 and k1 <= 0.002:
 				continue
-			var x0 := _w2s(Vector2(wx0, 0.0)).x
-			var x1 := _w2s(Vector2(wx1, 0.0)).x
+			var x0 := _w2s_flat(Vector2(wx0, 0.0)).x
+			var x1 := _w2s_flat(Vector2(wx1, 0.0)).x
 			var xl := minf(x0, x1)
 			var xr := maxf(x0, x1)
 			var left_k := k0 if x0 <= x1 else k1
@@ -777,7 +860,7 @@ const PRESS_NO_HUE := Color(0.02, 0.03, 0.07)
 ## mix, kept in range.
 static func press_zone_colour(code: String) -> Color:
 	var cols: Array = GameDB.club_colours(code)
-	var slot := int(PRESS_INK_SLOT.get(code, 0))
+	var slot := int(PRESS_INK_SLOT.get(GameDB.side_base(code), 0))
 	if slot < 0:
 		return PRESS_NO_HUE
 	var pick: Color = cols[slot]
@@ -887,9 +970,7 @@ func _draw_caption(tr: float) -> void:
 	var fs := clampi(int(tr * (2.1 if turnover else 1.6)), 15 if turnover else 11, 20 if turnover else 15)
 	var width := UiKit.BOLD.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	var p := _disc_at(tok)
-	var origin := p + Vector2(-width * 0.5, -tr * 2.4)
-	origin.x = clampf(origin.x, 4.0, maxf(4.0, size.x - width - 4.0))
-	origin.y = maxf(origin.y, float(fs) + 2.0)
+	var origin := caption_origin(p, width, fs, tr)
 	_caption_rect = Rect2(origin - Vector2(4, float(fs)), Vector2(width + 8.0, float(fs) + 10.0))
 	# It fades over its last third of a second.
 	var fade := clampf(float(_caption["left"]) / 0.3, 0.0, 1.0)
@@ -904,6 +985,60 @@ func _draw_caption(tr: float) -> void:
 		# A light edge round the club bar so a dark kit colour still shows on the grass.
 		draw_rect(Rect2(origin + Vector2(-2, 3), Vector2(width + 4, 6)), Color(RING_COLOUR, 0.85 * fade))
 		draw_rect(Rect2(origin + Vector2(-1, 4), Vector2(width + 2, 4)), Color(bar, fade))
+
+
+## Where a caption (a scorer's name, "Turnover") is written for the player at
+## `p`: above him, and above every disc it would otherwise cover, with a clear
+## gap, so the call never hides the players round the ball (lead, 2026-10-14). If
+## the pack reaches the top of the view it goes below the pack instead. Returns
+## the text's baseline origin; the caption's box is CAPTION_BOX_BELOW deeper
+## (the underline) and its own height taller.
+const CAPTION_GAP := 4.0
+const CAPTION_BOX_BELOW := 10.0
+func caption_origin(p: Vector2, width: float, fs: int, tr: float) -> Vector2:
+	var x := clampf(p.x - width * 0.5, 4.0, maxf(4.0, size.x - width - 4.0))
+	var up := _caption_clear(Vector2(x, p.y - tr * 2.4), width, fs, tr, -1.0)
+	if up.y >= float(fs) + 2.0:
+		return up
+	var down := _caption_clear(Vector2(x, p.y + tr * 2.4 + float(fs)), width, fs, tr, 1.0)
+	if down.y + CAPTION_BOX_BELOW <= size.y - 2.0:
+		return down
+	return Vector2(x, maxf(up.y, float(fs) + 2.0))
+
+
+## Move a caption up (dir -1) or down (dir 1) until its box touches no disc.
+func _caption_clear(origin: Vector2, width: float, fs: int, tr: float, dir: float) -> Vector2:
+	for pass_no in range(12):
+		var box := Rect2(origin.x - 4.0, origin.y - float(fs), width + 8.0, float(fs) + CAPTION_BOX_BELOW)
+		var grown := box.grow(tr + CAPTION_GAP)
+		var moved := false
+		for d in _disc:
+			if not grown.has_point(d):
+				continue
+			if dir < 0.0:
+				origin.y = minf(origin.y, d.y - tr - CAPTION_GAP - CAPTION_BOX_BELOW - 0.5)
+			else:
+				origin.y = maxf(origin.y, d.y + tr + CAPTION_GAP + float(fs) + 0.5)
+			moved = true
+		if not moved:
+			break
+	return origin
+
+
+## The caption's box as it would be drawn now, or an empty rect: for tests.
+func caption_box() -> Rect2:
+	if _caption.is_empty():
+		return Rect2()
+	var tok := int(_caption["tok"])
+	var text := str(_caption["text"])
+	if text == "" or tok < 0 or tok >= director.tokens.size():
+		return Rect2()
+	var tr := token_radius()
+	var turnover := bool(_caption.get("turnover", false))
+	var fs := clampi(int(tr * (2.1 if turnover else 1.6)), 15 if turnover else 11, 20 if turnover else 15)
+	var width := UiKit.BOLD.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var origin := caption_origin(_disc_at(tok), width, fs, tr)
+	return Rect2(origin - Vector2(4, float(fs)), Vector2(width + 8.0, float(fs) + CAPTION_BOX_BELOW))
 
 
 func _draw_ball(tr: float, s: float) -> void:
@@ -928,6 +1063,17 @@ func _draw_ball(tr: float, s: float) -> void:
 			Color(0.98, 0.93, 0.75))
 	draw_polyline(_ellipse_points(lift, tr * 0.42 * grow, tr * 0.30 * grow, 12),
 			Color(0.25, 0.12, 0.08), 1.0, antialias)
+
+
+## How big the goal's ring may grow at `at` and stay in the view and off the
+## bench: upright, a goal is a few pixels from the top or bottom edge, and a ring
+## sized for the ground ran off the screen and over the bench in the corners.
+func flash_room(at: Vector2, tr: float) -> float:
+	var room := minf(minf(at.x, size.x - at.x), minf(at.y, size.y - at.y)) - 3.0
+	for sp in bench_spots(tr):
+		var r: float = sp["r"]
+		room = minf(room, (sp["pos"] as Vector2).distance_to(at) - r - 6.0)
+	return maxf(tr, room)
 
 
 ## The radius a player's disc is drawn at, in pixels.
@@ -1026,6 +1172,18 @@ func draw_order() -> Array:
 	return out
 
 
+## The player whose disc is drawn at `p` (a point in this view), -1 for none: the
+## one drawn on top where discs overlap. For a tap on the oval.
+func disc_at_point(p: Vector2) -> int:
+	var tr := token_radius()
+	var order := draw_order()
+	for k in range(order.size() - 1, -1, -1):
+		var id := int(order[k])
+		if _disc_at(id).distance_to(p) <= tr * 1.25:
+			return id
+	return -1
+
+
 ## Where the discs are drawn now, for tests and the capture tool: a layout
 ## step exactly as a drawn frame makes it.
 func disc_positions() -> PackedVector2Array:
@@ -1045,7 +1203,7 @@ func bench_spots(tr: float) -> Array:
 	var br := maxf(7.0, tr * BENCH_SHARE)
 	var s := _scale()
 	var fence := maxf(3.0, 2.0 * s)
-	var side_band := size.x * 0.5 - MatchMotion.HALF_LEN * s - fence
+	var side_band := size.x * 0.5 - (MatchMotion.HALF_WID if upright else MatchMotion.HALF_LEN) * s - fence
 	var column := side_band >= br * 2.0 + 10.0
 	var step := br * 2.0 + 4.0
 	for side in range(2):
@@ -1072,9 +1230,16 @@ func _draw_bench(tr: float) -> void:
 	var word := "Bench"
 	var ww := UiKit.BOLD.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
 	if not bool(spots[0]["column"]):
-		# Along the bottom: a dark band, so the discs read over whatever is under them.
-		draw_rect(Rect2(0.0, size.y - br * 2.0 - 10.0, size.x, br * 2.0 + 10.0), Color(STAND_COLOUR, 0.82))
-		draw_string(UiKit.BOLD, Vector2((size.x - ww) * 0.5, size.y - br - 1.0), word,
+		# In the bottom corners, where the oval's curve leaves the stand showing: a
+		# dark backing under each five so they read over whatever is under them,
+		# and the word above each.
+		var wide := 6.0 + 5.0 * (br * 2.0 + 4.0)
+		var tall := br * 2.0 + 24.0
+		draw_rect(Rect2(0.0, size.y - tall, wide, tall), Color(STAND_COLOUR, 0.82))
+		draw_rect(Rect2(size.x - wide, size.y - tall, wide, tall), Color(STAND_COLOUR, 0.82))
+		draw_string(UiKit.BOLD, Vector2(6.0, size.y - br * 2.0 - 10.0), word,
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(RING_COLOUR, 0.6))
+		draw_string(UiKit.BOLD, Vector2(size.x - 6.0 - ww, size.y - br * 2.0 - 10.0), word,
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(RING_COLOUR, 0.6))
 	else:
 		for side in range(2):
@@ -1184,12 +1349,15 @@ func _figure_slots(tr: float) -> Array:
 		var facing := "front"
 		var mirror := false
 		if moving:
-			var sx := vel.x * m
-			if absf(sx) > absf(vel.y):
+			# Which way he runs on the screen (turned with the ground).
+			var sv := Vector2(vel.x * m, vel.y)
+			if upright:
+				sv = Vector2(sv.y, -sv.x)
+			if absf(sv.x) > absf(sv.y):
 				facing = "side_l"
-				mirror = sx > 0.0
+				mirror = sv.x > 0.0
 			else:
-				facing = "back" if vel.y < 0.0 else "front"
+				facing = "back" if sv.y < 0.0 else "front"
 		if not VignetteFigures.has("average", anim, facing):
 			anim = "idle"
 			facing = "front"

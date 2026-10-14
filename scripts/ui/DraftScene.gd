@@ -203,13 +203,13 @@ func _show_club_select() -> void:
 	var real := GameState.opening_draft
 	var active := GameDB.active_clubs(GameDB.START_YEAR if real else GameState.season_year)
 	if real:
-		_root.add_child(_header("CHOOSE YOUR CLUB",
+		_root.add_child(_header("Choose your club",
 				"Real 2026 lists  /  the 2026 National Draft, then 2027"))
 		_root.add_child(UiKit.lbl(
 				"Every club starts with its real list, less the players who retired or were delisted after 2026; the delisted are free agents. The 2026 National Draft comes first, worst club on the ladder picking first; then the 2027 season.",
 				16, UiKit.MUTED))
 	else:
-		_root.add_child(_header("CHOOSE YOUR CLUB",
+		_root.add_child(_header("Choose your club",
 				"%d  /  A fresh start for all %d clubs" % [GameState.season_year, active.size()]))
 		_root.add_child(UiKit.lbl(
 				"One player pool. One salary cap. The whole league re-drafts in a random snake order.",
@@ -302,21 +302,20 @@ func _header(title_text: String, sub: String) -> Control:
 	if not _short:
 		v.add_child(UiKit.ellipsis(sub, UiKit.SMALL, UiKit.MUTED))
 	if not _club.is_empty():
-		# Draft night's stage where the club's small marker was; without the
-		# pictures, the marker as before.
-		var stage := _stage()
-		h.add_child(stage if stage != null else UiKit.club_badge(_club, 14, true))
+		# The guernsey of the club on the clock, where the club's small marker was.
+		h.add_child(_stage())
 	return h
 
 
-## Draft night's stage (director, 2026-10-14): the lectern, and beside it the
-## guernsey of the club on the clock on a wooden hanger - the club's own
-## guernsey, as everywhere else in the game. Decoration: it takes no tap.
+## Draft night's hero (director, 2026-10-14): the guernsey of the club on the
+## clock, on its own - the club's own guernsey, as everywhere else in the
+## game. No hanger ("remove the coat hanger from the guernsey") and no lectern.
+## Decoration: it takes no tap.
 const STAGE_NARROW := 60.0
 const STAGE_WIDE := 72.0
-## The hanger is this wide against the guernsey's square (the guernsey fills
-## 64% of it, so the hanger's tips show at the shoulders).
-const HANGER_SPAN := 0.78
+## The guernsey's square against the stage's height: the size and the place it
+## had under the hanger, standing on the stage's foot.
+const GUERNSEY_SHARE := 0.89
 var _hung: Control
 var _hung_code := ""
 
@@ -325,53 +324,33 @@ func _stage_h() -> float:
 	return STAGE_WIDE if _wide else STAGE_NARROW
 
 
+func _crest_size() -> float:
+	return floor(_stage_h() * GUERNSEY_SHARE)
+
+
 func _stage() -> Control:
-	var lectern := UiArt.view("lectern", _stage_h(), CultureSheet.emblem_tint(_club))
-	var wood := UiArt.texture("hanger")
-	if lectern == null or wood == null:
-		return null
 	var h := UiKit.hbox(8)
 	h.name = "DraftStage"
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	lectern.name = "DraftLectern"
-	h.add_child(lectern)
 	_hung = Control.new()
 	_hung.name = "DraftGuernsey"
 	_hung.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hung.custom_minimum_size = Vector2(round(_crest_size(wood) * (HANGER_SPAN + 0.04)), _stage_h())
+	_hung.custom_minimum_size = Vector2(round(_crest_size() * 0.82), _stage_h())
 	h.add_child(_hung)
 	_hung_code = ""
 	_hang(_club)
 	return h
 
 
-## The hanger's height for a guernsey square of 1.
-func _hanger_rise(wood: Texture2D) -> float:
-	return HANGER_SPAN * float(wood.get_height()) / float(maxi(1, wood.get_width()))
-
-
-## The guernsey's square: with the hanger's hook over its collar (the hanger's
-## lower 58% is behind the guernsey) the two are as tall as the stage.
-func _crest_size(wood: Texture2D) -> float:
-	return floor(_stage_h() / (1.0 + 0.42 * _hanger_rise(wood)))
-
-
-## Hang `code`'s guernsey on the stage's hanger.
+## Show `code`'s guernsey on the stage.
 func _hang(code: String) -> void:
 	if not is_instance_valid(_hung) or code == "" or code == _hung_code:
 		return
-	var wood := UiArt.texture("hanger")
-	if wood == null:
-		return
 	_hung_code = code
 	UiKit.clear(_hung)
-	var s := _crest_size(wood)
+	var s := _crest_size()
 	var w := _hung.custom_minimum_size.x
-	var hanger := UiArt.view("hanger", round(s * _hanger_rise(wood)))
-	hanger.size = hanger.custom_minimum_size
-	hanger.position = Vector2(round((w - hanger.size.x) / 2.0), 0)
-	_hung.add_child(hanger)
 	var crest := UiKit.club_marker(code, s + 2.0)
 	crest.size = Vector2(s, s)
 	crest.position = Vector2(round((w - s) / 2.0), _stage_h() - s)
@@ -1267,6 +1246,14 @@ func _open_player(id: String) -> void:
 				tr.add_child(UiKit.line(stand, 13, UiKit.MUTED))
 			tr.add_child(UiKit.line(Combine.text(key, r), 14, UiKit.TEXT if r >= 0.0 else UiKit.MUTED, r >= 0.0))
 			v.add_child(tr)
+	# Seen in your intra-club match (the pre-season): what he did that day.
+	var seen_line := PreSeason.seen_line(p, _club) if Features.on("preseason") else ""
+	if seen_line != "":
+		v.add_child(UiKit.spacer(4))
+		var seen_lbl := UiKit.lbl(seen_line, UiKit.SECONDARY, UiKit.TEXT, true)
+		seen_lbl.name = "SeenIntraClub"
+		seen_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(seen_lbl)
 	if scouted:
 		v.add_child(UiKit.spacer(4))
 		var combine_head := UiKit.lbl("What the scouts saw", UiKit.SECONDARY, UiKit.MUTED, true)
@@ -1470,7 +1457,7 @@ func _refresh_history() -> void:
 		var entry: Dictionary = _draft.pick_history[i]
 		if _history_club.is_empty() or str(entry["club"]) == _history_club:
 			entries.append(entry)
-	_history_info.text = "%d %s" % [entries.size(), "PICK" if entries.size() == 1 else "PICKS"]
+	_history_info.text = "%d %s" % [entries.size(), "pick" if entries.size() == 1 else "picks"]
 	if entries.is_empty():
 		_history_box.add_child(UiKit.lbl("No picks yet" if _history_club.is_empty() else "No picks for this club yet", UiKit.HEADING, UiKit.TEXT, true))
 		_history_box.add_child(UiKit.lbl(

@@ -25,7 +25,9 @@ func _ready() -> void:
 	add_child(margin)
 	_root = UiKit.vbox(10)
 	margin.add_child(_root)
-	get_viewport().size_changed.connect(_build)
+	get_viewport().size_changed.connect(func():
+		if not UiKit.keyboard_resize(self):
+			_build())
 	_build()
 
 

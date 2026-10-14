@@ -28,6 +28,8 @@ func _ready() -> void:
 
 
 func _on_resize() -> void:
+	if UiKit.keyboard_resize(self):
+		return
 	# A resize rebuilds the page: the player keeps their place on it.
 	var places := UiKit.scroll_places(_root)
 	_build()

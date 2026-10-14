@@ -73,6 +73,7 @@ Floor is the fewest checks the suite may run (`expected_checks.txt`; a suite rep
 | `calibration` | The engine against real 2026 numbers (seeded matches) | 17 | 69 |
 | `balance` | A long-career guard: three seasons must not inflate the league | 13 | 149 |
 | `assets` | The art and music as shipped: figure-sheet frames against the layout, vignettes playing their moves through, banners, music files, levels and the player | 95 | 3 |
+| `keyboard` | The phone keyboard on every screen with a text field: the window loses the keyboard's height (phone on its side, upright, tablet) and the same field keeps the focus and its text; text arriving the way the engine's web keyboard sends it fills the field and filters the list; the web export has the phone keyboard on | 445 | - |
 
 By area:
 

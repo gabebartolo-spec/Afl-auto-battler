@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://nm00rkcpfhqpj"
-path="res://.godot/imported/hanger.png-b46065490bccf48258774e632cfe4a14.ctex"
+uid="uid://cgv2ky7xb3f7q"
+path="res://.godot/imported/stopwatch.png-bacd3079a9152dd420104cba9890f0d3.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/models/hanger.png"
-dest_files=["res://.godot/imported/hanger.png-b46065490bccf48258774e632cfe4a14.ctex"]
+source_file="res://assets/ui/models/stopwatch.png"
+dest_files=["res://.godot/imported/stopwatch.png-bacd3079a9152dd420104cba9890f0d3.ctex"]
 
 [params]
 

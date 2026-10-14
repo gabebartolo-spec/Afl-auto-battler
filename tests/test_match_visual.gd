@@ -49,8 +49,10 @@ func run() -> void:
 	_test_match_ground()
 	_test_discs_apart()
 	_test_clash_kit()
+	_test_sides()
 	_test_bench_strip()
 	_test_ends_change_at_restart(res)
+	_test_upright_oval(res)
 	GameState.replay_seed = 0
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -1137,10 +1139,25 @@ func _test_broadcast_vignettes() -> void:
 			"An ordinary crowded mark is not silently promoted to a speccy")
 	_check(BroadcastVignette.pick_kind(mark, {}, {}, front) == BroadcastVignette.SPECCY_FRONT,
 			"A real speccy through the corridor gets the front-on speccy shot")
-	# The front-on shot is the low, tight staging (mark_f / brace_f strips in the sheet), frozen on the grab.
-	_check(BroadcastVignette._sf_ready(), "The sheets hold the front-on speccy moves (the low, tight staging, not the old one)")
-	_check(BroadcastVignette.DURATIONS[BroadcastVignette.SPECCY_FRONT] > BroadcastVignette.SF_FREEZE,
-			"The front-on speccy runs past the grab, so the still holds on it")
+	# The front-on shot is behind the "speccy_front" switch (director, 2026-10-14): off (the default) a speccy plays
+	# the earlier shot and runs as long as it did; on it is the low, tight staging frozen on the grab.
+	Features.clear("speccy_front")
+	_check(not BroadcastVignette._sf_ready() and is_equal_approx(BroadcastVignette.duration_for(BroadcastVignette.SPECCY_FRONT), 3.8),
+			"With the speccy_front switch off a speccy plays the earlier shot, 3.8 s")
+	Features.set_on("speccy_front", true)
+	_check(BroadcastVignette._sf_ready(), "With the switch on the sheets hold the front-on speccy moves (the low, tight staging)")
+	_check(BroadcastVignette.duration_for(BroadcastVignette.SPECCY_FRONT) > BroadcastVignette.SF_FREEZE,
+			"On, the front-on speccy runs past the grab, so the still holds on it")
+	var vig_on := BroadcastVignette.new()
+	vig_on.setup(BroadcastVignette.SPECCY_FRONT, {"kind": "mark", "side": 0, "num": 4, "speccy": true}, {}, {"home": "FRE", "away": "MEL"})
+	var on_figures := vig_on._sf_ready()
+	vig_on.free()
+	Features.clear("speccy_front")
+	var vig_off := BroadcastVignette.new()
+	vig_off.setup(BroadcastVignette.SPECCY_FRONT, {"kind": "mark", "side": 0, "num": 4, "speccy": true}, {}, {"home": "FRE", "away": "MEL"})
+	var off_figures := vig_off._sf_ready()
+	vig_off.free()
+	_check(on_figures and not off_figures, "The same speccy event draws the new shot with the switch on and the earlier one with it off")
 	_check(BroadcastVignette.pick_kind(mark, {}, {}, flank) == BroadcastVignette.SPECCY_SIDE,
 			"A crowded mark near the flank gets the side-sit speccy shot")
 	_check(BroadcastVignette.pick_kind(mark, {}, {}, defensive) == BroadcastVignette.SPECCY_DEFENSIVE,
@@ -1723,38 +1740,185 @@ func _test_discs_apart() -> void:
 	pv2.free()
 
 
-## Two sides whose discs look alike: the away side wears its second colour, the
-## club's own hand-picked clash colour (UiKit.club_ink_second). Fremantle v
-## Melbourne is one; the Bulldogs v St Kilda is not.
+## Two sides whose discs look alike: the away side wears its clash strip, its
+## own kit with the two colours changed over. Fremantle v Melbourne is one; the
+## Bulldogs v St Kilda is not. And the call over the play covers no disc.
 func _test_clash_kit() -> void:
 	var fm: Array = PitchView.kits_for("FRE", "MEL")
-	_check(bool(fm[1].get("clash", false)) and (fm[1]["base"] as Color).is_equal_approx(UiKit.club_ink_second("MEL")),
-			"Melbourne wear their second colour at Fremantle: the two dark discs read apart")
+	var mel: Dictionary = GameDB.club_guernsey("MEL")
+	_check(bool(fm[1].get("clash", false)) and fm[1]["base"] == mel["pattern"] and fm[1]["pattern"] == mel["base"],
+			"Melbourne wear their clash strip at Fremantle: red with a navy yoke, their own two colours changed over")
 	_check(fm[0] == GameDB.club_guernsey("FRE"), "The home side always wears its own kit")
 	_check(UiKit.colour_distance(fm[0]["base"], fm[1]["base"]) >= PitchView.DISC_CLASH,
 			"After the swap the two bases are no longer alike")
-	_check(UiKit.colour_distance(fm[1]["base"], fm[1]["pattern"]) >= PitchView.DISC_CLASH,
-			"The away design still shows on its second colour")
 	var ws: Array = PitchView.kits_for("WBD", "STK")
 	_check(not ws[1].has("clash") and ws[1] == GameDB.club_guernsey("STK") and ws[0] == GameDB.club_guernsey("WBD"),
 			"The Bulldogs and St Kilda do not clash: both wear their own kit")
+	# Every pair of today's clubs: who swaps, in what, and whether it is enough.
+	var swaps := []
+	var foreign := []
 	var alike := []
-	for h in GameDB.CLUB_ORDER:
-		for a in GameDB.CLUB_ORDER:
+	var left := []
+	for h in GameDB.CLUB_ORDER.slice(0, 18):
+		for a in GameDB.CLUB_ORDER.slice(0, 18):
 			if h == a:
 				continue
+			var own: Dictionary = GameDB.club_guernsey(str(a))
 			var k: Array = PitchView.kits_for(str(h), str(a))
-			if UiKit.colour_distance(k[0]["base"], k[1]["base"]) < PitchView.DISC_CLASH and bool(k[1].get("clash", false)):
-				alike.append("%s v %s" % [h, a])
-	_check(alike.is_empty(), "No swap leaves the two sides alike (%s)" % ", ".join(alike))
+			var d := UiKit.colour_distance(k[0]["base"], k[1]["base"])
+			if bool(k[1].get("clash", false)):
+				swaps.append("%s v %s" % [h, a])
+				if k[1]["base"] != own["pattern"] or k[1]["pattern"] != own["base"] or k[1]["design"] != own["design"]:
+					foreign.append("%s v %s" % [h, a])
+				if d < PitchView.DISC_CLASH:
+					alike.append("%s v %s (%.0f)" % [h, a, d])
+			elif d < PitchView.DISC_CLASH:
+				left.append("%s v %s (%.0f)" % [h, a, d])
+	print("  clash strips, %d of 306 home-and-away pairs: %s" % [swaps.size(), ", ".join(swaps)])
+	_check(swaps.size() == 88, "88 home-and-away pairs of today's 18 clubs put the away side in its clash strip (%d)" % swaps.size())
+	_check(foreign.is_empty(), "A clash strip uses only that club's own two kit colours and its own design (%s)" % ", ".join(foreign))
+	_check(alike.is_empty(), "No clash strip still looks like the home side (%s)" % ", ".join(alike))
+	_check(left.is_empty(), "No pair is left alike with nothing to swap to (%s)" % ", ".join(left))
 	var pv := PitchView.new()
 	pv.size = Vector2(370, 490)
 	var res := _sim(31, "FRE", "MEL").run()
 	res["home"] = "FRE"
 	res["away"] = "MEL"
 	pv.setup(res)
-	_check(pv.clash, "The view knows the away side is in its clash colour")
+	_check(pv.clash, "The view knows the away side is in its clash strip")
+	# The call over the play ("Turnover", a scorer's name) never covers a disc.
+	pv.set_speed(4.0)
+	pv.play()
+	var covered := 0
+	var shown := 0
+	var guard := 0
+	while pv.playing and guard < 4000:
+		guard += 1
+		pv._process(1.0 / 30.0)
+		var drawn := pv.disc_positions()
+		var box := pv.caption_box()
+		if box.size.x <= 0.0:
+			continue
+		shown += 1
+		var tr := pv.token_radius()
+		for d2 in drawn:
+			if box.grow(tr).has_point(d2):
+				covered += 1
+	_check(shown > 50 and covered == 0, "The call over the play covers no disc (%d frames with a call, %d discs covered)" % [shown, covered])
 	pv.free()
+
+
+## Everything a screen can ask about every club and every pair of clubs: names,
+## colours, kits, inks. The same before a club's two sides are registered,
+## while they are, and after they are taken out again.
+func _look_of_every_club() -> String:
+	var parts := []
+	for a in GameDB.club_order:
+		parts.append([a, GameDB.club_name(str(a)), GameDB.club_short(str(a)), str(GameDB.club_colours(str(a))),
+				str(GameDB.club_marker_colours(str(a))), str(GameDB.club_guernsey(str(a))),
+				str(UiKit.club_ink(str(a))), str(UiKit.club_ink_second(str(a))), str(PitchView.press_zone_colour(str(a))),
+				GameDB.side_base(str(a)), GameDB.is_side(str(a))])
+		for b in GameDB.club_order:
+			parts.append([str(PitchView.kits_for(str(a), str(b))), str(UiKit.club_ink_pair(str(a), str(b))),
+					GameDB.coach_side(str(a), str(b), GameState.my_club)])
+	return str(hash(str(parts)))
+
+
+## A club playing itself (an intra-club match): each side is its own entry
+## beside the real clubs, with its own name and kit, and a normal club-v-club
+## match is untouched by it.
+func _test_sides() -> void:
+	var order_before: Array = GameDB.club_order.duplicate()
+	var clubs_before := GameDB.clubs.size()
+	GameState.my_club = "FRE"
+	var before := _look_of_every_club()
+	var plain := _sim(77, "FRE", "MEL").run()
+	_check(not GameDB.is_side("FRE") and GameDB.side_base("FRE") == "FRE" and not GameDB.side_is_coach("FRE")
+			and GameDB.coach_side("FRE", "MEL", GameState.my_club) == 0 and GameDB.coach_side("MEL", "FRE", GameState.my_club) == 1
+			and GameDB.coach_side("MEL", "GEE", GameState.my_club) == 1,
+			"With no sides registered a club is itself, and the coach's side is his club's, as always")
+
+	var codes: Array = GameDB.register_sides("FRE")
+	var home := str(codes[0])
+	var clash := str(codes[1])
+	_check(GameDB.club_name(home) == "Fremantle Purple" and GameDB.club_name(clash) == "Fremantle White"
+			and GameDB.club_short(home) == "Purple" and GameDB.club_short(clash) == "White",
+			"Fremantle's two sides are named by their strips: Fremantle Purple and Fremantle White")
+	_check(GameDB.is_side(home) and GameDB.is_side(clash) and GameDB.side_base(home) == "FRE" and GameDB.side_base(clash) == "FRE"
+			and GameDB.side_is_coach(home) and not GameDB.side_is_coach(clash)
+			and GameDB.coach_side(home, clash, GameState.my_club) == 0 and GameDB.coach_side(clash, home, GameState.my_club) == 1,
+			"The coach's side is the one flagged as his, the side in the home strip, whichever end it is listed")
+	_check(GameDB.club_order == order_before and not GameDB.active_clubs(2030).has(home)
+			and not GameDB.players_by_club.has(home) and GameDB.clubs.size() == clubs_before + 2,
+			"A side is in no competition and holds no list: it is only a name and a kit")
+	var kits: Array = PitchView.kits_for(home, clash)
+	var as_away: Array = PitchView.kits_for("FRE", "FRE")
+	_check((kits[0]["base"] as Color).is_equal_approx(GameDB.club_guernsey("FRE")["base"])
+			and (kits[1]["base"] as Color).is_equal_approx(as_away[1]["base"])
+			and (kits[1]["base"] as Color).is_equal_approx(GameDB.club_guernsey("FRE")["pattern"])
+			and UiKit.colour_distance(kits[0]["base"], kits[1]["base"]) >= PitchView.DISC_CLASH,
+			"The first side wears the club's kit colour and the second the oval's own clash colour for that club, its kit's other colour (no invented colour), and the two read apart")
+	_check((kits[0]["pattern"] as Color).is_equal_approx(kits[0]["base"]) and (kits[1]["pattern"] as Color).is_equal_approx(kits[1]["base"]),
+			"Each side wears its colour plain, so two sides of a half-and-half kit are never mirror images of each other")
+	_check(GameDB.club_guernsey(clash) == kits[1] and GameDB.club_guernsey(home) == kits[0],
+			"Each side's kit is its own wherever a kit is asked for (crests, the close-ups)")
+	var inks: Array = UiKit.club_ink_pair(home, clash)
+	_check(UiKit.club_ink(home).is_equal_approx(UiKit.club_ink("FRE")) and UiKit.club_ink(clash).is_equal_approx(UiKit.club_ink_second("FRE"))
+			and (inks[0] as Color).is_equal_approx(UiKit.club_ink("FRE")) and (inks[1] as Color).is_equal_approx(UiKit.club_ink_second("FRE")),
+			"On the scoreboard and the stats Fremantle Purple is in the club's purple ink and Fremantle White in its white")
+	GameDB.register_sides("MEL")
+	var mel: Array = PitchView.kits_for("MEL_H", "MEL_A")
+	_check(GameDB.club_name("MEL_H") == "Melbourne Navy" and GameDB.club_name("MEL_A") == "Melbourne Red"
+			and (mel[1]["base"] as Color).is_equal_approx(GameDB.club_guernsey("MEL")["pattern"])
+			and UiKit.club_ink("MEL_A").is_equal_approx(UiKit.club_ink("MEL"))
+			and UiKit.club_ink("MEL_H").is_equal_approx(UiKit.club_ink_second("MEL")),
+			"Melbourne Navy is in the club's blue ink and Melbourne Red in its red: each side's ink is the colour of the strip it wears")
+	GameDB.register_sides("RIC")
+	var ric: Array = UiKit.club_ink_pair("RIC_H", "RIC_A")
+	_check(GameDB.club_name("RIC_H") == "Richmond Black" and GameDB.club_name("RIC_A") == "Richmond Yellow"
+			and (ric[0] as Color).s < 0.1 and UiKit.contrast(ric[0], UiKit.PANEL) >= 4.5
+			and (ric[1] as Color).is_equal_approx(UiKit.club_ink("RIC")),
+			"Richmond Black is in a readable grey (no hue invented for black) and Richmond Yellow in the club's yellow")
+	_check(_look_of_every_club() == before, "With the two sides registered, every real club and every real pair looks exactly as before")
+	var pv := PitchView.new()
+	pv.size = Vector2(370, 490)
+	var res := _sim(31, "FRE", "FRE").run()
+	res["home"] = home
+	res["away"] = clash
+	pv.setup(res)
+	_check(pv._kits[0] == kits[0] and pv._kits[1] == kits[1] and pv.clash,
+			"The oval draws the two sides in the home strip and the clash strip")
+	pv.free()
+	# Every club has two named strips, and a created club falls back to plain words.
+	var named := true
+	var worn := []
+	for c in GameDB.CLUB_ORDER:
+		var two: Array = GameDB.register_sides(str(c))
+		var k: Array = PitchView.kits_for(str(two[0]), str(two[1]))
+		named = named and GameDB.SIDE_COLOUR_NAMES.has(str(c)) and GameDB.club_short(str(two[0])) != GameDB.club_short(str(two[1])) \
+				and GameDB.club_name(str(two[0])).begins_with(GameDB.club_name(str(c)) + " ")
+		var two_inks: Array = UiKit.club_ink_pair(str(two[0]), str(two[1]))
+		if UiKit.colour_distance(k[0]["base"], k[1]["base"]) < PitchView.DISC_CLASH \
+				or (two_inks[0] as Color).is_equal_approx(two_inks[1]) \
+				or UiKit.contrast(two_inks[0], UiKit.PANEL) < 4.5 or UiKit.contrast(two_inks[1], UiKit.PANEL) < 4.5:
+			worn.append(str(c))
+		var own: Array = [GameDB.club_colours(str(c))[0], GameDB.club_colours(str(c))[1], GameDB.club_colours(str(c))[2],
+				GameDB.club_guernsey(str(c))["base"], GameDB.club_guernsey(str(c))["pattern"]]
+		var is_own := false
+		for col in own:
+			is_own = is_own or (k[1]["base"] as Color).is_equal_approx(col)
+		named = named and is_own
+	_check(named and worn.is_empty(), "Every club has two strips with their own colour names, the second strip is always one of the club's own colours, and no club's two sides look alike on the oval or the scoreboard (%s)" % ", ".join(worn))
+	GameDB.unregister_sides()
+	_check(GameDB.clubs.size() == clubs_before and not GameDB.is_side(home) and GameDB.club_name(home) == home
+			and _look_of_every_club() == before,
+			"Taken out again, nothing of the sides is left and every club looks as it did")
+	var again := _sim(77, "FRE", "MEL").run()
+	_check(again["score"] == plain["score"] and again["goals"] == plain["goals"] and again["behinds"] == plain["behinds"]
+			and (again["events"] as Array).size() == (plain["events"] as Array).size()
+			and str(again["players"]) == str(plain["players"]),
+			"A club-v-club match on the same seed plays out identically after sides have come and gone")
+	GameState.my_club = ""
 
 
 ## The bench strip: five a side, inside the view, and an interchange swaps the
@@ -1878,4 +2042,110 @@ func _test_ends_change_at_restart(res: Dictionary) -> void:
 	pv2.skip_to_end()
 	_check(pv2.period == 4, "A skipped match ends at the fourth quarter's ends (%d)" % pv2.period)
 	pv.free()
+	pv2.free()
+
+
+## The oval upright (a phone held upright): the same picture as the ground lying
+## flat, turned a quarter turn, the whole ground in view, the home side kicking
+## up the screen first and down it after the change of ends, the bench clear of
+## the turf, and a point on a disc finding that player, upright and flat.
+func _test_upright_oval(res: Dictionary) -> void:
+	var up := PitchView.new()
+	up.size = Vector2(370, 490)
+	up.camera_enabled = false
+	up.upright = true
+	var flat := PitchView.new()
+	flat.size = Vector2(490, 370)
+	flat.camera_enabled = false
+	var turn := func(q: Vector2) -> Vector2:
+		var v := q - flat.size * 0.5
+		return up.size * 0.5 + Vector2(v.y, -v.x)
+	var ends := []
+	up.ends_changed.connect(func(_p): ends.append(up._w2s(Vector2(MatchMotion.GOAL_X, 0.0)).y < up.size.y * 0.5))
+	up.setup(res)
+	flat.setup(res)
+	var gr: Rect2 = up.pitch_rect()
+	_check(Rect2(Vector2.ZERO, up.size).encloses(gr) and gr.size.y > gr.size.x * 1.2
+			and is_equal_approx(gr.size.x, flat.pitch_rect().size.y) and is_equal_approx(gr.size.y, flat.pitch_rect().size.x),
+			"Upright, the whole ground is in view and runs top to bottom (%s)" % str(gr))
+	var home_goal: Vector2 = up._w2s(Vector2(MatchMotion.GOAL_X, 0.0))
+	_check(home_goal.y < up.size.y * 0.5 and absf(home_goal.x - up.size.x * 0.5) < 0.5,
+			"In the first quarter the home side kicks up the screen, the goal on the centre line")
+	up.set_speed(8.0)
+	flat.set_speed(8.0)
+	up.play()
+	flat.play()
+	var worst := 0.0
+	var ball_worst := 0.0
+	var wrong_hit := 0
+	var carrier_missed := 0
+	var guard := 0
+	while up.playing and guard < 200000:
+		guard += 1
+		up._process(1.0 / 30.0)
+		flat._process(1.0 / 30.0)
+		if guard % 5 != 0:
+			continue
+		for i in range(up.director.tokens.size()):
+			var a2: Vector2 = up._w2s(up.director.tokens[i]["pos"])
+			var b2: Vector2 = turn.call(flat._w2s(flat.director.tokens[i]["pos"]))
+			worst = maxf(worst, a2.distance_to(b2))
+		ball_worst = maxf(ball_worst, up._w2s(up.director.ball["pos"]).distance_to(turn.call(flat._w2s(flat.director.ball["pos"]))))
+		if guard % 50 != 0:
+			continue
+		for pv in [up, flat]:
+			var drawn: PackedVector2Array = pv.disc_positions()
+			var tr: float = pv.token_radius()
+			for i in range(drawn.size()):
+				var hit: int = pv.disc_at_point(drawn[i])
+				if hit < 0 or drawn[hit].distance_to(drawn[i]) > tr * 1.25:
+					wrong_hit += 1
+			var holder := int(pv.director.ball.get("holder", -1))
+			if holder >= 0 and pv.disc_at_point(drawn[holder]) != holder:
+				carrier_missed += 1
+	_check(not up.playing and worst < 0.01 and ball_worst < 0.01,
+			"Every player and the ball are in the same place upright as flat, turned (%.3f px, ball %.3f px)" % [worst, ball_worst])
+	_check(ends == [false, true, false], "Upright, the home side kicks down, up, then down the screen after each change of ends (%s)" % str(ends))
+	_check(wrong_hit == 0, "A point on a disc finds a player drawn there, upright and flat (%d misses)" % wrong_hit)
+	_check(carrier_missed == 0, "A point on the ball carrier's disc finds him, upright and flat (%d misses)" % carrier_missed)
+	up.free()
+	flat.free()
+	# The bench, upright: five a side in the bottom corners, inside the view, off the turf.
+	var bres := _sim(31, "FRE", "MEL").run()
+	bres["home"] = "FRE"
+	bres["away"] = "MEL"
+	var pv2 := PitchView.new()
+	pv2.size = Vector2(370, 490)
+	pv2.camera_enabled = false
+	pv2.upright = true
+	pv2.setup(bres)
+	var spots := pv2.bench_spots(pv2.token_radius())
+	var s := pv2._scale()
+	var on_turf := 0
+	var outside := 0
+	for sp in spots:
+		var q: Vector2 = (sp["pos"] as Vector2) - pv2.size * 0.5
+		var r: float = sp["r"]
+		var ex := (absf(q.x) - r) / (MatchMotion.HALF_WID * s)
+		var ey := (absf(q.y) - r) / (MatchMotion.HALF_LEN * s)
+		if ex * ex + ey * ey < 1.0:
+			on_turf += 1
+		var at: Vector2 = sp["pos"]
+		if at.x - r < 0.0 or at.y - r < 0.0 or at.x + r > pv2.size.x or at.y + r > pv2.size.y:
+			outside += 1
+	_check(spots.size() == 10 and on_turf == 0 and outside == 0,
+			"Upright, the bench's ten discs sit in the view and off the turf (%d, %d on the turf, %d outside)" % [spots.size(), on_turf, outside])
+	_check(absf(float(spots[0]["r"]) - pv2.token_radius()) < 0.5, "Upright, a bench disc is as big as a player's on the ground")
+	# A goal's ring at either end: never past the view's edge, never over the bench.
+	var bad := []
+	for gx in [MatchMotion.GOAL_X, -MatchMotion.GOAL_X]:
+		var at: Vector2 = pv2._w2s(Vector2(gx, 0.0))
+		var biggest := minf(MatchMotion.HALF_LEN * s, MatchMotion.HALF_WID * s) * 0.42
+		var r := minf(biggest, pv2.flash_room(at, pv2.token_radius()))
+		if at.y - r < 0.0 or at.y + r > pv2.size.y or at.x - r < 0.0 or at.x + r > pv2.size.x:
+			bad.append("off the view at %s" % str(at))
+		for sp in spots:
+			if (sp["pos"] as Vector2).distance_to(at) < r + float(sp["r"]):
+				bad.append("over bench disc %d" % int(sp["num"]))
+	_check(bad.is_empty(), "Upright, a goal's ring stays in the view and off the bench at both ends (%s)" % ", ".join(bad))
 	pv2.free()
