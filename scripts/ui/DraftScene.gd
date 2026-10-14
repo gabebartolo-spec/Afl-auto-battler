@@ -201,13 +201,13 @@ func _show_club_select() -> void:
 	var real := GameState.opening_draft
 	var active := GameDB.active_clubs(GameDB.START_YEAR if real else GameState.season_year)
 	if real:
-		_root.add_child(_header("CHOOSE YOUR CLUB",
+		_root.add_child(_header("Choose your club",
 				"Real 2026 lists  /  the 2026 National Draft, then 2027"))
 		_root.add_child(UiKit.lbl(
 				"Every club starts with its real list, less the players who retired or were delisted after 2026; the delisted are free agents. The 2026 National Draft comes first, worst club on the ladder picking first; then the 2027 season.",
 				16, UiKit.MUTED))
 	else:
-		_root.add_child(_header("CHOOSE YOUR CLUB",
+		_root.add_child(_header("Choose your club",
 				"%d  /  A fresh start for all %d clubs" % [GameState.season_year, active.size()]))
 		_root.add_child(UiKit.lbl(
 				"One player pool. One salary cap. The whole league re-drafts in a random snake order.",
@@ -389,7 +389,7 @@ func _show_board() -> void:
 		_root.add_child(_compact_header())
 	else:
 		if _draft.intake_mode:
-			_root.add_child(_header("%d NATIONAL DRAFT" % GameState.season_year,
+			_root.add_child(_header("%d National Draft" % GameState.season_year,
 					"%d prospects  /  keep your list  /  reversed ladder" % _draft.pool.size()))
 		else:
 			var sub := "%d  /  %d clubs  /  Snake draft" % [
@@ -1447,7 +1447,7 @@ func _refresh_history() -> void:
 		var entry: Dictionary = _draft.pick_history[i]
 		if _history_club.is_empty() or str(entry["club"]) == _history_club:
 			entries.append(entry)
-	_history_info.text = "%d %s" % [entries.size(), "PICK" if entries.size() == 1 else "PICKS"]
+	_history_info.text = "%d %s" % [entries.size(), "pick" if entries.size() == 1 else "picks"]
 	if entries.is_empty():
 		_history_box.add_child(UiKit.lbl("No picks yet" if _history_club.is_empty() else "No picks for this club yet", UiKit.HEADING, UiKit.TEXT, true))
 		_history_box.add_child(UiKit.lbl(
@@ -1494,7 +1494,7 @@ func _history_row(entry: Dictionary) -> Control:
 	var club_row := UiKit.hbox(6)
 	info.add_child(club_row)
 	club_row.add_child(UiKit.club_badge(str(entry["club"]), 12, true))
-	var tag := "YOUR PICK" if mine else "selected"
+	var tag := "Your pick" if mine else "selected"
 	if bool(entry.get("released", false)):
 		tag = "released"
 	club_row.add_child(UiKit.ellipsis(tag, UiKit.FINE, UiKit.EMPH if mine else UiKit.MUTED))
@@ -1665,7 +1665,7 @@ func _refresh_order() -> void:
 		v.add_child(badge)
 		var description := "Up next"
 		if index == _draft.pick_index and not _draft.is_finished():
-			description = "ON THE CLOCK"
+			description = "On the clock"
 		elif index < _draft.pick_index:
 			var entry: Dictionary = by_pick.get(index + 1, {})
 			description = _entry_player_name(entry) if not entry.is_empty() \
@@ -1705,7 +1705,7 @@ func _refresh() -> void:
 func _refresh_status() -> void:
 	var done := _draft.is_finished()
 	_hang(_club if done else str(_draft.current_club()))
-	_status.text = "DRAFT COMPLETE" if done else "YOUR PICK #%d" % (_draft.pick_index + 1)
+	_status.text = "Draft complete" if done else "Your pick #%d" % (_draft.pick_index + 1)
 	if not done and not _draft.is_user_turn():
 		_status.text = "%s on the clock" % GameDB.club_short(_draft.current_club())
 	_round_info.text = "%d / %d signed · Round %d of %d" % [_draft.count(), _draft.target_size,
@@ -1714,7 +1714,7 @@ func _refresh_status() -> void:
 		_round_info.text = "%s · %d/%d signed · R%d/%d" % [_club, _draft.count(),
 				_draft.target_size, mini(_draft.current_round(), _draft.target_size), _draft.target_size]
 	if _draft.intake_mode:
-		_cap.text = "ROUNDS %d\n%d prospects left" % [_draft.target_size, _draft.remaining_pool()]
+		_cap.text = "Rounds %d\n%d prospects left" % [_draft.target_size, _draft.remaining_pool()]
 	else:
 		# The cap you have, and what you can actually spend on this pick once
 		# enough is kept to fill the rest of your list.
@@ -1772,11 +1772,11 @@ func _refresh_status() -> void:
 	if done:
 		_ticker.text = "League draft complete · View all %d picks ›" % _draft.pick_history.size()
 	elif new_rivals == 0 and not _draft.pick_history.is_empty() and _draft.is_user_turn():
-		_ticker.text = "BACK-TO-BACK PICKS · You're up again. View the pick log ›"
+		_ticker.text = "Back-to-back picks · You're up again. View the pick log ›"
 	elif latest.is_empty():
 		_ticker.text = "League picks  ·  You're first on the clock. View the pick log ›"
 	else:
-		_ticker.text = "RIVAL #%d · %s: %s · +%d picks ›" % [
+		_ticker.text = "Rival #%d · %s: %s · +%d picks ›" % [
 			latest["pick"], str(latest["club"]), _entry_player_name(latest), new_rivals]
 	_ticker.tooltip_text = _ticker.text + "\nTap to see every club's selections."
 
