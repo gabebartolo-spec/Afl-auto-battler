@@ -227,7 +227,8 @@ func _build() -> void:
 		var who := UiKit.ellipsis("%s picked: tap who he swaps with." % GameDB.player_display_name(_player(_picked)),
 				UiKit.SMALL, UiKit.TEXT, true)
 		who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		bar.add_child(who)
+		who.name = "PickedName"
+		bar.add_child(NameLink.tappable(who, _picked))
 		var prof := UiKit.btn("Profile", 13)
 		prof.name = "PickedProfile"
 		prof.custom_minimum_size = Vector2(80, 44)

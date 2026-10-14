@@ -52,6 +52,8 @@ func _run() -> void:
 	await _hub_tribunal(Vector2i(1280, 720))
 	await _inked_lines(Vector2i(390, 844))
 	await _inked_lines(Vector2i(1280, 720))
+	await _plain_names(Vector2i(390, 844))
+	await _plain_names(Vector2i(1280, 720))
 	await _drag_over_name(Vector2i(390, 844))
 	print("Name link tests: %d checks, %d failures" % [_checks, _failures.size()])
 	for f in _failures:
@@ -290,5 +292,52 @@ func _inked_lines(sz: Vector2i) -> void:
 	_router.handle_back()
 	await _settle()
 	_check(_sheet(page) == null, "%s: Back closes it" % tag)
+	page.queue_free()
+	await _settle()
+
+
+## Phase 2 helpers: a plain label that is a name, and a row with a job of its own.
+func _plain_names(sz: Vector2i) -> void:
+	var tag := "plain %dx%d" % [sz.x, sz.y]
+	_gs.reset()
+	_gs.start_season("MEL", _db.club_list("MEL"))
+	root.size = sz
+	var p: Dictionary = _gs.my_list[5]
+	var id := str(p["id"])
+	var who: String = _db.player_display_name(p)
+	var page := Control.new()
+	page.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(page)
+	current_scene = page
+	var v := VBoxContainer.new()
+	page.add_child(v)
+	var label := Label.new()
+	label.text = who
+	v.add_child(_nl.tappable(label, id))
+	var row := Button.new()
+	row.custom_minimum_size = Vector2(sz.x - 20, 60)
+	row.text = "Row with a job"
+	var did := [0]
+	row.pressed.connect(func():
+		if not _nl.on_profile_tap(row):
+			did[0] += 1)
+	v.add_child(row)
+	var tap: Button = _nl.profile_tap(row, id)
+	await _settle()
+	var opened := await _tap_scan(label, page)
+	_check(opened and _sheet_name(_sheet(page)) == who, "%s: a tap on a plain name opens his profile (got '%s')" % [tag, _sheet_name(_sheet(page))])
+	_router.handle_back()
+	await _settle()
+	_check(_sheet(page) == null, "%s: Back closes it" % tag)
+	_check(tap.size.x >= 44.0 and tap.size.y >= 44.0, "%s: the row's Profile tap is thumb sized (%s)" % [tag, str(tap.size)])
+	var why: String = await Tap.tap(tap)
+	await _settle()
+	_check(why == "" and _sheet_name(_sheet(page)) == who, "%s: the row's Profile tap opens his profile (%s)" % [tag, why])
+	_check(did[0] == 0, "%s: the row's own job did not run on the Profile tap" % tag)
+	_router.handle_back()
+	await _settle()
+	var why2: String = await Tap.tap(row)
+	await _settle()
+	_check(why2 == "" and did[0] == 1 and _sheet(page) == null, "%s: the rest of the row still does its job (%s)" % [tag, why2])
 	page.queue_free()
 	await _settle()

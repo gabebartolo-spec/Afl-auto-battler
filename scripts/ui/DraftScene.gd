@@ -1583,7 +1583,9 @@ func _refresh_mine() -> void:
 				var p := _row_panel(false)
 				var v := UiKit.vbox(2)
 				p.add_child(v)
-				v.add_child(UiKit.ellipsis(GameDB.player_display_name(player), UiKit.NAME, UiKit.TEXT, true))
+				var picked_name := UiKit.ellipsis(GameDB.player_display_name(player), UiKit.NAME, UiKit.TEXT, true)
+				picked_name.name = "PickedName_" + str(player["id"])
+				v.add_child(NameLink.tappable(picked_name, str(player["id"])))
 				if _draft.intake_mode:
 					var scout := DraftScouting.projection(player, _club, _draft.seed,
 							_draft.scouting_mult_for(_club))
