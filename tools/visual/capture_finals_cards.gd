@@ -4,6 +4,10 @@ extends SceneTree
 ## Writes <out>_<card id>[_wk3].png. Each card is built from the facts the game would give it in that
 ## week (a finals game is fabricated: the ladder, the bracket and the honour roll are set, nothing else).
 
+var CS = null
+var SD = null
+var SE = null
+var CAP = null
 var W := 390
 var H := 844
 
@@ -47,12 +51,10 @@ func _finals_game(state, db, club: String, seed: int, rank: int) -> void:
 
 ## The card as the hub would build it for these facts.
 func _card(state, id: String, p: Dictionary, over: Dictionary, subj_over: Dictionary) -> Dictionary:
-	print("DEBUG3 start ", id)
-	var ctx: Dictionary = ClubStories.context(state)
-	print("DEBUG3 ctx ", ctx.keys())
+	var ctx: Dictionary = CS.context(state)
 	var club: Dictionary = (ctx["club"] as Dictionary).duplicate()
 	club.merge(over, true)
-	var t := StoryDeck.by_id(StoryDeck.all(), id)
+	var t := SD.by_id(SD.all(), id)
 	var subj := {"kind": "club"}
 	if str((t["subject"] as Dictionary).get("kind", "")) == "player":
 		subj = {}
@@ -63,7 +65,7 @@ func _card(state, id: String, p: Dictionary, over: Dictionary, subj_over: Dictio
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 11
 	print("DEBUG3 ", id, " t empty ", t.is_empty(), " subj keys ", subj.size(), " p id ", p.get("id", "-"), " players ", (ctx["players"] as Array).size())
-	var built: Dictionary = StoryEngine.build(StoryDeck.all(), t, subj, club, rng, state.story_week())
+	var built: Dictionary = SE.build(SD.all(), t, subj, club, rng, state.story_week())
 	print("DEBUG3 built keys ", built.keys())
 	return built
 
@@ -81,6 +83,10 @@ func _run() -> void:
 		if str(a[i]) == "--only":
 			only = str(a[i + 1]).split(",")
 	await process_frame
+	CS = load("res://scripts/state/ClubStories.gd")
+	SD = load("res://scripts/sim/StoryDeck.gd")
+	SE = load("res://scripts/sim/StoryEngine.gd")
+	CAP = load("res://scripts/sim/Captaincy.gd")
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
 	state.autosave_enabled = false
@@ -136,7 +142,7 @@ func _run() -> void:
 		match str(sh[1]):
 			"captain":
 				for q in state.my_list:
-					if Captaincy.role_of(rec, str(q["id"])) == "captain":
+					if CAP.role_of(rec, str(q["id"])) == "captain":
 						p = q
 			"star":
 				p = by_fit[0]
