@@ -156,11 +156,11 @@ func _build() -> void:
 	UiKit.restore_scroll(_detail_scroll, detail_y)
 
 
-## The training gear beside the week's news (director, 2026-10-14): a tackle
-## bag, a stack of cones and a stopwatch, in the club's wash. This tall on a
-## phone and on a wide screen.
-const HERO_NARROW := 72.0
-const HERO_WIDE := 96.0
+## The training gear beside the week's news (director, 2026-10-14: "Bigger,
+## in real colours"): the screen's one hero object, a tackle bag with a stack
+## of orange cones, in its own colours. This tall on a phone and a wide screen.
+const HERO_NARROW := 104.0
+const HERO_WIDE := 120.0
 
 
 func _summary() -> Control:
@@ -168,7 +168,7 @@ func _summary() -> Control:
 	var v := UiKit.vbox(3)
 	# Decoration: it stands on the panel's foot at the right and takes no tap.
 	# Without the picture the news has the whole width, as before.
-	var hero := UiArt.view("training_set", HERO_WIDE if _wide else HERO_NARROW, CultureSheet.emblem_tint(GameState.my_club))
+	var hero := UiArt.view("training_gear", HERO_WIDE if _wide else HERO_NARROW)
 	if hero == null:
 		panel.add_child(v)
 	else:

@@ -51,16 +51,18 @@ func _training_hero() -> void:
 			await _settle()
 			var hero: TextureRect = scene.find_child("TrainingHero", true, false)
 			var tex: Texture2D = hero.texture if hero != null else null
-			_check(tex != null and tex.resource_path == "res://assets/ui/models/training_set.png"
-					and float(tex.get_height()) >= 2.0 * hero.size.y and hero.size.y >= 72.0,
+			_check(tex != null and tex.resource_path == "res://assets/ui/models/training_gear.png"
+					and float(tex.get_height()) >= 2.0 * hero.size.y and hero.size.y >= 100.0,
 					"%s: Training shows the training gear's own picture, sharp at this size (%s)" % [tag, tex.resource_path if tex != null else "missing"])
 			if hero == null:
 				scene.queue_free()
 				await _settle()
 				continue
-			var tint: Color = hero.modulate
-			_check(tint.is_equal_approx(culture.emblem_tint(club)) and tint.v > 0.75 and (tint.s < 0.08 or (tint.h > 0.08 and tint.h < 0.92)),
-					"%s: the gear carries the club's wash and is never red (%s)" % [tag, tint.to_html(false)])
+			# Its own colours: orange cones at the foot on the left, never a club's wash.
+			var gear := tex.get_image()
+			var cone := gear.get_pixel(int(gear.get_width() * 0.2), int(gear.get_height() * 0.8))
+			_check(hero.modulate == Color.WHITE and cone.a > 0.9 and cone.h > 0.02 and cone.h < 0.12 and cone.s > 0.6,
+					"%s: the gear is in its own colours, the cones orange, in no club's wash (%s)" % [tag, cone.to_html(false)])
 			var panel: Control = hero.get_parent().get_parent()
 			var whole := panel.get_global_rect().grow(0.5).encloses(hero.get_global_rect()) and hero.mouse_filter == Control.MOUSE_FILTER_IGNORE
 			var words := 0
