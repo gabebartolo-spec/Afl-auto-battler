@@ -201,6 +201,7 @@ static func player_fact(gs, p: Dictionary, selected: bool, i: Dictionary, fit_ra
 			# Recent form: his last games' Player Rating, averaged (the form the
 			# game already keeps and shows); form_games counts them (0 to 3).
 			"form": form, "form_games": recent.size(), "has_role2": trial_role(p) != "", "form_low": false,
+			"role_avg": gs.position_average(str(p.get("role", ""))), "role_word": CoachPathway.position_word({"pos": str(p.get("role", ""))}),
 			"trial_word": CoachPathway.position_word({"pos": trial_role(p)}), "trial_home": CoachPathway.position_word({"pos": str(p.get("role", ""))}), "trial_avg": 0, "trial_par": 0, "trial_tail": "",
 			"starting": false,   # player_facts sets it from the side
 			"backed": Backing.is_active(p), "fit_rank": fit_rank, "talk_case": case, "kpi": kpi,

@@ -1138,10 +1138,25 @@ func _test_broadcast_vignettes() -> void:
 			"An ordinary crowded mark is not silently promoted to a speccy")
 	_check(BroadcastVignette.pick_kind(mark, {}, {}, front) == BroadcastVignette.SPECCY_FRONT,
 			"A real speccy through the corridor gets the front-on speccy shot")
-	# The front-on shot is the low, tight staging (mark_f / brace_f strips in the sheet), frozen on the grab.
-	_check(BroadcastVignette._sf_ready(), "The sheets hold the front-on speccy moves (the low, tight staging, not the old one)")
-	_check(BroadcastVignette.DURATIONS[BroadcastVignette.SPECCY_FRONT] > BroadcastVignette.SF_FREEZE,
-			"The front-on speccy runs past the grab, so the still holds on it")
+	# The front-on shot is behind the "speccy_front" switch (director, 2026-10-14): off (the default) a speccy plays
+	# the earlier shot and runs as long as it did; on it is the low, tight staging frozen on the grab.
+	Features.clear("speccy_front")
+	_check(not BroadcastVignette._sf_ready() and is_equal_approx(BroadcastVignette.duration_for(BroadcastVignette.SPECCY_FRONT), 3.8),
+			"With the speccy_front switch off a speccy plays the earlier shot, 3.8 s")
+	Features.set_on("speccy_front", true)
+	_check(BroadcastVignette._sf_ready(), "With the switch on the sheets hold the front-on speccy moves (the low, tight staging)")
+	_check(BroadcastVignette.duration_for(BroadcastVignette.SPECCY_FRONT) > BroadcastVignette.SF_FREEZE,
+			"On, the front-on speccy runs past the grab, so the still holds on it")
+	var vig_on := BroadcastVignette.new()
+	vig_on.setup(BroadcastVignette.SPECCY_FRONT, {"kind": "mark", "side": 0, "num": 4, "speccy": true}, {}, {"home": "FRE", "away": "MEL"})
+	var on_figures := vig_on._sf_ready()
+	vig_on.free()
+	Features.clear("speccy_front")
+	var vig_off := BroadcastVignette.new()
+	vig_off.setup(BroadcastVignette.SPECCY_FRONT, {"kind": "mark", "side": 0, "num": 4, "speccy": true}, {}, {"home": "FRE", "away": "MEL"})
+	var off_figures := vig_off._sf_ready()
+	vig_off.free()
+	_check(on_figures and not off_figures, "The same speccy event draws the new shot with the switch on and the earlier one with it off")
 	_check(BroadcastVignette.pick_kind(mark, {}, {}, flank) == BroadcastVignette.SPECCY_SIDE,
 			"A crowded mark near the flank gets the side-sit speccy shot")
 	_check(BroadcastVignette.pick_kind(mark, {}, {}, defensive) == BroadcastVignette.SPECCY_DEFENSIVE,
@@ -1724,37 +1739,71 @@ func _test_discs_apart() -> void:
 	pv2.free()
 
 
-## Two sides whose discs look alike: the away side wears its second colour, the
-## club's own hand-picked clash colour (UiKit.club_ink_second). Fremantle v
-## Melbourne is one; the Bulldogs v St Kilda is not.
+## Two sides whose discs look alike: the away side wears its clash strip, its
+## own kit with the two colours changed over. Fremantle v Melbourne is one; the
+## Bulldogs v St Kilda is not. And the call over the play covers no disc.
 func _test_clash_kit() -> void:
 	var fm: Array = PitchView.kits_for("FRE", "MEL")
-	_check(bool(fm[1].get("clash", false)) and (fm[1]["base"] as Color).is_equal_approx(UiKit.club_ink_second("MEL")),
-			"Melbourne wear their second colour at Fremantle: the two dark discs read apart")
+	var mel: Dictionary = GameDB.club_guernsey("MEL")
+	_check(bool(fm[1].get("clash", false)) and fm[1]["base"] == mel["pattern"] and fm[1]["pattern"] == mel["base"],
+			"Melbourne wear their clash strip at Fremantle: red with a navy yoke, their own two colours changed over")
 	_check(fm[0] == GameDB.club_guernsey("FRE"), "The home side always wears its own kit")
 	_check(UiKit.colour_distance(fm[0]["base"], fm[1]["base"]) >= PitchView.DISC_CLASH,
 			"After the swap the two bases are no longer alike")
-	_check(UiKit.colour_distance(fm[1]["base"], fm[1]["pattern"]) >= PitchView.DISC_CLASH,
-			"The away design still shows on its second colour")
 	var ws: Array = PitchView.kits_for("WBD", "STK")
 	_check(not ws[1].has("clash") and ws[1] == GameDB.club_guernsey("STK") and ws[0] == GameDB.club_guernsey("WBD"),
 			"The Bulldogs and St Kilda do not clash: both wear their own kit")
+	# Every pair of today's clubs: who swaps, in what, and whether it is enough.
+	var swaps := []
+	var foreign := []
 	var alike := []
-	for h in GameDB.CLUB_ORDER:
-		for a in GameDB.CLUB_ORDER:
+	var left := []
+	for h in GameDB.CLUB_ORDER.slice(0, 18):
+		for a in GameDB.CLUB_ORDER.slice(0, 18):
 			if h == a:
 				continue
+			var own: Dictionary = GameDB.club_guernsey(str(a))
 			var k: Array = PitchView.kits_for(str(h), str(a))
-			if UiKit.colour_distance(k[0]["base"], k[1]["base"]) < PitchView.DISC_CLASH and bool(k[1].get("clash", false)):
-				alike.append("%s v %s" % [h, a])
-	_check(alike.is_empty(), "No swap leaves the two sides alike (%s)" % ", ".join(alike))
+			var d := UiKit.colour_distance(k[0]["base"], k[1]["base"])
+			if bool(k[1].get("clash", false)):
+				swaps.append("%s v %s" % [h, a])
+				if k[1]["base"] != own["pattern"] or k[1]["pattern"] != own["base"] or k[1]["design"] != own["design"]:
+					foreign.append("%s v %s" % [h, a])
+				if d < PitchView.DISC_CLASH:
+					alike.append("%s v %s (%.0f)" % [h, a, d])
+			elif d < PitchView.DISC_CLASH:
+				left.append("%s v %s (%.0f)" % [h, a, d])
+	print("  clash strips, %d of 306 home-and-away pairs: %s" % [swaps.size(), ", ".join(swaps)])
+	_check(swaps.size() == 88, "88 home-and-away pairs of today's 18 clubs put the away side in its clash strip (%d)" % swaps.size())
+	_check(foreign.is_empty(), "A clash strip uses only that club's own two kit colours and its own design (%s)" % ", ".join(foreign))
+	_check(alike.is_empty(), "No clash strip still looks like the home side (%s)" % ", ".join(alike))
+	_check(left.is_empty(), "No pair is left alike with nothing to swap to (%s)" % ", ".join(left))
 	var pv := PitchView.new()
 	pv.size = Vector2(370, 490)
 	var res := _sim(31, "FRE", "MEL").run()
 	res["home"] = "FRE"
 	res["away"] = "MEL"
 	pv.setup(res)
-	_check(pv.clash, "The view knows the away side is in its clash colour")
+	_check(pv.clash, "The view knows the away side is in its clash strip")
+	# The call over the play ("Turnover", a scorer's name) never covers a disc.
+	pv.set_speed(4.0)
+	pv.play()
+	var covered := 0
+	var shown := 0
+	var guard := 0
+	while pv.playing and guard < 4000:
+		guard += 1
+		pv._process(1.0 / 30.0)
+		var drawn := pv.disc_positions()
+		var box := pv.caption_box()
+		if box.size.x <= 0.0:
+			continue
+		shown += 1
+		var tr := pv.token_radius()
+		for d2 in drawn:
+			if box.grow(tr).has_point(d2):
+				covered += 1
+	_check(shown > 50 and covered == 0, "The call over the play covers no disc (%d frames with a call, %d discs covered)" % [shown, covered])
 	pv.free()
 
 
