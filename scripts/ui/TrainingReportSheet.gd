@@ -121,8 +121,8 @@ static func open(host: Control, on_retrain: Callable) -> Control:
 	var res: Dictionary = r.get("reserves", {})
 	if not res.is_empty():
 		var n := int(res["count"])
-		var rl := UiKit.lbl("In the reserves, %d %s developed: +%d XP each over the month." % [
-				n, "player" if n == 1 else "players", int(res["each"])], UiKit.BODY, UiKit.TEXT)
+		var rl := UiKit.lbl("In the reserves, %d %s kept developing." % [
+				n, "player" if n == 1 else "players"], UiKit.BODY, UiKit.TEXT)
 		rl.name = "ReportReserves"
 		left.add_child(rl)
 
