@@ -1223,7 +1223,7 @@ func _mount_one_line(c: Dictionary) -> void:
 		# Its spacer and its own heading: the sheet or the pane is headed already.
 		for i in range(mini(2, mu.get_child_count())):
 			(mu.get_child(i) as Control).visible = false
-	body.call("plan", [take.call("PlanPicker", true), take.call("PlanNote"), c["syn"], _calls_record("gameplan")])
+	body.call("plan", [take.call("PlanPicker", true), take.call("PlanNote"), _calls_record("gameplan"), c["syn"]])
 	body.call("pep", [take.call("PepPicker", true), take.call("PepNote"), _calls_record("pep")])
 	body.call("rot", [take.call("RotationsBlock"), take.call("RotationNote"), _calls_record("rotation")])
 	body.call("tag", [fact, take.call("TagPicker", true), who_wb if wide else who_line, take.call("TagNote")])
@@ -1908,7 +1908,7 @@ func _fill_note_lines(into: VBoxContainer, text: String) -> void:
 	for c in into.get_children():
 		into.remove_child(c)
 		c.queue_free()
-	var bits := text.replace(": ", ";; ").replace("; ", ";; ").split(";; ", false)
+	var bits := text.replace(": ", "|").replace("; ", "|").split("|", false)
 	for i in range(bits.size()):
 		var l := UiKit.lbl(str(bits[i]).strip_edges(), UiKit.BODY if i == 0 else UiKit.SECONDARY, UiKit.TEXT, i == 0)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1941,18 +1941,24 @@ func _calls_record(kind: String) -> Control:
 		var row := HFlowContainer.new()
 		row.add_theme_constant_override("h_separation", 0)
 		row.name = "CallsRecordRow_Q%d" % int(e["quarter"])
-		row.add_child(UiKit.lbl("Q%d  " % int(e["quarter"]), UiKit.SECONDARY, UiKit.TEXT, true))
+		var qn := UiKit.lbl("Q%d  " % int(e["quarter"]), UiKit.SECONDARY, UiKit.TEXT, true)
+		qn.autowrap_mode = TextServer.AUTOWRAP_OFF
+		row.add_child(qn)
 		for i in range(sides.size()):
 			var side: int = sides[i]
 			var code := str((sim_squad_code(side)))
 			if i > 0:
-				row.add_child(UiKit.lbl("  ·  ", UiKit.SECONDARY, UiKit.TEXT))
+				var dot := UiKit.lbl("  ·  ", UiKit.SECONDARY, UiKit.TEXT)
+				dot.autowrap_mode = TextServer.AUTOWRAP_OFF
+				row.add_child(dot)
 			var nm := UiKit.lbl(GameDB.club_short(code) + ": ", UiKit.SECONDARY,
 					UiKit.club_name_colour(UiKit.club_ink(code)), true)
 			nm.name = "ClubName"
+			nm.autowrap_mode = TextServer.AUTOWRAP_OFF
 			row.add_child(nm)
 			var w := UiKit.lbl(str(side_words.call(side)), UiKit.SECONDARY, UiKit.TEXT)
 			w.name = "CallWords"
+			w.autowrap_mode = TextServer.AUTOWRAP_OFF
 			row.add_child(w)
 		v.add_child(row)
 	return v

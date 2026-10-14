@@ -43,6 +43,7 @@ func _run() -> void:
 	await _ground_fit()
 	_state.replay_seed = SUITE_SEED
 	await _plan_at_first_bounce()
+	await _calls_record()
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
 		await _coach_descriptions(sz)
 		await _tag_targets(sz)
@@ -102,6 +103,7 @@ func _plan_at_first_bounce() -> void:
 		_check(shown != null and shown.get_theme_stylebox("normal").border_width_left == 2,
 				"The pre-bounce box shows the plan you took in (%s)" % chosen)
 		if chosen == "defensive":
+			var UK = load("res://scripts/ui/UiKit.gd")
 			# The plan under the buttons: short separate lines, each plan with its parts.
 			for pk in ["balanced", "attacking", "defensive", "contest", "controlled", "through_stars"]:
 				var pb: Button = box.find_child("PlanPicker_" + pk, true, false)
@@ -125,7 +127,7 @@ func _plan_at_first_bounce() -> void:
 				var longest := 0
 				for lb in pn.find_children("*", "Label", true, false):
 					longest = maxi(longest, (lb as Label).text.split(" ", false).size())
-					_check((lb as Label).get_theme_color("font_color") != UiKit.MUTED, "Blurb text is not in muted grey (%s)" % pk)
+					_check((lb as Label).get_theme_color("font_color") != UK.MUTED, "Blurb text is not in muted grey (%s)" % pk)
 				_check(longest <= 22, "No blurb line runs over 22 words (%s: %d)" % [pk, longest])
 			var back: Button = box.find_child("PlanPicker_defensive", true, false)
 			back.emit_signal("pressed")
@@ -147,6 +149,80 @@ func _plan_at_first_bounce() -> void:
 		_check(played == expect, "The first quarter is played on %s (engine: %s)" % [expect, played])
 		m.queue_free()
 		await _settle()
+
+
+## The record of calls under the Game plan, Pep talk and Rotations: nothing
+## before the first bounce, then a line for each quarter played, in order,
+## with the right clubs and calls (theirs only for the game plan).
+func _calls_record() -> void:
+	var db = root.get_node("GameDB")
+	var UK = load("res://scripts/ui/UiKit.gd")
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		_state.reset()
+		_state.start_season("MEL", db.club_list("MEL"))
+		_check(_state.prepare_interactive_match(), "A live match is prepared (calls record %s)" % str(sz))
+		var sim = _state.pending_sim
+		var mine := int(sim.moment_side)
+		var pre: Control = load("res://scenes/MatchScene.tscn").instantiate()
+		root.add_child(pre)
+		await _settle()
+		_check(pre.find_child("CallsRecord_gameplan", true, false) == null and pre.find_child("CallsRecord_pep", true, false) == null,
+				"No record, and no header, before the first bounce (%s)" % str(sz))
+		pre.queue_free()
+		await _settle()
+		var plans := ["attacking", "defensive"]
+		var peps := ["fire_up", "heat"]
+		var rots := ["hard", "stars"]
+		for q in range(2):
+			sim.set_tactics(mine, {"gameplan": plans[q], "pep": peps[q], "focus_id": "", "tag_id": ""})
+			sim.set_rotation_policy(mine, rots[q])
+			sim.run_quarter()
+			if q == 0:
+				root.size = sz
+				var m0: Control = load("res://scenes/MatchScene.tscn").instantiate()
+				root.add_child(m0)
+				await _settle()
+				_check(m0.find_child("CallsRecord_gameplan", true, false) != null,
+						"After Q1 the record appears (%s)" % str(sz))
+				m0.queue_free()
+				await _settle()
+		root.size = sz
+		var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+		root.add_child(m)
+		await _settle()
+		var other := 1 - mine
+		var mine_code := str((sim.squads[mine] as Squad).code)
+		var other_code := str((sim.squads[other] as Squad).code)
+		for kind in ["gameplan", "pep", "rotation"]:
+			var rec: Node = m.find_child("CallsRecord_" + kind, true, false)
+			_check(rec != null, "A record of %s calls shows at half time (%s)" % [kind, str(sz)])
+			if rec == null:
+				continue
+			for q in range(2):
+				var row: Node = rec.find_child("CallsRecordRow_Q%d" % (q + 1), true, false)
+				_check(row != null, "Row for Q%d (%s, %s)" % [q + 1, kind, str(sz)])
+				if row == null:
+					continue
+				var names := row.find_children("ClubName", "Label", true, false)
+				var words := row.find_children("CallWords", "Label", true, false)
+				var want_clubs: Array = [db.club_short(mine_code)] if kind != "gameplan" 						else [db.club_short(mine_code), db.club_short(other_code)]
+				var got_clubs := []
+				for n in names:
+					got_clubs.append((n as Label).text.trim_suffix(": "))
+				_check(got_clubs == want_clubs, "Right clubs on Q%d %s (%s)" % [q + 1, kind, str(got_clubs)])
+				var want_mine := CoachReport.plan_label(plans[q]) if kind == "gameplan" 						else (CoachReport.pep_label(peps[q]) if kind == "pep" else str(ROTATION_WORDS[rots[q]]))
+				_check(words.size() == want_clubs.size() and (words[0] as Label).text == want_mine,
+						"Right call on Q%d %s (%s)" % [q + 1, kind, (words[0] as Label).text if not words.is_empty() else "-"])
+				if kind == "gameplan":
+					var theirs := CoachReport.plan_label(str(((sim.tactics_history[q]["plans"] as Array)[other] as Dictionary).get("gameplan", "balanced")))
+					_check(words.size() == 2 and (words[1] as Label).text == theirs, "Their plan in Q%d is theirs (%s)" % [q + 1, theirs])
+					_check(names.size() == 2 and (names[0] as Label).get_theme_color("font_color") == UK.club_name_colour(UK.club_ink(mine_code)),
+							"Club names wear club colour (Q%d)" % [q + 1])
+		m.queue_free()
+		await _settle()
+
+
+const ROTATION_WORDS := {"hard": "Freshness", "normal": "Balanced", "stars": "Key players"}
 
 
 func _ground_fit() -> void:
