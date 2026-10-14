@@ -14,6 +14,9 @@ func run() -> void:
 	failures.clear()
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
+	# These fixtures (Geelong's second ruck off the 18, a club's 21st man) are about the rules, not
+	# the director's hand-set ratings (data/ovr_overrides.csv): they play on the data without them.
+	GameDB.skip_ovr_overrides = true
 	GameDB.reload()
 	_test_rules()
 	_test_season_flow()
@@ -36,6 +39,8 @@ func run() -> void:
 	_test_how_we_play_unlocks_on_the_third_game()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
+	GameDB.skip_ovr_overrides = false
+	GameDB.reload()
 	print("Club tests: %d checks, %d failures" % [checks, failures.size()])
 
 
