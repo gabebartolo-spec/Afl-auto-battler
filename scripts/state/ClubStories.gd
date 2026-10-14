@@ -62,7 +62,35 @@ static func club_facts(gs, week: int, ph: String) -> Dictionary:
 			"finals_week": week - Season.REGULAR_ROUNDS if ph == "finals" else 0}
 	facts.merge(_leader_facts(gs), true)
 	facts.merge(_finals_facts(gs, ph), true)
+	facts.merge(papers_facts(gs), true)
 	return facts
+
+
+## The pre-season papers: who wrote it, the finish they tipped, the finish you
+## named (if you did), and how far below your own words the club sits now.
+static func papers_facts(gs) -> Dictionary:
+	var out := {"paper": "", "writer": "", "pred_word": "", "pred_rank": 0, "claim_word": "",
+			"claim_rank": 0, "goal_line": "", "words_word": "", "words_behind": 0, "ladder_word": ""}
+	var rec: Dictionary = gs.papers_record()
+	if rec.is_empty() or int(gs.preseason.get("year", 0)) != int(gs.season_year):
+		return out
+	var kind := str(rec.get("kind", ""))
+	var j: Dictionary = MediaConference.JOURNALISTS.get(str(PreSeason.PAPER_WRITER.get(kind, "stats")), {})
+	var pred := int(rec.get("pred", 0))
+	var claim := int(rec.get("claim", 0))
+	var goal := str((gs.board.get("goal", {}) as Dictionary).get("text", ""))
+	out["paper"] = str(j.get("outlet", "The papers"))
+	out["writer"] = str(j.get("name", "A columnist"))
+	out["pred_rank"] = pred
+	out["pred_word"] = PreSeason.ordinal(pred) if pred > 0 else ""
+	out["claim_rank"] = claim if claim > 0 else PreSeason.claim_rank(pred)
+	out["claim_word"] = PreSeason.ordinal(int(out["claim_rank"])) if pred > 0 else ""
+	out["goal_line"] = goal.substr(0, 1).to_lower() + goal.substr(1) if goal != "" else ""
+	if claim > 0:
+		out["words_word"] = PreSeason.ordinal(claim)
+		out["words_behind"] = PreSeason.places_behind(gs.my_position(), claim)
+	out["ladder_word"] = PreSeason.ordinal(gs.my_position())
+	return out
 
 
 ## Where you stand in September (and on the ten before it).
@@ -468,6 +496,8 @@ static func _apply(gs, e: Dictionary, p: Dictionary, facts: Dictionary, applied:
 			p.erase("injury_kind")
 			p["sore"] = true
 			return "%s is cleared to play. Name him in the side." % name
+		"on_record":
+			gs.papers_on_record(int(facts.get("claim_rank", 0)))
 		"role_trial":
 			return gs.start_role_trial(p, int(e.get("weeks", 3)))
 		"sore":

@@ -513,7 +513,7 @@ static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
 			kind = "gain" if d > 0 else ("cost" if d < 0 else "")
 		"xp", "fresh":
 			kind = "gain"
-		"rest", "sore", "heavy_legs", "expects_game", "start_backing", "back_kid", "slow_start", "loss_sting":
+		"rest", "sore", "heavy_legs", "expects_game", "start_backing", "back_kid", "slow_start", "loss_sting", "on_record":
 			kind = "cost"
 	var s := _effect_words(e, facts)
 	if kind == "" or s == "":

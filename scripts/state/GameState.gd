@@ -2579,6 +2579,10 @@ func preseason_stop() -> String:
 	if str(PreSeason.STOPS.get(w, "")) == "intra" and preseason.get("intra") is Dictionary \
 			and not bool((preseason["intra"] as Dictionary).get("seen", false)):
 		return "intra"
+	# The papers, in the quiet last week: the ladder and the story to answer.
+	if str(PreSeason.STOPS.get(w, "")) == "papers" and not papers_record().is_empty() \
+			and not bool(papers_record().get("seen", false)):
+		return "papers"
 	return ""
 
 
@@ -2653,8 +2657,11 @@ func preseason_trial() -> Dictionary:
 func preseason_step_week() -> String:
 	if not preseason_active():
 		return "done"
-	if preseason_stop() == "trial" or preseason_stop() == "intra":
+	if preseason_stop() == "trial" or preseason_stop() == "intra" or preseason_stop() == "papers":
 		return preseason_stop()
+	if preseason_week() >= PreSeason.weeks():
+		_finish_preseason()
+		return "done"
 	var w := preseason_week() + 1
 	var clubs: Dictionary = preseason.get("clubs", {})
 	for club in season.clubs:
@@ -2674,6 +2681,9 @@ func preseason_step_week() -> String:
 		_ai_intras(clubs)
 		preseason["intra"] = {"mode": "even", "invites": [], "played": false, "seen": false}
 		return "intra"
+	if str(PreSeason.STOPS.get(w, "")) == "papers":
+		_build_papers()
+		return "papers"
 	if w >= PreSeason.weeks():
 		_finish_preseason()
 		return "done"
@@ -2761,6 +2771,121 @@ func _finish_preseason() -> void:
 		add_news("preseason", "Pre-season is done. %s go into Round 1 on %s.%s" % [
 				GameDB.club_name(my_club),
 				str(PreSeason.BASE_LABEL[Conditioning.base_of(fitness_record(my_club))]), drilled], "Pre-season")
+	mark_dirty()
+
+
+# ---------------------------------------------------------------------------
+# The papers (PreSeason.gd, week 8): a predicted ladder and one story to answer
+# ---------------------------------------------------------------------------
+## Yours, this pre-season: {"order": [club codes, best first], "pred", "kind"
+## (finish, breakout, pressure, or "" when there is nothing to answer), "pid",
+## "claim" (the finish you named, 0 for none), "answered", "choice", "result",
+## "seen"}. {} before week 8.
+func papers_record() -> Dictionary:
+	return preseason.get("papers", {}) if preseason.get("papers") is Dictionary else {}
+
+
+## The paper's ladder, best first: each club's best side as TeamRating reads it
+## after the summer's injuries, near-ties to last year's finish.
+func _build_papers() -> void:
+	var ratings := {}
+	var last := {}
+	for club in season.clubs:
+		var code := str(club)
+		ratings[code] = TeamRating.rating(season.lists[club])
+		last[code] = last_finish_of(code)
+	var order := PreSeason.predicted_order(ratings, last, club_expect)
+	var pred := order.find(my_club) + 1
+	var eligible := []
+	if pred > Season.FINALISTS:
+		eligible.append("finish")
+	if PreSeason.finishes_short(board.get("goal", {}) as Dictionary, pred):
+		eligible.append("pressure")
+	var pid := _papers_breakout()
+	if pid != "":
+		eligible.append("breakout")
+	var kind := ""
+	if not eligible.is_empty():
+		kind = PreSeason.pick_paper(eligible, PreSeason.papers_seed(career_seed, season_year, my_club))
+	preseason["papers"] = {"order": order, "pred": pred, "kind": kind,
+			"pid": pid if kind == "breakout" else "", "claim": 0, "answered": false,
+			"choice": -2, "result": "", "seen": false}
+	mark_dirty()
+
+
+## The young player the papers would tip: fit, young, able to be backed, the
+## most potential (then the id). "" when none.
+func _papers_breakout() -> String:
+	var best := {}
+	for p in my_list:
+		if float(p.get("age", 30.0)) > float(PreSeason.tune("papers_breakout_age")):
+			continue
+		if int(p.get("injury_weeks", 0)) > 0 or not Backing.can_back(p, games_played(p)):
+			continue
+		var pot := int(p.get("potential", p.get("overall", 0)))
+		var best_pot := int(best.get("potential", best.get("overall", 0)))
+		if best.is_empty() or pot > best_pot or (pot == best_pot and str(p["id"]) < str(best["id"])):
+			best = p
+	return str(best.get("id", ""))
+
+
+## The story to answer, as a card (the same card the weekly stories use), or
+## {} when the papers have nothing to ask this year.
+func papers_card() -> Dictionary:
+	var rec := papers_record()
+	var kind := str(rec.get("kind", ""))
+	if kind == "":
+		return {}
+	var who: Dictionary = list_player(str(rec.get("pid", ""))) if str(rec.get("pid", "")) != "" else {}
+	if kind == "breakout" and who.is_empty():
+		return {}
+	return story_card(str(PreSeason.PAPER_CARD[kind]), who)
+
+
+## Answer the papers with choice `choice` of the card. Returns what happened.
+func papers_answer(choice: int) -> String:
+	var rec := papers_record()
+	if preseason_stop() != "papers" or bool(rec.get("answered", false)):
+		return ""
+	var card := papers_card()
+	if card.is_empty() or (card.get("options", []) as Array).is_empty():
+		return ""
+	choice = clampi(choice, 0, (card["options"] as Array).size() - 1)
+	var out := ClubStories.apply_choice(self, card, choice)
+	StoryEngine.record_choice(story, card, choice, story_week())
+	rec["answered"] = true
+	rec["choice"] = choice
+	rec["result"] = out
+	mark_dirty()
+	return out
+
+
+## Say nothing: the card's own cost for silence, as any unanswered card.
+func papers_say_nothing() -> void:
+	var rec := papers_record()
+	if bool(rec.get("answered", false)):
+		return
+	rec["answered"] = true
+	var card := papers_card()
+	if card.is_empty():
+		return
+	var cost: Dictionary = card.get("unanswered", {})
+	if int(cost.get("board", 0)) != 0 and not board.is_empty():
+		board["confidence"] = clampi(board_confidence() + int(cost["board"]), 0, 100)
+	if int(cost.get("trust", 0)) != 0 and str(card.get("player_id", "")) != "":
+		Trust.change(relations, Trust.player_key(str(card["player_id"])), int(cost["trust"]),
+				str(cost.get("why", "You said nothing")), int(season_year), "Pre-season")
+	rec["choice"] = -1
+	rec["result"] = str(cost.get("text", "Business as usual."))
+	StoryEngine.record_choice(story, card, -1, story_week())
+	mark_dirty()
+
+
+## Talking the club up puts a finish on the record. The board's goal does not move.
+func papers_on_record(rank: int) -> void:
+	if papers_record().is_empty():
+		return
+	(preseason["papers"] as Dictionary)["claim"] = maxi(0, rank)
 	mark_dirty()
 
 
@@ -2915,6 +3040,11 @@ func preseason_advance() -> String:
 			autosave()
 			return "intra"
 		(preseason["intra"] as Dictionary)["seen"] = true
+	elif preseason_stop() == "papers":
+		# Pressed on without answering: saying nothing is an answer, and costs
+		# what it costs on any card.
+		papers_say_nothing()
+		(preseason["papers"] as Dictionary)["seen"] = true
 	var at := ""
 	while at == "":
 		at = preseason_step_week()
@@ -2935,6 +3065,9 @@ func preseason_sim_to_round1() -> void:
 			if not intra_played():
 				sim_intra_match()
 			(preseason["intra"] as Dictionary)["seen"] = true
+		if preseason_stop() == "papers":
+			papers_say_nothing()
+			(preseason["papers"] as Dictionary)["seen"] = true
 		preseason_step_week()
 	mark_dirty()
 	autosave()
