@@ -156,9 +156,11 @@ func _build() -> void:
 	UiKit.restore_scroll(_detail_scroll, detail_y)
 
 
-## The training gear beside the week's news (director, 2026-10-14): a tackle
-## bag, a stack of cones and a stopwatch, in the club's wash. This tall on a
-## phone and on a wide screen.
+## The training gear beside the week's news (director, 2026-10-14: "Bigger,
+## in real colours"): a blue tackle bag with a stack of orange cones, in its
+## own colours. It may not push the list down or squeeze the news, so on a
+## phone it is as tall as the news it stands beside and no wider than before;
+## on a wide screen it leads the news from the left.
 const HERO_NARROW := 72.0
 const HERO_WIDE := 96.0
 
@@ -168,17 +170,21 @@ func _summary() -> Control:
 	var v := UiKit.vbox(3)
 	# Decoration: it stands on the panel's foot at the right and takes no tap.
 	# Without the picture the news has the whole width, as before.
-	var hero := UiArt.view("training_set", HERO_WIDE if _wide else HERO_NARROW, CultureSheet.emblem_tint(GameState.my_club))
+	var hero := UiArt.view("training_gear", HERO_WIDE if _wide else HERO_NARROW)
 	if hero == null:
 		panel.add_child(v)
 	else:
 		hero.name = "TrainingHero"
-		hero.size_flags_vertical = Control.SIZE_SHRINK_END
-		var h := UiKit.hbox(12)
+		hero.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var h := UiKit.hbox(14 if _wide else 12)
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		h.add_child(v)
-		h.add_child(hero)
+		if _wide:
+			h.add_child(hero)
+			h.add_child(v)
+		else:
+			h.add_child(v)
+			h.add_child(hero)
 		panel.add_child(h)
 	var report: Dictionary = GameState.last_training_report
 	if int(report.get("count", 0)) > 0:

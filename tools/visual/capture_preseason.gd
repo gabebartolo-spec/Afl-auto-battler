@@ -1,7 +1,7 @@
 extends SceneTree
 ## The pre-season stops (slice 1), for the lead's check and the director's look.
 ## Needs a real renderer:
-##   godot --path . --script tools/visual/capture_preseason.gd -- --out /tmp/pre --club FRE [--size 1280x720] [--seed 4127] [--risk 0.3]
+##   godot --path . --script tools/visual/capture_preseason.gd -- --out /tmp/pre --club FRE [--size 1280x720] [--seed 4127] [--risk 0.3] [--art off]
 ## Writes <out>_plan.png (the plan as it opens), <out>_plan_low.png (the same,
 ## scrolled to the foot), <out>_plan_set.png (a Heavy running block and a Heavy
 ## last block picked), <out>_trial.png and <out>_trial_low.png (the time trial
@@ -44,6 +44,9 @@ func _run() -> void:
 			# A bigger Heavy-week risk than the game's, so the "Hurt in training"
 			# list is sure to show (for the look only; never a balance read).
 			_risk = float(a[i + 1])
+		if str(a[i]) == "--art" and str(a[i + 1]) == "off":
+			# The stops without their pictures, as they were (the before shot).
+			load("res://scripts/ui/UiArt.gd").set("dir", "res://assets/ui/none")
 		if str(a[i]) == "--seed":
 			_seed = int(a[i + 1])
 		if str(a[i]) == "--size":
@@ -64,21 +67,19 @@ func _run() -> void:
 	state.replay_seed = _seed
 	state.set_setting("seen_weekly_loop_intro", true)
 	state.set_setting("seen_training_intro", true)
-	if W >= 760:
-		# A PC window, laid out on the 1280x720 desktop canvas as the game does.
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-		DisplayServer.window_set_size(Vector2i(W, H))
-		for i in range(10):
-			await process_frame
-		var factor := float(W) / maxf(1.0, root.get_visible_rect().size.x)
-		if factor > 1.05:
-			DisplayServer.window_set_size(Vector2i(int(W * factor), int(H * factor)))
-			for i in range(10):
-				await process_frame
-		print("visible ", root.get_visible_rect().size)
-	else:
-		DisplayServer.window_set_size(Vector2i(W, H))
-		root.size = Vector2i(W, H)
+	# The canvas a player's screen gives the game, whatever this machine's display density.
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_size(Vector2i(W, H))
+	for i in range(10):
+		await process_frame
+	var layout = root.get_node("ScreenLayout")
+	var density: float = layout.desktop_density(Vector2(root.size), DisplayServer.screen_get_scale(),
+			DisplayServer.screen_get_dpi() if OS.get_name() == "Windows" else 0)
+	layout.ui_scale = 1.0 / maxf(1.0, density)
+	layout._update_scale()
+	for i in range(10):
+		await process_frame
+	print("canvas ", root.get_visible_rect().size)
 	for i in range(3):
 		await process_frame
 	state.start_season(club, db.club_list(club))
