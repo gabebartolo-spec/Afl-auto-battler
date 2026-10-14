@@ -333,41 +333,55 @@ func _match_report(rep: Dictionary, prefix: String, pool: Array) -> Control:
 	var behinds: Array = rep.get("behinds", [0, 0])
 	for side in range(2):
 		var row := UiKit.hbox(8)
-		var nm := UiKit.lbl(str(names[side]), UiKit.NAME, UiKit.TEXT, true)
+		# A practice match: each club's name in its own ink, the score right after it.
+		var ink: Color = UiKit.TEXT
+		if prefix == "Practice":
+			ink = UiKit.club_ink(GameState.my_club if side == 0 else str(rep.get("opponent", "")))
+		var nm := UiKit.lbl(str(names[side]), UiKit.NAME, ink, true)
 		nm.name = prefix + "Side_%d" % side
-		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nm.autowrap_mode = TextServer.AUTOWRAP_OFF
+		nm.custom_minimum_size = Vector2(150, 0)
 		row.add_child(nm)
 		var fig := UiKit.figure(UiKit.scoreline(int(goals[side]), int(behinds[side])), UiKit.NUMBER)
 		fig.name = prefix + "Score_%d" % side
 		row.add_child(fig)
 		v.add_child(row)
+	# On a PC the sections sit in two columns, so the whole report is in view.
+	var cols: BoxContainer = UiKit.hbox(28) if _wide() else UiKit.vbox(6)
+	var left := UiKit.vbox(6)
+	var right := UiKit.vbox(6)
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cols.add_child(left)
+	cols.add_child(right)
+	v.add_child(cols)
 	for part in [["Stood out", "stood", prefix + "Stood"], ["Struggled", "struggled", prefix + "Struggled"]]:
 		var ids: Array = rep.get(str(part[1]), [])
 		if ids.is_empty():
 			continue
-		v.add_child(UiKit.spacer(8))
-		v.add_child(_report_head(str(part[0])))
+		left.add_child(UiKit.spacer(8))
+		left.add_child(_report_head(str(part[0])))
 		for i in range(ids.size()):
-			v.add_child(_runner(str(ids[i]), "", "%s_%d" % [str(part[2]), i]))
+			left.add_child(_runner(str(ids[i]), "", "%s_%d" % [str(part[2]), i]))
 	var hurt: Array = rep.get("hurt", [])
 	if not hurt.is_empty():
-		v.add_child(UiKit.spacer(8))
-		v.add_child(_report_head("Hurt in the match"))
+		left.add_child(UiKit.spacer(8))
+		left.add_child(_report_head("Hurt in the match"))
 		for i in range(hurt.size()):
 			var l := UiKit.lbl(str(hurt[i]), UiKit.BODY, UiKit.BAD)
 			l.name = prefix + "Hurt_%d" % i
 			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			v.add_child(l)
+			left.add_child(l)
 	var seen: Array = rep.get("prospects", [])
 	if not seen.is_empty():
 		var names_by_id := {}
 		for p in pool:
 			names_by_id[str(p["id"])] = GameDB.player_display_name(p)
-		v.add_child(UiKit.spacer(8))
-		v.add_child(_report_head("Prospects seen"))
+		right.add_child(UiKit.spacer(8))
+		right.add_child(_report_head("Prospects seen"))
 		var note := UiKit.lbl("Each line is on his draft card from now on.", UiKit.SECONDARY, UiKit.TEXT)
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(note)
+		right.add_child(note)
 		for i in range(seen.size()):
 			var row: Dictionary = seen[i]
 			var box := UiKit.vbox(0)
@@ -379,7 +393,7 @@ func _match_report(rep: Dictionary, prefix: String, pool: Array) -> Control:
 			line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			box.add_child(line)
 			box.add_child(UiKit.rule())
-			v.add_child(box)
+			right.add_child(box)
 	return v
 
 
