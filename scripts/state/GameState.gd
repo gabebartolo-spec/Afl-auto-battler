@@ -3352,6 +3352,18 @@ func plan_fit_line(ground: Array, plan: String) -> String:
 	return "Your %s are %s: %s." % [str(PlanFit.NEEDS[plan]["word"]), PlanFit.fit_word(ground, plan), ", ".join(names)]
 
 
+## The same facts in two short parts for the game plan panel: how good
+## the side is for the plan, and the best three for it. {} for Balanced.
+func plan_fit_short(ground: Array, plan: String) -> Dictionary:
+	if plan != "through_stars" and not PlanFit.NEEDS.has(plan):
+		return {}
+	var names := PackedStringArray()
+	for p in PlanFit.carriers(ground, plan).slice(0, 3):
+		names.append(GameDB.player_display_name(p))
+	var judged := ("Your best three are %s." % PlanFit.stars_word(ground)) if plan == "through_stars" 			else ("Your %s are %s." % [str(PlanFit.NEEDS[plan]["word"]), PlanFit.fit_word(ground, plan)])
+	return {"judged": judged, "names": ", ".join(names)}
+
+
 ## What your list is good at against this league (ListProfile): every club's
 ## side as it would be picked this week, yours as you have picked it.
 func list_profile() -> Array:
@@ -9227,7 +9239,7 @@ const STYLE_PART_OF := {
 
 
 ## An opponent's usual game plan, said as what it does on the field (the
-## same trade-offs as CoachReport.PLAN_SUMMARY, from their side).
+## same trade-offs as CoachReport.PLAN_PARTS, from their side).
 const THEIR_PLAN := {
 	"attacking": "they run it through the corridor for ground and better shots, and turn it over more.",
 	"defensive": "they press high, so they win it back in their half, but there is space behind them when you get through.",

@@ -34,13 +34,26 @@ const PEP_EFFECTS := {
 ## The one description of a plan: selection, coaching, the quarter break
 ## and the assistant's report all read it. No percentages; how much a plan
 ## gives depends on the players who carry it (GameState.plan_fit_line).
-const PLAN_SUMMARY := {
-	"balanced": "Play it straight: no extra edge, and nothing for them to exploit.",
-	"attacking": "Go through the corridor: more ground and better shots, but more turnovers, heavier legs, and they score more on the rebound. The better your runners, the more it gives. Beats Controlled tempo; a Defensive press squeezes it.",
-	"defensive": "Hunt the ball high: win it back in their half and lock it in, but heavier legs, rushed shots, and space behind if they break it. The more pressure players you have, the more it bites. Beats Attack corridor; Controlled tempo plays through it.",
-	"contest": "Numbers at the stoppage: win more of the clearances, but the ball moves a little slower and you are a little exposed on the rebound. Leans on your ball-winners and ruck.",
-	"controlled": "Keep the ball: fewer errors, less rattled by pressure and fresher legs, but less ground gained. Asks nothing special of your list. Plays through a Defensive press; Attack corridor runs past it.",
-	"through_stars": "Go through your best three: they see more of the ball and finish better, with fewer errors, but they know where it's going and the pressure comes. Worth more the further they stand above the rest.",
+const PLAN_PARTS := {
+	"balanced": {"does": "Play it straight: no extra edge, and nothing for them to exploit."},
+	"attacking": {"does": "Go through the corridor.",
+			"gain": "More ground and better shots.",
+			"cost": "More turnovers, heavier legs, and they score more on the rebound.",
+			"beats": "Beats Controlled tempo. A Defensive press squeezes it."},
+	"defensive": {"does": "Hunt the ball high and lock it in their half.",
+			"gain": "Win it back in their half.",
+			"cost": "Heavier legs, rushed shots, and space behind if they break it.",
+			"beats": "Beats Attack corridor. Controlled tempo plays through it."},
+	"contest": {"does": "Numbers at the stoppage. Leans on your ball-winners and ruck.",
+			"gain": "More clearances won.",
+			"cost": "The ball moves a little slower and you are a little exposed on the rebound."},
+	"controlled": {"does": "Keep the ball. Asks nothing special of your list.",
+			"gain": "Fewer errors, less rattled by pressure, fresher legs.",
+			"cost": "Less ground gained.",
+			"beats": "Plays through a Defensive press. Attack corridor runs past it."},
+	"through_stars": {"does": "Go through your best three. Worth more the further they stand above the rest.",
+			"gain": "They see more of the ball and finish better, with fewer errors.",
+			"cost": "They know where it's going and the pressure comes."},
 }
 
 const PEP_SUMMARY := {
@@ -125,8 +138,21 @@ static func plan_effect(key: String) -> String:
 	return plan_summary(key)
 
 
+static func plan_parts(key: String) -> Dictionary:
+	return PLAN_PARTS.get(MatchSim.plan_key(key), PLAN_PARTS["balanced"])
+
+
+## The parts joined into one paragraph, for screens that show a plan in a line.
 static func plan_summary(key: String) -> String:
-	return str(PLAN_SUMMARY.get(MatchSim.plan_key(key), PLAN_SUMMARY["balanced"]))
+	var d := plan_parts(key)
+	var out := PackedStringArray([str(d["does"])])
+	if d.has("gain"):
+		out.append("Gain: " + str(d["gain"]))
+	if d.has("cost"):
+		out.append("Cost: " + str(d["cost"]))
+	if d.has("beats"):
+		out.append(str(d["beats"]))
+	return " ".join(out)
 
 
 static func pep_summary(key: String) -> String:

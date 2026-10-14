@@ -101,6 +101,35 @@ func _plan_at_first_bounce() -> void:
 		var shown: Button = box.find_child("PlanPicker_" + chosen, true, false)
 		_check(shown != null and shown.get_theme_stylebox("normal").border_width_left == 2,
 				"The pre-bounce box shows the plan you took in (%s)" % chosen)
+		if chosen == "defensive":
+			# The plan under the buttons: short separate lines, each plan with its parts.
+			for pk in ["balanced", "attacking", "defensive", "contest", "controlled", "through_stars"]:
+				var pb: Button = box.find_child("PlanPicker_" + pk, true, false)
+				if pb == null:
+					_check(false, "Plan button %s exists" % pk)
+					continue
+				pb.emit_signal("pressed")
+				await _settle()
+				var pn: Node = box.find_child("PlanNote", true, false)
+				_check(pn != null and pn is VBoxContainer and pn.find_child("PlanDoes", true, false) != null,
+						"The plan blurb is separate lines with a lead line (%s)" % pk)
+				if pn == null:
+					continue
+				_check((pk == "balanced") == (pn.find_child("PlanGain", true, false) == null)
+						and (pk == "balanced") == (pn.find_child("PlanCost", true, false) == null),
+						"Every plan but Balanced has Gain and Cost rows (%s)" % pk)
+				_check((pk in ["attacking", "defensive", "controlled"]) == (pn.find_child("PlanBeats", true, false) != null),
+						"The beats line shows for the plans with a counter (%s)" % pk)
+				_check((pk == "balanced") == (pn.find_child("PlanBest", true, false) == null),
+						"The best-for-it line names players (%s)" % pk)
+				var longest := 0
+				for lb in pn.find_children("*", "Label", true, false):
+					longest = maxi(longest, (lb as Label).text.split(" ", false).size())
+					_check((lb as Label).get_theme_color("font_color") != UiKit.MUTED, "Blurb text is not in muted grey (%s)" % pk)
+				_check(longest <= 22, "No blurb line runs over 22 words (%s: %d)" % [pk, longest])
+			var back: Button = box.find_child("PlanPicker_defensive", true, false)
+			back.emit_signal("pressed")
+			await _settle()
 		if change != "":
 			var other: Button = box.find_child("PlanPicker_" + change, true, false)
 			_check(other != null, "Another plan can be picked before the bounce (%s)" % change)
@@ -1486,10 +1515,7 @@ func _pc_break_worst_case(club := "COL") -> void:
 	_check(worst <= 608.0 - 8.0, "...with at least 8 px to spare (%s: %.0f of 608)" % [club, worst])
 	_check(heights.size() == 1, "Choosing another call never changes the sheet's height (%s: %s)" % [club, str(heights.keys())])
 	# The synergies line is a fact for the game plan: it sits in that call.
-	var syn: Node = null
-	for l in box.find_children("*", "Label", true, false) if box != null else []:
-		if (l as Label).text.begins_with("Your synergies"):
-			syn = l
+	var syn: Node = box.find_child("SynergyBlock", true, false) if box != null else null
 	var plan_body: Node = box.find_child("CallBody_plan", true, false) if box != null else null
 	_check(syn == null or (plan_body != null and plan_body.is_ancestor_of(syn)),
 			"The synergies line sits with the game plan it informs (%s)" % club)
