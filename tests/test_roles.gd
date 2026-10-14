@@ -169,6 +169,9 @@ func _test_named_players() -> void:
 				"%s, a top ball-winner, is an inside midfielder (%s)" % [n[1], Roles.label(star)])
 	_check(str(_find("GWS", "Josh Kelly").get("role", "")) == "MID" and str(_find("MEL", "Steven May").get("role", "")) == "DEF",
 			"Listed veterans take their real position, not a height roll")
+	var green_rated := _find("GWS", "Tom Green")
+	_check(int(green_rated.get("overall", 0)) >= 80 and int(green_rated.get("stats_year", 0)) == 2025,
+			"Tom Green is rated on his 2025 season, not as a prospect (OVR %d)" % int(green_rated.get("overall", 0)))
 	var tall_small := 0
 	for p in GameDB.players:
 		if str(p.get("role", "")) == "DEF" and PlayerProfile.player_type(p) == "Small defender" 				and float(p.get("height_cm", 0.0)) > PlayerProfile.SMALL_DEF_CM:
