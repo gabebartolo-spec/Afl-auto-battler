@@ -31,6 +31,7 @@ func _run() -> void:
 	root.add_child(scene)
 	for i in range(6):
 		await process_frame
+
 	var btn: Button = scene.find_child("StatGuideButton", true, false)
 	btn.emit_signal("pressed")
 	for i in range(10):

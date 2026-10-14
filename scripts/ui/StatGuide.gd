@@ -58,7 +58,12 @@ static func _label_for(key: String) -> String:
 ## can close it from the back button. On a wide screen the groups sit in three
 ## columns so it fits about one screen; on a phone it is one short scroll.
 static func show(parent: Control) -> Control:
-	var wide := ScreenLayout.roomy(UiKit.view_width(parent), UiKit.view_height(parent))
+	# Columns follow the layout width: a PC window is often only ~570 units
+	# wide after the canvas scale, so two columns from 520, three from 760.
+	var vw := UiKit.view_width(parent)
+	var landscape := not ScreenLayout.is_phone() and vw > UiKit.view_height(parent) * 1.2
+	var cols_n := 3 if (landscape and vw >= 760.0) else (2 if (landscape and vw >= 520.0) else 1)
+	var wide := cols_n > 1
 	var box := UiKit.modal_box(parent, 1100.0 if wide else 720.0, 0.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = "StatGuide"
@@ -88,11 +93,12 @@ static func show(parent: Control) -> Control:
 		rest.add_child(item)
 	sections.append(rest)
 	if wide:
-		# Three columns: ball winning and ball use | scoring, defence and
-		# body | how it fits together.
+		# Which groups sit in which column (sections 0-4 are the stat groups,
+		# 5 is "How it fits together"); the columns come out about as tall.
 		var cols := HBoxContainer.new()
 		cols.add_theme_constant_override("separation", 20)
-		for col in [[0, 1], [2, 3, 4], [5]]:
+		var layout := [[0, 1], [2, 3, 4], [5]] if cols_n == 3 else [[0, 1, 2, 3], [4, 5]]
+		for col in layout:
 			var c := UiKit.vbox(8)
 			c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			for i in col:
