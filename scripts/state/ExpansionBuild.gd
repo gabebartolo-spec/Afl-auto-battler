@@ -255,14 +255,28 @@ static func card_facts(gs, p: Dictionary, code: String) -> Dictionary:
 	var price := int(want["salary"])
 	var years := int(want["years"])
 	var room: bool = int(gs.my_payroll()) - int(p.get("salary", 0)) + price <= int(gs.salary_cap)
-	var comp: Dictionary = gs.projected_compensation(p)
+	var comp := compensation(gs, p)
 	return {"new_club": GameDB.club_name(code), "new_club_code": code,
 			"keep_price": Contracts.money(price),
 			"keep_seasons": "%s more season%s" % [MatchNotes.count_word(years), "" if years == 1 else "s"],
 			"keep_room": room,
 			"keep_note": "" if room else "You do not have the cap room for his price today.",
-			"comp_after": int(comp.get("after", 0)),
-			"comp_line": str(comp.get("reason", ""))}
+			"comp_after": int(comp["after"]),
+			"comp_line": str(comp["line"])}
+
+
+## What your club gets if he goes to the new club on the deal it signs him to
+## (terms): {"after": the pick it follows, 0 for none, "line": in words}. The
+## rule that pays any club for a free agent it wanted and lost.
+static func compensation(gs, p: Dictionary) -> Dictionary:
+	if not gs.comp_tenure_ok(p):
+		return {"after": 0, "line": "He has not been at your club two seasons, so you receive no draft pick."}
+	var deal := terms(p)
+	var clubs: int = GameDB.active_clubs(int(gs.season_year)).size()
+	var after := Contracts.compensation_after(Contracts.compensation_value(p, int(deal["salary"]), int(deal["years"])), clubs)
+	if after <= 0:
+		return {"after": 0, "line": "A player on his wage earns his club no draft pick."}
+	return {"after": after, "line": "You receive a draft pick %s." % Contracts.pick_words(after, clubs)}
 
 
 ## You re-sign him at his asking price: he stays, and the new club looks
@@ -290,7 +304,7 @@ static func let_go(gs, p: Dictionary) -> String:
 		return ""
 	t["status"] = "joining"
 	return "%s will join %s when the season ends. %s" % [GameDB.player_display_name(p),
-			GameDB.club_name(str(t["to"])), str(gs.projected_compensation(p).get("reason", ""))]
+			GameDB.club_name(str(t["to"])), str(compensation(gs, p)["line"])]
 
 
 ## The season is over: every approach is settled, before rivals re-sign and

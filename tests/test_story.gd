@@ -200,7 +200,9 @@ const COST_WORDS := {
 	"start_backing": "expects to be picked", "back_kid": "is promised", "promise_win": "Lose and", "extend_early": "Locked in", "captaincy_swap": "mid-season",
 	"new_club_keep": "against your cap", "new_club_go": "when this season ends",
 }
-const SAMPLE_FACTS := {"sore_odds": "about 1 in 6", "run_games": 3, "early_price": "$1m", "more_seasons": "two more seasons"}
+const SAMPLE_FACTS := {"sore_odds": "about 1 in 6", "run_games": 3, "early_price": "$1m", "more_seasons": "two more seasons",
+		"new_club": "Tasmania", "keep_seasons": "three more seasons", "keep_price": "$600k", "comp_after": 20,
+		"comp_line": "You receive a draft pick after pick 20, early in the second round."}
 
 
 ## [gains, costs]: the kinds of effect a choice really has (a flag, a note or an

@@ -35,6 +35,8 @@ var pick_owners := {}
 ## Free-agency compensation picks in this draft: [{"index" (0-based pick),
 ## "club", "after", "player", "name", "to", ...}]. See add_compensation.
 var comp_picks: Array = []
+## Clubs with a seat but no regular pick (add_guest).
+var guests: Array = []
 var pick_index := 0               # next pick in pick_sequence
 var league_mode := false
 var seed := 0
@@ -219,6 +221,7 @@ func add_compensation(comps: Array) -> void:
 func add_guest(code: String, size: int, counts: Dictionary, pairs: Array) -> void:
 	if clubs.has(code) or pick_index != 0:
 		return
+	guests.append(code)
 	clubs.append(code)
 	club_lists[code] = []
 	club_spend[code] = 0
@@ -1056,7 +1059,7 @@ func count() -> int:
 ## Picks a club may make: one a round, plus any compensation picks and picks
 ## it traded for, less those it traded away.
 func pick_limit(code: String) -> int:
-	var n := target_size
+	var n := 0 if guests.has(code) else target_size
 	for c in comp_picks:
 		if str(c["club"]) == code:
 			n += 1
