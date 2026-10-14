@@ -163,6 +163,12 @@ func _test_named_players() -> void:
 	_check(not uwland.is_empty() and PlayerProfile.player_type(uwland) != "Key defender", "Bodhi Uwland is not a key defender")
 	var langford := _find("MEL", "Harvey Langford")
 	_check(not langford.is_empty() and Roles.label(langford) == "Wing", "Harvey Langford is a wing")
+	for n in [["SYD", "Errol Gulden"], ["GWS", "Finn Callaghan"], ["GEE", "Max Holmes"], ["ADE", "Jordan Dawson"]]:
+		var star := _find(n[0], n[1])
+		_check(not star.is_empty() and Roles.label(star) == "Inside midfielder",
+				"%s, a top ball-winner, is an inside midfielder (%s)" % [n[1], Roles.label(star)])
+	_check(str(_find("GWS", "Josh Kelly").get("role", "")) == "MID" and str(_find("MEL", "Steven May").get("role", "")) == "DEF",
+			"Listed veterans take their real position, not a height roll")
 	var tall_small := 0
 	for p in GameDB.players:
 		if str(p.get("role", "")) == "DEF" and PlayerProfile.player_type(p) == "Small defender" 				and float(p.get("height_cm", 0.0)) > PlayerProfile.SMALL_DEF_CM:

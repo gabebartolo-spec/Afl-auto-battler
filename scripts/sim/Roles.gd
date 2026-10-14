@@ -24,6 +24,12 @@ const WING_MARGIN := 0.12
 const WING_CLEARANCES := 2.0
 const WING_CONTESTED_SHARE := 0.42
 const WING_STAT_GAMES := 6.0
+## ...but never a midfielder who is one of the league's ball-winners: this many
+## clearances or contested possessions a game (season of WING_STAT_GAMES or
+## more) makes him an inside midfielder however much he runs (Gulden,
+## Callaghan, Holmes, Dawson, Merrett read as wings on percentile gaps).
+const WING_NEVER_CLEARANCES := 3.5
+const WING_NEVER_CONTESTED := 8.0
 ## How much more of the transition ball a wing gets, and how much less of
 ## the stoppage ball (MatchSim.pick_carrier / _stoppage).
 const WING_TRANSITION := 1.6
@@ -63,6 +69,10 @@ static func is_mid(p: Dictionary) -> bool:
 static func is_wing(p: Dictionary) -> bool:
 	if not is_mid(p) or str(p.get("role", "")) == "RUCK":
 		return false
+	if float(p.get("gm", 0.0)) >= WING_STAT_GAMES:
+		var gms := float(p["gm"])
+		if float(p.get("cl", 0.0)) / gms >= WING_NEVER_CLEARANCES 				or float(p.get("cp", 0.0)) / gms >= WING_NEVER_CONTESTED:
+			return false
 	var mid_view := p.duplicate()
 	mid_view["role"] = "MID"
 	var run := 0.5 * (PlayerProfile.percentile(mid_view, "carry") + PlayerProfile.percentile(mid_view, "disposal"))
