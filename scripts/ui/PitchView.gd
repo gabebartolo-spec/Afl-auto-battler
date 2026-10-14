@@ -491,8 +491,23 @@ static func dress_sides(base: String) -> void:
 	var codes: Array = GameDB.side_codes(base)
 	if not GameDB.is_side(str(codes[1])) or (GameDB.clubs[codes[1]] as Dictionary).has("kit"):
 		return
-	GameDB.set_side_kit(str(codes[0]), GameDB.club_guernsey(base))
-	GameDB.set_side_kit(str(codes[1]), kits_for(base, base)[1])
+	var home: Dictionary = GameDB.club_guernsey(base)
+	var second: Dictionary = kits_for(base, base)[1]
+	var hb: Color = home.get("base", Color.WHITE)
+	if UiKit.colour_distance(hb, second.get("base", Color.WHITE)) < DISC_CLASH:
+		# The kit's two colours are too alike to tell two sides apart (Gold
+		# Coast's two reds): the second side takes the club's own colour that
+		# is farthest from the first side's, still one of the club's colours.
+		var far: Color = hb
+		for c in GameDB.club_colours(base):
+			if UiKit.colour_distance(hb, c) > UiKit.colour_distance(hb, far):
+				far = c
+		second = home.duplicate()
+		second["base"] = far
+		second["pattern"] = hb
+		second["clash"] = true
+	GameDB.set_side_kit(str(codes[0]), home)
+	GameDB.set_side_kit(str(codes[1]), second)
 
 
 ## +1 when the home side kicks to the right of the screen, -1 when it kicks

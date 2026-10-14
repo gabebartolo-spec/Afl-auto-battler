@@ -79,6 +79,8 @@ static func data() -> Dictionary:
 			for k in parsed:
 				if DEFAULTS.has(k):
 					_data[k] = parsed[k]
+		# The scouting read's own copy of its size (DraftScouting cannot ask us).
+		DraftScouting.seen_uncertainty = float(_data.get("intra_seen_uncertainty", 0.7))
 	return _data
 
 
@@ -343,11 +345,11 @@ static func seen_line(p: Dictionary, club: String) -> String:
 
 
 ## How much narrower `club`'s rating read on a prospect is for having seen
-## him play (1.0: not seen, or the pre-season switched off).
+## him play (1.0: not seen, or the pre-season switched off). The rule lives
+## with the scouting it changes (DraftScouting.seen_mult).
 static func seen_mult(p: Dictionary, club: String) -> float:
-	if not (p.get("seen") is Dictionary) or not (p["seen"] as Dictionary).has(club) or not Features.on("preseason"):
-		return 1.0
-	return clampf(float(tune("intra_seen_uncertainty")), 0.1, 1.0)
+	data()
+	return DraftScouting.seen_mult(p, club)
 
 
 static func trial_seed(career_seed: int, year: int, club: String, id: String) -> int:

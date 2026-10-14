@@ -267,16 +267,17 @@ const SIDE_HOME := "_H"
 const SIDE_CLASH := "_A"
 ## Each club's two strips, named by their colour: [home strip, clash strip].
 ## The clash strip is the one the oval gives an away side that looks like the
-## home side (PitchView.kits_for), so these are that kit's colours in plain
-## words. A club not listed (a created one) is "Home" and "Clash".
+## home side (PitchView.kits_for: the club's own kit with its two colours
+## changed over), so these are that kit's colours in plain words. A club not
+## listed (a created one) is "Home" and "Clash".
 const SIDE_COLOUR_NAMES := {
-	"ADE": ["Navy", "Gold"], "BRL": ["Maroon", "Blue"], "CAR": ["Navy", "White"],
-	"CANB": ["Navy", "Gold"], "COL": ["Black", "White"], "ESS": ["Black", "White"],
+	"ADE": ["Navy", "Red"], "BRL": ["Maroon", "Blue"], "CAR": ["Navy", "White"],
+	"CANB": ["Navy", "White"], "COL": ["Black", "White"], "ESS": ["Black", "Red"],
 	"FRE": ["Purple", "White"], "GCS": ["Red", "Gold"], "GEE": ["Navy", "White"],
-	"GWS": ["Charcoal", "Silver"], "HAW": ["Brown", "Gold"], "MEL": ["Navy", "Blue"],
-	"NTH": ["Blue", "Pale blue"], "PAD": ["Black", "Silver"], "RIC": ["Black", "White"],
+	"GWS": ["Charcoal", "Orange"], "HAW": ["Brown", "Gold"], "MEL": ["Navy", "Red"],
+	"NTH": ["Blue", "White"], "PAD": ["Black", "White"], "RIC": ["Black", "Yellow"],
 	"STK": ["Black", "White"], "SYD": ["White", "Red"], "TAS": ["Green", "Yellow"],
-	"WBD": ["Blue", "Red"], "WCE": ["Blue", "Sky blue"],
+	"WBD": ["Blue", "Red"], "WCE": ["Blue", "Gold"],
 }
 
 

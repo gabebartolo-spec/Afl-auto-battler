@@ -1853,16 +1853,30 @@ func _test_sides() -> void:
 	var kits: Array = PitchView.kits_for(home, clash)
 	var as_away: Array = PitchView.kits_for("FRE", "FRE")
 	_check(kits[0] == GameDB.club_guernsey("FRE") and kits[1] == as_away[1]
-			and (kits[1]["base"] as Color).is_equal_approx(UiKit.club_ink_second("FRE"))
+			and (kits[1]["base"] as Color).is_equal_approx(GameDB.club_guernsey("FRE")["pattern"])
+			and (kits[1]["pattern"] as Color).is_equal_approx(GameDB.club_guernsey("FRE")["base"])
 			and UiKit.colour_distance(kits[0]["base"], kits[1]["base"]) >= PitchView.DISC_CLASH
 			and UiKit.colour_distance(kits[1]["base"], kits[1]["pattern"]) >= PitchView.DISC_CLASH,
-			"The second side wears the oval's own clash strip for that club (no invented colour), and the two read apart")
+			"The second side wears the oval's own clash strip for that club, its kit's two colours changed over (no invented colour), and the two read apart")
 	_check(GameDB.club_guernsey(clash) == kits[1] and GameDB.club_guernsey(home) == kits[0],
 			"Each side's kit is its own wherever a kit is asked for (crests, the close-ups)")
 	var inks: Array = UiKit.club_ink_pair(home, clash)
 	_check(UiKit.club_ink(home).is_equal_approx(UiKit.club_ink("FRE")) and UiKit.club_ink(clash).is_equal_approx(UiKit.club_ink_second("FRE"))
 			and (inks[0] as Color).is_equal_approx(UiKit.club_ink("FRE")) and (inks[1] as Color).is_equal_approx(UiKit.club_ink_second("FRE")),
-			"On the scoreboard and the stats the first side is in the club's first ink and the second in its second")
+			"On the scoreboard and the stats Fremantle Purple is in the club's purple ink and Fremantle White in its white")
+	GameDB.register_sides("MEL")
+	var mel: Array = PitchView.kits_for("MEL_H", "MEL_A")
+	_check(GameDB.club_name("MEL_H") == "Melbourne Navy" and GameDB.club_name("MEL_A") == "Melbourne Red"
+			and (mel[1]["base"] as Color).is_equal_approx(GameDB.club_guernsey("MEL")["pattern"])
+			and UiKit.club_ink("MEL_A").is_equal_approx(UiKit.club_ink("MEL"))
+			and UiKit.club_ink("MEL_H").is_equal_approx(UiKit.club_ink_second("MEL")),
+			"Melbourne Navy is in the club's blue ink and Melbourne Red in its red: each side's ink is the colour of the strip it wears")
+	GameDB.register_sides("RIC")
+	var ric: Array = UiKit.club_ink_pair("RIC_H", "RIC_A")
+	_check(GameDB.club_name("RIC_H") == "Richmond Black" and GameDB.club_name("RIC_A") == "Richmond Yellow"
+			and (ric[0] as Color).s < 0.1 and UiKit.contrast(ric[0], UiKit.PANEL) >= 4.5
+			and (ric[1] as Color).is_equal_approx(UiKit.club_ink("RIC")),
+			"Richmond Black is in a readable grey (no hue invented for black) and Richmond Yellow in the club's yellow")
 	_check(_look_of_every_club() == before, "With the two sides registered, every real club and every real pair looks exactly as before")
 	var pv := PitchView.new()
 	pv.size = Vector2(370, 490)
@@ -1881,9 +1895,18 @@ func _test_sides() -> void:
 		var k: Array = PitchView.kits_for(str(two[0]), str(two[1]))
 		named = named and GameDB.SIDE_COLOUR_NAMES.has(str(c)) and GameDB.club_short(str(two[0])) != GameDB.club_short(str(two[1])) \
 				and GameDB.club_name(str(two[0])).begins_with(GameDB.club_name(str(c)) + " ")
-		if UiKit.colour_distance(k[0]["base"], k[1]["base"]) < PitchView.DISC_CLASH:
+		var two_inks: Array = UiKit.club_ink_pair(str(two[0]), str(two[1]))
+		if UiKit.colour_distance(k[0]["base"], k[1]["base"]) < PitchView.DISC_CLASH \
+				or (two_inks[0] as Color).is_equal_approx(two_inks[1]) \
+				or UiKit.contrast(two_inks[0], UiKit.PANEL) < 4.5 or UiKit.contrast(two_inks[1], UiKit.PANEL) < 4.5:
 			worn.append(str(c))
-	_check(named and worn.is_empty(), "Every club has two strips with their own colour names, and no club's two sides look alike (%s)" % ", ".join(worn))
+		var own: Array = [GameDB.club_colours(str(c))[0], GameDB.club_colours(str(c))[1], GameDB.club_colours(str(c))[2],
+				GameDB.club_guernsey(str(c))["base"], GameDB.club_guernsey(str(c))["pattern"]]
+		var is_own := false
+		for col in own:
+			is_own = is_own or (k[1]["base"] as Color).is_equal_approx(col)
+		named = named and is_own
+	_check(named and worn.is_empty(), "Every club has two strips with their own colour names, the second strip is always one of the club's own colours, and no club's two sides look alike on the oval or the scoreboard (%s)" % ", ".join(worn))
 	GameDB.unregister_sides()
 	_check(GameDB.clubs.size() == clubs_before and not GameDB.is_side(home) and GameDB.club_name(home) == home
 			and _look_of_every_club() == before,

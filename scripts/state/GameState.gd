@@ -268,6 +268,7 @@ var _dirty := false
 
 
 func _ready() -> void:
+	PreSeason.data()   # its sizes are read once, before any scouting read needs one
 	var cfg := ConfigFile.new()
 	if cfg.load(settings_path) == OK:
 		show_real_names = bool(cfg.get_value("display", "real_names", true))

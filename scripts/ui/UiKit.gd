@@ -455,13 +455,69 @@ static func club_ink_second(code: String, surface := AUTO_COLOUR) -> Color:
 	return _ink(code, 1, surface)
 
 
+## The two inks for a club's two sides in an intra-club match: [home strip,
+## clash strip]. Each is the readable colour nearest the strip it wears: one of
+## the club's two hand-picked inks when one of them is that colour (Melbourne's
+## navy side in the lifted blue, its red side in the red), otherwise the
+## strip's own colour lifted until it reads (a black strip in grey). The two
+## are never the same ink.
+static func side_inks(base: String, surface := AUTO_COLOUR) -> Array:
+	var kits: Array = PitchView.kits_for(GameDB.side_codes(base)[0], GameDB.side_codes(base)[1]) \
+			if GameDB.is_side(str(GameDB.side_codes(base)[0])) else PitchView.kits_for(base, base)
+	var picked: Array = [club_ink(base, surface), club_ink_second(base, surface)]
+	var out := []
+	for i in range(2):
+		var strip: Color = (kits[i] as Dictionary).get("base", Color.WHITE)
+		var best: Color = readable_ink(strip, surface)
+		for cand in picked:
+			if _same_family(strip, cand) and (out.is_empty() or not (out[0] as Color).is_equal_approx(cand)):
+				best = cand
+				break
+		out.append(best)
+	return out
+
+
+## Whether an ink is the same colour as a strip: the same hue for two real
+## colours (within 30 degrees), white for a white strip. A black strip has no
+## ink of its own colour.
+static func _same_family(strip: Color, ink: Color) -> bool:
+	if strip.s < 0.25:
+		return strip.v > 0.7 and ink.s < 0.15
+	if ink.s < 0.25:
+		return false
+	var d := absf(strip.h - ink.h) * 360.0
+	return minf(d, 360.0 - d) < 30.0
+
+
+## `colour` along its own hue, lightened (or darkened on a light ground) only
+## as far as it takes to read at 4.5:1. A colour with no hue (black, white)
+## stays a grey: no hue is invented for it.
+static func readable_ink(colour: Color, surface := AUTO_COLOUR) -> Color:
+	if surface == AUTO_COLOUR:
+		surface = PANEL
+	var dark_ground := _relative_luminance(surface) < 0.4
+	var grey := colour.s < 0.25
+	var sat := 0.0 if grey else colour.s
+	var val := colour.v
+	for i in 24:
+		var cand := Color.from_hsv(colour.h, sat, val)
+		if contrast(cand, surface) >= 4.5:
+			return cand
+		if dark_ground:
+			val = minf(1.0, val + 0.05)
+			if not grey:
+				sat = maxf(0.6, sat - 0.02)
+		else:
+			val = maxf(0.0, val - 0.05)
+	return TEXT
+
+
 static func _ink(code: String, which: int, surface) -> Color:
-	# A side of an intra-club match has its club's inks; the side in the clash
-	# strip leads with the club's second, so each side has its own colour.
+	# A side of an intra-club match is in the colour of the strip it wears; its
+	# "second" ink is the other side's.
 	if GameDB.is_side(code):
-		if GameDB.side_is_clash(code):
-			which = 1 - which
-		code = GameDB.side_base(code)
+		var own := 1 if GameDB.side_is_clash(code) else 0
+		return side_inks(GameDB.side_base(code), surface)[own if which == 0 else 1 - own]
 	if CLUB_INKS.has(code) and _appearance == "dark" and surface == AUTO_COLOUR:
 		return Color(str((CLUB_INKS[code] as Array)[which]))
 	if surface == AUTO_COLOUR:

@@ -11,13 +11,30 @@ const ERROR_CLAMP := 2.4
 const COMBINE_NOISE := 4.0
 
 
+## How wide a club's read on a prospect is once it has seen him play in its
+## intra-club match, as a share of its usual read. The size is the pre-season's
+## (data/preseason.json "intra_seen_uncertainty"; PreSeason sets it here when
+## it reads its data). Kept here, not asked of PreSeason, so this file stays
+## free of anything that needs the game's autoloads: test runners name it
+## before they exist.
+static var seen_uncertainty := 0.7
+
+
+## 1.0 unless `club` has a note on him from its intra-club match (p["seen"])
+## and the pre-season is switched on.
+static func seen_mult(p: Dictionary, club: String) -> float:
+	if not (p.get("seen") is Dictionary) or not (p["seen"] as Dictionary).has(club) or not Features.on("preseason"):
+		return 1.0
+	return clampf(seen_uncertainty, 0.1, 1.0)
+
+
 static func projection(p: Dictionary, club: String, seed: int, uncertainty_mult := 1.0) -> Dictionary:
 	var ov := int(p.get("overall", 50))
 	var pot := maxi(ov, int(p.get("potential", ov)))
 	var certainty := _certainty(p)
 	# A club that saw him in its intra-club match reads him more tightly
-	# (PreSeason.seen_mult; 1.0 for everyone else, and with the switch off).
-	var u := maxf(0.25, float(uncertainty_mult) * PreSeason.seen_mult(p, club))
+	# (seen_mult; 1.0 for everyone else, and with the switch off).
+	var u := maxf(0.25, float(uncertainty_mult) * seen_mult(p, club))
 	var ov_mid := clampi(int(round(float(ov) + _normal(_key(p, club, seed, "ovr")) * OVR_SD * certainty * u)), 1, 99)
 	var pot_mid := clampi(int(round(float(pot) + _normal(_key(p, club, seed, "pot")) * POT_SD * certainty * u)), ov_mid, 99)
 	var base_ov_half := 2 if certainty < 0.82 else 3
