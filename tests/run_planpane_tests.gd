@@ -42,7 +42,6 @@ func _plan_lines() -> void:
 	var box: Node = m.find_child("CoachBox", true, false)
 	_check(box != null, "The pre-bounce box opens (plan lines)")
 	if box != null:
-			var UK = load("res://scripts/ui/UiKit.gd")
 			# The plan under the buttons: short separate lines, each plan with its parts.
 			for pk in ["balanced", "attacking", "defensive", "contest", "controlled", "through_stars"]:
 				var pb: Button = box.find_child("PlanPicker_" + pk, true, false)
