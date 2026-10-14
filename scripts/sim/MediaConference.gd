@@ -52,8 +52,8 @@ static func pick(ctx: Dictionary, recent: Dictionary) -> Dictionary:
 	if not injuries.is_empty():
 		candidates.append(_q("injury", "bogan", "Tough blow losing %s. How much did that hurt you out there?" %
 				str(injuries[0].get("name", "a player")), round_no,
-				"We won't use it as an excuse.", "The group had to adjust, but that's footy.",
-				"It clearly hurt us. We'll look after him."))
+				"No excuses. The blokes who came in weren't up to it.", "The group had to adjust, but that's footy.",
+				"Losing %s cost us the game. Nothing more to it." % str(injuries[0].get("name", "him"))))
 	if margin <= -40:
 		# What you told the Sycophant after a big win this season comes back.
 		var said: Dictionary = recent["said|big_win"] if recent.get("said|big_win") is Dictionary else {}
@@ -61,36 +61,36 @@ static func pick(ctx: Dictionary, recent: Dictionary) -> Dictionary:
 			candidates.append(_q("heavy_loss", "muckraker",
 					"After beating %s you said your method was the standard. Where was it today against %s?" % [
 					str(said.get("opp", "them")), opp], round_no,
-					"Fair question. It wasn't there today.", "One bad day doesn't change the method.",
-					"Ask the players whether they believe in it. They do."))
+					"Fair question. The players didn't live up to it today.", "One bad day doesn't change the method.",
+					"The players believe in it. I won't blame them for one bad day."))
 		else:
 			candidates.append(_q("heavy_loss", "muckraker", "%s beat you by %d. Was that acceptable?" % [opp, -margin],
-					round_no, "We own it. That wasn't our standard.",
-					"The system held up in patches; our execution didn't.", "I'll back the players to respond."))
+					round_no, "That was soft from the players. It wasn't good enough.",
+					"The system held up in patches; our execution didn't.", "Don't blame the players. They'll respond."))
 	elif margin >= 40:
 		candidates.append(_q("big_win", "sycophant", "That was a clinic against %s. Is this the best side in the competition?" % opp,
-				round_no, "Plenty to like, but it's one game.", "Our method stood up. That's the standard.",
-				"The players deserve the credit."))
+				round_no, "Don't get carried away. Some of it was sloppy, and the players know it.", "Our method stood up. That's the standard.",
+				"All credit to the players. It wasn't down to the system."))
 	elif absi(margin) <= 6:
 		candidates.append(_q("close_game", "stats", _close_question(res, side, margin, opp), round_no,
-				"Our composure in the big moments.", "A handful of contests. That's how tight games go.",
-				"I loved the way the players stayed in it."))
+				"We left too much to chance. Some players weren't good enough when it counted.", "A handful of contests. That's how tight games go.",
+				"The players did everything right. I won't take a thing off them."))
 
 	var star: Dictionary = ctx.get("star", {})
 	if not star.is_empty():
 		var line := str(star.get("line", "had a huge night"))
 		candidates.append(_q("star", "bogan", "%s %s. Is there a better player in the comp right now?" %
 				[str(star.get("name", "One of your players")), line], round_no,
-				"He was excellent, but it was a team performance.", "We put him in positions to influence the game.",
-				"He stood up when we needed him."))
+				"He was good, but too many others were passengers.", "We put him in positions to influence the game.",
+				"Credit to him and the whole group. I won't hear a word against them."))
 
 	var young := int(ctx.get("young", 0))
 	if young >= YOUNG_SIDE:
 		candidates.append(_q("young_side", "philosopher",
 				"%s of your side today were %d or younger. Is this the club you're building?" % [
 				MatchNotes.count_word(young).capitalize(), int(YOUNG_AGE)], round_no,
-				"They're in on merit, not on age.", "It's where the club is going, and we'll wear the bad days.",
-				"They've earned it. I'm proud of them."))
+				"They're here on merit, and the ones who don't perform will be dropped.", "It's where the club is going, and we'll wear the bad days.",
+				"They've earned it, and I won't have them criticised. I'm proud of them."))
 
 	# Not every ordinary match earns a conference. A notable factual trigger is required.
 	for q in candidates:
