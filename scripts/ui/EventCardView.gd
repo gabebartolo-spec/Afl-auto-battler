@@ -7,28 +7,28 @@ extends RefCounted
 ## opens the rule sheet.
 
 
-static func build(index: int, narrow: bool, rebuild: Callable, show_rule: Callable) -> Control:
+static func build(index: int, narrow: bool, rebuild: Callable, show_rule: Callable, names := {}) -> Control:
 	var e: Dictionary = GameState.week_events[index]
 	var card := UiKit.panel(UiKit.PANEL, 12)
 	card.name = "WeekEvent" if index == 0 else "WeekEvent_%d" % index
 	var v := UiKit.vbox(6)
 	card.add_child(v)
-	v.add_child(UiKit.lbl(str(e.get("title", "")), UiKit.BODY, UiKit.TEXT, true))
+	v.add_child(NameInk.label(str(e.get("title", "")), names, UiKit.BODY, UiKit.TEXT, true))
 	if not bool(e.get("resolved", false)):
-		var t := UiKit.lbl(str(e.get("text", "")), 12, UiKit.TEXT)
+		var t := NameInk.label(str(e.get("text", "")), names, 12, UiKit.TEXT)
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(t)
 		# What an authored stakes line adds, then what happens if he says
 		# nothing, apart from the choices. Full-strength text: it is what a
 		# coach decides on.
 		if str(e.get("stakes", "")) != "":
-			var sk := UiKit.lbl(str(e["stakes"]), UiKit.SECONDARY, UiKit.TEXT)
+			var sk := NameInk.label(str(e["stakes"]), names, UiKit.SECONDARY, UiKit.TEXT)
 			sk.name = "EventStakes_%d" % index
 			sk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(sk)
 		var silence := str((e.get("unanswered", {}) as Dictionary).get("hint", ""))
 		if silence != "":
-			var sl := UiKit.lbl(silence, UiKit.SECONDARY, UiKit.TEXT)
+			var sl := NameInk.label(silence, names, UiKit.SECONDARY, UiKit.TEXT)
 			sl.name = "EventSilence_%d" % index
 			sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(sl)
@@ -69,7 +69,7 @@ static func build(index: int, narrow: bool, rebuild: Callable, show_rule: Callab
 				elif line.begins_with(StoryEngine.COST_MARK):
 					mark = "Cost:"
 					kind = "Cost"
-				var cl := UiKit.lbl(line.substr(mark.length()).strip_edges() if mark != "" else line, UiKit.SECONDARY, UiKit.TEXT)
+				var cl := NameInk.label(line.substr(mark.length()).strip_edges() if mark != "" else line, names, UiKit.SECONDARY, UiKit.TEXT)
 				cl.name = "Event%s_%d_%d" % [kind, index, i]
 				cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				if mark == "":

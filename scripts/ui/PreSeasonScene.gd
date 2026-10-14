@@ -377,9 +377,10 @@ func _intra_report() -> Control:
 func _story_cards() -> Control:
 	var v := UiKit.vbox(10)
 	v.name = "PreSeasonCards"
+	var names := NameInk.from_lists(GameState.season.lists)
 	for i in range(GameState.week_events.size()):
 		v.add_child(EventCardView.build(i, not _wide(), func(): _build(),
-				func(t: String): EventCardView.rule_sheet(self, t)))
+				func(t: String): EventCardView.rule_sheet(self, t), names))
 	return v
 
 
