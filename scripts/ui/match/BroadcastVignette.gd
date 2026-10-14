@@ -16,7 +16,7 @@ const GOAL_LINE := "goal_line"
 const BOUNDARY_SNAP := "boundary_snap"
 
 const DURATIONS := {
-	SPECCY_FRONT: 2.2,    # the mark at 1.5 s, the freeze on the grab at 1.66 s, then it holds half a second
+	SPECCY_FRONT: 2.2,    # (with the "speccy_front" switch on; OLD_FRONT_DURATION without) the mark at 1.5 s, the freeze on the grab at 1.66 s, then it holds half a second
 	SPECCY_SIDE: 3.6,
 	SPECCY_DEFENSIVE: 3.7,
 	AFTER_SIREN: 5.4,
@@ -136,7 +136,13 @@ func _dress(codes: Array) -> void:
 	material = StoppageVignette.figure_material(_kits + [StoppageVignette.UMPIRE_GEAR], material as ShaderMaterial)
 
 
+## The earlier front speccy shot ran this long: it plays when the "speccy_front" switch is off.
+const OLD_FRONT_DURATION := 3.8
+
+
 static func duration_for(p_kind: String) -> float:
+	if p_kind == SPECCY_FRONT and not _sf_ready():
+		return OLD_FRONT_DURATION
 	return float(DURATIONS.get(p_kind, 3.5))
 
 
@@ -671,9 +677,10 @@ const SF_HELD := 3                # the ball's frame in his hands: upright, its 
 var _hold := 0.0
 
 
-## Whether the sheets hold the front-on moves (a sheet without them plays the old staging).
+## Whether the front-on shot plays: the "speccy_front" switch is on and the sheets hold its moves (otherwise the
+## earlier staging plays, exactly as before the new shot existed).
 static func _sf_ready() -> bool:
-	return VignetteFigures.has(BODY, "mark_f", "front") and VignetteFigures.has(BODY, "brace_f", "front")
+	return Features.on("speccy_front") and VignetteFigures.has(BODY, "mark_f", "front") and VignetteFigures.has(BODY, "brace_f", "front")
 
 
 func _sf_camera() -> Array:

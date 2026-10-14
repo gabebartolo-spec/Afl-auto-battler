@@ -5,7 +5,10 @@ extends SceneTree
 ## Writes <out>_plan.png (the plan as it opens), <out>_plan_low.png (the same,
 ## scrolled to the foot), <out>_plan_set.png (a Heavy running block and a Heavy
 ## last block picked), <out>_trial.png and <out>_trial_low.png (the time trial
-## stop) and <out>_round1.png (the hub at Round 1, the base in the plan line).
+## stop), <out>_intra_setup / _intra_invited / _intra_invited_low (the intra-club
+## stop), <out>_match_break / _match_play / _match_fulltime (the coached match in
+## its two strips), <out>_intra_report / _intra_report_low, <out>_round1.png (the
+## hub at Round 1) and <out>_draft_card.png (a prospect seen that day).
 
 var W := 390
 var H := 844
@@ -112,6 +115,35 @@ func _run() -> void:
 		await _shot(out + "_trial_hurt.png")
 	await _scroll(true)
 	await _shot(out + "_trial_low.png")
+	# The intra-club match: the sides and the invitations, the match itself in
+	# its two strips, then the report.
+	await _press("PreSeasonGo")
+	await _frames(10)
+	print("scene ", current_scene.name, " stop ", state.preseason_stop(), " needs ", state.intra_needed())
+	await _shot(out + "_intra_setup.png")
+	await _press("IntraFill")
+	await _shot(out + "_intra_invited.png")
+	await _scroll(true)
+	await _shot(out + "_intra_invited_low.png")
+	await _scroll(false)
+	await _press("PreSeasonGo")
+	await _frames(30)
+	print("scene ", current_scene.name, " ", state.pending_match)
+	await _shot(out + "_match_break.png")
+	await _press("StartQuarter")
+	for i in range(240):
+		await process_frame
+	await _shot(out + "_match_play.png")
+	current_scene.call("_on_skip")
+	await _frames(40)
+	await _shot(out + "_match_fulltime.png")
+	await _press("FullTimeContinue")
+	await _frames(14)
+	print("scene ", current_scene.name, " stop ", state.preseason_stop(), " played ", state.intra_played())
+	await _shot(out + "_intra_report.png")
+	await _scroll(true)
+	await _shot(out + "_intra_report_low.png")
+	await _scroll(false)
 	await _press("PreSeasonGo")
 	await _frames(12)
 	print("scene ", current_scene.name, " week ", state.preseason_week(), " line ", state.fitness_status_line())
@@ -123,6 +155,27 @@ func _run() -> void:
 			break
 		p = p.get_parent()
 	await _shot(out + "_round1.png")
+	# The draft card of a prospect seen in the intra-club match, at the
+	# National Draft that follows (the season itself is not played here).
+	var seen_id := ""
+	for prospect in state.draftee_pool:
+		if seen_id == "" and (prospect.get("seen", {}) as Dictionary).has(club):
+			seen_id = str(prospect["id"])
+	state.season.round_index = state.season.fixture.size()
+	if seen_id != "" and state.begin_intake_draft():
+		root.get_node("Router").go("draft")
+		await _frames(12)
+		current_scene.call("_open_player", seen_id)
+		await _frames(6)
+		var seen_lbl: Node = current_scene.find_child("SeenIntraClub", true, false)
+		print("draft card ", seen_id, " line ", (seen_lbl as Label).text if seen_lbl != null else "MISSING")
+		if seen_lbl != null:
+			var lp: Node = seen_lbl.get_parent()
+			while lp != null and not (lp is ScrollContainer):
+				lp = lp.get_parent()
+			if lp != null:
+				(lp as ScrollContainer).ensure_control_visible(seen_lbl as Control)
+		await _shot(out + "_draft_card.png")
 	quit(0)
 
 

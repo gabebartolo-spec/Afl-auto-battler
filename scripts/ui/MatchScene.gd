@@ -97,7 +97,7 @@ func _ready() -> void:
 		_res["label"] = GameState.pending_match["label"]
 		_res["venue"] = str(GameState.pending_match.get("venue", ""))
 		_res["events"] = []
-		_my_side = 0 if str(_res["home"]) == GameState.my_club else 1
+		_my_side = GameDB.coach_side(str(_res["home"]), str(_res["away"]), GameState.my_club)
 		_pos_before = GameState.my_position()
 		_farewell = _farewell_for(GameState.pending_match)
 	else:
@@ -105,7 +105,7 @@ func _ready() -> void:
 		_review = GameState.review_requested
 		GameState.review_requested = false
 		if not _res.is_empty() and GameState.my_club != "":
-			_my_side = 0 if str(_res.get("home", "")) == GameState.my_club else 1
+			_my_side = GameDB.coach_side(str(_res.get("home", "")), str(_res.get("away", "")), GameState.my_club)
 		_pos_before = GameState.last_pos_before
 	if _res.is_empty():
 		Router.replace("hub")
@@ -807,12 +807,14 @@ func _show_coach_box() -> void:
 			tag_note.text = "%s, your tagger, tags %s." % [GameDB.player_display_name(who), target]
 		else:
 			tag_note.text = "%s tags %s. He gives up his own game." % [GameDB.player_display_name(who), target]
-	# The names offered are their listed midfielders only (director, 2026-10-14):
-	# a ruck or a defender running through the middle is behind "Other player...",
-	# with every man the sim lets you tag, so "Tag which midfielder?" stays true.
+	# The tag is offered on their listed midfielders only (director, 2026-10-14:
+	# "Only listed midfielders"): the names, and "Other midfielder..." for the
+	# listed midfielders not already shown, which is not drawn when none is
+	# left. A ruck or a defender running through the middle is not offered, so
+	# "Tag which midfielder?" stays true.
 	var opp_listed := opp.filter(func(r): return _listed_midfielder(sim, r))
-	var tag := _player_choice("TagPicker", "No tag", opp, _in_the_game(opp_listed, quick if quick > 0 else 4), calls, "tag_id",
-			"Tag which midfielder?", sync_tag)
+	var tag := _player_choice("TagPicker", "No tag", opp_listed, _in_the_game(opp_listed, quick if quick > 0 else 4), calls, "tag_id",
+			"Tag which midfielder?", sync_tag, Callable(), Callable(), "Other midfielder…", true)
 	col_a.add_child(_call_block("Tag", tag))
 	if tagger != null and not others.is_empty():
 		# Your assistant's man carries the same facts as the others, so
@@ -827,7 +829,7 @@ func _show_coach_box() -> void:
 			_dress_tagger_card(b, _short_name(who), MatchNotes.tagger_card(who, float(sim.energy.get(pid, 100.0)), season_rating.call(pid)), id == "")
 		var who_tags := _player_choice("TaggerPicker", _card_text(tagger, tag_detail) + "\nYour assistant's pick", others,
 				others.slice(0, 2 if _pc_break else 3),
-				calls, "tagger_id", "Who goes to him?", sync_tag, tag_detail, card)
+				calls, "tagger_id", "Who goes to him?", sync_tag, tag_detail, card, "Other tagger…")
 		var wb := _call_block("Who tags", who_tags)
 		# The follow-up to Tag: packed with its question, never ahead of it.
 		wb.set_meta("break_follow", true)
@@ -2137,12 +2139,30 @@ func _call_block(label: String, control: Control) -> Control:
 ## and on_change(key) runs.
 func _choice_grid(node_name: String, options: Array, calls: Dictionary, field: String, columns: int,
 		on_change: Callable = Callable()) -> Control:
-	return UiKit.choice_grid(node_name, options, str(calls[field]), columns, func(key: String):
+	var grid_box := [null]
+	var grid := UiKit.choice_grid(node_name, options, str(calls[field]), columns, func(key: String):
 		calls[field] = key
+		_ink_choices(grid_box[0])
 		if on_change.is_valid():
 			on_change.call(key)
 		if _break_refresh.is_valid():
 			_break_refresh.call())
+	grid_box[0] = grid
+	_ink_choices(grid)
+	return grid
+
+
+## The choices of a call are what the coach is deciding between: every one
+## reads at body-text strength, and only the chosen one is outlined (lead's QC,
+## 2026-10-14: the names not chosen read as faint grey; design bible, second
+## pillar: nothing he decides on sits in grey). UiKit.paint_choice greys the
+## rest for the screens where the rest can be skipped; not here.
+func _ink_choices(grid: Node) -> void:
+	if grid == null or not is_instance_valid(grid):
+		return
+	for b in grid.get_children():
+		if b is Button:
+			(b as Button).add_theme_color_override("font_color", UiKit.TEXT)
 
 
 ## Three short words in one line (UiKit.segmented): the plan and the tag
@@ -2165,7 +2185,8 @@ func _segmented(node_name: String, options: Array, calls: Dictionary, field: Str
 ## ("" for none); wide is the list sheet's one-line form.
 func _player_choice(node_name: String, none_label: String, roster: Array, first: Array,
 		calls: Dictionary, field: String, sheet_title: String, on_change: Callable = Callable(),
-		detail: Callable = Callable(), card: Callable = Callable()) -> Control:
+		detail: Callable = Callable(), card: Callable = Callable(), other_label := "Other player…",
+		rest_only := false) -> Control:
 	var box := UiKit.vbox(0)
 	box.name = node_name
 	var rebuild := func(self_ref: Callable) -> void:
@@ -2182,19 +2203,29 @@ func _player_choice(node_name: String, none_label: String, roster: Array, first:
 					shown.append([cur, _card_text(r, detail)])
 		var grid := _choice_grid(node_name + "Grid", shown, calls, field, 2, on_change)
 		box.add_child(grid)
-		var other := UiKit.btn("Other player…", 14)
-		other.name = node_name + "Other"
-		other.custom_minimum_size = Vector2(0, 44)
-		other.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		other.pressed.connect(func():
-			_player_sheet(sheet_title, roster, str(calls[field]), detail, func(id: String):
-				calls[field] = id
-				if on_change.is_valid():
-					on_change.call(id)
-				self_ref.call(self_ref)
-				if _break_refresh.is_valid():
-					_break_refresh.call()))
-		grid.add_child(other)
+		# rest_only: the list behind the button is who is not already a button
+		# here, and with nobody left there is no button.
+		var listed: Array = roster
+		if rest_only:
+			var on_show := {}
+			for o in shown:
+				on_show[str(o[0])] = true
+			listed = roster.filter(func(r): return not on_show.has(str(r["id"])))
+		var other: Button = null
+		if not (rest_only and listed.is_empty()):
+			other = UiKit.btn(other_label, 14)
+			other.name = node_name + "Other"
+			other.custom_minimum_size = Vector2(0, 44)
+			other.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			other.pressed.connect(func():
+				_player_sheet(sheet_title, listed, str(calls[field]), detail, func(id: String):
+					calls[field] = id
+					if on_change.is_valid():
+						on_change.call(id)
+					self_ref.call(self_ref)
+					if _break_refresh.is_valid():
+						_break_refresh.call()))
+			grid.add_child(other)
 		if card.is_valid():
 			# Cards set their own facts (_dress_tagger_card): one to a line on
 			# a phone, side by side on a PC, "Other player..." last.
@@ -2206,7 +2237,7 @@ func _player_choice(node_name: String, none_label: String, roster: Array, first:
 		# On a PC, cards with a detail line sit together in their own row and
 		# "Other player..." beside the none choice: two short buttons share a
 		# row instead of each standing beside a tall card.
-		if _pc_break and detail.is_valid() and not none_label.contains("\n"):
+		if _pc_break and detail.is_valid() and not none_label.contains("\n") and other != null:
 			grid.move_child(other, 1)
 		if _pc_break:
 			for gb in grid.get_children():
@@ -2408,7 +2439,7 @@ func _taggable_now(sim: MatchSim, r: Dictionary) -> bool:
 ## lines up now. The break's tag names offer only these (director, 2026-10-14:
 ## a ruck in a midfield slot and a defender with midfield second were offered
 ## under "Tag which midfielder?"). The sim's own rule (MatchSim.tag_target_ok)
-## is untouched and still decides who "Other player..." lists.
+## is untouched; the tag's names and "Other midfielder..." both offer only these.
 func _listed_midfielder(sim: MatchSim, r: Dictionary) -> bool:
 	var id := str(r["id"])
 	var p := sim._on_ground(1 - _my_side, id)
@@ -3196,13 +3227,6 @@ func _ft_summary(v: VBoxContainer) -> void:
 
 	# What it means: finals, the ladder, who is next.
 	if mine:
-		# The quarter that turned a comeback win or a lost lead, and who did it.
-		var turned := ComebackTelling.turn_line(_res, me)
-		if turned != "":
-			var tl := UiKit.lbl(turned, UiKit.BODY, UiKit.MUTED)
-			tl.name = "Turned"
-			tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			v.add_child(tl)
 		var outlook := GameState.finals_outcome_line(_res)
 		if outlook != "":
 			var tag_now := str(_res.get("tag", ""))

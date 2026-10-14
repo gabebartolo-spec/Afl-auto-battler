@@ -43,6 +43,12 @@ const DEFAULTS := {
 	"heavy_week_injury": 0.008,
 	"soft_tissue_kinds": ["hamstring", "calf", "groin", "quad"],
 	"ai_old_age": 28.0,
+	"intra_week": 5,
+	"intra_side_size": 23,
+	"intra_injury_rate": 0.5,
+	"intra_xp_games": 1.0,
+	"intra_seen_uncertainty": 0.7,
+	"intra_spare_number": 60,
 	"default_blocks": [["solid", "running"], ["solid", "skills"], ["solid", "skills"]],
 	"ai_blocks": {
 		"contending": [["heavy", "running"], ["solid", "running"], ["solid", "skills"]],
@@ -56,8 +62,9 @@ const FOCUS_LABEL := {"running": "Running", "skills": "Skills"}
 const BASES := ["thin", "sound", "strong"]
 const DEFAULT_BASE := "sound"
 ## The weeks after which the pre-season stops for the coach: {week: stop}.
-## Slice 1 stops only for the time trial.
-const STOPS := {3: "trial"}
+## The time trial, then the intra-club match. The practice match against
+## another club is a later slice: it takes the week after its own block here.
+const STOPS := {3: "trial", 5: "intra"}
 
 static var _data := {}
 
@@ -72,6 +79,8 @@ static func data() -> Dictionary:
 			for k in parsed:
 				if DEFAULTS.has(k):
 					_data[k] = parsed[k]
+		# The scouting read's own copy of its size (DraftScouting cannot ask us).
+		DraftScouting.seen_uncertainty = float(_data.get("intra_seen_uncertainty", 0.7))
 	return _data
 
 
@@ -232,6 +241,115 @@ static func training_injury(p: Dictionary, load: String, career_seed: int, year:
 	if kinds.is_empty():
 		return {}
 	return {"weeks": Injuries._severity(rng), "kind": str(kinds[rng.randi_range(0, kinds.size() - 1)])}
+
+
+# ---------------------------------------------------------------------------
+# The intra-club match (director, 2026-10-14): two sides of the club's own
+# list, with prospects from the coming National Draft filling the spots.
+# ---------------------------------------------------------------------------
+const INTRA_MODES := ["even", "best"]
+const INTRA_MODE_LABEL := {"even": "Even sides", "best": "Best side v the rest"}
+## What each way of picking the sides gains and costs, as it plays out.
+const INTRA_GAIN := {
+	"even": "Two sides matched on rating, so every player and prospect gets a fair test.",
+	"best": "You coach your best 23 as one side, and every prospect is tested against them.",
+}
+const INTRA_COST := {
+	"even": "Your best 23 are split across the two sides.",
+	"best": "The rest of the list and the prospects are up against it, and may see little of the ball.",
+}
+
+
+static func intra_week() -> int:
+	return int(tune("intra_week"))
+
+
+static func intra_seed(career_seed: int, year: int, club: String) -> int:
+	return hash(["preseason", "intra", career_seed, year, club])
+
+
+## How many prospects the two sides need: two full sides, less the listed
+## players fit to play, and never more than there are prospects.
+static func invites_needed(fit_listed: int, prospects: int) -> int:
+	return clampi(2 * int(tune("intra_side_size")) - fit_listed, 0, prospects)
+
+
+## The two sides: [first, second], arrays of players. `listed` are the fit
+## listed players, best first; `guests` the invited prospects (copies), best
+## first. "best": the best side_size listed players are the first side, and
+## everyone else and every guest the second. "even": the listed players are
+## dealt alternately, then the guests, the first to whichever side is short.
+static func intra_sides(listed: Array, guests: Array, mode: String) -> Array:
+	var size := int(tune("intra_side_size"))
+	var first := []
+	var second := []
+	if mode == "best":
+		for i in range(listed.size()):
+			(first if i < size else second).append(listed[i])
+		for g in guests:
+			(second if second.size() < size or first.size() >= size else first).append(g)
+		return [first, second]
+	for i in range(listed.size()):
+		(first if i % 2 == 0 else second).append(listed[i])
+	for g in guests:
+		(first if first.size() <= second.size() else second).append(g)
+	return [first, second]
+
+
+## A prospect as he plays on the day: a copy with a spare jumper number, who
+## cannot be hurt. Nothing done to it reaches the draft pool.
+static func intra_guest(p: Dictionary, number: int, club: String) -> Dictionary:
+	var g := p.duplicate(true)
+	g["num"] = number
+	g["club"] = club
+	g["guest"] = true
+	g["cond_injury"] = 0.0
+	g.erase("injury_weeks")
+	g.erase("injury_kind")
+	return g
+
+
+## What a recruiter would say he saw of a prospect, from what he did in the
+## match: one line, the fact first.
+static func prospect_line(stats: Dictionary) -> String:
+	var g := int(stats.get("goals", 0))
+	var d := int(stats.get("disposals", 0))
+	var m := int(stats.get("marks", 0))
+	var t := int(stats.get("tackles", 0))
+	var h := int(stats.get("hitouts", 0))
+	if g >= 3:
+		return "Kicked %d goals against senior defenders." % g
+	if d >= 22:
+		return "Won plenty of the ball: %d disposals against senior bodies." % d
+	if h >= 15:
+		return "Held his own in the ruck: %d hit-outs." % h
+	if m >= 7:
+		return "Marked strongly: %d marks." % m
+	if t >= 6:
+		return "Tackled hard: %d tackles." % t
+	if g >= 1:
+		return "Kicked %s and had %d disposals." % ["a goal" if g == 1 else "%d goals" % g, d]
+	if d >= 12:
+		return "Found the ball %d times against senior bodies." % d
+	if d >= 1:
+		return "Had a quiet day against senior bodies: %d disposals." % d
+	return "Saw almost nothing of the ball."
+
+
+## The note on a prospect's draft card, or "" if `club` has not seen him.
+static func seen_line(p: Dictionary, club: String) -> String:
+	var seen: Dictionary = (p.get("seen", {}) as Dictionary).get(club, {}) if p.get("seen") is Dictionary else {}
+	if seen.is_empty():
+		return ""
+	return "Seen in your %d intra-club match. %s" % [int(seen.get("year", 0)), str(seen.get("line", ""))]
+
+
+## How much narrower `club`'s rating read on a prospect is for having seen
+## him play (1.0: not seen, or the pre-season switched off). The rule lives
+## with the scouting it changes (DraftScouting.seen_mult).
+static func seen_mult(p: Dictionary, club: String) -> float:
+	data()
+	return DraftScouting.seen_mult(p, club)
 
 
 static func trial_seed(career_seed: int, year: int, club: String, id: String) -> int:

@@ -268,6 +268,7 @@ var _dirty := false
 
 
 func _ready() -> void:
+	PreSeason.data()   # its sizes are read once, before any scouting read needs one
 	var cfg := ConfigFile.new()
 	if cfg.load(settings_path) == OK:
 		show_real_names = bool(cfg.get_value("display", "real_names", true))
@@ -2190,6 +2191,9 @@ func _prepare_interactive_final() -> bool:
 func finish_interactive_match(res: Dictionary) -> void:
 	if season == null or pending_match.is_empty():
 		return
+	if pending_phase == "intra":
+		_finish_live_intra(res)
+		return
 	if pending_phase == "finals":
 		_finish_interactive_final(res)
 		return
@@ -2526,6 +2530,11 @@ func preseason_stop() -> String:
 		return "plan"
 	if str(PreSeason.STOPS.get(w, "")) == "trial" and not bool(preseason.get("trial_seen", false)):
 		return "trial"
+	# The intra-club match: first the sides and the invitations, then, once it
+	# has been played, its report. One stop, two screens (preseason_intra).
+	if str(PreSeason.STOPS.get(w, "")) == "intra" and preseason.get("intra") is Dictionary \
+			and not bool((preseason["intra"] as Dictionary).get("seen", false)):
+		return "intra"
 	return ""
 
 
@@ -2569,8 +2578,8 @@ func preseason_trial() -> Dictionary:
 func preseason_step_week() -> String:
 	if not preseason_active():
 		return "done"
-	if preseason_stop() == "trial":
-		return "trial"
+	if preseason_stop() == "trial" or preseason_stop() == "intra":
+		return preseason_stop()
 	var w := preseason_week() + 1
 	var clubs: Dictionary = preseason.get("clubs", {})
 	for club in season.clubs:
@@ -2584,6 +2593,12 @@ func preseason_step_week() -> String:
 		preseason["trial"] = PreSeason.trial(my_list, career_seed, season_year, my_club)
 		preseason["trial_seen"] = false
 		return "trial"
+	if str(PreSeason.STOPS.get(w, "")) == "intra":
+		# Every AI club plays its own that week, by the same rules; yours
+		# waits for you to pick the sides and the prospects.
+		_ai_intras(clubs)
+		preseason["intra"] = {"mode": "even", "invites": [], "played": false, "seen": false}
+		return "intra"
 	if w >= PreSeason.weeks():
 		_finish_preseason()
 		return "done"
@@ -2680,6 +2695,15 @@ func preseason_advance() -> String:
 		return "done"
 	if preseason_stop() == "trial":
 		preseason["trial_seen"] = true
+	elif preseason_stop() == "intra":
+		if not intra_played():
+			# Pressed on without playing it: it is simmed on the sides and
+			# invitations as they stand, and the report is the next thing shown.
+			sim_intra_match()
+			mark_dirty()
+			autosave()
+			return "intra"
+		(preseason["intra"] as Dictionary)["seen"] = true
 	var at := ""
 	while at == "":
 		at = preseason_step_week()
@@ -2696,7 +2720,351 @@ func preseason_sim_to_round1() -> void:
 		return
 	while preseason_active():
 		preseason["trial_seen"] = true
+		if preseason_stop() == "intra":
+			if not intra_played():
+				sim_intra_match()
+			(preseason["intra"] as Dictionary)["seen"] = true
 		preseason_step_week()
+	mark_dirty()
+	autosave()
+
+
+# ---------------------------------------------------------------------------
+# The intra-club match (PreSeason.gd): end of week 5, behind the same switch
+# ---------------------------------------------------------------------------
+## Yours, this pre-season: {"mode", "invites": [prospect ids], "played",
+## "seen", "report"}. {} before week 5.
+func preseason_intra() -> Dictionary:
+	return preseason.get("intra", {}) if preseason.get("intra") is Dictionary else {}
+
+
+func intra_played() -> bool:
+	return bool(preseason_intra().get("played", false))
+
+
+## The prospects who can be invited: the coming National Draft's class, not
+## yet drafted, in the order the pool holds them.
+func intra_prospects() -> Array:
+	var out := []
+	for p in draftee_pool:
+		if not drafted_draftees.has(str(p.get("id", ""))):
+			out.append(p)
+	return out
+
+
+## A club's listed players fit to play, best first (ties by id).
+func _intra_fit(club: String) -> Array:
+	var out := []
+	for p in season.lists.get(club, []):
+		if Ratings.available(p):
+			out.append(p)
+	out.sort_custom(_better_rated)
+	return out
+
+
+## Best first; ties go to the id, so the same list gives the same order.
+func _better_rated(a: Dictionary, b: Dictionary) -> bool:
+	if int(a["overall"]) != int(b["overall"]):
+		return int(a["overall"]) > int(b["overall"])
+	return str(a["id"]) < str(b["id"])
+
+
+## [value, id] rows, highest value first; ties go to the id.
+func _higher_row(a: Array, b: Array) -> bool:
+	if float(a[0]) != float(b[0]):
+		return float(a[0]) > float(b[0])
+	return str(a[1]) < str(b[1])
+
+
+## How many prospects your two sides need.
+func intra_needed() -> int:
+	if season == null or my_club == "":
+		return 0
+	return PreSeason.invites_needed(_intra_fit(my_club).size(), intra_prospects().size())
+
+
+func intra_invites() -> Array:
+	return preseason_intra().get("invites", [])
+
+
+## Pick how the sides are made: "even" or "best". False once it is played.
+func set_intra_mode(mode: String) -> bool:
+	if preseason_stop() != "intra" or intra_played() or not PreSeason.INTRA_MODES.has(mode):
+		return false
+	(preseason["intra"] as Dictionary)["mode"] = mode
+	mark_dirty()
+	return true
+
+
+## Invite a prospect, or take the invitation back. False when the sides are
+## full, he is not in the class, or the match is played.
+func toggle_intra_invite(id: String) -> bool:
+	if preseason_stop() != "intra" or intra_played():
+		return false
+	var invites: Array = intra_invites()
+	if invites.has(id):
+		invites.erase(id)
+		mark_dirty()
+		return true
+	var known := false
+	for p in intra_prospects():
+		known = known or str(p.get("id", "")) == id
+	if not known or invites.size() >= intra_needed():
+		return false
+	invites.append(id)
+	(preseason["intra"] as Dictionary)["invites"] = invites
+	mark_dirty()
+	return true
+
+
+## The recruiters fill whatever spots are left, by their own read of the
+## class (the club's scouted worth, as an AI club's would).
+func intra_fill_invites() -> void:
+	if preseason_stop() != "intra" or intra_played():
+		return
+	var invites: Array = intra_invites()
+	for id in _intra_picks(my_club, intra_needed(), invites, recruiting_uncertainty_mult()):
+		invites.append(id)
+	(preseason["intra"] as Dictionary)["invites"] = invites
+	mark_dirty()
+
+
+## The `n` prospects a club's recruiters rate highest (after `have`), by the
+## read that club has of them: [ids], `have` not included.
+func _intra_picks(club: String, n: int, have: Array, scouting_mult: float) -> Array:
+	var rows := []
+	for p in intra_prospects():
+		if have.has(str(p["id"])):
+			continue
+		rows.append([DraftScouting.scouted_worth(p, club, career_seed, 0.5, scouting_mult), str(p["id"])])
+	rows.sort_custom(_higher_row)
+	var out := []
+	for i in range(mini(maxi(0, n - have.size()), rows.size())):
+		out.append(str(rows[i][1]))
+	return out
+
+
+## Build a club's intra-club match: {"sim", "home", "away", "sides": [ids of
+## the first side's listed players, of the second's], "guests": {id: copy}}.
+## Each listed player carries half a match's injury risk for it; the invited
+## prospects play as copies with spare numbers and cannot be hurt.
+func _intra_build(club: String, mode: String, invites: Array, coached: bool) -> Dictionary:
+	var listed := _intra_fit(club)
+	if mode == "best":
+		# The best side is the one the selectors would pick, then the rest.
+		var pick := Ratings.select_side(season.lists[club], {})
+		var chosen := {}
+		for p in (pick["ground"] as Array) + (pick["bench"] as Array):
+			chosen[str(p["id"])] = true
+		var front := listed.filter(func(p): return chosen.has(str(p["id"])))
+		listed = front + listed.filter(func(p): return not chosen.has(str(p["id"])))
+	var used := {}
+	for p in season.lists[club]:
+		used[int(p.get("num", 0))] = true
+	var guests := []
+	var by_id := {}
+	var number := int(PreSeason.tune("intra_spare_number"))
+	var pool := {}
+	for p in intra_prospects():
+		pool[str(p["id"])] = p
+	var ranked := []
+	for id in invites:
+		if pool.has(str(id)):
+			ranked.append(pool[str(id)])
+	ranked.sort_custom(_better_rated)
+	for p in ranked:
+		while used.has(number):
+			number += 1
+		used[number] = true
+		var g := PreSeason.intra_guest(p, number, club)
+		guests.append(g)
+		by_id[str(g["id"])] = g
+	var sides := PreSeason.intra_sides(listed, guests, mode)
+	var rate := float(PreSeason.tune("intra_injury_rate"))
+	for p in listed:
+		p["cond_injury"] = rate
+	var codes: Array = GameDB.register_sides(club, coached)
+	var home := Squad.new(GameDB.club_name(str(codes[0])), sides[0], true, str(codes[0]), {})
+	var away := Squad.new(GameDB.club_name(str(codes[1])), sides[1], false, str(codes[1]), {})
+	var sim := MatchSim.new(home, away, PreSeason.intra_seed(career_seed, season_year, club))
+	var started := {}
+	for p in home.ground + away.ground:
+		started[str(p["id"])] = true
+	return {"sim": sim, "home": str(codes[0]), "away": str(codes[1]), "guests": by_id, "started": started,
+			"first": (sides[0] as Array).map(func(p): return str(p["id"])),
+			"second": (sides[1] as Array).map(func(p): return str(p["id"]))}
+
+
+## What an intra-club match leaves behind, at any club: a reserves game's
+## development for the listed players who played, any injury to a listed
+## player (never a prospect), and the club's note on each
+## prospect it saw. Nothing reaches the ladder, the season's statistics,
+## votes, records or the board, and nothing lands on the draft pool but the
+## note. Returns your report (for your club), or {}.
+func _intra_finish(club: String, built: Dictionary, res: Dictionary, keep_sides := false) -> Dictionary:
+	var stats_all: Dictionary = res.get("players", {})
+	var guests: Dictionary = built.get("guests", {})
+	var list: Array = season.lists[club]
+	var side_names := [GameDB.club_name(str(built["home"])), GameDB.club_name(str(built["away"]))]
+	# The day's half risk is spent (the season's own stamps come at Round 1).
+	for p in list:
+		p.erase("cond_injury")
+	var played := {}
+	for id in (built.get("first", []) as Array) + (built.get("second", []) as Array):
+		played[str(id)] = true
+	# Development: a reserves game's worth, spent as any development is.
+	var staff: Dictionary = CoachEffects.staffs(coaches).get(club, {}) if not coaches.is_empty() else {}
+	var xp := int(round(float(reserves_xp()) * float(PreSeason.tune("intra_xp_games"))))
+	for p in list:
+		if not played.has(str(p["id"])):
+			continue
+		p["xp"] = int(p.get("xp", 0)) + _club_xp(club, p, xp, staff, false)
+		if club != my_club:
+			ai_spend_xp(p)
+	if club == my_club:
+		apply_train_plans()
+	# No load is carried: three weeks pass before Round 1, and the last block's
+	# heavy or fresh legs are what the side takes into it.
+	# Injuries: listed players only.
+	var rows := []
+	var w := preseason_week()
+	for inj in res.get("injuries", []):
+		var id := str(inj["id"])
+		if guests.has(id):
+			continue
+		for p in list:
+			if str(p["id"]) != id or int(p.get("injury_weeks", 0)) > 0:
+				continue
+			p["injury_weeks"] = int(inj["weeks"])
+			p["injury_kind"] = str(inj["kind"])
+			rows.append({"id": id, "club": club, "week": w, "weeks": int(inj["weeks"]), "kind": str(inj["kind"]), "how": "intra"})
+			if club == my_club:
+				add_news("injury", "%s (%s, %s) was hurt in the intra-club match." % [
+						GameDB.player_display_name(p), str(inj["kind"]), _weeks_text(int(inj["weeks"]))], "Pre-season")
+	if not rows.is_empty():
+		if not (preseason.get("injuries") is Array):
+			preseason["injuries"] = []
+		(preseason["injuries"] as Array).append_array(rows)
+		_log_injuries(rows, "Intra-club match")
+	# The club's note on each prospect it saw: the one thing kept on him.
+	var seen_rows := []
+	for p in draftee_pool:
+		var id := str(p.get("id", ""))
+		if not guests.has(id):
+			continue
+		var line := PreSeason.prospect_line(stats_all.get(id, {}))
+		if not (p.get("seen") is Dictionary):
+			p["seen"] = {}
+		(p["seen"] as Dictionary)[club] = {"year": season_year, "line": line}
+		seen_rows.append({"id": id, "line": line})
+	# A simmed match is done with its two sides; a coached one keeps them while
+	# full time is still on screen (the pre-season screen takes them out).
+	if not keep_sides:
+		GameDB.unregister_sides()
+	if club != my_club:
+		return {}
+	# Your report: who stood out, who struggled, who was hurt, who you saw.
+	# By the match's own player rating (the one full time shows), listed
+	# players only; "struggled" is among those who started on the ground, so
+	# a short day off the bench is not held against anyone.
+	var scored := []
+	var started: Dictionary = built.get("started", {})
+	for p in list:
+		if played.has(str(p["id"])) and stats_all.has(str(p["id"])):
+			scored.append([MatchNotes.rating(stats_all[str(p["id"])]), str(p["id"])])
+	scored.sort_custom(_higher_row)
+	var stood := []
+	var struggled := []
+	for i in range(mini(3, scored.size())):
+		stood.append(str(scored[i][1]))
+	for i in range(scored.size() - 1, 2, -1):
+		if struggled.size() < 2 and started.has(str(scored[i][1])):
+			struggled.append(str(scored[i][1]))
+	var hurt := []
+	for r in rows:
+		var hp := list_player(str(r["id"]))
+		hurt.append("%s (%s, %s)" % [GameDB.player_display_name(hp), str(r["kind"]), _weeks_text(int(r["weeks"]))])
+	last_injuries = rows
+	var score: Array = res.get("score", [0, 0])
+	return {"score": [int(score[0]), int(score[1])], "goals": res.get("goals", [0, 0]), "behinds": res.get("behinds", [0, 0]),
+			"names": side_names,
+			"stood": stood, "struggled": struggled, "hurt": hurt, "prospects": seen_rows}
+
+
+## Every AI club's intra-club match: its recruiters invite the prospects they
+## rate, the sides are even, and it is simmed. The same rules as yours. The
+## matches are built in club order, played together (Season.run_all, as a
+## round's are) and finished in club order, so the outcome never depends on
+## which finished first.
+func _ai_intras(clubs: Dictionary) -> void:
+	var order := []
+	var builds := []
+	var sims := []
+	for club in season.clubs:
+		var code := str(club)
+		if code == my_club or not clubs.has(code) or not season.lists.has(club):
+			continue
+		var need := PreSeason.invites_needed(_intra_fit(code).size(), intra_prospects().size())
+		var built := _intra_build(code, "even", _intra_picks(code, need, [], 1.0), false)
+		order.append(code)
+		builds.append(built)
+		sims.append(built["sim"])
+	var results: Array = Season.run_all(sims)
+	for i in range(order.size()):
+		_intra_finish(str(order[i]), builds[i], results[i], true)
+	GameDB.unregister_sides()
+
+
+## Your intra-club match, simmed on the sides and invitations as they stand.
+## Spots not yet filled are filled by the recruiters first.
+func sim_intra_match() -> bool:
+	if preseason_stop() != "intra" or intra_played():
+		return false
+	intra_fill_invites()
+	var intra: Dictionary = preseason["intra"]
+	var built := _intra_build(my_club, str(intra.get("mode", "even")), intra.get("invites", []), true)
+	var res: Dictionary = (built["sim"] as MatchSim).run()
+	intra["report"] = _intra_finish(my_club, built, res)
+	intra["played"] = true
+	mark_dirty()
+	return true
+
+
+var _intra_built := {}     # the live intra-club match being coached (never saved)
+
+
+## Set your intra-club match up to be coached live from the box, like any
+## match (MatchScene): your side is the first, in the home strip. Spots not
+## yet filled are filled by the recruiters first. False when there is none.
+func prepare_intra_match() -> bool:
+	if preseason_stop() != "intra" or intra_played():
+		return false
+	intra_fill_invites()
+	var intra: Dictionary = preseason["intra"]
+	_clear_pending()
+	_intra_built = _intra_build(my_club, str(intra.get("mode", "even")), intra.get("invites", []), true)
+	pending_sim = _intra_built["sim"]
+	pending_match = {"home": str(_intra_built["home"]), "away": str(_intra_built["away"]),
+			"round": 0, "label": "Intra-club match"}
+	pending_sim.moment_side = 0
+	pending_sim.always_offer_bounce = bounce_scene_every_match()
+	pending_sim.set_tactics(0, {"gameplan": club_plan})
+	pending_phase = "intra"
+	pending_label = "Intra-club match"
+	return true
+
+
+## The live intra-club match is over: the same finish as a simmed one, and
+## nothing of it is recorded on the season.
+func _finish_live_intra(res: Dictionary) -> void:
+	if _intra_built.is_empty() or not (preseason.get("intra") is Dictionary):
+		_clear_pending()
+		return
+	var intra: Dictionary = preseason["intra"]
+	intra["report"] = _intra_finish(my_club, _intra_built, res, true)
+	intra["played"] = true
+	_intra_built = {}
+	_clear_pending()
 	mark_dirty()
 	autosave()
 
@@ -3053,6 +3421,11 @@ func set_my_matchup(fwd_id: String, def_id: String) -> void:
 
 ## Compact stored-fact history surfaces. These deliberately read existing
 ## records/honour_roll rather than reconstructing or inventing old seasons.
+## "quarter time", "half time" or "three-quarter time" for break 0, 1 or 2.
+func _break_name(i: int) -> String:
+	return ["quarter time", "half time", "three-quarter time"][clampi(i, 0, 2)]
+
+
 func history_record_lines() -> Array:
 	var out := []
 	var high: Dictionary = records.get("highest_score", {})
@@ -3065,6 +3438,17 @@ func history_record_lines() -> Array:
 		out.append("Biggest win: %s by %d points v %s (%d)" % [
 				GameDB.club_name(str(win.get("club", ""))), int(win.get("value", 0)),
 				GameDB.club_name(str(win.get("opp", ""))), int(win.get("year", 0))])
+	var back: Dictionary = records.get("biggest_comeback", {})
+	if not back.is_empty():
+		out.append("Greatest comeback: %s, from %d points down at %s, beat %s (%d)" % [
+				GameDB.club_name(str(back.get("club", ""))), int(back.get("value", 0)),
+				_break_name(int(back.get("at", 1))), GameDB.club_name(str(back.get("opp", ""))),
+				int(back.get("year", 0))])
+	var blown: Dictionary = records.get("biggest_blown", {})
+	if not blown.is_empty():
+		out.append("Biggest lead lost: %s led %s by %d points at %s and lost (%d)" % [
+				GameDB.club_name(str(blown.get("club", ""))), GameDB.club_name(str(blown.get("opp", ""))),
+				int(blown.get("value", 0)), _break_name(int(blown.get("at", 1))), int(blown.get("year", 0))])
 	var goals: Dictionary = records.get("most_goals", {})
 	if not goals.is_empty():
 		var gp := _find_player(str(goals.get("id", "")))
@@ -8193,6 +8577,11 @@ func _settle_week_event() -> void:
 		var cost: Dictionary = card.get("unanswered", {})
 		if int(cost.get("board", 0)) != 0 and not board.is_empty():
 			board["confidence"] = clampi(board_confidence() + int(cost["board"]), 0, 100)
+		if int(cost.get("trust", 0)) != 0 and str(card.get("player_id", "")) != "":
+			var facts: Dictionary = card.get("facts", {})
+			var when := "Round %d" % int(facts.get("round", 0)) if int(facts.get("finals_week", 0)) == 0 else "Finals"
+			Trust.change(relations, Trust.player_key(str(card["player_id"])), int(cost["trust"]),
+					str(cost.get("why", "You said nothing")), int(season_year), when)
 		card["resolved"] = true
 		card["choice"] = -1
 		card["outcome"] = str(cost.get("text", "Business as usual."))

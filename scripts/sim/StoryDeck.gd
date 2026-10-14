@@ -49,7 +49,7 @@ const PLAYER_FACTS := ["name", "first", "age", "games", "fit", "selected", "over
 		"pot_gap", "contract_years", "morale", "trust", "trust_band", "discipline", "backed",
 		"fit_rank", "talk_case", "kpi", "kpi_or_need", "explain_label", "talk_text", "sore_odds",
 		"ask", "early_price", "more_seasons", "extension_ok", "job", "real_named",
-		"form", "form_games", "has_role2", "starting", "form_low", "trial_word", "trial_home", "trial_avg", "trial_par", "trial_tail",
+		"form", "form_games", "has_role2", "starting", "form_low", "role_avg", "role_word", "trial_word", "trial_home", "trial_avg", "trial_par", "trial_tail",
 		"leadership", "captain", "delegate_holds", "holds_at", "holds_trust_at"]
 ## Facts about the club and the week (GameState._story_club_facts).
 const CLUB_FACTS := ["club", "opp", "round", "year", "losing_run", "winning_run", "ladder",
@@ -204,6 +204,8 @@ static func _check_card(t: Dictionary) -> Array:
 	var un: Dictionary = t.get("unanswered", {})
 	if absi(int(un.get("board", 0))) > int(CAPS["board"]):
 		errs.append("%s: saying nothing costs more than the board cap" % id)
+	if int(un.get("trust", 0)) != 0 and (not player or str(un.get("why", "")) == ""):
+		errs.append("%s: saying nothing can cost trust only on a player card, with a reason" % id)
 	return errs
 
 

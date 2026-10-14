@@ -14,7 +14,6 @@ extends SceneTree
 ##   --figures           the mini-figure prototype on (Settings > Match view)
 ##   --maxsecs S         give up after S seconds of real time (default 1500)
 ##   --fullnudge         every disc drawn fully apart (PitchView.nudge_full), for the comparison
-##   --kitswap           on a clash the away side swaps its own kit's two colours (comparison)
 ##   --maxevents N       stop after N events (a short look at the kits, say)
 ## Writes <out>_NNN_<what>.png, <out>_log.jsonl (one line per frame: the last event
 ## the engine released, the ball, every token in metres and in pixels, the words on
@@ -145,9 +144,6 @@ func _run() -> void:
 	_scene = load("res://scenes/MatchScene.tscn").instantiate()
 	root.add_child(_scene)
 	_pitch = _scene.get("_pitch")
-	if args.has("kitswap"):
-		load("res://scripts/ui/PitchView.gd").set("clash_kit_swap", true)
-		_pitch.setup(_scene.get("_res"))
 	if args.has("fullnudge"):
 		load("res://scripts/ui/PitchView.gd").set("nudge_full", true)
 	var maxevents := int(args.get("maxevents", "0"))

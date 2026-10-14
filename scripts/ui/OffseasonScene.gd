@@ -46,7 +46,7 @@ func _ready() -> void:
 			_trade_club = code
 			break
 	get_viewport().size_changed.connect(func():
-		if is_inside_tree():
+		if is_inside_tree() and not UiKit.keyboard_resize(self):
 			_build())
 	_build()
 
