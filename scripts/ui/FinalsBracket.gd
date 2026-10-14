@@ -80,6 +80,9 @@ func _status() -> Control:
 		var out_in := ""
 		for w in range(WEEKS.size()):
 			for m in WEEKS[w][2]:
+				# A qualifying final's loser plays on (the double chance): only the others end a season.
+				if str(m[0]).begins_with("QF"):
+					continue
 				if str(f["slots"].get("L_" + str(m[0]), "")) == _me:
 					out_in = str(m[1])
 		if bool(f.get("done", false)) and str(f.get("premier", "")) == _me:
