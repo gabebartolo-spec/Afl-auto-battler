@@ -83,7 +83,8 @@ func _helper() -> void:
 	btn.text = "%s on %s" % [fre_name, gws_name]
 	root.add_child(btn)
 	NI.dress_button(btn, idx)
-	var over: RichTextLabel = btn.find_child("*", true, false) as RichTextLabel
+	var found := btn.find_children("*", "RichTextLabel", true, false)
+	var over: RichTextLabel = found[0] as RichTextLabel if not found.is_empty() else null
 	_check(btn.text == "%s on %s" % [fre_name, gws_name] and over != null
 			and over.text.contains("[color=#%s]%s[/color]" % [_html("GWS"), gws_name]),
 			"A button naming two players keeps its words and draws each in his club's ink")
