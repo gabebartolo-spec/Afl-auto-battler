@@ -17,7 +17,7 @@ class_name VignetteFigures
 ## centres (the pivot is under his ankles; the boots reach forward of it). Numbers are
 ## printed on the guernsey by the shader (figures_digits.png), not placed here.
 
-const SHEET_SIZE := Vector2i(2048, 3356)
+const SHEET_SIZE := Vector2i(2048, 3788)
 const HAS_TRIM := false
 const DESIGN_SCALE := 1
 const PX_PER_M := 100.0
@@ -1689,6 +1689,115 @@ const BODIES := {
 							"size": [32, 54],
 							"frames": 10,
 							"offset": [44, 36],
+						},
+					},
+				},
+			},
+			"mark_s": {
+				"side_q": {
+					"x": 0,
+					"y": 3356,
+					"size": [152, 196],
+					"frames": 7,
+					"pivot": [64.0, 190.0],
+					"reach": [1.6, 1.85, 1.57, 1.69, 1.82, 1.84, 1.79],
+					"contact": [93.08, 190.0],
+					"hips": [0.875, 1.027, 0.732, 0.586, 0.579, 0.572, 0.572],
+					"hands": [[71.6, 110.1, 48.0, 110.1, 0], [94.7, 93.7, 64.1, 93.7, 1], [133.1, 66.5, 83.7, 66.8, 1], [106.6, 31.6, 85.2, 32.5, 1], [81.2, 19.8, 74.4, 20.3, 1], [74.8, 18.5, 61.3, 18.3, 1], [73.4, 31.2, 58.6, 22.8, 1]],
+					"hair": {
+						"short_crop": {
+							"atlas": 0,
+							"x": 0,
+							"y": 336,
+							"size": [66, 68],
+							"frames": 7,
+							"offset": [42, 0],
+						},
+						"bald": {
+							"atlas": 1,
+							"x": 0,
+							"y": 360,
+							"size": [66, 66],
+							"frames": 7,
+							"offset": [42, 2],
+						},
+						"dreadlocks": {
+							"atlas": 2,
+							"x": 0,
+							"y": 576,
+							"size": [70, 72],
+							"frames": 7,
+							"offset": [40, 0],
+						},
+						"swept_back": {
+							"atlas": 3,
+							"x": 0,
+							"y": 364,
+							"size": [70, 72],
+							"frames": 7,
+							"offset": [42, -2],
+						},
+						"textured_short": {
+							"atlas": 4,
+							"x": 0,
+							"y": 348,
+							"size": [68, 70],
+							"frames": 7,
+							"offset": [42, 0],
+						},
+					},
+				},
+			},
+			"brace_s": {
+				"side_q": {
+					"x": 0,
+					"y": 3552,
+					"size": [126, 236],
+					"frames": 10,
+					"pivot": [29.0, 230.0],
+					"reach": [1.88, 1.88, 1.88, 1.83, 2.12, 2.24, 2.18, 2.07, 1.98, 1.9],
+					"contact": [41.27, 230.0],
+					"hands": [[59.3, 134.6, 28.5, 134.6, 1], [58.7, 136.5, 28.4, 133.7, 1], [69.4, 129.7, 34.1, 132.5, 1], [105.0, 81.6, 53.8, 85.7, 1], [79.3, 32.1, 44.9, 37.5, 1], [40.8, 20.4, 30.7, 23.6, 1], [55.9, 26.5, 44.3, 35.8, 1], [57.3, 37.7, 53.5, 70.2, 1], [65.4, 46.6, 55.1, 103.5, 1], [76.9, 55.1, 54.7, 119.3, 1]],
+					"hair": {
+						"short_crop": {
+							"atlas": 0,
+							"x": 0,
+							"y": 404,
+							"size": [64, 50],
+							"frames": 10,
+							"offset": [20, 38],
+						},
+						"bald": {
+							"atlas": 1,
+							"x": 0,
+							"y": 426,
+							"size": [64, 54],
+							"frames": 10,
+							"offset": [20, 38],
+						},
+						"dreadlocks": {
+							"atlas": 2,
+							"x": 0,
+							"y": 648,
+							"size": [70, 54],
+							"frames": 10,
+							"offset": [16, 36],
+						},
+						"swept_back": {
+							"atlas": 3,
+							"x": 0,
+							"y": 436,
+							"size": [70, 58],
+							"frames": 10,
+							"offset": [18, 32],
+						},
+						"textured_short": {
+							"atlas": 4,
+							"x": 0,
+							"y": 418,
+							"size": [68, 54],
+							"frames": 10,
+							"offset": [18, 36],
 						},
 					},
 				},
