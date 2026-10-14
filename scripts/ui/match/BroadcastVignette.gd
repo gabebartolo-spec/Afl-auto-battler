@@ -16,7 +16,8 @@ const GOAL_LINE := "goal_line"
 const BOUNDARY_SNAP := "boundary_snap"
 
 const DURATIONS := {
-	SPECCY_FRONT: 2.2,    # (with the "speccy_front" switch on; OLD_FRONT_DURATION without) the mark at 1.5 s, the freeze on the grab at 1.66 s, then it holds half a second
+	SPECCY_FRONT: 1.4,    # (with the "speccy_front" switch on; OLD_FRONT_DURATION without) the mark at 1.5 s, the freeze on the grab at 1.8 s, then it holds half a second
+
 	SPECCY_SIDE: 3.6,
 	SPECCY_DEFENSIVE: 3.7,
 	AFTER_SIREN: 5.4,
@@ -75,6 +76,7 @@ const SNAP_BOOT := Vector2(0.62, 0.63)
 const SPECCY_PEAK := 1.05
 ## A man carried on another casts no shadow of his own: the pack's is the one anchor.
 var _no_shadow := false
+var _fig_alpha := 1.0              # a figure drawn part-way over another frame of itself (an eased change of pose)
 ## The speccy: the ball between his palms, this far under his fingertips (the leap frame's
 ## reach), and when he has it in to his chest.
 const SPECCY_PALMS := 0.14
@@ -382,7 +384,7 @@ func _scene_cam() -> VignetteGround.Cam:
 				# Low and tight from the ball's side (round 15): a camera at knee height on a long lens,
 				# the pack from the thighs up across the frame, the goals and the stand behind them.
 				lens = SF_LENS
-				scale = minf(size.x / (PX_PER_M * SF_ACROSS), size.y / (PX_PER_M * SF_TALL))
+				scale = minf(size.x / (PX_PER_M * SF_ACROSS), size.y / (PX_PER_M * (SF_TALL if size.x < size.y * 1.3 else SF_TALL_WIDE)))
 				low_hor = size.y + PX_PER_M * scale * (SF_CUT - SF_CAM_H)
 		AFTER_SIREN:
 			lens = 1.5
@@ -405,6 +407,9 @@ func _scene_cam() -> VignetteGround.Cam:
 	var f := lens * size.y
 	var depth := f / (PX_PER_M * scale)
 	var dir := (target - subject).normalized()
+	if kind == SPECCY_FRONT and _sf_ready():
+		dir = dir.rotated(deg_to_rad(SF_YAW))             # side-on: the camera off to one side, looking across the pack
+		target = subject + dir * 100.0
 	var at := subject - dir * depth + Vector2(dir.y, -dir.x) * aside
 	var hor := size.y * 0.31
 	if low_hor >= 0.0:
@@ -548,6 +553,8 @@ func _draw_stadium() -> void:
 
 
 func _draw_letterbox() -> void:
+	if kind == SPECCY_FRONT and _sf_ready():
+		return                                  # boots and turf show in this shot: no bars (pass e)
 	var bar := maxf(20.0, size.y * 0.045)
 	draw_rect(Rect2(0, 0, size.x, bar), Color(0, 0, 0, 0.96), true)
 	draw_rect(Rect2(0, size.y - bar, size.x, bar), Color(0, 0, 0, 0.96), true)
@@ -636,139 +643,115 @@ func _draw_speccy() -> void:
 
 
 # ---------------------------------------------------------------------------
-# The speccy from the front (round 15, the director's restaging, 2026-10-13): the camera is on the
-# ball's side, at knee height and tight on the pack; the marker comes from BEHIND the pack, climbs
-# the man in front of him - his knee on the man's shoulder, beside his head - and takes it above
-# them; the picture freezes on the grab like a replay still. The pack's bodies hide his run-in legs,
-# the frame hides every boot, and nothing after the grab is shown.
+# The speccy as ONE move (director, 2026-10-14: "Animate it as one move"). The marker and the man he climbs come
+# from one animation on one clock (the strips mark_o / brace_o, rendered side-on at 55 degrees from the same rig):
+# he runs in covering ground, plants, leaves the ground on the next strides with the right knee driving up the man's
+# back, reaches, takes the ball with both hands, squeezes it, and the picture eases to a still. The man reacts only
+# when the knee lands. The marker's place on the ground and in the air is the animation's own (SF_MOFF), so
+# contact is exact. A ball is flown in and sits in his palms.
 # ---------------------------------------------------------------------------
-const SF_LENS := 2.2             # focal length, screen heights (a long lens: 10 m back)
-const SF_ACROSS := 2.1           # metres of the pack across the screen
-const SF_TALL := 3.6             # at least this much of the scene top to bottom (a wide screen)
-const SF_CUT := 0.55             # the bottom of the frame cuts the pack this far above the turf
+const SF_YAW := 55.0             # the camera stands this many degrees off the line of the lead
+## Each figure's move is four strips (a strip is a run of frames on one shelf of the sheet): the marker's frames start
+## at 0, 7, 14 and 20; the man's at 0, 6, 12 and 18.
+const SF_FACE := "side_q"
+const SF_MARK := ["mark_o1", "mark_o2", "mark_o3", "mark_o4"]
+const SF_BRACE := ["brace_o1", "brace_o2", "brace_o3", "brace_o4"]
+const SF_MARK_AT := [0, 7, 14, 20]
+const SF_BRACE_AT := [0, 6, 12, 18]
+const SF_LENS := 2.2             # focal length, screen heights (a long lens)
+const SF_ACROSS := 4.4           # metres across at the pack on a phone (the run-in crosses the frame)
+const SF_TALL_WIDE := 3.9        # a wide screen
+const SF_TALL := 4.8
+const SF_CUT := -0.25            # the bottom of the frame is this far above the turf (boots and turf show)
 const SF_CAM_H := 0.75           # the camera's height
-const SF_PLANT := 1.0            # he plants behind the man and loads
-const SF_SPRING := 1.10         # (pass c: the loaded plant held three frames)
-const SF_SINK := 0.20            # the spring frame starts this much lower and rises into the jump (no pop)
-const SF_UP := 1.17              # off the turf
-const SF_CONTACT := 1.48         # his knee on the man's shoulder
-const SF_CATCH := 1.50           # the ball in his hands
-const SF_FREEZE := 1.66          # the picture holds from here
-const SF_PUSH := 0.035           # how far the lens creeps in on the still
-const SF_RUN := Vector2(-1.95, 8.0)       # where his run starts: left of and beyond the man, metres
-const SF_GAP := Vector2(-1.0, 3.4)       # he comes at the gap on the man's right (our left of him)
-const SF_PLANT_AT := Vector2(-0.36, 0.95)   # in that gap, where we see him load and spring
-const SF_BEHIND := 0.32          # at the top he is this far beyond the man
-const SF_IN := 0.04              # the knee sits this far in from the shoulder joint, on the trapezius
-const SF_PAD := 0.14             # his knee joint above the man's shoulder joint (thigh on shoulder)
-## The braced man's right shoulder joint in each brace_f frame and the marker's right knee joint in each
-## mark_f frame: metres right of and above the strip's feet (measured in Blender on the poses the strips
-## were rendered from: ard-asset-pipeline poses.brace_f / mark_f, level camera). The knee is pinned to
-## the shoulder from SF_CONTACT, so it rides the man as he buckles and can never float.
-const SF_SHOULDER := [Vector2(-0.217, 1.510), Vector2(-0.197, 1.519), Vector2(-0.234, 1.499), Vector2(-0.219, 1.497), Vector2(-0.216, 1.556),
-		Vector2(-0.212, 1.595), Vector2(-0.205, 1.558), Vector2(-0.200, 1.488), Vector2(-0.199, 1.427), Vector2(-0.198, 1.367)]
-const SF_KNEE := [Vector2(-0.108, 0.556), Vector2(-0.112, 0.583), Vector2(-0.148, 0.858),
-		Vector2(-0.089, 0.865), Vector2(-0.069, 0.799), Vector2(-0.066, 0.767), Vector2(-0.066, 0.754)]
-## Players further back in the shot (it is never three men on an empty ground): [right, beyond, who
-## ("F" his side, "D" theirs, "U" umpire), anim, mirror].
-const SF_BACK := [[-2.3, 9.0, "D", "ready_turn", false], [2.6, 12.0, "F", "jog", false],
-		[-4.5, 24.0, "U", "ready", false]]
-const SF_HELD := 3                # the ball's frame in his hands: upright, its top tipped to our left
+## The move's clock when the shot begins (the marker is already running), the strips' frame counts, and the
+## time (shot clock) the move has eased to rest: the picture holds from there.
+const SF_T0 := 0.36
+const SF_MARK_N := 26
+const SF_OPP_T0 := 0.40
+const SF_OPP_N := 24
+const SF_CATCH := 0.60           # (move 0.96) the ball is in his palms
+const SF_FREEZE := 0.81          # (move 1.17) fully still from here
+const SF_BALL := 0.24            # the ball's length scale (a Sherrin, a little under a head and a quarter)
+const SF_HELD := 3               # the ball's frame in his hands: upright, its top tipped to our left
+const SF_LOOK_A := {"skin": 2, "hair": 1}
+const SF_LOOK_B := {"skin": 4, "hair": 0}
+const SF_LOOK_C := {"skin": 1, "hair": 2}
+## The marker's world offset per strip frame (metres; the animation's axes: he faces -Y, the camera is at 55 degrees):
+## x, y, and z the height he is off the turf. Filled from the one-move animation (offsets.json).
+const SF_MOFF := [Vector3(-0.140, 2.395, 0.000), Vector3(-0.140, 2.182, 0.000), Vector3(-0.140, 1.961, 0.000), Vector3(-0.140, 1.733, 0.000), Vector3(-0.140, 1.498, 0.000), Vector3(-0.134, 1.212, 0.018), Vector3(-0.115, 1.054, 0.079), Vector3(-0.099, 0.971, 0.162), Vector3(-0.103, 0.871, 0.250), Vector3(-0.110, 0.771, 0.364), Vector3(-0.109, 0.685, 0.484), Vector3(-0.106, 0.617, 0.598), Vector3(-0.104, 0.569, 0.693), Vector3(-0.102, 0.539, 0.756), Vector3(-0.101, 0.524, 0.779), Vector3(-0.100, 0.511, 0.767), Vector3(-0.098, 0.493, 0.749), Vector3(-0.093, 0.474, 0.733), Vector3(-0.091, 0.458, 0.723), Vector3(-0.090, 0.450, 0.718), Vector3(-0.090, 0.450, 0.725), Vector3(-0.089, 0.449, 0.730), Vector3(-0.089, 0.447, 0.728), Vector3(-0.089, 0.445, 0.725), Vector3(-0.089, 0.442, 0.721), Vector3(-0.088, 0.441, 0.720)]
 var _hold := 0.0
 
 
-## Whether the front-on shot plays: the "speccy_front" switch is on and the sheets hold its moves (otherwise the
+static func _sf_face(anim: String) -> String:
+	return SF_FACE if anim.begins_with("mark_o") or anim.begins_with("brace_o") else "front"
+
+
+static func _sf_strip_of(i: int, at: Array) -> int:
+	var k := 0
+	for j in range(at.size()):
+		if i >= int(at[j]):
+			k = j
+	return k
+
+
+static func _sf_mark_strip(i: int) -> String:
+	return SF_MARK[_sf_strip_of(i, SF_MARK_AT)]
+
+
+static func _sf_mark_frame(i: int) -> int:
+	return i - int(SF_MARK_AT[_sf_strip_of(i, SF_MARK_AT)])
+
+
+## Whether the one-move shot plays: the "speccy_front" switch is on and the sheets hold its strips (otherwise the
 ## earlier staging plays, exactly as before the new shot existed).
 static func _sf_ready() -> bool:
-	return Features.on("speccy_front") and VignetteFigures.has(BODY, "mark_f", "front") and VignetteFigures.has(BODY, "brace_f", "front")
+	return Features.on("speccy_front") and VignetteFigures.has(BODY, SF_MARK[3], SF_FACE) and VignetteFigures.has(BODY, SF_BRACE[3], SF_FACE)
 
 
 func _sf_camera() -> Array:
-	var G := VignetteCamera
-	# The lens eases in a touch as the ball comes, towards his hands, and keeps creeping on the still.
-	var dur := duration_for(kind)
-	var k := clampf(_hold / maxf(0.01, dur - SF_FREEZE), 0.0, 1.0)
-	# (Pass d: the creep on the still starts from rest and is small; it began at full speed and lurched.)
-	var z: float = G.glide(1.0, 1.04, _t, 0.3, SF_CATCH) + SF_PUSH * k * k * (3.0 - 2.0 * k)
-	var grab := _ground.project(SPECCY_AT[kind], 2.5)
-	var on: Vector2 = G.glide(size * 0.5, Vector2(grab.x, grab.y), _t, 0.3, SF_CATCH)
-	return [on, z]
+	return [size * 0.5, 1.0]
 
 
-## The man he climbs at t: [frame, metres right, metres beyond his spot, metres off the turf]. He is
-## going for it himself: watching it in, backing under it, arms up and off his toes as it arrives;
-## then the marker's knee lands on his shoulder and he buckles and is shunted forward.
-func _sf_brace(t: float) -> Array:
-	# Watching it in and shifting his weight (0-2), setting himself (3), arms going up (4), reaching (5);
-	# from the knee landing, a frame at a time: buckling (6, 7) and folding under him (8, 9).
-	var f := (int(t * 4.6) % 3) if t < 0.85 else (3 if t < 1.02 else (4 if t < 1.14 else 5))
-	# (Pass c: he buckles from two frames AFTER the knee lands, not as it arrives.)
-	# (Pass d: his arms start down as the knee lands and take four poses over eight frames.)
-	if t >= SF_CONTACT:
-		f = 6 + clampi(int((t - SF_CONTACT) / 0.067), 0, 3)
-	var back := 0.34 * smoothstep(0.05, 1.15, t) - 0.10 * smoothstep(SF_CONTACT, SF_FREEZE, t)
-	var hop := 0.10 * sin(PI * clampf((t - 1.18) / 0.55, 0.0, 1.0)) * (1.0 - smoothstep(SF_CONTACT, SF_CONTACT + 0.08, t))
-	# Backing under it he shuffles, a little side to side (pass c: for a second he stood like a statue).
-	return [f, 0.08 * sin(t * 3.4 + 1.0) * (1.0 - smoothstep(0.9, 1.3, t)), back, hop]
+## The marker's ground spot and height at shot time g: the animation's offsets (smoothly between its 30 fps frames),
+## turned from the animation's axes to the camera's right and forward.
+func _sf_spot(g: float, m: Vector2, fwd: Vector2, right: Vector2) -> Array:
+	var x := clampf(g * 30.0, 0.0, float(SF_MARK_N - 1))
+	var i0 := int(floor(x))
+	var i1 := mini(SF_MARK_N - 1, i0 + 1)
+	var o: Vector3 = (SF_MOFF[i0] as Vector3).lerp(SF_MOFF[i1], x - float(i0))
+	var a := deg_to_rad(-SF_YAW)
+	var sx := o.x * cos(a) + o.y * sin(a)
+	var sd := -o.x * sin(a) + o.y * cos(a)
+	return [m + right * sx + fwd * sd, o.z, int(roundf(x))]
 
 
-## Where the marker's feet line is on screen with his knee on the man's shoulder: [feet, pixels per metre].
-func _sf_pinned(t: float, frame: int, m: Vector2, fwd: Vector2, right: Vector2) -> Array:
-	var b := _sf_brace(t)
-	var at: Vector2 = m + right * float(b[1]) + fwd * float(b[2])
-	var sb := _ground.project(at)
-	var sh: Vector2 = SF_SHOULDER[int(b[0])]
-	var shoulder := Vector2(sb.x, sb.y) + Vector2(sh.x + SF_IN, -(sh.y + float(b[3]) + SF_PAD)) * sb.z
-	var sm := _ground.project(at + fwd * SF_BEHIND)
-	var kn: Vector2 = SF_KNEE[frame]
-	return [shoulder - Vector2(kn.x, -kn.y) * sm.z, sm.z]
-
-
-## The marker at t: [feet on screen, pixels per metre, anim, frame, in the air].
-func _sf_marker(t: float, m: Vector2, fwd: Vector2, right: Vector2) -> Array:
-	var plant: Vector2 = m + right * SF_PLANT_AT.x + fwd * SF_PLANT_AT.y
-	if t < SF_UP:
-		# Running at the pack from behind it (a jog's strides), then planted: loaded, and the spring.
-		var k := clampf(t / SF_PLANT, 0.0, 1.0)
-		var p: Vector2 = _quad(m + right * SF_RUN.x + fwd * SF_RUN.y, m + right * SF_GAP.x + fwd * SF_GAP.y, plant, k)
-		var s := _ground.project(p)
-		if t < SF_PLANT:
-			# (Pass d: he comes across the left lane, bobbing with each stride.)
-			return [Vector2(s.x, s.y - 0.05 * absf(sin(t * 12.5 * PI / 4.0)) * s.z), s.z, "jog", int(t * 12.5) % 8, false]
-		if t < SF_SPRING:
-			return [Vector2(s.x, s.y), s.z, "mark_f", 0, false]
-		# The spring: straightening out of the load (his boots are below the frame, so the figure rises).
-		var up := (t - SF_SPRING) / (SF_UP - SF_SPRING)
-		return [Vector2(s.x, s.y + SF_SINK * (1.0 - up) * s.z), s.z, "mark_f", 1, false]
-	var info := VignetteFigures.strip(BODY, "mark_f", "front")
-	if t < SF_CONTACT:
-		# Off the turf: his hips on one arc from where the spring left them to where the knee lands, the
-		# top of the arc at the landing; he carries his run on to the man.
-		var a := (t - SF_UP) / (SF_CONTACT - SF_UP)
-		var frame := 2 + clampi(int(a * 3.0), 0, 2)
-		var s0 := _ground.project(plant)
-		var h0 := Vector2(s0.x, s0.y - VignetteFigures.hips(info, 1) * s0.z)
-		var pin := _sf_pinned(SF_CONTACT, 4, m, fwd, right)
-		var h1: Vector2 = (pin[0] as Vector2) - Vector2(0, VignetteFigures.hips(info, 4) * float(pin[1]))
-		var e := 1.0 - (1.0 - a) * (1.0 - a)
-		var z := lerpf(s0.z, float(pin[1]), a)
-		# (Pass c: across at one speed and up on the jump's own curve, so he arrives on the shoulder moving
-		# forward, on one line; eased both ways he rose beside the man and then slid over.)
-		var hip := Vector2(lerpf(h0.x, h1.x, a), h1.y + (h0.y - h1.y) * (1.0 - a) * (1.0 - a))
-		return [hip + Vector2(0, VignetteFigures.hips(info, frame) * z), z, "mark_f", frame, true]
-	var top := 4 if t < SF_CATCH else 5      # (pass c: the picture holds on the cleaner two-hand frame)
-	var on := _sf_pinned(t, top, m, fwd, right)
-	return [on[0], on[1], "mark_f", top, true]
+## The marker as drawn at g: [feet on screen, pixels per metre, anim, frame, in the air].
+func _sf_marker(g: float, m: Vector2, fwd: Vector2, right: Vector2) -> Array:
+	var sp := _sf_spot(g, m, fwd, right)
+	var s := _ground.project(sp[0])
+	return [Vector2(s.x, s.y - float(sp[1]) * s.z), s.z, _sf_mark_strip(int(sp[2])), _sf_mark_frame(int(sp[2])), float(sp[1]) > 0.05]
 
 
 ## Between his palms in the frame he shows (the sheet's per-frame hands).
 func _sf_palms(mk: Array) -> Vector2:
-	var info := VignetteFigures.strip(BODY, str(mk[2]), "front")
+	var info := VignetteFigures.strip(BODY, str(mk[2]), _sf_face(str(mk[2])))
 	var h := VignetteFigures.hands(info, int(mk[3]))
 	if h.is_empty():
 		return Vector2.INF
 	var k := float(mk[1]) / VignetteFigures.PX_PER_M
 	return (mk[0] as Vector2) + (((h[0] as Vector2) + (h[1] as Vector2)) * 0.5 - Vector2(info["pivot"][0], info["pivot"][1])) * k
+
+
+## A bystander, planted: drawn whole or not at all (never sliced by the frame, never on top of the pair).
+func _sf_bystander(p: Vector2, side: int, anim: String, facing: String, frame: int, look: Dictionary, build: String, mirror: bool, pair_x: float) -> void:
+	var sp := _ground.project(p)
+	if sp.z <= 0.0:
+		return
+	var half := 0.55 * sp.z
+	if sp.x - half < 6.0 or sp.x + half > size.x - 6.0 or absf(sp.x - pair_x) < 1.0 * sp.z:
+		return
+	_player(p, 0.0, side, anim, facing, frame, 0, look, mirror, build)
 
 
 func _draw_speccy_front() -> void:
@@ -777,70 +760,48 @@ func _draw_speccy_front() -> void:
 	var m: Vector2 = SPECCY_AT[kind]
 	var fwd := _ground.fwd
 	var right := Vector2(fwd.y, -fwd.x)
-	var t := _t
-	# Further back, far to near: men watching it come, one jogging up, the umpire.
-	for i in range(SF_BACK.size() - 1, -1, -1):
-		var e: Array = SF_BACK[i]
-		var who := str(e[2])
-		var kit := side if who == "F" else (other if who == "D" else StoppageVignette.UMPIRE_KIT)
-		var look: Dictionary = StoppageVignette.UMPIRE_LOOK if who == "U" else Appearance.generated("back%d" % i)
-		var anim := str(e[3])
-		var p: Vector2 = m + right * float(e[0]) + fwd * float(e[1])
-		var frame := int(t * 12.0) % 8 if anim == "jog" else int(t * (2.4 + 0.25 * float(i)) + i * 0.61) % 3
-		if anim == "jog":
-			p -= fwd * t * 3.0
-		_player(p, 0.0, kit, anim, "front", frame, 0, look, bool(e[4]))
-	# The marker, beyond the man he climbs: drawn before the pack, so their bodies hide his legs as he
-	# runs in, and the man's shoulder hides everything below the knee that sits on it.
-	var mk := _sf_marker(t, m, fwd, right)
-	var sc := float(mk[1]) / PX_PER_M
-	_no_shadow = bool(mk[4])
-	# Once it is marked the ball is drawn BEFORE him: upright between his palms, a hand over each side of
-	# it (round 16: drawn over him, it hid one hand whole and read as balanced on a wrist).
-	if t >= SF_CATCH and _sf_palms(mk) != Vector2.INF:
-		VignetteBall.draw(self, _sf_palms(mk), 0.28 * float(mk[1]), 0.0, false, SF_HELD)
-	_figure((mk[0] as Vector2) - Vector2(0, 38.0 * sc), sc, side, str(mk[2]), "front", int(mk[3]), 0, _look, Vector2.INF, false, BODY)
-	_no_shadow = false
-	# The pack, far to near. On the marker's left a defender goes up late with both hands; the man he
-	# climbs; on his right, nearer us, another flies for it with a fist. Before the ball comes they watch
-	# it and shuffle under it, each at his own time.
-	var b := _sf_brace(t)
-	var late: Vector2 = m + right * (1.16 - 0.10 * smoothstep(0.2, 1.0, t)) + fwd * (0.30 - 0.20 * smoothstep(0.4, 1.1, t))
-	var k1 := clampf((t - 1.02) / 0.62, 0.0, 1.0)
+	var g := _t
+	var mk := _sf_marker(g, m, fwd, right)
+	var pair_x := _ground.project(m).x
+	# Bystanders (planted, in their own poses and builds, watching the ball), far to near: a teammate waiting low,
+	# an opponent behind watching it come, a ruckman going for it with one arm.
+	var idle := int(g * 2.6) % 3
+	_sf_bystander(m + right * 3.1 + fwd * 2.6, side, "ready_b", "front", int(g * 2.2 + 0.7) % 3, SF_LOOK_B, BODY, false, pair_x)
+	_sf_bystander(m - right * 1.9 + fwd * 3.2, other, "ready", "back", idle, SF_LOOK_C, BODY, false, pair_x)
+	var k1 := clampf((g - 0.30) / 0.45, 0.0, 1.0)
 	if k1 <= 0.0:
-		_player(late, 0.0, other, "ready_b", "front", int(t * 2.9 + 0.4) % 3, 0, Appearance.generated("pack1"), true)
+		_sf_bystander(m + right * 1.9 + fwd * 0.9, other, "ready_turn", "front", int(g * 2.4) % 3, SF_LOOK_A, "ruck", false, pair_x)
 	else:
-		_player(late, 0.20 * sin(k1 * PI * 0.5), other, "leap", "front", clampi(int(k1 * 6.0), 0, 5), 0, Appearance.generated("pack1"), true)
-	_player(m + right * float(b[1]) + fwd * float(b[2]), float(b[3]), other, "brace_f", "front", int(b[0]), 0, Appearance.generated("pack0"))
-	var near: Vector2 = m - right * (1.36 - 0.06 * smoothstep(0.1, 0.9, t)) - fwd * (0.18 - 0.14 * smoothstep(0.3, 1.0, t))
-	var k2 := clampf((t - 0.88) / 0.66, 0.0, 1.0)
-	if k2 <= 0.0:
-		_player(near, 0.0, other, "ready_turn", "front", int(t * 2.5) % 3, 0, Appearance.generated("pack2"))
-	else:
-		_player(near, 0.26 * sin(k2 * PI * 0.5), other, "leap", "front", clampi(int(k2 * 6.0), 0, 5), 0, Appearance.generated("pack2"))
-	# The ball: kicked from behind the camera, it drops into the top of the frame and into his hands
-	# (over the last quarter of a second in shot), then stays between his palms.
+		_sf_bystander(m + right * 1.9 + fwd * 0.9, other, "tap", "front", clampi(int(k1 * 9.0), 0, 9), SF_LOOK_A, "ruck", false, pair_x)
+	# The man he climbs, from the same clock as the marker: waiting, reaching, then taking the weight.
+	var oi := clampi(int(roundf((g + SF_T0 - SF_OPP_T0) * 30.0)), 0, SF_OPP_N - 1)
+	var ok := _sf_strip_of(oi, SF_BRACE_AT)
+	_player(m, 0.0, other, SF_BRACE[ok], SF_FACE, oi - int(SF_BRACE_AT[ok]), 0, Appearance.generated("pack0"))
+	# The ball: in from above and from the camera's side into his palms at SF_CATCH, then between them (drawn before
+	# him, so a hand shows on each side of it).
+	var sc := float(mk[1]) / PX_PER_M
 	var palms := _sf_palms(mk)
-	if t >= SF_CATCH:
-		return
-	var target := _sf_palms(_sf_marker(SF_CATCH, m, fwd, right))
-	if target == Vector2.INF:
-		return
-	var u := SF_CATCH - t
-	if u > 0.55:
-		return                                   # still above the shot
-	var at: Vector2 = m + fwd * (float(_sf_brace(SF_CATCH)[2]) + SF_BEHIND)
-	var s1 := _ground.project(at)
-	var h1 := (s1.y - target.y) / s1.z
-	# (Pass c: a steep, quickening drop - 9 m/s at his hands - in shot for a quarter of a second.)
-	# (Pass d: it quickens into his hands, 7 m/s at the top of the shot to 11 at the catch.)
-	# (Pass e: slower and nearer the pack's plane, 4.5 m/s at his hands, so it is in the shot for the half second
-	# before the grab and the eye follows it in; it was 11 m/s from above the stand.)
-	var p: Vector2 = at + right * ((target.x - s1.x) / s1.z + 0.12 * u) - fwd * 1.2 * u
-	var s := _ground.project(p, h1 + 4.5 * u + 4.9 * u * u)
-	if s.z > 0.0:
-		# End over end, slowly, arriving on the frame it is held on (one ball, one colour, all the way).
-		VignetteBall.draw(self, Vector2(s.x, s.y), 0.28 * s.z, 0.0, false, posmod(SF_HELD - int(ceil(u * 14.0)), VignetteBall.FRAMES))
+	if g >= SF_CATCH:
+		if palms != Vector2.INF:
+			VignetteBall.draw(self, palms, SF_BALL * float(mk[1]), 0.0, false, SF_HELD)
+	else:
+		var catch_mk := _sf_marker(SF_CATCH, m, fwd, right)
+		var target := _sf_palms(catch_mk)
+		var u := SF_CATCH - g
+		if target != Vector2.INF and u <= 0.55:
+			var at := (_sf_spot(SF_CATCH, m, fwd, right)[0]) as Vector2
+			var s1 := _ground.project(at)
+			var h1 := (s1.y - target.y) / s1.z
+			var p: Vector2 = at + right * ((target.x - s1.x) / s1.z + 0.12 * u) - fwd * 1.2 * u
+			var s := _ground.project(p, h1 + 4.5 * u + 4.9 * u * u)
+			if s.z > 0.0:
+				VignetteBall.draw(self, Vector2(s.x, s.y), SF_BALL * s.z, 0.0, false, posmod(SF_HELD - int(ceil(u * 14.0)), VignetteBall.FRAMES))
+	# The marker last (he is camera-side of the man): sleeveless like everyone, with a shadow that shrinks and fades
+	# with his height.
+	var look := _look.duplicate()
+	look["long_sleeves"] = false
+	var sp := _sf_spot(g, m, fwd, right)
+	_player(sp[0] as Vector2, float(sp[1]), side, _sf_mark_strip(int(sp[2])), SF_FACE, _sf_mark_frame(int(sp[2])), 0, look, false)
 
 
 # ---------------------------------------------------------------------------
@@ -1235,7 +1196,7 @@ func _figure(pos: Vector2, scale: float, side: int, anim: String, facing: String
 		draw_set_transform_matrix(_view)
 	# The number, printed on the back of the guernsey by the shader.
 	var num := StoppageVignette.number_colour(side, number, 1.0, mirror) 			if number > 0 and facing.begins_with("back") and pm >= 30.0 else Color(0, 0, 0, 0)
-	StoppageVignette.draw_frame(self, feet, info, f, k, StoppageVignette.look_colour(side, look, mirror), mirror, num, _view,
+	StoppageVignette.draw_frame(self, feet, info, f, k, StoppageVignette.look_colour(side, look, mirror, _fig_alpha), mirror, num, _view,
 			str(look.get("hair_style", VignetteFigures.HAIR_BASE)))
 
 
