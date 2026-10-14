@@ -364,7 +364,7 @@ func _overlays() -> void:
 	await _overlay_case("stats: first-visit intro", "stats", func(s): s.call("_show_intro"))
 	await _overlay_case("selection: team report", "selection", func(s): s.call("_show_report", "MEL"))
 	await _overlay_case("selection: synergies", "selection", func(s): s.call("_show_synergies"))
-	await _overlay_case("selection: plan", "selection", func(s): s.call("_show_plan"))
+	await _overlay_case("selection: This week sheet", "selection", func(s): s.call("_open_week"))
 	await _overlay_case("selection: player profile", "selection", func(s): s.call("_open_profile", pid))
 	await _overlay_case("offseason: talks", "offseason", func(s): s.call("_open_talks", pid))
 	await _overlay_case("season review: awards program", "season_review", func(s): s.call("_open_awards_program"),

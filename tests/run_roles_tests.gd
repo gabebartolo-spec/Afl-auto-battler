@@ -35,6 +35,9 @@ func _run() -> void:
 	_checks += suite.checks
 	_failures.append_array(suite.failures)
 	await _selection_tests()
+	await _selection_pages_tests()
+	await _skip_match_tests()
+	await _week_ink_tests()
 	await _team_changes_tests()
 	await _backing_ui_tests()
 	await _captaincy_ui_tests()
@@ -49,7 +52,9 @@ func _selection_tests() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.start_season("COL", db.club_list("COL"))
-	root.size = Vector2i(420, 860)
+	# A PC window: the side and the week are both in view (a phone's two pages
+	# are tested in run_selection_pages_tests.gd).
+	root.size = Vector2i(1280, 720)
 	var ui := await _open()
 	var text := _screen_text(ui)
 	# The side on the field: 18 spots in their lines, five on the interchange,
@@ -78,76 +83,18 @@ func _selection_tests() -> void:
 			" | ".join(h2h_lines.map(func(l): return str(l.text))))
 	var mid_line: Label = ui.find_child("H2H_midfield", true, false)
 	_check(mid_line != null and mid_line.text.begins_with("Midfield: yours "), "Midfield sets yours against theirs")
-	# Their key forwards, and who you put on them.
+	# Their key forwards are facts here; who goes to them and the game plan are
+	# asked only in the pre-bounce menu (director, 2026-10-13).
 	var km: Node = ui.find_child("KeyMatchups", true, false)
-	_check(km != null and km.find_child("MatchupLine", true, false) != null
-			and _screen_text(km.find_child("MatchupLine", true, false)).replace("\n", " ").contains(" is on "),
-			"Selection names their key forwards and who is on them")
-	var chm: Button = km.find_child("ChangeMatchup", true, false) if km != null else null
-	# Readability (director, 2026-10-13): your defender and their forward are each
-	# in bold, beside their own guernsey; and the button still takes a finger.
-	var ml_labels: Array = km.find_child("MatchupLine", true, false).find_children("*", "Label", true, false) if km != null else []
-	var names_bold := ml_labels.size() >= 2
-	for ml in ml_labels:
-		var ml_text := str((ml as Label).text)
-		if ml_text != "is on" and ml_text != "Nobody is on" and (ml as Label).get_theme_font("font") != load("res://scripts/ui/UiKit.gd").BOLD:
-			names_bold = false
-	_check(names_bold, "The names in a match-up line are bold, each beside its guernsey")
-	var why_mu: String = (await Tap.tap(chm)) if chm != null else "no button"
-	_check(why_mu == "" and ui.find_child("MatchupChooser", true, false) != null,
-			"A real tap on Change opens the match-up chooser (%s)" % why_mu)
-	if chm != null:
-		if ui.find_child("MatchupChooser", true, false) == null:
-			chm.emit_signal("pressed")
-			await _settle()
-		var mc: Node = ui.find_child("MatchupChooser", true, false)
-		var defs_b := mc.find_children("Defender_*", "Button", true, false) if mc != null else []
-		_check(defs_b.size() >= 2, "Your defenders are offered, each described (%d)" % defs_b.size())
-		if defs_b.size() >= 2:
-			var last: Button = defs_b[defs_b.size() - 1]
-			var want := str(last.name).trim_prefix("Defender_")
-			last.emit_signal("pressed")
-			await _settle()
-			_check(_state.my_matchups.values().has(want), "Your choice is kept for the match")
-			var rows: Array = _state.week_matchups(str(_state.my_next_opponent()["code"]))
-			var shown := false
-			for r in rows:
-				if str(r["def"]["id"]) == want:
-					shown = true
-			_check(shown, "The match-up line follows your choice")
-		_state.my_matchups = {}
-	# The game plan you take in is on show, and changed here.
-	var plan_line: Label = ui.find_child("PlanLine", true, false)
-	var plan_before: String = plan_line.text if plan_line != null else ""
-	_check(plan_line != null and plan_line.text.begins_with("Game plan: ") and plan_line.text.length() > 11,
-			"The game plan you take in is on show (%s)" % (plan_line.text if plan_line else "-"))
-	var change: Button = ui.find_child("ChangePlan", true, false)
-	_check(change != null and change.size.y >= 44, "The plan can be changed from selection")
-	var why_plan: String = (await Tap.tap(change)) if change != null else "no button"
-	_check(why_plan == "" and ui.find_child("PlanChooser", true, false) != null,
-			"A real tap on Change opens the plan chooser (%s)" % why_plan)
-	if change != null:
-		if ui.find_child("PlanChooser", true, false) == null:
-			change.emit_signal("pressed")
-			await _settle()
-		var chooser: Node = ui.find_child("PlanChooser", true, false)
-		var contest: Button = chooser.find_child("ClubPlan_contest", true, false) if chooser != null else null
-		_check(contest != null, "The chooser offers the plans")
-		var cw: Label = contest.find_child("Strength", true, false) if contest != null else null
-		_check(cw != null and cw.text.begins_with("Contest · "),
-				"Each plan shows the list strength it runs on, as on Coaching (%s)" % (cw.text if cw else "-"))
-		if contest != null:
-			contest.emit_signal("pressed")
-			await _settle()
-			_check(_state.club_plan == "contest", "Picking a plan sets the standing plan")
-			var note: Label = chooser.find_child("PlanNote", true, false)
-			_check(note != null and note.text.contains("clearances"), "The plan says what it does (%s)" % (note.text if note else "-"))
-			plan_line = ui.find_child("PlanLine", true, false)
-			_check(plan_line != null and plan_line.text != plan_before and plan_line.text == "Game plan: " + contest.tooltip_text,
-					"The plan line follows the pick")
-		_check(ui.call("handle_back") == true, "Back closes the plan chooser")
-		await _settle()
-		_state.set_club_plan("balanced")
+	_check(km != null and not km.find_children("KeyForward_*", "Label", true, false).is_empty(),
+			"Selection names their key forwards")
+	_check(ui.find_child("ChangeMatchup", true, false) == null and ui.find_child("ChangePlan", true, false) == null
+			and ui.find_child("PlanLine", true, false) == null and km != null
+			and not str(_screen_text(km)).contains(" is on "),
+			"Selection no longer asks for the match-ups or the game plan")
+	var later: Label = ui.find_child("SetLater", true, false)
+	_check(later != null and later.text == "Match-ups, game plan and tags are set before the first ball-up.",
+			"One quiet line says where those calls are made")
 	var rows := ui.find_children("RoleLabel", "Label", true, false)
 	var field: Node = ui.find_child("BuilderField", true, false)
 	var formation_players := field.find_children("*", "Button", true, false).filter(func(b): return b.has_meta("id") and str(b.get_meta("id")) != "") if field != null else []
@@ -159,7 +106,7 @@ func _selection_tests() -> void:
 		if rx.search(str(l.text)) != null:
 			leak = true
 	_check(not leak, "No percentages on the rows")
-	_check(ui.find_child("SelectionWeek", true, false) != null, "Selection shows this week's opponent")
+	_check(ui.find_child("WeekPage", true, false) != null and ui.find_child("HeadToHead", true, false) != null, "Selection shows this week's opponent")
 	# The synergy rules are one tap away, in full, without progress counts.
 	var rules_btn: Button = ui.find_child("SynergyRules", true, false)
 	_check(rules_btn != null and rules_btn.size.y >= 44, "A Synergies button opens the rules")
@@ -272,7 +219,7 @@ func _selection_tests() -> void:
 		_check(sheet_r != null and rtext.contains("Assistant's report") and not rtext.to_lower().contains("you should")
 				and not rtext.to_lower().contains("to beat them"), "The assistant's report describes them, never how to beat them")
 		# Each fact once: not twice in the report, not again on the screen.
-		var week_text := _screen_text(ui.find_child("SelectionWeek", true, false))
+		var week_text := _screen_text(ui.find_child("WeekPage", true, false))
 		var once := true
 		var said := {}
 		for part in _state.opponent_report(str(_state.my_next_opponent()["code"])):
@@ -367,7 +314,7 @@ func _selection_tests() -> void:
 		var n := 0
 		for k in s2:
 			n += (s2[k] as Array).size()
-		_check(n == 23 and str(ui.find_child("BuilderNote", true, false).text) != "",
+		_check(n == 23 and str(ui.find_child("BuilderHint", true, false).text) != "",
 				"Auto-pick %s fields 23 and says what it did" % strat)
 	# Save your Best 23, change the side, choose it again.
 	(ui.find_child("SaveBest23", true, false) as Button).emit_signal("pressed")
@@ -397,6 +344,195 @@ func _selection_tests() -> void:
 	await _settle()
 	await _list_tests()
 	await _selection_profile_tests()
+
+
+## Gap between two controls' boxes across the page, 0 when they overlap in x.
+func _gap_x(a: Control, b: Control) -> float:
+	var ra := a.get_global_rect()
+	var rb := b.get_global_rect()
+	return maxf(0.0, maxf(rb.position.x - ra.end.x, ra.position.x - rb.end.x))
+
+
+func _gap_y(a: Control, b: Control) -> float:
+	var ra := a.get_global_rect()
+	var rb := b.get_global_rect()
+	return maxf(0.0, maxf(rb.position.y - ra.end.y, ra.position.y - rb.end.y))
+
+
+## True when the scroller shows no bar and its page fits inside it.
+func _no_scroll(sc: ScrollContainer) -> bool:
+	if sc == null:
+		return false
+	var page: Control = null
+	for c in sc.get_children():
+		if c is Control and not (c is ScrollBar):
+			page = c
+	return not sc.get_v_scroll_bar().visible and page != null and page.get_combined_minimum_size().y <= sc.size.y + 0.5
+
+
+func _synergy_words() -> String:
+	var on: PackedStringArray = []
+	for r in Traits.progress(_state.my_squad().ground):
+		if bool(r["active"]):
+			on.append(Traits.with_effect(str(r["key"])))
+	return "Your side has: " + ", ".join(on) + "." if not on.is_empty() else "No line synergies in this side."
+
+
+## Team selection without scrolling (director, 2026-10-13): a phone has "The
+## side" and "This week" a tap apart, a PC shows both; nothing scrolls for a
+## normal side; every control sits beside the line it belongs to.
+func _selection_pages_tests() -> void:
+	var db = root.get_node("GameDB")
+	for club in ["FRE", "WBD"]:
+		_state.reset()
+		_state.start_season(club, db.club_list(club))
+		_state.set_selection({})
+		var tag := "%s phone" % club
+		# --- phone 390x844 ---
+		root.size = Vector2i(390, 844)
+		var ui := await _open(false)
+		_check(ui.find_child("SelectionPage_side", true, false) == null and ui.find_child("SelectionPage_week", true, false) == null
+				and ui.find_child("SidePage", true, false) != null and ui.find_child("WeekPage", true, false) == null
+				and ui.find_child("WeekSheet", true, false) == null,
+				"Phone: one page, no tabs; the week is not on it until the row is tapped (%s)" % tag)
+		var row: Button = ui.find_child("WeekRow", true, false)
+		_check(row != null and row.size.y >= 44 and row.text.begins_with("This week ") and row.text.ends_with("›"),
+				"Phone: a thumb-sized This week row sits under the bench (%s)" % tag)
+		var row_ink: Color = row.get_theme_color("font_color") if row != null else Color.BLACK
+		var uk2 = load("res://scripts/ui/UiKit.gd")
+		_check(row != null and uk2.contrast(row_ink, uk2.BG) >= 4.5, "Phone: the row is in readable club ink (%s)" % tag)
+		_check(_no_scroll(ui.find_child("SelectionScroll", true, false)),
+				"Phone: the page does not scroll for a 23-man side (%s)" % tag)
+		_check(ui.find_child("NotSelectedScroll", true, false) != null,
+				"Phone: the not-picked list scrolls inside its own area (%s)" % tag)
+		_check(ui.find_children("Spot_*", "Button", true, false).size() == 18
+				and ui.find_children("BenchSpot_*", "Button", true, false).size() == 5,
+				"Phone: the 18 and the bench are all on the page (%s)" % tag)
+		var phone_hint: Label = ui.find_child("BuilderHint", true, false)
+		_check(phone_hint != null and phone_hint.text.contains("Tap a player, then another (or drag one onto another) to swap them.")
+				and not phone_hint.text.contains("Click"), "Phone: the help line says Tap, not Click (%s)" % tag)
+		var inter := ui.find_child("InterchangeRow", true, false)
+		var save: Button = ui.find_child("SaveBest23", true, false)
+		_check(inter != null and save != null and _gap_x(inter.get_child(0), save) < 48.0 and save.size.y >= 44,
+				"Phone: Save as my Best 23 sits beside the interchange it saves (%s)" % tag)
+		var list_h := (ui.find_child("NotSelectedScroll", true, false) as Control).size.y
+		_check(list_h >= 70.0, "Phone: the not-picked list keeps at least %d px (%s)" % [int(list_h), tag])
+		# A real tap swaps two players.
+		var side0: Dictionary = _state.current_side()
+		var centre := str(side0["MID"][0])
+		var wing := str(side0["WING"][0])
+		var why1: String = await Tap.tap(ui.find_child("Spot_C", true, false))
+		await _settle()
+		var why2: String = await Tap.tap(ui.find_child("Spot_WL", true, false))
+		await _settle()
+		_check(why1 == "" and why2 == "" and str(_state.my_selection()["MID"][0]) == wing
+				and str(_state.my_selection()["WING"][0]) == centre,
+				"Phone: two real taps swap a centre and a wing (%s, %s)" % [why1, why2])
+		_check(ui.find_child("BuilderHint", true, false) != null
+				and str(ui.find_child("BuilderHint", true, false).text).contains("swap"),
+				"Phone: the swap is said under the interchange (%s)" % tag)
+		# The week opens over the side from the row and carries the swap.
+		var wk: String = await Tap.tap(ui.find_child("WeekRow", true, false))
+		await _settle()
+		_check(wk == "" and ui.find_child("WeekSheet", true, false) != null and ui.find_child("WeekPage", true, false) == null,
+				"Phone: a real tap on the row opens the week over the side (%s %s)" % [tag, wk])
+		var sl: Label = ui.find_child("SynergyLine", true, false)
+		_check(sl != null and sl.text == _synergy_words(), "Phone: the synergies follow the swap (%s)" % tag)
+		var rules: Button = ui.find_child("SynergyRules", true, false)
+		_check(sl != null and rules != null and _gap_x(sl, rules) < 48.0 and _gap_y(sl, rules) < 24.0,
+				"Phone: Synergies sits right under its own line (%s)" % tag)
+		var rep: Button = ui.find_child("AssistantReport", true, false)
+		var head: Control = ui.find_child("WeekHeading", true, false)
+		_check(rep != null and head != null and _gap_x(head, rep) < 48.0 and _gap_y(head, rep) < 24.0,
+				"Phone: the assistant's report sits right under This week (%s)" % tag)
+		var why3: String = await Tap.tap(rules)
+		await _settle()
+		_check(why3 == "" and ui.find_child("SynergyGuide", true, false) != null and ui.find_child("WeekSheet", true, false) != null,
+				"Phone: a real tap on Synergies opens the rules over the week, which stays (%s %s)" % [tag, why3])
+		var back_ok: bool = ui.call("handle_back") == true
+		await _settle()
+		_check(back_ok and ui.find_child("SynergyGuide", true, false) == null, "Phone: Back closes the rules first (%s)" % tag)
+		_check(ui.find_child("WeekSheet", true, false) != null, "Phone: the week is still open under the rules (%s)" % tag)
+		# Close by a real tap, then reopen and close by Back.
+		var why5: String = await Tap.tap(ui.find_child("WeekClose", true, false))
+		await _settle()
+		_check(why5 == "" and ui.find_child("WeekSheet", true, false) == null, "Phone: a real tap on Close shuts the week (%s %s)" % [tag, why5])
+		await Tap.tap(ui.find_child("WeekRow", true, false))
+		await _settle()
+		_check(ui.call("handle_back") == true, "Phone: Back closes the week sheet (%s)" % tag)
+		await _settle()
+		_check(ui.find_child("WeekSheet", true, false) == null and ui.call("handle_back") == false,
+				"Phone: the week is closed, and Back from the side leaves selection (%s)" % tag)
+		ui.queue_free()
+		await _settle()
+		# --- PC: both in view, no toggle, no scroll ---
+		for size in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
+			var ptag := "%s %dx%d" % [club, size.x, size.y]
+			root.size = size
+			_state.set_selection({})
+			ui = await _open(false)
+			_check(ui.find_child("SidePage", true, false) != null and ui.find_child("WeekPage", true, false) != null
+					and ui.find_child("SelectionPage_side", true, false) == null,
+					"PC: the side and the week are both in view, no toggle (%s)" % ptag)
+			_check(_no_scroll(ui.find_child("SelectionScroll", true, false)) and _no_scroll(ui.find_child("WeekScroll", true, false)),
+					"PC: neither column scrolls (%s)" % ptag)
+			var pc_hint: Label = ui.find_child("BuilderHint", true, false)
+			_check(pc_hint != null and pc_hint.text.contains("Click a player"), "PC: the help line says Click (%s)" % ptag)
+			var week_w := (ui.find_child("WeekScroll", true, false) as Control).size.x
+			_check(week_w >= 460.0 and week_w <= 600.5, "PC: the week keeps a readable column, %d wide (%s)" % [int(week_w), ptag])
+			var sl2: Label = ui.find_child("SynergyLine", true, false)
+			var rules2: Button = ui.find_child("SynergyRules", true, false)
+			var rep2: Button = ui.find_child("AssistantReport", true, false)
+			var head2: Control = ui.find_child("WeekHeading", true, false)
+			_check(_gap_x(sl2, rules2) < 48.0 and _gap_y(sl2, rules2) < 24.0
+					and _gap_x(head2, rep2) < 48.0 and _gap_y(head2, rep2) < 24.0,
+					"PC: each button is beside or under its own line, under 48 px away (%s)" % ptag)
+			var inter2 := ui.find_child("InterchangeRow", true, false)
+			_check(_gap_x(inter2.get_child(0), ui.find_child("SaveBest23", true, false)) < 48.0,
+					"PC: Save as my Best 23 is beside the interchange (%s)" % ptag)
+			# A real swap on the left updates the right at once.
+			var sline_before := ui.find_child("SynergyLine", true, false).get_instance_id()
+			var s0: Dictionary = _state.current_side()
+			var c0 := str(s0["MID"][0])
+			var w0 := str(s0["WING"][0])
+			var ta: String = await Tap.tap(ui.find_child("Spot_C", true, false))
+			await _settle()
+			var tb: String = await Tap.tap(ui.find_child("Spot_WL", true, false))
+			await _settle()
+			_check(ta == "" and tb == "" and str(_state.my_selection()["MID"][0]) == w0
+					and str(_state.my_selection()["WING"][0]) == c0
+					and ui.find_child("SynergyLine", true, false).get_instance_id() != sline_before
+					and ui.find_child("SynergyLine", true, false).text == _synergy_words(),
+					"PC: a real swap rebuilds the synergies and match facts at once (%s)" % ptag)
+			var why4: String = await Tap.tap(ui.find_child("SynergyRules", true, false))
+			await _settle()
+			_check(why4 == "" and ui.find_child("SynergyGuide", true, false) != null, "PC: a real tap opens Synergies (%s)" % ptag)
+			ui.call("handle_back")
+			await _settle()
+			_check(ui.call("handle_back") == false, "PC: Back leaves selection (%s)" % ptag)
+			_check(ui.find_child("ChangeMatchup", true, false) == null and ui.find_child("ChangePlan", true, false) == null,
+					"PC: no match-up or game plan control is left on selection (%s)" % ptag)
+			ui.queue_free()
+			await _settle()
+	root.size = Vector2i(420, 860)
+	_state.set_selection({})
+
+
+## A coach who skips the match: the plan he last used (set in the pre-bounce
+## menu) is the plan the sim plays, and the match-ups are the assistant's
+## until he changes one.
+func _skip_match_tests() -> void:
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("FRE", db.club_list("FRE"))
+	_state.set_club_plan("contest")
+	_check(_state.season.plans.get("FRE", "") == "contest" and _state.my_matchups.is_empty() and not _state.season.matchups.has("FRE"),
+			"The standing plan reaches the sim and the match-ups are left to the assistant")
+	var rows: Array = _state.week_matchups(str(_state.my_next_opponent()["code"]))
+	_check(rows.is_empty() or not bool(rows[0]["set"]), "Until he changes one, the match-ups shown are the assistant's")
+	var out: String = _state.advance()
+	_check(out != "none" and _state.club_plan == "contest" and _state.season.plans.get("FRE", "") == "contest",
+			"Skipping the match plays the round and keeps the plan he last used")
 
 
 ## My list: one line per player, a profile a tap away, Back closes it.
@@ -443,9 +579,6 @@ func _selection_profile_tests() -> void:
 	var before: Dictionary = _state.my_selection().duplicate(true)
 	var ui := await _open()
 	var sc: ScrollContainer = ui.find_child("SelectionScroll", true, false)
-	sc.scroll_vertical = 600
-	await _settle()
-	var at: int = sc.scroll_vertical
 	var card: Button = ui.find_child("Spot_C", true, false)
 	card.emit_signal("pressed")
 	await _settle()
@@ -544,7 +677,8 @@ func _backing_ui_tests() -> void:
 	var kid_id := str(kid["id"])
 	var digits := RegEx.new()
 	digits.compile("\\d")
-	var ui := await _open()
+	root.size = Vector2i(420, 860)
+	var ui := await _open(false)
 	var tile: Node = _card_of(ui, str(best["id"]))
 	_check(tile != null, "The best player is on the field")
 	if tile != null:
@@ -587,6 +721,8 @@ func _backing_ui_tests() -> void:
 			var ledger: Array = kid.get("backed", [])
 			_check(ledger.size() == 1 and str(ledger[0]["state"]) == "active", "He is on a run")
 			_check(_screen_text(ui).contains("has your word for three games"), "Selection says what changed")
+			root.size = Vector2i(1280, 720)  # the week is in view beside the side
+			await _settle()
 			var line: Label = ui.find_child("Backing_" + kid_id, true, false)
 			_check(line != null and line.text == "You promised %s a run: game one of three." % db.player_display_name(kid)
 					and digits.search(line.text) == null, "Selection reminds you of the run, in words (%s)" % (line.text if line else "-"))
@@ -899,7 +1035,10 @@ func _label_with(under: Node, text: String) -> Control:
 	return null
 
 
-func _open() -> Control:
+## `pc`: open it in a PC window, where the side and the week are both in view.
+func _open(pc := true) -> Control:
+	if pc:
+		root.size = Vector2i(1280, 720)
 	var ui: Control = load("res://scenes/SelectionScene.tscn").instantiate()
 	root.add_child(ui)
 	await _settle()
@@ -923,3 +1062,46 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
 		push_error(message)
+
+
+## The week's headings are the club's readable ink on the dark page, for every
+## club (the raw club colour was dark purple on dark purple), and the week
+## says each fact once.
+func _week_ink_tests() -> void:
+	var db = root.get_node("GameDB")
+	var uk = load("res://scripts/ui/UiKit.gd")
+	var bad := []
+	var codes: Array = db.clubs.keys()
+	for code in codes:
+		_state.reset()
+		_state.start_season(str(code), db.club_list(str(code)))
+		var ui := await _open()
+		var opp := str(_state.my_next_opponent().get("code", ""))
+		var h: Label = null
+		var kf: Label = null
+		for l in ui.find_children("*", "Label", true, false):
+			if str(l.text) == db.club_name(opp) and h == null and ui.find_child("WeekHeading", true, false).is_ancestor_of(l):
+				h = l
+			if str(l.text) == "Their key forwards":
+				kf = l
+		_check(h != null or opp == "", "The week heading names the opponent beside its guernsey (%s)" % str(code))
+		for lab in [h, kf]:
+			if lab == null:
+				continue
+			# The club's readable ink: 4.5:1 on the dark page, for every club.
+			var ratio: float = uk.contrast(lab.get_theme_color("font_color"), uk.BG)
+			if ratio < 4.5:
+				bad.append("%s %s %.1f" % [code, lab.text, ratio])
+		if str(code) == "FRE":
+			_check(ui.find_child("LineStandings", true, false) == null and ui.find_child("H2H_midfield", true, false) != null,
+					"The week says line against line once, not twice")
+			var long_tag := false
+			for c in ui.find_children("Spot_*", "Button", true, false):
+				for l in c.find_children("*", "Label", true, false):
+					if str(l.text).count("/") >= 2:
+						long_tag = true
+			_check(not long_tag, "No oval tile lists three positions")
+		ui.queue_free()
+		await _settle()
+	_check(bad.is_empty(), "Every club's week headings read at 4.5:1 or better on the dark page (%s)" % str(bad))
+	_check(codes.size() >= 18, "All the clubs were checked (%d)" % codes.size())

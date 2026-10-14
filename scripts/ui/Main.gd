@@ -110,7 +110,9 @@ func _ready() -> void:
 	_content = UiKit.vbox(12)
 	_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	margin.add_child(UiKit.scroll(_content))
-	get_viewport().size_changed.connect(_render)
+	get_viewport().size_changed.connect(func():
+		if not UiKit.keyboard_resize(self):
+			_render())
 	_render()
 
 

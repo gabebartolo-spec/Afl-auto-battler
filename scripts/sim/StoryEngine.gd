@@ -303,6 +303,12 @@ static func build(deck: Array, t: Dictionary, subj: Dictionary, club: Dictionary
 	if cost != 0:
 		card["unanswered"] = {"board": cost, "text": fill(str(un.get("text", "")), facts),
 				"hint": "Say nothing: %s" % _board_words(cost).to_lower()}
+	# Saying nothing can cost the player's trust instead (a card about what he asked for).
+	var trust_cost := int(un.get("trust", 0))
+	if trust_cost != 0 and player:
+		card["unanswered"] = {"trust": trust_cost, "why": fill(str(un.get("why", "")), facts),
+				"text": fill(str(un.get("text", "")), facts),
+				"hint": "Say nothing: %s" % _lower_first(_trust_words(trust_cost))}
 	return card
 
 

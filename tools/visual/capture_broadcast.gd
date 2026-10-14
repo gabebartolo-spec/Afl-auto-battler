@@ -53,6 +53,8 @@ func _run() -> void:
 			# (VignetteGround reads GameDB), and the whole tool failed to load.
 			"--venue": load("res://scripts/ui/match/VignetteGround.gd").venue = str(a[i + 1])
 	await process_frame
+	# The tool films the new front speccy whatever the shipped switch says.
+	Features.set_on("speccy_front", true)
 	var db = root.get_node("GameDB")
 	var w := width
 	var h := height if height > 0 else int(round(width * 2.2))       # a tall phone in portrait

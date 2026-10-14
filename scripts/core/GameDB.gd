@@ -234,7 +234,7 @@ const THREE_COLOUR_CLUBS := ["ADE", "BRL", "GCS", "GWS", "PAD", "STK", "WBD", "T
 ## The colours a club is known by, for its marker: two or three.
 func club_marker_colours(code: String) -> Array:
 	var cols := club_colours(code)
-	if THREE_COLOUR_CLUBS.has(code) or bool(clubs.get(code, {}).get("custom", false)):
+	if THREE_COLOUR_CLUBS.has(side_base(code)) or bool(clubs.get(code, {}).get("custom", false)):
 		return cols
 	return cols.slice(0, 2)
 
@@ -250,6 +250,103 @@ func register_club(row: Dictionary) -> void:
 		club_order.append(code)
 	if not players_by_club.has(code):
 		players_by_club[code] = []
+
+
+# ---------------------------------------------------------------------------
+# Sides of one club (an intra-club match)
+# ---------------------------------------------------------------------------
+## When a club plays itself, each side is its own entry beside the real clubs:
+## the club's row, with the side's own name and short name ("Fremantle
+## Purple", "Purple"), the club it belongs to ("side_of"), whether it wears
+## the clash strip ("clash") and whether it is the coach's side ("coach").
+## Everything that looks a club up by its code (names, colours, the kit) finds
+## a side the same way, so a normal club-v-club match is untouched: with no
+## side registered none of this is ever read. A side is in no fixture, ladder
+## or list (never in club_order), and holds no players of its own.
+const SIDE_HOME := "_H"
+const SIDE_CLASH := "_A"
+## Each club's two strips, named by their colour: [home strip, clash strip].
+## The clash strip is the one the oval gives an away side that looks like the
+## home side (PitchView.kits_for: the club's own kit with its two colours
+## changed over), so these are that kit's colours in plain words. A club not
+## listed (a created one) is "Home" and "Clash".
+const SIDE_COLOUR_NAMES := {
+	"ADE": ["Navy", "Red"], "BRL": ["Maroon", "Blue"], "CAR": ["Navy", "White"],
+	"CANB": ["Navy", "White"], "COL": ["Black", "White"], "ESS": ["Black", "Red"],
+	"FRE": ["Purple", "White"], "GCS": ["Red", "Gold"], "GEE": ["Navy", "White"],
+	"GWS": ["Charcoal", "Orange"], "HAW": ["Brown", "Gold"], "MEL": ["Navy", "Red"],
+	"NTH": ["Blue", "White"], "PAD": ["Black", "White"], "RIC": ["Black", "Yellow"],
+	"STK": ["Black", "White"], "SYD": ["White", "Red"], "TAS": ["Green", "Yellow"],
+	"WBD": ["Blue", "Red"], "WCE": ["Blue", "Gold"],
+}
+
+
+## The two side codes for a club: [home strip, clash strip].
+func side_codes(base: String) -> Array:
+	return [base + SIDE_HOME, base + SIDE_CLASH]
+
+
+## Register a club's two sides (again is harmless). `coach_home`: the coach's
+## side is the one in the home strip; false for a match nobody coaches.
+## Returns their codes: [home strip, clash strip].
+func register_sides(base: String, coach_home := true) -> Array:
+	var codes := side_codes(base)
+	if not clubs.has(base):
+		return codes
+	var names: Array = SIDE_COLOUR_NAMES.get(base, ["Home", "Clash"])
+	for i in range(2):
+		var row: Dictionary = (clubs[base] as Dictionary).duplicate(true)
+		row["code"] = codes[i]
+		row["name"] = "%s %s" % [club_name(base), str(names[i])]
+		row["short"] = str(names[i])
+		row["side_of"] = base
+		row["clash"] = i == 1
+		row["coach"] = coach_home and i == 0
+		row.erase("kit")
+		row.erase("custom")
+		clubs[codes[i]] = row
+	return codes
+
+
+## Take every side out again.
+func unregister_sides() -> void:
+	for code in clubs.keys():
+		if (clubs[code] as Dictionary).has("side_of"):
+			clubs.erase(code)
+
+
+func is_side(code: String) -> bool:
+	return (clubs.get(code, {}) as Dictionary).has("side_of")
+
+
+## The real club a code belongs to: a side's club, or the code itself.
+func side_base(code: String) -> String:
+	return str((clubs.get(code, {}) as Dictionary).get("side_of", code))
+
+
+func side_is_clash(code: String) -> bool:
+	return bool((clubs.get(code, {}) as Dictionary).get("clash", false))
+
+
+## The side the coach is in charge of (a flag on the entry, never its name).
+func side_is_coach(code: String) -> bool:
+	return bool((clubs.get(code, {}) as Dictionary).get("coach", false))
+
+
+## Which side of a match is the coach's (0 home, 1 away): his club's in a
+## club-v-club match, as always; in an intra-club match the side flagged as
+## his (side_is_coach), never found by its name.
+func coach_side(home: String, away: String, my_club: String) -> int:
+	if is_side(home) or is_side(away):
+		return 1 if side_is_coach(away) and not side_is_coach(home) else 0
+	return 0 if home == my_club else 1
+
+
+## Give a side the kit it wears (the oval's clash strip for the second side;
+## PitchView.dress_sides works it out). club_guernsey returns it from then on.
+func set_side_kit(code: String, kit: Dictionary) -> void:
+	if is_side(code):
+		clubs[code]["kit"] = kit.duplicate()
 
 
 ## Take every created club out again (a new career, or loading another save).
@@ -277,6 +374,9 @@ const GUERNSEY_DESIGNS := ["plain", "stripes", "hoops", "sash", "yoke", "band", 
 ## left out are the secondary colour, a shade darker. Richmond is "sash:s/p/a":
 ## a black guernsey with a yellow sash. Unknown or missing: plain.
 func club_guernsey(code: String) -> Dictionary:
+	# A side of an intra-club match wears the kit it was given (set_side_kit).
+	if (clubs.get(code, {}) as Dictionary).has("kit"):
+		return (clubs[code]["kit"] as Dictionary).duplicate()
 	var cols := club_colours(code)
 	var parts := str(clubs.get(code, {}).get("guernsey", "")).split(":")
 	var design := parts[0] if GUERNSEY_DESIGNS.has(parts[0]) else "plain"

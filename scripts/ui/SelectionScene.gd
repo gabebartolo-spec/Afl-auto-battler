@@ -4,17 +4,26 @@ extends Control
 ## is picked for you each week; your first move makes the side yours, and it
 ## stays yours until you choose an Auto-pick strategy again. A gap (an
 ## injured player) is filled automatically on match day.
+##
+## No scrolling (director, 2026-10-13: "team selection being scrollable doesnt
+## feel good"): "The side" is the oval, the interchange and the players not
+## picked; "This week" is what the choice rests on. A phone shows one at a
+## time with a tap between them; a PC shows both, side by side. Match-ups,
+## game plan and tags are not asked here: they are set in the pre-bounce menu
+## (director, 2026-10-13).
+
+const WEEK_W_MIN := 460.0
+const WEEK_W_MAX := 600.0
 
 var _root: VBoxContainer
 var _notice := ""
 var _synergy_overlay: Control
-var _plan_overlay: Control      # the game plan chooser
-var _matchup_overlay: Control   # who goes to their key forward
 var _sheet: Control             # a player's profile, open over the list
-var _scroll_box: ScrollContainer
 var _undo := {}            # the side before the last Auto-pick, for Undo
 var _view := "mine"        # "mine" or "opp": the oval shows them, read-only
 var _line_cache := {}      # the other clubs' lines, built once a visit
+var _week_overlay: Control      # a phone: the week, open over the side
+var _wide := false
 
 
 func _ready() -> void:
@@ -32,15 +41,16 @@ func _ready() -> void:
 	_root = UiKit.vbox(8)
 	margin.add_child(_root)
 	get_viewport().size_changed.connect(func():
-		if is_inside_tree():
+		if is_inside_tree() and not UiKit.keyboard_resize(self):
 			_build())
 	_build()
 
 
 func _build() -> void:
-	# A move or a resize rebuilds the list: keep your place in it.
-	var keep := UiKit.scroll_place(_scroll_box) if is_instance_valid(_scroll_box) else 0
+	# A move or a resize rebuilds the page: keep your place in the list.
+	var places := UiKit.scroll_places(_root)
 	UiKit.clear(_root)
+	_wide = ScreenLayout.wide_view(UiKit.view_width(self), UiKit.view_height(self), 900.0)
 	# Auto-pick is an action, never a mode: choose a strategy and it sets the
 	# side; your moves after that stay yours (director, 2026-10-07). It is
 	# the top bar's right control (audit §8 Phase 1.4): the board comes first.
@@ -57,106 +67,133 @@ func _build() -> void:
 			["mine", "My Selected Best 23"]]
 	for i in range(strategies.size()):
 		menu.add_item(str(strategies[i][1]), i)
+	# One ruck or two only changes who Auto-pick names on the bench, so it sits
+	# in this menu, ticked when on.
+	menu.add_separator()
+	menu.add_check_item("Dual ruck", 100)
+	menu.set_item_checked(menu.get_item_index(100), GameState.dual_ruck())
 	menu.id_pressed.connect(func(idx: int):
+		if idx == 100:
+			var on := not GameState.dual_ruck()
+			GameState.set_dual_ruck(on)
+			_notice = "Dual ruck on: Auto-pick names a second ruck on the bench." if on else "One ruck: Auto-pick fills the bench with the best of the rest."
+			_build()
+			return
 		_apply_strategy(str(strategies[idx][0])))
-	_root.add_child(UiKit.top_bar("Team selection", true, pick))
+	var bar := UiKit.top_bar("Team selection", true, pick)
+	_root.add_child(bar)
 	var auto := GameState.my_selection().is_empty()
 	# A side named before the wings existed: split its midfield once.
 	if not auto and not GameState.my_selection().has("WING"):
 		GameState.set_selection(GameState.current_side())
+	if _wide:
+		var cols := UiKit.hbox(14)
+		cols.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		_root.add_child(cols)
+		cols.add_child(_scroller(_side_page(auto), "SelectionScroll"))
+		# The week keeps a readable measure: it does not stretch with the window.
+		var right := _scroller(_week_page(), "WeekScroll")
+		right.size_flags_horizontal = Control.SIZE_FILL
+		right.custom_minimum_size.x = clampf(UiKit.view_width(self) * 0.4, WEEK_W_MIN, WEEK_W_MAX)
+		cols.add_child(right)
+	else:
+		_root.add_child(_scroller(_side_page(auto), "SelectionScroll"))
+	UiKit.restore_places(_root, places)
 
-	var wide := ScreenLayout.wide_view(UiKit.view_width(self), UiKit.view_height(self), 900.0)
-	# What the board shows, as one line of text each, over the board.
-	var head := UiKit.vbox(0)
-	head.name = "BuilderHead"
-	_root.add_child(head)
-	var dual := UiKit.segmented("DualRuck", [["off", "One ruck"], ["on", "Dual ruck"]],
-			"on" if GameState.dual_ruck() else "off", func(k):
-				GameState.set_dual_ruck(k == "on")
-				_notice = "Dual ruck on: Auto-pick names a second ruck on the bench." if k == "on" else "One ruck: Auto-pick fills the bench with the best of the rest."
-				_build())
-	head.add_child(dual)
+
+## A page fills the space and scrolls only if something abnormal (a very long
+## week) outgrows it; a normal side and week never show a scroll bar.
+func _scroller(page: Control, node_name: String) -> ScrollContainer:
+	var sc := UiKit.scroll(page)
+	sc.name = node_name
+	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	return sc
+
+
+## The side: the oval you can look at theirs on, your 18 and the bench, and
+## the players not picked, with what acts on the side beside the interchange.
+func _side_page(auto: bool) -> Control:
+	var page := UiKit.vbox(8)
+	page.name = "SidePage"
 	var nxt := GameState.my_next_opponent()
 	if not nxt.is_empty():
 		# Look at them on the same oval (director, 2026-10-07).
 		var opp_name := GameDB.club_short(str(nxt["code"]))
-		var flip := UiKit.segmented("OvalView", [["mine", "Your team"], ["opp", opp_name]], _view, func(k):
+		page.add_child(UiKit.segmented("OvalView", [["mine", "Your team"], ["opp", opp_name]], _view, func(k):
 			_view = k
-			_build())
-		head.add_child(flip)
-
-	var body := UiKit.vbox(10)
-	_scroll_box = UiKit.scroll(body)
-	_scroll_box.name = "SelectionScroll"
-	_root.add_child(_scroll_box)
-	UiKit.restore_scroll(_scroll_box, keep)
+			_build()))
 	var builder := TeamBuilder.new()
 	builder.name = "TeamBuilder"
+	builder.stacked = true
 	builder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var opp_code := str(GameState.my_next_opponent().get("code", ""))
+	builder.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	builder.start_note = _notice
+	var opp_code := str(nxt.get("code", ""))
 	if _view == "opp" and opp_code != "":
 		var proj := _para("%s as they would take the field this week (projected: they name their side on match day). They kick the other way." % GameDB.club_name(opp_code), 13, UiKit.MUTED)
 		proj.name = "OppProjected"
-		body.add_child(proj)
-		body.add_child(builder)
+		page.add_child(proj)
+		page.add_child(builder)
 		var their: Dictionary = GameState.opponent_side(opp_code)
-		builder.setup(their["side"], wide, their["list"], true)
+		builder.setup(their["side"], _wide, their["list"], true)
 		builder.inspect.connect(_open_opponent.bind(their["list"]))
 	else:
-		body.add_child(builder)
-		builder.setup(GameState.current_side(), wide)
+		var actions := HBoxContainer.new()
+		actions.name = "SideActions"
+		actions.add_theme_constant_override("separation", 8)
+		_fill_actions(actions)
+		builder.interchange_actions = actions
+		builder.hint_extra = "Picked for you each week until you move someone." if auto else ""
+		if not _wide and not nxt.is_empty():
+			# A phone: the week is one tap away, in the club's ink, under the bench.
+			var row := UiKit.text_action("This week %s %s ›" % ["v" if str(nxt["venue"]) == "home" else "at",
+					GameDB.club_name(str(nxt["code"]))], UiKit.NAME)
+			row.name = "WeekRow"
+			row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			row.add_theme_color_override("font_color", UiKit.club_ink(GameState.my_club))
+			row.pressed.connect(_open_week)
+			builder.after_bench = row
+		page.add_child(builder)
+		builder.setup(GameState.current_side(), _wide)
 	builder.inspect.connect(_open_profile)
 	builder.changed.connect(func(note: String):
 		_notice = note
+		builder.start_note = note
 		_undo = {}
+		var hint: Label = builder.find_child("BuilderHint", true, false)
+		if hint != null:
+			hint.text = note
+			hint.add_theme_color_override("font_color", UiKit.GOOD)
 		_refresh_facts())
-	# Under the board: the facts of the side as arranged, and the actions on
-	# it, said as words. Until you move someone the side is picked for you
-	# each week; the first move makes it yours (TeamBuilder sets the selection).
-	var facts := UiKit.vbox(6)
-	facts.name = "BuilderFacts"
-	body.add_child(facts)
-	_fill_facts(facts, auto)
-	# The team sheet: who is in and out since your last match, and why.
-	var changes := GameState.week_changes_text()
-	if changes != "":
-		var ch := _para(changes, 14, UiKit.TEXT)
-		ch.name = "TeamChanges"
-		body.add_child(ch)
-	body.add_child(_this_week())
+	return page
 
 
-## Your lines as they stand in the competition, from the side as arranged now.
-func _lines_view() -> Control:
-	var words: Dictionary = Matchup.line_standings(GameState.my_club, GameState.season.lists,
-			GameState.season.selections, GameState.my_squad(), _line_cache)
-	var text := "Midfield %s · Ruck %s · Forwards %s · Defence %s" % [words["midfield"], words["ruck"],
-			words["attack"], words["defence"]]
-	var l := _para(text, 13, UiKit.TEXT)
-	l.name = "LineStandings"
-	return l
+## A phone: the week opens as a sheet over the side. Synergies and the report
+## open over it and give it back on Close.
+func _open_week() -> void:
+	_close_week()
+	var box := UiKit.modal_box(self, 560.0, 0.0)
+	_week_overlay = box["overlay"]
+	_week_overlay.name = "WeekSheet"
+	var v: VBoxContainer = box["body"]
+	v.add_theme_constant_override("separation", 10)
+	_fill_week(v)
+	var close := UiKit.btn("Close", UiKit.NAME, true)
+	close.name = "WeekClose"
+	close.custom_minimum_size = Vector2(0, 48)
+	close.pressed.connect(_close_week)
+	box["footer"].add_child(close)
 
 
-## The facts under the board: your lines, the note of the last move, the
-## synergies, and the actions on the side as words (save, undo, the report).
-func _fill_facts(facts: VBoxContainer, auto: bool) -> void:
-	facts.add_child(_lines_view())
-	if _notice != "":
-		var nl := _para(_notice, UiKit.SMALL, UiKit.GOOD)
-		nl.name = "BuilderNote"
-		facts.add_child(nl)
-	if auto:
-		var a := _para("Picked for you each week until you move someone.", UiKit.FINE, UiKit.MUTED)
-		a.name = "AutoNote"
-		facts.add_child(a)
-	facts.add_child(_synergy_view())
-	# Wraps on a phone rather than pushing the screen wider.
-	var actions := HFlowContainer.new()
-	actions.name = "SideActions"
-	actions.add_theme_constant_override("h_separation", 12)
-	actions.add_theme_constant_override("v_separation", 0)
-	facts.add_child(actions)
-	var save := UiKit.text_action("Save as my Best 23")
+func _close_week() -> void:
+	if _week_overlay != null and is_instance_valid(_week_overlay):
+		_week_overlay.queue_free()
+	_week_overlay = null
+
+
+## Save as my Best 23 and Undo, beside the interchange they act on.
+func _fill_actions(actions: HBoxContainer) -> void:
+	var save := UiKit.text_action("Save as my Best 23", UiKit.SECONDARY)
 	save.name = "SaveBest23"
 	save.pressed.connect(func():
 		GameState.set_best23(GameState.current_side())
@@ -164,7 +201,7 @@ func _fill_facts(facts: VBoxContainer, auto: bool) -> void:
 		_build())
 	actions.add_child(save)
 	if not _undo.is_empty():
-		var undo := UiKit.text_action("Undo")
+		var undo := UiKit.text_action("Undo", UiKit.SECONDARY)
 		undo.name = "UndoPick"
 		undo.pressed.connect(func():
 			GameState.set_selection(_undo)
@@ -172,23 +209,19 @@ func _fill_facts(facts: VBoxContainer, auto: bool) -> void:
 			_notice = "Back to your side before the auto-pick."
 			_build())
 		actions.add_child(undo)
-	var nxt := GameState.my_next_opponent()
-	if not nxt.is_empty():
-		# What your assistant has seen of them - said there, and only there.
-		var report := UiKit.text_action("Assistant's report ›")
-		report.name = "AssistantReport"
-		report.pressed.connect(_show_report.bind(str(nxt["code"])))
-		actions.add_child(report)
 
 
-## After a move: the facts under the board, without rebuilding the builder
-## (or losing your place in it).
+## After a move: the week and the actions beside the interchange, without
+## rebuilding the builder (or losing your place in it).
 func _refresh_facts() -> void:
-	var facts: VBoxContainer = _root.find_child("BuilderFacts", true, false)
-	if facts == null:
-		return
-	UiKit.clear(facts)
-	_fill_facts(facts, GameState.my_selection().is_empty())
+	var v: VBoxContainer = _root.find_child("WeekPage", true, false)
+	if v != null:
+		UiKit.clear(v)
+		_fill_week(v)
+	var actions: HBoxContainer = _root.find_child("SideActions", true, false)
+	if actions != null:
+		UiKit.clear(actions)
+		_fill_actions(actions)
 
 
 ## Their player's profile: who he is and how he plays, nothing to change.
@@ -236,11 +269,86 @@ func _apply_strategy(key: String) -> void:
 	_build()
 
 
+## This week: what the choice rests on, from the side as arranged now.
+func _week_page() -> Control:
+	var v := UiKit.vbox(10)
+	v.name = "WeekPage"
+	_fill_week(v)
+	return v
+
+
+## Line against line (your half moves with your selection), your lines, the
+## synergies your side has, your own news, their key forwards. Facts, never a
+## verdict. How they play is in the assistant's report.
+func _fill_week(v: VBoxContainer) -> void:
+	var nxt := GameState.my_next_opponent()
+	if nxt.is_empty():
+		v.add_child(_strength_line())
+	else:
+		var code := str(nxt["code"])
+		var heading := UiKit.hbox(6)
+		heading.name = "WeekHeading"
+		heading.add_child(UiKit.line("This week %s" % ["v" if str(nxt["venue"]) == "home" else "at"], UiKit.BODY, UiKit.TEXT, true))
+		heading.add_child(_side_name(code, UiKit.BODY, 20.0))
+		v.add_child(heading)
+		# What your assistant has seen of them - said there, and only there.
+		var report := UiKit.text_action("Assistant's report ›", UiKit.SECONDARY)
+		report.name = "AssistantReport"
+		report.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		report.pressed.connect(_show_report.bind(code))
+		v.add_child(report)
+		var lines := UiKit.vbox(3)
+		lines.name = "HeadToHead"
+		v.add_child(lines)
+		for row in GameState.my_head_to_head(code):
+			var l := _para(str(row["text"]), 14, UiKit.TEXT)
+			l.name = "H2H_" + str(row["key"])
+			lines.add_child(l)
+	v.add_child(_synergy_view())
+	var own := GameState.my_week_notes()
+	# A key player already on the team sheet's outs is said there, once.
+	var sheet_outs := {}
+	for o in GameState.week_changes()["outs"]:
+		sheet_outs[str(o["id"])] = true
+	for f in own:
+		if sheet_outs.has(str(f.get("player_id", ""))):
+			continue
+		# Only an injury is bad news; a milestone is just marked.
+		v.add_child(_para(str(f["text"]), 13, UiKit.BAD if str(f.get("key", "")) == "own_injury" else UiKit.TEXT))
+	_backing_lines(v)
+	# The team sheet: who is in and out since your last match, and why.
+	var changes := GameState.week_changes_text()
+	if changes != "":
+		var ch := _para(changes, 14, UiKit.TEXT)
+		ch.name = "TeamChanges"
+		v.add_child(ch)
+	if not nxt.is_empty():
+		# Their key forwards, as facts. Who goes to each is set before the
+		# first ball-up, not here.
+		var mus := GameState.week_matchups(str(nxt["code"]))
+		if not mus.is_empty():
+			var mv := UiKit.vbox(2)
+			mv.name = "KeyMatchups"
+			v.add_child(mv)
+			var kf := UiKit.hbox(6)
+			kf.add_child(UiKit.club_marker(str(nxt["code"]), 18.0))
+			kf.add_child(UiKit.line("Their key forwards", UiKit.BODY, _side_ink(str(nxt["code"])), true))
+			mv.add_child(kf)
+			for m in mus:
+				var f: Dictionary = m["fwd"]
+				var fl := _para("%s. %s" % [GameDB.player_display_name(f), Matchups.describe(f)], 14, UiKit.TEXT)
+				fl.name = "KeyForward_" + str(f["id"])
+				mv.add_child(fl)
+	var later := _para("Match-ups, game plan and tags are set before the first ball-up.", UiKit.SMALL, UiKit.MUTED)
+	later.name = "SetLater"
+	v.add_child(later)
+
+
 ## The line synergies your 18 switch on - what the side is good at - any
 ## one it is a single player short of (a fact, never a suggested swap: the
-## choice is yours), and the full rules one tap away.
+## choice is yours), and the full rules one tap away, under the line they explain.
 func _synergy_view() -> Control:
-	var h := UiKit.hbox(8)
+	var h := UiKit.vbox(2)
 	h.name = "Synergies"
 	var on: PackedStringArray = []
 	for r in Traits.progress(GameState.my_squad().ground):
@@ -248,18 +356,17 @@ func _synergy_view() -> Control:
 			on.append(Traits.with_effect(str(r["key"])))
 	var l := _para("Your side has: " + ", ".join(on) + "." if not on.is_empty()
 			else "No line synergies in this side.", 13, UiKit.GOOD if not on.is_empty() else UiKit.MUTED)
-	var lines := UiKit.vbox(2)
-	lines.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lines.add_child(l)
+	l.name = "SynergyLine"
+	h.add_child(l)
 	var short := Traits.short_text(GameState.my_squad().ground)
 	if short != "":
 		var s := _para(short, 13, UiKit.MUTED)
 		s.name = "SynergyShort"
-		lines.add_child(s)
-	h.add_child(lines)
+		h.add_child(s)
 	var rules := UiKit.btn("Synergies", 14)
 	rules.name = "SynergyRules"
 	rules.custom_minimum_size = Vector2(104, 44)
+	rules.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	rules.pressed.connect(_show_synergies)
 	h.add_child(rules)
 	return h
@@ -331,6 +438,7 @@ func _complete_button(key: String) -> Control:
 			GameState.set_selection(fresh["side"])
 			_notice = str(fresh["note"])
 		_close_synergies()
+		_close_week()
 		_build())
 	v.add_child(b)
 	if str(r["problem"]) != "":
@@ -377,8 +485,8 @@ func _close_profile() -> void:
 	_sheet = null
 
 
-## Android Back closes a profile, then the synergy guide or the plan
-## chooser, before leaving.
+## Android Back closes a profile or the synergy guide, then the week sheet
+## (a phone), then leaves.
 func handle_back() -> bool:
 	if _sheet != null and is_instance_valid(_sheet):
 		_close_profile()
@@ -386,71 +494,24 @@ func handle_back() -> bool:
 	if _synergy_overlay != null and is_instance_valid(_synergy_overlay):
 		_close_synergies()
 		return true
-	if _matchup_overlay != null and is_instance_valid(_matchup_overlay):
-		_close_matchup()
-		return true
-	if _plan_overlay != null and is_instance_valid(_plan_overlay):
-		_close_plan()
+	if _week_overlay != null and is_instance_valid(_week_overlay):
+		_close_week()
 		return true
 	return false
 
 
-## This week, what the choice rests on: line against line (your half moves
-## with your selection), your own news, their key forwards, then the game
-## plan you take in. How they play and who matters are in the assistant's
-## report, not repeated here. Facts, never a verdict.
-func _this_week() -> Control:
-	var v := UiKit.vbox(3)
-	v.name = "SelectionWeek"
-	var nxt := GameState.my_next_opponent()
-	if nxt.is_empty():
-		v.add_child(_strength_line())
-		_backing_lines(v)
-		v.add_child(UiKit.spacer(4))
-		v.add_child(_plan_row())
-		return v
-	var code := str(nxt["code"])
-	var wk := UiKit.hbox(6)
-	wk.name = "ThisWeekHead"
-	wk.add_child(UiKit.line("This week %s" % ["v" if str(nxt["venue"]) == "home" else "at"], UiKit.BODY, UiKit.TEXT, true))
-	wk.add_child(_side_name(code, UiKit.BODY, 20.0))
-	v.add_child(wk)
-	var lines := UiKit.vbox(3)
-	lines.name = "HeadToHead"
-	v.add_child(lines)
-	for row in GameState.my_head_to_head(code):
-		var l := _para(str(row["text"]), 14, UiKit.TEXT)
-		l.name = "H2H_" + str(row["key"])
-		lines.add_child(l)
-	var own := GameState.my_week_notes()
-	if not own.is_empty() or not GameState.backing_notes().is_empty():
-		v.add_child(UiKit.spacer(4))
-	# A key player already on the team sheet's outs is said there, once.
-	var sheet_outs := {}
-	for o in GameState.week_changes()["outs"]:
-		sheet_outs[str(o["id"])] = true
-	for f in own:
-		if sheet_outs.has(str(f.get("player_id", ""))):
-			continue
-		# Only an injury is bad news; a milestone is just marked.
-		v.add_child(_para(str(f["text"]), 13, UiKit.BAD if str(f.get("key", "")) == "own_injury" else UiKit.TEXT))
-	_backing_lines(v)
-	# Their key forwards and who goes to them: your call, in names.
-	var mus := GameState.week_matchups(code)
-	if not mus.is_empty():
-		v.add_child(UiKit.spacer(6))
-		var mv := UiKit.vbox(2)
-		mv.name = "KeyMatchups"
-		v.add_child(mv)
-		var kf := UiKit.hbox(6)
-		kf.add_child(UiKit.club_marker(code, 18.0))
-		kf.add_child(UiKit.line("Their key forwards", UiKit.BODY, _side_ink(code), true))
-		mv.add_child(kf)
-		for m in mus:
-			mv.add_child(_matchup_row(m))
-	v.add_child(UiKit.spacer(6))
-	v.add_child(_plan_row())
-	return v
+## The club's readable ink on the dark page (4.5:1 or better, UiKit.club_ink):
+## the heading text must always read, and the guernsey beside it carries
+## whose side it is (director, 2026-10-14).
+func _side_ink(code: String) -> Color:
+	return UiKit.club_ink(code)
+
+
+func _side_name(code: String, fs: int, marker := 18.0) -> Control:
+	var h := UiKit.hbox(6)
+	h.add_child(UiKit.club_marker(code, marker))
+	h.add_child(UiKit.line(GameDB.club_name(code), fs, _side_ink(code), true))
+	return h
 
 
 ## What you have promised: one line for each run you have given a player,
@@ -461,168 +522,6 @@ func _backing_lines(v: VBoxContainer) -> void:
 		var l := _para(str(f["text"]), 13, UiKit.TEXT)
 		l.name = "Backing_" + str(f["player_id"])
 		v.add_child(l)
-
-
-## "Moore is on Curnow." with the way to change it.
-func _matchup_row(m: Dictionary) -> Control:
-	var f: Dictionary = m["fwd"]
-	var h := UiKit.hbox(8)
-	h.name = "Matchup_" + str(f["id"])
-	var t := UiKit.vbox(0)
-	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(t)
-	t.add_child(_matchup_sentence(f, m.get("def", {})))
-	t.add_child(_para(Matchups.describe(f), 12, UiKit.MUTED))
-	var b := UiKit.btn("Change", 14)
-	b.name = "ChangeMatchup"
-	b.custom_minimum_size = Vector2(104, 44)
-	b.pressed.connect(func(): _show_matchup(f, m["def"]))
-	h.add_child(b)
-	return h
-
-
-## "Moore is on Curnow." with each name in its side's colour and its guernsey
-## beside it: your defender reads as yours, their forward as theirs (director,
-## 2026-10-13, readability). Same words as MatchNotes.matchup_line. Where a
-## club's colour is too dark for the page the name stays TEXT and the guernsey
-## alone says whose he is; the two sides are also told apart by position
-## (yours first, theirs after "is on").
-func _matchup_sentence(fwd: Dictionary, def: Dictionary) -> Control:
-	var flow := HFlowContainer.new()
-	flow.name = "MatchupLine"
-	flow.add_theme_constant_override("h_separation", 4)
-	flow.add_theme_constant_override("v_separation", 0)
-	var mine := GameState.my_club
-	var theirs := str(GameState.my_next_opponent().get("code", ""))
-	var their_name := GameDB.player_display_name(fwd)
-	if def.is_empty():
-		flow.add_child(UiKit.line("Nobody is on", 14, UiKit.TEXT))
-	else:
-		flow.add_child(_side_chip(mine, GameDB.player_display_name(def)))
-		flow.add_child(UiKit.line("is on", 14, UiKit.TEXT))
-	flow.add_child(_side_chip(theirs, their_name, "."))
-	return flow
-
-
-## A guernsey and a bold name in the club's ink.
-func _side_chip(code: String, text: String, tail := "") -> Control:
-	var h := UiKit.hbox(4)
-	h.add_child(UiKit.club_marker(code, 16.0))
-	h.add_child(UiKit.line(text + tail, 14, _side_ink(code), true))
-	return h
-
-
-## A club's most vivid colour that reads on the page (3:1), else TEXT, so a
-## dark club (Collingwood, Carlton) is carried by its guernsey instead.
-func _side_ink(code: String) -> Color:
-	var col := UiKit.club_vivid(code, UiKit.BG)
-	# A red or orange club's ink would read as BAD or the primary action, and
-	# two red clubs could not be told apart by it: the guernsey carries it.
-	if col.s > 0.4 and (col.h < 0.09 or col.h > 0.96):
-		return UiKit.TEXT
-	return col
-
-
-func _side_name(code: String, fs: int, marker := 18.0) -> Control:
-	var h := UiKit.hbox(6)
-	h.add_child(UiKit.club_marker(code, marker))
-	h.add_child(UiKit.line(GameDB.club_name(code), fs, _side_ink(code), true))
-	return h
-
-
-## Who goes to their forward: your defenders on the ground, each as a coach
-## would describe him. Tap one and he has the job.
-func _show_matchup(fwd: Dictionary, current: Dictionary) -> void:
-	_close_matchup()
-	var box := UiKit.modal_box(self, 480.0, 0.0)
-	_matchup_overlay = box["overlay"]
-	_matchup_overlay.name = "MatchupChooser"
-	var v: VBoxContainer = box["body"]
-	v.add_theme_constant_override("separation", 6)
-	v.add_child(UiKit.lbl("Who goes to %s?" % GameDB.player_display_name(fwd), UiKit.H1, UiKit.TEXT, true))
-	v.add_child(_para(Matchups.describe(fwd), 13, UiKit.MUTED))
-	for p in Matchups.defenders(GameState.my_squad().ground):
-		var b := UiKit.btn("", UiKit.BODY)
-		b.name = "Defender_" + str(p["id"])
-		b.custom_minimum_size = Vector2(0, 56)
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.text = "%s\n%s" % [GameDB.player_display_name(p), Matchups.describe(p)]
-		UiKit.paint_choice(b, str(p["id"]) == str(current.get("id", "")))
-		var pid := str(p["id"])
-		b.pressed.connect(func():
-			GameState.set_my_matchup(str(fwd["id"]), pid)
-			_close_matchup()
-			_build())
-		v.add_child(b)
-	var done := UiKit.btn("Close", UiKit.NAME)
-	done.custom_minimum_size = Vector2(0, 48)
-	done.pressed.connect(_close_matchup)
-	box["footer"].add_child(done)
-
-
-func _close_matchup() -> void:
-	if _matchup_overlay != null and is_instance_valid(_matchup_overlay):
-		_matchup_overlay.queue_free()
-	_matchup_overlay = null
-
-
-## The game plan you take into the match, and the way to change it.
-func _plan_row() -> Control:
-	var h := UiKit.hbox(8)
-	h.name = "PlanRow"
-	# Your plan, your club: its guernsey and ink, bold (the chosen thing).
-	var mark := UiKit.club_marker(GameState.my_club, 18.0)
-	mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	h.add_child(mark)
-	var l := UiKit.lbl("Game plan: %s" % CoachReport.plan_label(GameState.club_plan), UiKit.BODY, _side_ink(GameState.my_club), true)
-	l.name = "PlanLine"
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(l)
-	var b := UiKit.btn("Change", 14)
-	b.name = "ChangePlan"
-	b.custom_minimum_size = Vector2(104, 44)
-	b.pressed.connect(_show_plan)
-	h.add_child(b)
-	return h
-
-
-## The same six plans as Coaching and the breaks, each with what it does.
-func _show_plan() -> void:
-	_close_plan()
-	var box := UiKit.modal_box(self, 480.0, 0.0)
-	_plan_overlay = box["overlay"]
-	_plan_overlay.name = "PlanChooser"
-	var v: VBoxContainer = box["body"]
-	v.add_theme_constant_override("separation", 6)
-	v.add_child(UiKit.lbl("Game plan", UiKit.H1, UiKit.TEXT, true))
-	var ground: Array = GameState.my_squad().ground
-	var fit := _para(GameState.plan_fit_line(ground, GameState.club_plan), 13, UiKit.TEXT)
-	fit.name = "PlanFit"
-	fit.visible = fit.text != ""
-	var note := _para(CoachReport.plan_summary(GameState.club_plan), 13, UiKit.MUTED)
-	note.name = "PlanNote"
-	# The plans as on Coaching: each with the list strength it runs on.
-	v.add_child(PlanTiles.grid(2, ground, GameState.list_profile(), func(key: String):
-		note.text = CoachReport.plan_summary(key)
-		fit.text = GameState.plan_fit_line(ground, key)
-		fit.visible = fit.text != ""
-		var line: Label = find_child("PlanLine", true, false)
-		if line != null:
-			line.text = "Game plan: %s" % CoachReport.plan_label(key)))
-	v.add_child(note)
-	v.add_child(fit)
-	v.add_child(_para("Every match starts on this plan. Change it at any break.", 13, UiKit.MUTED))
-	var done := UiKit.btn("Done", UiKit.NAME, true)
-	done.name = "PlanDone"
-	done.custom_minimum_size = Vector2(0, 48)
-	done.pressed.connect(_close_plan)
-	box["footer"].add_child(done)
-
-
-func _close_plan() -> void:
-	if _plan_overlay != null and is_instance_valid(_plan_overlay):
-		_plan_overlay.queue_free()
-	_plan_overlay = null
 
 
 ## Your lines against the league, in words, when there is no opponent to
@@ -637,10 +536,3 @@ func _para(text: String, size: int, colour: Color) -> Label:
 	var l := UiKit.lbl(text, size, colour)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
-
-
-func _ignore_mouse(node: Control) -> void:
-	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for c in node.get_children():
-		if c is Control:
-			_ignore_mouse(c)

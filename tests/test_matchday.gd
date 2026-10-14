@@ -35,6 +35,7 @@ func run() -> void:
 	_test_palette_snapshot()
 	_test_headlines()
 	_test_comeback_telling()
+	_test_comeback_sentences()
 	print("Matchday tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -674,12 +675,17 @@ func _test_comeback_telling() -> void:
 		if str(cases[seed]) == "none":
 			_check(line == "", "An ordinary game names no turn (seed %d: %s)" % [seed, line])
 			continue
-		_check(line.begins_with("Turned in the third: "), "Seed %d turned in the third (%s)" % [seed, line])
-		_check(won == (str(cases[seed]) == "win"), "Seed %d is the %s it was found as" % [seed, cases[seed]])
-		# The player named is on the side that won the quarter, and his figures are the quarter's own.
-		var side := 0 if won else 1
+		var side := 0
 		var tq := ComebackTelling.turning_quarter(res, 0)
-		_check(int(tq["side"]) == side and int(tq["q"]) == 3, "The turn is the third quarter, won by the %s" % ("winner" if won else "side that came back"))
+		side = int(tq["side"])
+		_check(won == (str(cases[seed]) == "win"), "Seed %d is the %s it was found as" % [seed, cases[seed]])
+		_check(side == (0 if won else 1), "The side named is the one that turned it: the winners (seed %d)" % seed)
+		var club := GameDB.club_name(str(res["home" if side == 0 else "away"]))
+		_check(line.begins_with(club + " "), "The club that turned it is named first (%s)" % line)
+		_check(int(tq["q"]) == 3, "The turn is the third quarter (seed %d)" % seed)
+		_check(line.contains("in the third") and not line.contains("3.0") and not line.contains("Turned in"),
+				"Quarter in words, no scorer's notation (%s)" % line)
+		# The player named is on the side that won the quarter, and his figures are the quarter's own.
 		var named := ""
 		for p in res["roster"][side]:
 			if line.contains(GameDB.player_display_name_by_id(str(p["id"]), str(p["name"]))):
@@ -691,10 +697,15 @@ func _test_comeback_telling() -> void:
 			var b: Dictionary = (snaps[1]["players"] as Dictionary).get(named, {})
 			var disp := int(float(a.get("disposals", 0.0)) - float(b.get("disposals", 0.0)))
 			var goals := int(float(a.get("goals", 0.0)) - float(b.get("goals", 0.0)))
-			if line.contains("disposals"):
-				_check(line.contains("%d disposals" % disp), "Disposals named are the quarter's (%s, %d)" % [line, disp])
+			if line.contains("touches"):
+				_check(line.contains("had %d touches" % disp), "Touches named are the quarter's (%s, %d)" % [line, disp])
 			if goals > 0:
-				_check(line.contains("%d." % goals), "Goals named are the quarter's (%s, %d)" % [line, goals])
+				_check(line.contains("kicked "), "Goals named are the quarter's (%s, %d)" % [line, goals])
+		# It leads "How it went", and nothing after it says the same quarter's score again.
+		var facts: Array = MatchNotes.match_factors(res, 0)
+		_check(not facts.is_empty() and str(facts[0]) == line, "The turn is the first line of How it went (%s)" % str(facts))
+		for f in facts:
+			_check(not str(f).contains("won the third quarter"), "No repeat of the third quarter's score (%s)" % str(f))
 		for l in [bl, line]:
 			var low := str(l).to_lower()
 			for w in ADVICE + ENGINE:
@@ -702,3 +713,118 @@ func _test_comeback_telling() -> void:
 	# A turn needs the quarters to add up and the bar from Headlines.
 	var fake := _hl("GEE", "MEL", [[10, 20], [6, 22], [30, 6], [20, 10]])
 	_check(ComebackTelling.turn_line(fake, 0) == "", "No quarter goals, no turn claimed")
+
+
+## A result with everything the full-time lines read: quarter rows [hg, ag, hb, ab], players per
+## side as {id: [goals, disposals, clearances] per quarter}.
+func _full(q: Array, home: String, away: String, stats: Array) -> Dictionary:
+	var res := _story(q, [])
+	var pts := []
+	var tot := [0, 0]
+	var goals := [0, 0]
+	var behinds := [0, 0]
+	for x in q:
+		pts.append([int(x[0]) * 6 + int(x[2]), int(x[1]) * 6 + int(x[3])])
+		tot[0] += int(x[0]) * 6 + int(x[2])
+		tot[1] += int(x[1]) * 6 + int(x[3])
+		goals[0] += int(x[0])
+		goals[1] += int(x[1])
+		behinds[0] += int(x[2])
+		behinds[1] += int(x[3])
+	res["quarters"] = pts
+	res["score"] = tot
+	res["goals"] = goals
+	res["behinds"] = behinds
+	res["home"] = home
+	res["away"] = away
+	var ids := [str(GameDB.club_list(home)[0]["id"]), str(GameDB.club_list(away)[0]["id"])]
+	res["roster"] = [[{"id": ids[0], "name": "Home Player"}], [{"id": ids[1], "name": "Away Player"}]]
+	var snaps := []
+	var cum := [[0, 0, 0], [0, 0, 0]]
+	for i in range(4):
+		var players := {}
+		for side in range(2):
+			var st: Array = stats[side][i]
+			for k in range(3):
+				cum[side][k] += int(st[k])
+			players[ids[side]] = {"goals": float(cum[side][0]), "disposals": float(cum[side][1]), "clearances": float(cum[side][2])}
+		snaps.append({"players": players})
+	res["quarter_teams"] = snaps
+	res["events"] = []
+	res["team"] = [{}, {}]
+	return res
+
+
+func _test_comeback_sentences() -> void:
+	var none := [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]]
+	# One quarter did it: Geelong trail by 24 at quarter time and half time, win the third by 30.
+	var one := _full([[0, 4, 0, 0], [1, 1, 0, 0], [6, 1, 0, 0], [1, 1, 0, 0]], "GEE", "MEL",
+			[[[0, 0, 0], [0, 0, 0], [3, 6, 0], [0, 0, 0]], none])
+	var who := GameDB.player_display_name_by_id(str((one["roster"][0] as Array)[0]["id"]), "x")
+	_check(ComebackTelling.turn_line(one, 0) == "Geelong turned it in the third: %s kicked three in the quarter." % who,
+			"One quarter, named by club and quarter: %s" % ComebackTelling.turn_line(one, 0))
+	_check(ComebackTelling.turn_line(one, 1) == ComebackTelling.turn_line(one, 0),
+			"The other side reads the same sentence (it names the club, not 'you')")
+	var f1: Array = MatchNotes.match_factors(one, 0)
+	_check(str(f1[0]) == ComebackTelling.turn_line(one, 0), "The turn leads How it went")
+	for f in f1:
+		_check(not str(f).contains("won the third quarter"), "The third quarter's score is not said twice (%s)" % str(f))
+	# Words up to nine for goals, touches for disposals, a goal singular, clearances only from six.
+	var touches := _full(one["q_goals"].map(func(x): return [x[0], x[1], 0, 0]), "GEE", "MEL",
+			[[[0, 0, 0], [0, 0, 0], [0, 9, 5], [0, 0, 0]], none])
+	_check(ComebackTelling.turn_line(touches, 0).ends_with("%s had 9 touches in the quarter." % who),
+			"Nine disposals are touches (%s)" % ComebackTelling.turn_line(touches, 0))
+	var mixed := _full(one["q_goals"].map(func(x): return [x[0], x[1], 0, 0]), "GEE", "MEL",
+			[[[0, 0, 0], [0, 0, 0], [1, 4, 7], [0, 0, 0]], none])
+	_check(ComebackTelling.turn_line(mixed, 0).ends_with("%s kicked a goal and had 7 clearances in the quarter." % who),
+			"A goal and clearances (%s)" % ComebackTelling.turn_line(mixed, 0))
+	var ten := _full(one["q_goals"].map(func(x): return [x[0], x[1], 0, 0]), "GEE", "MEL",
+			[[[0, 0, 0], [0, 0, 0], [10, 0, 0], [0, 0, 0]], none])
+	_check(ComebackTelling.turn_line(ten, 0).contains("kicked 10 in the quarter"), "Ten goals in digits")
+	var nobody := _full(one["q_goals"].map(func(x): return [x[0], x[1], 0, 0]), "GEE", "MEL", [none, none])
+	_check(ComebackTelling.turn_line(nobody, 0) == "Geelong turned it in the third.",
+			"Nobody with anything to name: the club and the quarter alone")
+	for l in [ComebackTelling.turn_line(one, 0), ComebackTelling.turn_line(touches, 0)]:
+		_check(not l.contains("3.0") and not l.begins_with("Turned"), "No scorer's notation, never a bare 'Turned' (%s)" % l)
+	# Two quarters did it, and the side that wins is named when you lose: Melbourne led 36 at half
+	# time, Brisbane cut 36 to 6 in the third and won the last.
+	var two := _full([[4, 0, 0, 0], [2, 0, 0, 0], [0, 5, 0, 0], [0, 3, 0, 0]], "MEL", "BRL",
+			[none, [[0, 0, 0], [0, 0, 0], [0, 0, 0], [3, 2, 0]]])
+	var who2 := GameDB.player_display_name_by_id(str((two["roster"][1] as Array)[0]["id"]), "x")
+	_check(ComebackTelling.turn_line(two, 0) == "Brisbane cut 36 to 6 in the third and ran over the top in the last: %s kicked three in the quarter." % who2,
+			"Two quarters in one sentence, the club that won it named (%s)" % ComebackTelling.turn_line(two, 0))
+	var f2: Array = MatchNotes.match_factors(two, 0)
+	_check(str(f2[0]) == ComebackTelling.turn_line(two, 0), "The two-quarter sentence leads How it went")
+	for f in f2:
+		_check(not str(f).contains("quarter 0.") and not str(f).contains("won the third quarter") and not str(f).contains("won the last quarter"),
+				"Neither quarter's score is repeated after it (%s)" % str(f))
+	# The go-ahead goal's kicker is named when he qualifies, and the go-ahead line is not said twice.
+	var ahead := _full([[0, 4, 0, 0], [1, 1, 0, 0], [6, 1, 0, 0], [1, 1, 0, 0]], "GEE", "MEL",
+			[[[0, 0, 0], [0, 0, 0], [3, 6, 0], [0, 0, 0]], none])
+	var kid := str((ahead["roster"][0] as Array)[0]["id"])
+	ahead["events"] = [{"kind": "goal", "side": 0, "q": 3, "min": 70, "score": [60, 38], "name": "Home Player", "player_id": kid},
+			{"kind": "goal", "side": 0, "q": 3, "min": 80, "score": [66, 38], "name": "Home Player", "player_id": kid}]
+	var f3: Array = MatchNotes.match_factors(ahead, 0)
+	for f in f3:
+		_check(not str(f).contains("in front for good"), "The go-ahead kicker is already named, so no second line (%s)" % str(f))
+	# The go-ahead kicker is named only with two or more goals in the quarter: with one, the
+	# player who kicked three is. Same match, a second Geelong player with three goals.
+	var other_id := str(GameDB.club_list("GEE")[1]["id"])
+	var two_players: Dictionary = ahead.duplicate(true)
+	(two_players["roster"][0] as Array).append({"id": other_id, "name": "Other Player"})
+	var kicks := [[0, 0], [0, 0], [3, 1], [3, 1]]   # other: cumulative goals, per quarter end
+	for i in range(4):
+		(two_players["quarter_teams"][i]["players"] as Dictionary)[other_id] = {"goals": float(kicks[i][0]), "disposals": 3.0, "clearances": 0.0}
+		(two_players["quarter_teams"][i]["players"] as Dictionary)[kid] = {"goals": 0.0 if i < 2 else 1.0, "disposals": 4.0, "clearances": 0.0}
+	var named := ComebackTelling.turn_line(two_players, 0)
+	_check(named.contains(GameDB.player_display_name_by_id(other_id, "x")) and named.contains("kicked three"),
+			"With one goal the go-ahead kicker is not the story; the three-goal scorer is (%s)" % named)
+	for i in range(2, 4):
+		(two_players["quarter_teams"][i]["players"] as Dictionary)[kid] = {"goals": 2.0, "disposals": 4.0, "clearances": 0.0}
+	var named2 := ComebackTelling.turn_line(two_players, 0)
+	_check(named2.contains(GameDB.player_display_name_by_id(kid, "x")) and named2.contains("kicked two"),
+			"With two goals the go-ahead kicker is named ahead of the three-goal scorer (%s)" % named2)
+	# No turn: an ordinary win, a win from 12 down, nothing claimed.
+	var plain := _full([[3, 2, 0, 0], [2, 2, 0, 0], [3, 2, 0, 0], [2, 2, 0, 0]], "GEE", "MEL", [none, none])
+	_check(ComebackTelling.turn_line(plain, 0) == "" and str(MatchNotes.match_factors(plain, 0)[0]).find("turned it") < 0,
+			"An ordinary game has no turn sentence")

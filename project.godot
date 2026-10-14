@@ -65,3 +65,4 @@ environment/defaults/default_clear_color=Color(0.071, 0.067, 0.063, 1)
 ; patch is ready ships OFF here; its tests and tools turn it on for themselves,
 ; and a dev run does with:  godot --path . -- --features preseason
 preseason=false
+speccy_front=false

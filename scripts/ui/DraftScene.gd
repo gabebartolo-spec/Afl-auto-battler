@@ -1236,6 +1236,14 @@ func _open_player(id: String) -> void:
 				tr.add_child(UiKit.line(stand, 13, UiKit.MUTED))
 			tr.add_child(UiKit.line(Combine.text(key, r), 14, UiKit.TEXT if r >= 0.0 else UiKit.MUTED, r >= 0.0))
 			v.add_child(tr)
+	# Seen in your intra-club match (the pre-season): what he did that day.
+	var seen_line := PreSeason.seen_line(p, _club) if Features.on("preseason") else ""
+	if seen_line != "":
+		v.add_child(UiKit.spacer(4))
+		var seen_lbl := UiKit.lbl(seen_line, UiKit.SECONDARY, UiKit.TEXT, true)
+		seen_lbl.name = "SeenIntraClub"
+		seen_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(seen_lbl)
 	if scouted:
 		v.add_child(UiKit.spacer(4))
 		var combine_head := UiKit.lbl("What the scouts saw", UiKit.SECONDARY, UiKit.MUTED, true)
