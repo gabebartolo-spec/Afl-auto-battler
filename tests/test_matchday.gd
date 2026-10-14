@@ -341,9 +341,11 @@ func _test_rating() -> void:
 	# side's best (midfielders are not the only way to top a side).
 	var by := {"DEF": [], "MID": [], "FWD": [], "RUCK": []}
 	var best := {}
-	# Clubs with no hand-set ratings (data/ovr_overrides.csv): this reads the engine's
-	# spread across positions, not the director's chosen stars.
-	var clubs := ["COL", "CAR", "HAW", "SYD", "GWS", "PAD", "NTH", "STK", "RIC", "COL", "CAR", "SYD"]
+	var clubs := ["COL", "CAR", "GEE", "SYD", "BRL", "MEL", "HAW", "ESS", "FRE", "ADE", "GWS", "PAD"]
+	# This reads the engine's spread across positions, not the director's hand-set
+	# stars (data/ovr_overrides.csv), so it plays on the data without them.
+	GameDB.skip_ovr_overrides = true
+	GameDB.reload()
 	for i in range(16):  # 16 games: 8 left the parity read to a few big days
 		var res := _match(40 + i, clubs[i % 8], clubs[i % 8 + 4])
 		for side in [0, 1]:
@@ -352,6 +354,8 @@ func _test_rating() -> void:
 				(by[str(p["role"])] as Array).append(int(p["rating"]))
 			for p in rated.slice(0, 3):
 				best[str(p["role"])] = int(best.get(str(p["role"]), 0)) + 1
+	GameDB.skip_ovr_overrides = false
+	GameDB.reload()
 	var p90 := {}
 	for role in by:
 		var v: Array = by[role]

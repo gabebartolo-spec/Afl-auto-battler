@@ -28,6 +28,9 @@ const OVR_CSV := "res://data/ovr_overrides.csv"
 ## that found nobody in the players or the list additions.
 var override_hits := {}
 var override_unmatched: Array = []
+## Tests that measure how the rules spread players over the underlying data (not
+## the director's hand-set numbers) turn the OVR rows off for a reload.
+var skip_ovr_overrides := false
 ## Draft pedigree and rated past seasons, built by tools/build_history.py.
 const HISTORY_CSV := "res://data/player_history_2026.csv"
 ## How real players look on the vignette figures (Appearance.gd): skin tone and
@@ -1146,6 +1149,8 @@ func _apply_history_rows(list: Array) -> void:
 ## in his own position lands on the target, so his profile keeps its gaps. POT
 ## is the one he had before, raised to the new OVR. An unmatched row is reported.
 func _apply_ovr_overrides(list: Array) -> void:
+	if skip_ovr_overrides:
+		return
 	_each_override_row(OVR_CSV, "ovr", list, func(p, cell):
 		var text: String = str(cell).strip_edges()
 		var before_pot := int(p.get("potential", p["overall"]))
@@ -1210,7 +1215,7 @@ func _report_unmatched_overrides() -> Array:
 				continue
 			var key := "%s|%s|%s" % [str(c[0]).strip_edges(),
 					str(c[1]).strip_edges().to_lower(), str(c[2]).strip_edges().to_lower()]
-			if not override_hits.has(path + "|" + key):
+			if not override_hits.has(path + "|" + key) and not (skip_ovr_overrides and path == OVR_CSV):
 				out.append(path.get_file() + ": " + key)
 				push_warning("GameDB: override matches no player: %s %s" % [path.get_file(), key])
 	return out
