@@ -97,7 +97,7 @@ func _ready() -> void:
 		_res["label"] = GameState.pending_match["label"]
 		_res["venue"] = str(GameState.pending_match.get("venue", ""))
 		_res["events"] = []
-		_my_side = 0 if str(_res["home"]) == GameState.my_club else 1
+		_my_side = GameDB.coach_side(str(_res["home"]), str(_res["away"]), GameState.my_club)
 		_pos_before = GameState.my_position()
 		_farewell = _farewell_for(GameState.pending_match)
 	else:
@@ -105,7 +105,7 @@ func _ready() -> void:
 		_review = GameState.review_requested
 		GameState.review_requested = false
 		if not _res.is_empty() and GameState.my_club != "":
-			_my_side = 0 if str(_res.get("home", "")) == GameState.my_club else 1
+			_my_side = GameDB.coach_side(str(_res.get("home", "")), str(_res.get("away", "")), GameState.my_club)
 		_pos_before = GameState.last_pos_before
 	if _res.is_empty():
 		Router.replace("hub")
