@@ -346,12 +346,16 @@ static func _identity(v: VBoxContainer, p: Dictionary) -> Control:
 	row.name = "ProfileNickname"
 	var nl := UiKit.lbl("\"%s\"" % nick if nick != "" else "", UiKit.BODY, UiKit.MUTED)
 	nl.name = "NicknameText"
+	# One line, never a letter per line: the open field must not squeeze it.
+	nl.autowrap_mode = TextServer.AUTOWRAP_OFF
+	nl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(nl)
 	var mine := not GameState.list_player(str(p.get("id", ""))).is_empty()
 	if mine:
 		var add_text := "Add a nickname"
 		var edit := UiKit.btn(add_text if nick == "" else "Change", UiKit.SMALL)
 		edit.name = "NicknameEdit"
+		edit.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		if nick == "":
 			# No nickname yet: a full-width outline button at the foot, not a chip.
 			edit.custom_minimum_size = Vector2(0, 48)
@@ -363,6 +367,8 @@ static func _identity(v: VBoxContainer, p: Dictionary) -> Control:
 		field.max_length = GameState.NICKNAME_MAX
 		field.visible = false
 		field.custom_minimum_size = Vector2(180, 0)
+		field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		field.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		if nick == "":
 			# The field opens above the button.
 			var stack := UiKit.vbox(6)
