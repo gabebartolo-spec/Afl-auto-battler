@@ -94,6 +94,9 @@ var _last_finish := {}           # club -> last season\'s ladder position, for t
 var draft_meeting_year := 0     # the National Draft the recruiting panel last met before
 var records := {}                # league records across the career
 var rivalry_history := {}        # canonical club pair -> emergent rivalry evidence
+## The first season whose finals are counted per player (p["finals_games"]). 0 for a
+## career begun with the count; an older save counts from its next finals.
+var finals_counted_since := 0
 ## Club achievements unlocked this career: id -> {"year", "detail"}.
 ## Definitions live in scripts/sim/Achievements.gd.
 var achievements := {}
@@ -632,6 +635,7 @@ func save_career() -> bool:
 		"honour_roll": honour_roll,
 		"records": records,
 		"rivalry_history": rivalry_history,
+		"finals_counted_since": finals_counted_since,
 		"achievements": achievements,
 		"career_facts": career_facts,
 		"departed_names": departed_names,
@@ -793,6 +797,9 @@ func load_career() -> bool:
 	honour_roll = state.get("honour_roll", [])
 	records = state.get("records", {})
 	rivalry_history = state.get("rivalry_history", {})
+	# An older save has played finals nobody counted: its count starts with the next ones.
+	finals_counted_since = int(state.get("finals_counted_since",
+			int(state.get("season_year", 0)) + (1 if season != null and not season.finals.is_empty() else 0)))
 	achievements = state.get("achievements", {})
 	career_facts = state.get("career_facts", {})
 	departed_names = state.get("departed_names", {})
@@ -1212,6 +1219,7 @@ func reset() -> void:
 	honour_roll = []
 	records = {}
 	rivalry_history = {}
+	finals_counted_since = 0
 	achievements = {}
 	career_facts = {}
 	departed_names = {}
@@ -4648,6 +4656,7 @@ func _after_round(results: Array) -> void:
 		Workload.advance_week(season.lists, results, week, recovery_mults)
 	_process_injuries(results)
 	_process_discipline(results)
+	_count_finals(results)
 	for res in results:
 		Awards.tally_match(season_tally, res, not res.has("tag"))
 		StatBook.add_match(season_stats, res)
@@ -4670,6 +4679,45 @@ func _after_round(results: Array) -> void:
 	_culture_week(results)
 	_next_week_event()
 	_find_coach_approaches()
+
+
+## Each player who took the field in a final has played one more final in this
+## save (p["finals_games"]), at any club: what "his first final" reads.
+func _count_finals(results: Array) -> void:
+	if season == null:
+		return
+	for res in results:
+		if not (res is Dictionary) or not (res as Dictionary).has("tag"):
+			continue
+		var roster: Array = res.get("roster", [])
+		for side in range(mini(2, roster.size())):
+			var code := str(res["home"] if side == 0 else res["away"])
+			var by_id := {}
+			for q in season.lists.get(code, []):
+				by_id[str(q["id"])] = q
+			for r in roster[side]:
+				var q = by_id.get(str(r["id"]))
+				if q != null:
+					q["finals_games"] = int(q.get("finals_games", 0)) + 1
+
+
+## True when every senior game he has played is one this save has seen: a career
+## on record in full, begun in this game (or since the finals count began).
+## Only then can "his first final" be said as a fact.
+func save_saw_every_game(p: Dictionary) -> bool:
+	if not Career.complete(p):
+		return false
+	var from := maxi(Career.BEFORE_GAME + 1, finals_counted_since)
+	for st in (Career.of(p).get("stints", []) as Array):
+		if int((st as Array)[1]) < from:
+			return false
+	return true
+
+
+## Was this story flag set on the player (or "club") this season?
+func story_flag_set(holder: String, flag: String) -> bool:
+	var at := int(((story.get("flags", {}) as Dictionary).get(holder, {}) as Dictionary).get(flag, StoryEngine.NEVER))
+	return at >= StoryEngine.week_abs(season_year, 1)
 
 
 ## A home-and-away round's Rising Star nomination (Awards.rising_star_nominee).
@@ -8482,17 +8530,46 @@ func _my_result(results: Array) -> Dictionary:
 	return {}
 
 
+## A "small chance the morale falls instead" (story card): lose the final it was
+## set for, and one roll from the save's seed says whether the side's morale falls
+## (by the card's size) rather than lifts.
+func _settle_loss_sting(res: Dictionary) -> void:
+	if res.is_empty() or not res.has("tag") or season == null:
+		return
+	# Lost: the bracket says who went through (a level final is settled on the ladder).
+	if str((season.finals.get("slots", {}) as Dictionary).get("W_" + str(res["tag"]), "")) == my_club:
+		return
+	var rule: Array = []
+	for p in my_list:
+		if p.has("loss_sting"):
+			rule = p["loss_sting"]
+			break
+	if rule.is_empty():
+		return
+	if not StoryEngine.risk_hit(int(season.seed), season_year, int(res.get("round", 0)), "loss_sting", int(rule[0])):
+		return
+	for p in my_list:
+		if p.has("loss_sting"):
+			ClubLife.add_morale(p, int((p["loss_sting"] as Array)[1]))
+
+
 func _board_after_round(results: Array) -> void:
 	var res := _my_result(results)
 	# Last week's sit-down, unread, has had its week.
 	backing_talk = {}
-	# This week's one-off flags (rested, sore, heavy legs, fresh) end with
-	# the round.
+	_settle_loss_sting(res)
+	# This week's one-off flags (rested, sore, heavy legs, fresh, a slow start) end with
+	# the round. On a week off in the finals nothing was played, so the ones that
+	# are for the next match wait for it.
+	var week_off: bool = res.is_empty() and last_phase == "finals"
 	for p in my_list:
 		p.erase("rested")
 		p.erase("sore")
-		p.erase("heavy_legs")
-		p.erase("fresh")
+		if not week_off:
+			p.erase("heavy_legs")
+			p.erase("fresh")
+			p.erase("slow_start")
+			p.erase("loss_sting")
 	_preseason_clear_legs()
 	if not res.is_empty() and not role_trial.is_empty() and list_player(str(role_trial.get("id", ""))).is_empty():
 		_end_role_trial(false)   # he left the list: no trial, no stale note
