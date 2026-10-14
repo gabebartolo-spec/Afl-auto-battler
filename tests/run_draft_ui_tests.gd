@@ -1134,13 +1134,12 @@ func _mouse_move(at: Vector2) -> void:
 	await process_frame
 
 
-## Draft night's stage (director, 2026-10-14): the real lectern and hanger
-## pictures, the guernsey of the club on the clock hanging from the hanger in
-## that club's own kit, nothing in the header cut short, the back button
-## still a real tap away. Without the files the club's marker is back.
+## Draft night's hero (director, 2026-10-14): the guernsey of the club on the
+## clock in the header, in that club's own kit, on its own (no hanger, no
+## lectern), nothing in the header cut short, the back button still a real tap
+## away. It needs no picture file.
 func _test_stage() -> void:
 	var art = load("res://scripts/ui/UiArt.gd")
-	var culture = load("res://scripts/ui/CultureSheet.gd")
 	for club in ["FRE", "MEL"]:
 		for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
 			var tag := "%s %dx%d" % [club, sz.x, sz.y]
@@ -1154,28 +1153,26 @@ func _test_stage() -> void:
 			await _settle()
 			var stage: Control = ui.find_child("DraftStage", true, false)
 			var hung: Control = stage.find_child("DraftGuernsey", true, false) if stage != null else null
-			var hanger: TextureRect = hung.find_child("Art_hanger", true, false) if hung != null else null
-			_check(hanger != null and hanger.texture.resource_path == "res://assets/ui/models/hanger.png"
-					and float(hanger.texture.get_width()) >= 2.0 * hanger.size.x,
-					"%s: the draft's header shows the hanger's own picture, sharp at this size" % tag)
-			if stage == null or hanger == null:
+			var marker: Control = hung.find_child("ClubMarker", true, false) if hung != null else null
+			_check(marker != null and marker.size.x >= (64.0 if sz.x >= 760 else 53.0) and is_equal_approx(marker.size.x, marker.size.y),
+					"%s: the draft's header shows a guernsey, as big as it was under the hanger (%d)" % [tag, int(marker.size.x) if marker != null else 0])
+			if stage == null or marker == null:
 				ui.queue_free()
 				await _settle()
 				continue
-			_check(hanger.modulate == Color.WHITE and stage.find_child("DraftLectern", true, false) == null
-					and stage.find_children("*", "TextureRect", true, false).size() == 1,
-					"%s: one object on the stage, the hung guernsey; the hanger stays wood" % tag)
+			_check(stage.find_children("*", "TextureRect", true, false).is_empty() and hung.get_child_count() == 1,
+					"%s: the guernsey is on its own: no hanger and no lectern" % tag)
 			var crest = hung.find_child("ClubMarker", true, false)
 			var on_clock := str(_state.draft.current_club())
 			var kit_cols: Dictionary = _db.club_guernsey(on_clock)
 			_check(crest != null and str(crest.code) == on_clock and (crest.primary as Color).is_equal_approx(kit_cols["base"])
 					and str(crest.design) == str(kit_cols["design"]),
-					"%s: the guernsey on the hanger is the club on the clock's own (%s)" % [tag, on_clock])
+					"%s: the guernsey is the club on the clock's own (%s)" % [tag, on_clock])
 			var cr: Rect2 = (crest as Control).get_global_rect() if crest != null else Rect2()
-			var hr := hanger.get_global_rect()
-			_check(crest != null and hr.position.y < cr.position.y and hr.end.y > cr.position.y and hr.end.y < cr.position.y + cr.size.y * 0.3
-					and absf(hr.get_center().x - cr.get_center().x) <= 1.0 and hr.size.x > cr.size.x * 0.64 and hr.size.x < cr.size.x,
-					"%s: the hanger's hook is over the collar and its tips show at the shoulders, on the guernsey's centre line" % tag)
+			var sr := hung.get_global_rect()
+			_check(crest != null and absf(cr.end.y - sr.end.y) <= 0.5 and absf(cr.get_center().x - sr.get_center().x) <= 1.0
+					and cr.position.y >= sr.position.y,
+					"%s: the guernsey stands on the stage's foot, on its centre line, where it hung" % tag)
 			var header: Control = stage.get_parent()
 			var whole := header.get_global_rect().grow(0.5).encloses(stage.get_global_rect()) \
 					and Rect2(Vector2.ZERO, Vector2(sz)).encloses(stage.get_global_rect())
@@ -1205,6 +1202,7 @@ func _test_stage() -> void:
 						"%s: who is on the clock and the cap left are still said under the header" % tag)
 			ui.queue_free()
 			await _settle()
+	# No picture file is needed: with the art folder pointed nowhere the guernsey is still there.
 	art.dir = "res://assets/ui/no_such_folder"
 	root.size = Vector2i(390, 844)
 	_state.reset()
@@ -1213,9 +1211,10 @@ func _test_stage() -> void:
 	root.add_child(plain)
 	plain.call("_on_club_chosen", "FRE")
 	await _settle()
-	var head: Control = (plain.find_child("BackToMenu", true, false) as Control).get_parent()
-	_check(plain.find_child("DraftStage", true, false) == null and head.find_child("ClubMarker", true, false) != null,
-			"Without the pictures the header shows the club's marker, as before")
+	var plain_stage: Control = plain.find_child("DraftStage", true, false)
+	_check(plain_stage != null and plain_stage.find_child("ClubMarker", true, false) != null
+			and not ResourceLoader.exists("res://assets/ui/models/hanger.png"),
+			"The guernsey needs no picture file, and the hanger's picture is gone from the game")
 	plain.queue_free()
 	await _settle()
 	art.dir = "res://assets/ui/models"
