@@ -1261,7 +1261,11 @@ func reset() -> void:
 	last_side = []
 	difficulty = new_career_difficulty()
 	tutorials = new_career_tutorials()
-	career_seed = randi_range(1, 999999)
+	# A seeded run (replay_seed, the tests) needs a seeded career too: this
+	# seed picks every club's conditioning timing, staff and prospects, and a
+	# random one made the same league play out differently each run.
+	career_seed = randi_range(1, 999999) if replay_seed == 0 \
+			else 1 + posmod(replay_seed * 7919 + 101, 999999)
 	conditioning = {}
 	preseason = {}
 	plan_known = {}
