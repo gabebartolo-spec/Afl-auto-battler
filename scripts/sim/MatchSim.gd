@@ -348,6 +348,8 @@ static func _start_energy(p: Dictionary) -> float:
 		e = 88.0
 	if bool(p.get("sore", false)):
 		e = minf(e, ClubLife.SORE_LEGS)
+	if bool(p.get("slow_start", false)):
+		e = minf(e, ClubLife.SLOW_LEGS)
 	return minf(e, Workload.energy_cap(p))
 
 

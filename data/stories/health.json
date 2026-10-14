@@ -244,5 +244,138 @@
 				"result": "{name} sticks to his own program."
 			}
 		]
+	},
+	{
+		"id": "finals_fitness_test",
+		"category": "health",
+		"phase": [
+			"finals"
+		],
+		"subject": {
+			"kind": "player",
+			"where": {
+				"selected": true,
+				"fit": true,
+				"fit_rank_max": 3
+			},
+			"pick": "random"
+		},
+		"when": {
+			"finals_week_max": 4
+		},
+		"cooldown": 40,
+		"subject_cooldown": 30,
+		"default": 0,
+		"title": [
+			"{name} faces a fitness test"
+		],
+		"text": [
+			"Tight hamstring. He runs for the physios on Thursday, and the cameras will be there. {first} says he's right to go."
+		],
+		"choices": [
+			{
+				"key": "pass",
+				"label": "Pass him",
+				"effects": [
+					{
+						"op": "sore"
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You backed him through a finals fitness test"
+					}
+				],
+				"result": "He runs clean and he's in."
+			},
+			{
+				"key": "out",
+				"label": "Don't risk him",
+				"effects": [
+					{
+						"op": "rest"
+					},
+					{
+						"op": "morale",
+						"d": -4,
+						"who": "subject"
+					},
+					{
+						"op": "trust",
+						"d": -8,
+						"why": "You ruled him out of a final against his word"
+					}
+				],
+				"result": "He's out. He's filthy, but he'll be right if there's a next week."
+			}
+		]
+	},
+	{
+		"id": "gf_racing_the_clock",
+		"category": "health",
+		"phase": [
+			"finals"
+		],
+		"subject": {
+			"kind": "player",
+			"where": {
+				"overall_rank_max": 5,
+				"rushable": true,
+				"injured_weeks_max": 2
+			},
+			"pick": "highest:overall"
+		},
+		"when": {
+			"finals_week": 5
+		},
+		"priority": true,
+		"weight": 3,
+		"cooldown": 0,
+		"subject_cooldown": 0,
+		"title": [
+			"{name} is racing the clock"
+		],
+		"text": [
+			"He's done everything to get right for Saturday. The medical staff say he's a chance, no more."
+		],
+		"choices": [
+			{
+				"key": "rush",
+				"label": "Rush him back",
+				"effects": [
+					{
+						"op": "rush_back"
+					},
+					{
+						"op": "trust",
+						"d": 6,
+						"why": "You gave him his chance to play in the Grand Final"
+					}
+				],
+				"result": "He's cleared to play."
+			},
+			{
+				"key": "stay",
+				"label": "Stay with the side you have",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "side"
+					},
+					{
+						"op": "morale",
+						"d": -6,
+						"who": "subject"
+					},
+					{
+						"op": "trust",
+						"d": -8,
+						"why": "You didn't risk him in the Grand Final"
+					}
+				],
+				"result": "The side stays as it is. He'll be in a suit on the bench."
+			}
+		]
 	}
 ]
