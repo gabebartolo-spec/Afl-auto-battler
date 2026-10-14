@@ -60,7 +60,10 @@ func _card(state, id: String, p: Dictionary, over: Dictionary, subj_over: Dictio
 		subj.merge(subj_over, true)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 11
-	return StoryEngine.build(StoryDeck.all(), t, subj, club, rng, state.story_week())
+	print("DEBUG3 ", id, " t empty ", t.is_empty(), " subj keys ", subj.size(), " p id ", p.get("id", "-"), " players ", (ctx["players"] as Array).size())
+	var built: Dictionary = StoryEngine.build(StoryDeck.all(), t, subj, club, rng, state.story_week())
+	print("DEBUG3 built keys ", built.keys())
+	return built
 
 
 func _run() -> void:
