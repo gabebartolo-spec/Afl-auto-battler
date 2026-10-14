@@ -115,6 +115,10 @@
 	"intra_xp_games": 1.0,
 	"intra_seen_uncertainty": 0.7,
 	"intra_spare_number": 60,
+	"practice_week": 7,
+	"practice_guests": 3,
+	"practice_injury_rate": 0.5,
+	"practice_xp_games": 1.0,
 	"_why": {
 		"weeks": "Length of the pre-season. Week 8 is a quiet week with no training choice.",
 		"blocks": "First and last training week of each block.",
@@ -145,6 +149,10 @@
 		"intra_injury_rate": "A listed player's injury risk in the intra-club match, as a share of a normal match's (director, 2026-10-14: half).",
 		"intra_xp_games": "Development for a listed player who plays in it, in reserves games' worth (director: a reserves game), spent inside the season's training limit.",
 		"intra_seen_uncertainty": "How wide a club's rating read on a prospect is once it has seen him in its intra-club match, as a share of its usual read (1.0 is no tighter; the recruiting department's own tightening still applies on top).",
-		"intra_spare_number": "Invited prospects wear spare jumper numbers from this one up, skipping any a listed player wears."
+		"intra_spare_number": "Invited prospects wear spare jumper numbers from this one up, skipping any a listed player wears.",
+		"practice_week": "The practice match against another club is played at the end of this week.",
+		"practice_guests": "Prospects a club may trial in it, each in place of the weakest starter in his line.",
+		"practice_injury_rate": "A listed player's injury risk in the practice match, as a share of a normal match's (director, 2026-10-14: half).",
+		"practice_xp_games": "Development for a listed player who plays in it, in reserves games' worth."
 	}
 }

@@ -13,6 +13,6 @@
 # Re-measure after CI: these estimates are not a wall-clock guarantee.
 1: match_game pressure league intake chronology ratings back_nav family keyboard
 2: match_visual ai matchup awards assets roles intake_ui stats story
-3: career contracts injuries coaches training save draft_ui preseason
+3: career contracts injuries coaches training save draft_ui preseason practice
 4: league_balance calibration finals matchday expansion draft selection coach_pathway scroll
 5: club balance coach_market career_ui achievements workload fitness coach_effects potential
