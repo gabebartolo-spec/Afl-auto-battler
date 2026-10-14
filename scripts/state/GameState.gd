@@ -5933,7 +5933,9 @@ func draft_spot(year: int, rnd: int, origin: String) -> int:
 	var n := order.size()
 	var i := order.find(origin)
 	var in_round := i + 1 if rnd % 2 == 1 else n - i
-	return (rnd - 1) * n + in_round
+	var regular := (rnd - 1) * n + in_round
+	# A new club's extra picks come first: every pick behind them is later.
+	return regular + ExpansionBuild.picks_ahead(self, year, regular, n)
 
 
 ## Where a club's pick in next year's draft might fall: [[overall pick,

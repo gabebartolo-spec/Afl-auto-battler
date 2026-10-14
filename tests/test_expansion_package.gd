@@ -72,12 +72,27 @@ func _run_draft() -> void:
 			draft._skip_current_pick()
 
 
+## From the last _rollover: the numbers the bottom four clubs' own first-round
+## picks were given before the draft (GameState.draft_spot, what a trade
+## screen shows), then where those picks really fell.
+var _numbered := ""
+
+
 ## The season is treated as played; the off-season and draft run as a career's do.
 func _rollover() -> Array:
 	GameState.season.round_index = GameState.season.fixture.size()
+	GameState.open_offseason()
+	var order: Array = GameState._draft_order().slice(0, 4)
+	var said := PackedStringArray()
+	for code in order:
+		said.append(str(GameState.draft_spot(GameState.season_year, 1, str(code))))
 	if not GameState.begin_intake_draft():
 		GameState.start_next_season()
 		return []
+	var fell := PackedStringArray()
+	for code in order:
+		fell.append(str(GameState.draft.pick_origin.find(str(code)) + 1))
+	_numbered = " ".join(said) + " / " + " ".join(fell)
 	_run_draft()
 	var history: Array = GameState.draft.pick_history.duplicate()
 	GameState.finish_intake_draft()
@@ -227,6 +242,7 @@ func _test_build_and_entry() -> void:
 		rivals_before += (GameState.season.lists[code] as Array).size()
 	var history := _rollover()
 	_check(GameState.season_year == 2028 and GameState.season.ladder.has("TAS"), "On: Tasmania is on the 2028 ladder")
+	_check(_numbered == "2 4 6 8 / 2 4 6 8", "On: the last four clubs' first picks are numbered 2, 4, 6, 8 before the draft and fall there (%s)" % _numbered)
 	var tas: Array = GameState.season.lists["TAS"]
 	var st: Dictionary = GameState.expansion.get("TAS", {})
 	_check(bool(st.get("package", false)) and (st.get("list", [1]) as Array).is_empty(),

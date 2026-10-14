@@ -165,8 +165,12 @@ static func _candidate(gs, club: String, bars: Dictionary) -> Dictionary:
 	for p in Contracts.expiring(list):
 		if not _available(gs, p) or role_at(p, bars) == "depth":
 			continue
-		if club != str(gs.my_club) and Contracts.ai_keeps(p, list, gs.cap_for(club)) 				and not leaves_if_matched(gs, p, club, bars):
-			continue
+		if club != str(gs.my_club):
+			var why := Contracts.ai_release_reason(p, list, gs.cap_for(club))
+			if why == "cap" and not Expansion.FIRST_CALL_CAP_SQUEEZED:
+				continue
+			if why == "" and not leaves_if_matched(gs, p, club, bars):
+				continue
 		if best.is_empty() or _better(p, best):
 			best = p
 	return best
@@ -341,6 +345,9 @@ static func _settle(gs, code: String, st: Dictionary, t: Dictionary) -> void:
 	var wanted := true
 	if club != str(gs.my_club) or str(t["status"]) == "asked":
 		var why := Contracts.ai_release_reason(p, list, gs.cap_for(club))
+		if why == "cap" and not Expansion.FIRST_CALL_CAP_SQUEEZED:
+			t["status"] = "stayed"   # he goes to free agency, as he would have
+			return
 		if why == "" and not leaves_if_matched(gs, p, club, gs._selection_bars(list_of(gs, code))):
 			t["status"] = "stayed"   # his club re-signs him, as it would have
 			return
@@ -404,6 +411,24 @@ static func draft_picks(gs, n_clubs: int, pool_size: int) -> Array:
 	for code in first_season(gs):
 		comps.append_array(Expansion.second_draft_picks(code))
 	return comps
+
+
+## How many of the new clubs' extra picks come before the `regular`-th
+## ordinary pick of this year's draft (`n` clubs in the order): what a traded
+## pick's number has to allow for. Nothing for any other year's draft.
+static func picks_ahead(gs, year: int, regular: int, n: int) -> int:
+	if not on() or gs.season == null or year != int(gs.season_year):
+		return 0
+	var ahead := 0
+	for code in building(gs):
+		for e in Expansion.first_draft_picks(code, n, 4):
+			if int(e["after"]) < regular:
+				ahead += 1
+	for code in first_season(gs):
+		for e in Expansion.second_draft_picks(code):
+			if int(e["after"]) < regular:
+				ahead += 1
+	return ahead
 
 
 ## A seat at the draft for each club still to enter, with the list it has.
