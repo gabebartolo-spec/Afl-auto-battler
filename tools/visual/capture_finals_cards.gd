@@ -47,7 +47,9 @@ func _finals_game(state, db, club: String, seed: int, rank: int) -> void:
 
 ## The card as the hub would build it for these facts.
 func _card(state, id: String, p: Dictionary, over: Dictionary, subj_over: Dictionary) -> Dictionary:
+	print("DEBUG3 start ", id)
 	var ctx: Dictionary = ClubStories.context(state)
+	print("DEBUG3 ctx ", ctx.keys())
 	var club: Dictionary = (ctx["club"] as Dictionary).duplicate()
 	club.merge(over, true)
 	var t := StoryDeck.by_id(StoryDeck.all(), id)
