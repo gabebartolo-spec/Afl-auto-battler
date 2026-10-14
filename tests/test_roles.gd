@@ -16,6 +16,7 @@ func run() -> void:
 	_test_vocabulary()
 	_test_wing_marking()
 	_test_named_wings()
+	_test_named_players()
 	_test_engine_rewards_wings()
 	_test_tagger()
 	_test_tag_targets()
@@ -134,6 +135,39 @@ func _test_named_wings() -> void:
 		if Roles.on_wing(p) and (ids["WING"] as Array).has(str(p["id"])):
 			named_ok += 1
 	_check(named_ok == 2 and mids == 5, "Named wings play the wings, and the midfield stays five")
+
+
+func _find(club: String, real_name: String) -> Dictionary:
+	for p in GameDB.club_list(club):
+		if str(p.get("real_name", "")) == real_name:
+			return p
+	for p in GameDB.club_additions(club):
+		if str(p.get("real_name", "")) == real_name:
+			return p
+	return {}
+
+
+## Director, 2026-10-14: Tom Green is an elite inside midfielder and Tom
+## Stewart is not a small defender (190 cm). Earlier asks: Miers a forward,
+## Uwland not a key defender, Harvey Langford a wing.
+func _test_named_players() -> void:
+	var green := _find("GWS", "Tom Green")
+	_check(not green.is_empty() and str(green["role"]) == "MID", "Tom Green is a midfielder")
+	_check(Roles.label(green) == "Inside midfielder", "Tom Green is an inside midfielder (%s)" % Roles.label(green))
+	var stewart := _find("GEE", "Tom Stewart")
+	_check(not stewart.is_empty() and PlayerProfile.player_type(stewart) == "Defender",
+			"Tom Stewart is a Defender, not a small defender (%s)" % PlayerProfile.player_type(stewart))
+	var miers := _find("GEE", "Gryan Miers")
+	_check(not miers.is_empty() and str(miers["role"]) == "FWD", "Gryan Miers is a forward")
+	var uwland := _find("GCS", "Bodhi Uwland")
+	_check(not uwland.is_empty() and PlayerProfile.player_type(uwland) != "Key defender", "Bodhi Uwland is not a key defender")
+	var langford := _find("MEL", "Harvey Langford")
+	_check(not langford.is_empty() and Roles.label(langford) == "Wing", "Harvey Langford is a wing")
+	var tall_small := 0
+	for p in GameDB.players:
+		if str(p.get("role", "")) == "DEF" and PlayerProfile.player_type(p) == "Small defender" 				and float(p.get("height_cm", 0.0)) > PlayerProfile.SMALL_DEF_CM:
+			tall_small += 1
+	_check(tall_small == 0, "No small defender stands over %.0f cm" % PlayerProfile.SMALL_DEF_CM)
 
 
 ## The engine: the centre square wins the stoppage ball, so ball-winners on
