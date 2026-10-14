@@ -127,6 +127,13 @@ func _premiers(prem: String) -> Control:
 	m.add_child(row)
 	var cup := _cup(HERO_CUP_WIDE if wide else HERO_CUP_NARROW)
 	cup.name = "FinalsHeroCup"
+	# The premiers' ribbons on the handles, in the club's two colours (director,
+	# 2026-10-14: the silver cup with the premier's ribbon). Drawn in the cup
+	# art's own square, so they lie straight over it.
+	if HonoursArt.has_art("premiership_ribbons"):
+		var ribbons := HonoursArt.view("premiership_ribbons", HERO_CUP_WIDE if wide else HERO_CUP_NARROW, prem, 0, "")
+		ribbons.name = "FinalsRibbons"
+		cup.add_child(ribbons)
 	cup.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	row.add_child(cup)
 	var t := UiKit.vbox(0)

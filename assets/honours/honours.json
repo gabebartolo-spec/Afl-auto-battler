@@ -3,6 +3,7 @@
   "shader": "honours_tint.gdshader",
   "honours": {
     "premiership_cup": {"png": "premiership_cup.png", "size": [512, 512], "base_y": 486},
+    "premiership_ribbons": {"png": "premiership_ribbons.png", "mask": "premiership_ribbons_mask.png", "size": [512, 512], "base_y": 486},
     "premiership_flag": {"png": "premiership_flag.png", "mask": "premiership_flag_mask.png", "size": [512, 512], "base_y": 486, "year_box": [177, 99, 158, 83]},
     "league_bnf_medal": {"png": "league_bnf_medal.png", "size": [512, 512]},
     "leading_goalkicker_medal": {"png": "leading_goalkicker_medal.png", "size": [512, 512]},

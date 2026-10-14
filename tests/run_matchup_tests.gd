@@ -473,6 +473,7 @@ func _finals_cup() -> void:
 				if sz.x < 600:
 					_check(fb.find_child("FinalsCupBand", true, false) != null and (fb.find_child("FinalsCupBand", true, false) as Control).mouse_filter == Control.MOUSE_FILTER_IGNORE,
 							"%s: with both Grand Finalists known the cup stands between their colours" % tag)
+				_check(fb.find_child("FinalsRibbons", true, false) == null, "%s: no ribbons before there is a premier" % tag)
 				var why: String = await Tap.tap(gf)
 				_check(why == "" and tapped == ["GF"], "%s: a real tap still opens the Grand Final (%s)" % [tag, why])
 			else:
@@ -501,6 +502,15 @@ func _finals_cup() -> void:
 				_check(you != null and you.text != "" and you.global_position.y >= hero.get_global_rect().end.y - 0.5,
 						"%s: your own finish is still said under it (%s)" % [tag, you.text if you != null else "-"])
 				_check(fb.find_child("FinalsCup", true, false) == null, "%s: one cup on the screen, not two" % tag)
+				var rib: Control = hero.find_child("FinalsRibbons", true, false) if hero != null else null
+				var rib_art: TextureRect = rib.find_child("Art_premiership_ribbons", true, false) if rib != null else null
+				var rib_mat: ShaderMaterial = rib_art.material as ShaderMaterial if rib_art != null else null
+				var cols: Array = db.club_colours(prem)
+				_check(rib_art != null and rib_art.texture.resource_path == "res://assets/honours/premiership_ribbons.png" and rib_mat != null
+						and (rib_mat.get_shader_parameter("primary") as Color).is_equal_approx(cols[0])
+						and (rib_mat.get_shader_parameter("secondary") as Color).is_equal_approx(cols[1])
+						and art != null and rib_art.get_global_rect().is_equal_approx(art.get_global_rect()),
+						"%s: the cup wears the premier's ribbons in the club's two colours, laid straight over it (%s)" % [tag, prem])
 				var why: String = await Tap.tap(gf) if gf != null and gf.is_visible_in_tree() else "the Grand Final is not shown"
 				_check(why == "" and tapped == ["GF"], "%s: a real tap still opens the Grand Final that was played (%s)" % [tag, why])
 			host.queue_free()
