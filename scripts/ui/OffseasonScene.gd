@@ -2,6 +2,7 @@ extends Control
 ## The off-season between the Grand Final and the national draft: contracts,
 ## free agency, trades and the club's annual department allocation.
 
+var _name_index := {}
 var _root: VBoxContainer
 var _tab := "contracts"
 var _notice := ""
@@ -52,6 +53,7 @@ func _ready() -> void:
 
 
 func _build() -> void:
+	_name_index = {}
 	if is_instance_valid(_scroll_box):
 		_scroll_positions[_scroll_tab] = UiKit.scroll_place(_scroll_box)
 	UiKit.clear(_root)
@@ -909,7 +911,15 @@ func _action_slot(card: PanelContainer) -> Container:
 	return card.get_child(0) as VBoxContainer
 
 
-func _para(text: String, size: int, colour: Color) -> Label:
-	var l := UiKit.lbl(text, size, colour)
+## Every club's players by name from the season's lists (they follow trades), so
+## a name in a sentence wears his club's colour (NameInk); made again on each build.
+func _names() -> Dictionary:
+	if _name_index.is_empty() and GameState.season != null:
+		_name_index = NameInk.from_lists(GameState.season.lists)
+	return _name_index
+
+
+func _para(text: String, size: int, colour: Color) -> Control:
+	var l := NameInk.label(text, _names(), size, colour)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l

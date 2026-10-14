@@ -98,6 +98,22 @@ func _run() -> void:
 			if breaks == 3:
 				await _frames(8)
 				await _shot(out, "half")
+				for key in ["mu", "tag"]:
+					var row: Node = scene.find_child("CallRow_" + key, true, false)
+					if row is Button:
+						(row as Button).emit_signal("pressed")
+						await _frames(10)
+						if key == "mu":
+							var ch: Node = scene.find_child("ChangeMatchup", true, false)
+							if ch is Button:
+								(ch as Button).emit_signal("pressed")
+								await _frames(10)
+						await _shot(out, "half_" + key)
+						# Back to the break for the next call.
+						for o in scene.get_children():
+							if o is Control and (str(o.name).begins_with("CallSheet_") or str(o.name) == "MatchupChooser" or str(o.name) == "PlayerSheet"):
+								o.queue_free()
+						await _frames(6)
 			var start: Node = scene.find_child("StartQuarter", true, false)
 			if start is Button:
 				(start as Button).emit_signal("pressed")
