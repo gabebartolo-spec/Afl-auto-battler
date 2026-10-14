@@ -50,7 +50,9 @@ const PLAYER_FACTS := ["name", "first", "age", "games", "fit", "selected", "over
 		"fit_rank", "talk_case", "kpi", "kpi_or_need", "explain_label", "talk_text", "sore_odds",
 		"ask", "early_price", "more_seasons", "extension_ok", "job", "real_named",
 		"form", "form_games", "has_role2", "starting", "form_low", "role_avg", "role_word", "trial_word", "trial_home", "trial_avg", "trial_par", "trial_tail",
-		"leadership", "captain", "delegate_holds", "holds_at", "holds_trust_at"]
+		"leadership", "captain", "delegate_holds", "holds_at", "holds_trust_at",
+		# International prospects (international.json): who he is, and where he is in his career.
+		"intl", "intl_region", "from", "demonym", "home_club", "seasons_listed", "goals"]
 ## Facts about the club and the week (GameState._story_club_facts).
 const CLUB_FACTS := ["club", "opp", "round", "year", "losing_run", "winning_run", "ladder",
 		"board", "fit_count", "run_games", "finals_week", "captain_name", "vice_name", "vice_id",
@@ -59,13 +61,22 @@ const CLUB_FACTS := ["club", "opp", "round", "year", "losing_run", "winning_run"
 const DEFAULTS := {"weight": 1, "cooldown": 40, "subject_cooldown": 8, "per_season": 0,
 		"phase": ["regular"], "default": -1}
 
+## The international prospects' cards (data/stories/international.json), played only with
+## the "international_prospects" switch on.
+const INTERNATIONAL_FILE := "res://data/stories/international.json"
+
 static var _cache: Array = []
+static var _cache_intl := false
 
 
 ## Every card in the game, loaded once.
 static func all() -> Array:
-	if _cache.is_empty():
+	var with_intl := Features.on(InternationalProspects.FEATURE)
+	if _cache.is_empty() or with_intl != _cache_intl:
 		_cache = load_dir(DIR)
+		if with_intl:
+			_cache.append_array(load_file(INTERNATIONAL_FILE))
+		_cache_intl = with_intl
 	return _cache
 
 
@@ -86,6 +97,19 @@ static func load_dir(dir: String) -> Array:
 			for t in parsed:
 				if t is Dictionary:
 					out.append(normalise(t))
+	return out
+
+
+## The cards in one file (a JSON array of cards), with defaults filled in.
+static func load_file(path: String) -> Array:
+	var out := []
+	if not FileAccess.file_exists(path):
+		return out
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if parsed is Array:
+		for t in parsed:
+			if t is Dictionary:
+				out.append(normalise(t))
 	return out
 
 

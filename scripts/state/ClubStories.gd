@@ -220,6 +220,19 @@ static func player_fact(gs, p: Dictionary, selected: bool, i: Dictionary, fit_ra
 			# fairly high and he trusts you (the rule is printed on the choice).
 			"leadership": lead, "captain": Captaincy.role_of(gs.captaincy_record(gs.my_club), id) == "captain",
 			"delegate_holds": holds, "holds_at": StoryDeck.HOLDS_AT, "holds_trust_at": StoryDeck.HOLDS_WITH_TRUST}
+	# International prospects' cards: where he comes from and how far into his career he is.
+	var country: Dictionary = InternationalProspects.country(str(p.get("intl", "")))
+	var career := Career.of(p)
+	var career_goals := int(career.get("goals", 0))
+	if int(career.get("through", 0)) < int(gs.season_year):
+		career_goals += int((gs.season_tally.get(id, {}) as Dictionary).get("goals", 0))
+	out["intl"] = not country.is_empty()
+	out["intl_region"] = str(country.get("region", ""))
+	out["from"] = str(country.get("from", country.get("name", "")))
+	out["demonym"] = str(country.get("demonym", ""))
+	out["home_club"] = str(p.get("draft_team", ""))
+	out["seasons_listed"] = int(gs.season_year) - int(p.get("drafted_year", int(gs.season_year) - 99))
+	out["goals"] = career_goals
 	# The result of his role trial, for the card that reports it.
 	var tr: Dictionary = gs.trial_result
 	if not tr.is_empty() and str(tr.get("id", "")) == id:

@@ -1,0 +1,812 @@
+[
+	{
+		"id": "intl_homesick",
+		"category": "family",
+		"weight": 4,
+		"per_season": 1,
+		"cooldown": 40,
+		"subject_cooldown": 12,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"seasons_listed_max": 1,
+				"fit": true,
+				"intl": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{first} is homesick"
+		],
+		"text": [
+			"It's his first winter away from {from}: short days, cold mornings, and no one here who knew him a year ago. He's quiet at training."
+		],
+		"choices": [
+			{
+				"key": "host",
+				"label": "Move him in with a host family",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 6
+					},
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You found him a host family when he was homesick"
+					},
+					{
+						"op": "heavy_legs"
+					}
+				],
+				"result": "{first} moves in with a family near the club. The first week is all boxes and a new bed."
+			},
+			{
+				"key": "parent",
+				"label": "Fly a parent out",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 9
+					},
+					{
+						"op": "trust",
+						"d": 6,
+						"why": "You flew his parent out when he was homesick"
+					},
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "{first}'s mum lands on Thursday. The club pays the flights."
+			},
+			{
+				"key": "home",
+				"label": "Let him go home for a week",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 10
+					},
+					{
+						"op": "trust",
+						"d": 8,
+						"why": "You let him go home when he was homesick"
+					},
+					{
+						"op": "rest"
+					}
+				],
+				"result": "{first} flies home for a week."
+			}
+		],
+		"when": {
+			"round_min": 7,
+			"round_max": 16
+		},
+		"default": 0,
+		"private": true
+	},
+	{
+		"id": "intl_learning_the_game",
+		"category": "training",
+		"weight": 4,
+		"per_season": 1,
+		"cooldown": 40,
+		"subject_cooldown": 12,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"seasons_listed_max": 1,
+				"fit": true,
+				"intl": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{first} is still learning the game"
+		],
+		"text": [
+			"He wins plenty of the ball, then gives it away: the umpire pings him for holding it, and the bounce off the turf keeps beating him. His old game never asked him to read an oval ball.",
+			"He keeps getting pinged for holding the ball, and the way the oval ball sits up still catches him out. The talent is there; the habits are another game's."
+		],
+		"choices": [
+			{
+				"key": "skills",
+				"label": "Extra skills sessions",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 10
+					},
+					{
+						"op": "morale",
+						"d": -3
+					}
+				],
+				"result": "{first} stays back with the skills coach each afternoon. He's tired, but he's learning."
+			},
+			{
+				"key": "twos",
+				"label": "Play him in the reserves for a week",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 8
+					},
+					{
+						"op": "rest"
+					}
+				],
+				"result": "{first} learns it against reserves players, with room to make mistakes."
+			},
+			{
+				"key": "back",
+				"label": "Back him and show him vision",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 4
+					},
+					{
+						"op": "trust",
+						"d": 5,
+						"why": "You backed him through his first mistakes and sat down with vision of them"
+					},
+					{
+						"op": "start_backing"
+					}
+				],
+				"result": "You sit down with the vision. {first} knows you're backing him."
+			}
+		],
+		"default": 0
+	},
+	{
+		"id": "intl_first_game",
+		"category": "media",
+		"weight": 6,
+		"per_season": 1,
+		"cooldown": 40,
+		"subject_cooldown": 12,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"games_min": 1,
+				"games_max": 1,
+				"seasons_listed_max": 2,
+				"fit": true,
+				"intl": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{first} has played his first game"
+		],
+		"text": [
+			"The papers back home in {from} have picked it up, and a broadcaster wants a word with him this week."
+		],
+		"choices": [
+			{
+				"key": "talk",
+				"label": "Let him do the interviews",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 6
+					},
+					{
+						"op": "board",
+						"d": 2
+					},
+					{
+						"op": "heavy_legs"
+					}
+				],
+				"result": "{first} does the calls late at night to suit the time back home. He's flat at training."
+			},
+			{
+				"key": "quiet",
+				"label": "Keep it quiet for now",
+				"effects": [
+					{
+						"op": "fresh"
+					},
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You kept the media off him after his first game"
+					},
+					{
+						"op": "morale",
+						"d": -3
+					}
+				],
+				"result": "{first} stays out of the spotlight. He'd have liked to share it."
+			}
+		],
+		"default": 1
+	},
+	{
+		"id": "intl_first_goal",
+		"category": "media",
+		"weight": 6,
+		"per_season": 1,
+		"cooldown": 40,
+		"subject_cooldown": 12,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"goals_min": 1,
+				"goals_max": 1,
+				"seasons_listed_max": 3,
+				"fit": true,
+				"intl": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{first} has kicked his first goal"
+		],
+		"text": [
+			"The clip is all over the news back in {from}, and his family have been sending photos from the lounge room."
+		],
+		"choices": [
+			{
+				"key": "night",
+				"label": "Make a night of it with the group",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 6
+					},
+					{
+						"op": "morale",
+						"d": 2,
+						"who": "side"
+					},
+					{
+						"op": "heavy_legs"
+					}
+				],
+				"result": "The group takes {first} out for dinner. He's flat at the next session."
+			},
+			{
+				"key": "work",
+				"label": "Back to work on Monday",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 6
+					},
+					{
+						"op": "morale",
+						"d": -3
+					}
+				],
+				"result": "{first} is back on the track on Monday. He'd wanted to celebrate it."
+			}
+		],
+		"default": 1
+	},
+	{
+		"id": "intl_first_summer",
+		"category": "family",
+		"weight": 3,
+		"per_season": 1,
+		"cooldown": 40,
+		"subject_cooldown": 12,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"seasons_listed_max": 1,
+				"fit": true,
+				"intl": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{first} wants to go home for the summer"
+		],
+		"text": [
+			"It's been a long first season away from {from}. He's asked whether he can spend the break with his family."
+		],
+		"choices": [
+			{
+				"key": "stay",
+				"label": "Ask him to stay for the summer program",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 10
+					},
+					{
+						"op": "morale",
+						"d": -5
+					}
+				],
+				"result": "{first} stays. The summer block is a big one for a first-year player."
+			},
+			{
+				"key": "go",
+				"label": "Let him go home",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 8
+					},
+					{
+						"op": "trust",
+						"d": 5,
+						"why": "You let him go home for the summer after his first season"
+					},
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "{first} flies home for the break. The football department isn't thrilled he'll miss the summer block."
+			}
+		],
+		"when": {
+			"round_min": 20,
+			"round_max": 24
+		},
+		"default": 0,
+		"private": true
+	},
+	{
+		"id": "intl_irish_county_call",
+		"category": "family",
+		"weight": 3,
+		"per_season": 1,
+		"cooldown": 40,
+		"subject_cooldown": 12,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"intl_region": "ireland",
+				"seasons_listed_min": 2,
+				"fit": true,
+				"intl": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{home_club} want {first} back"
+		],
+		"text": [
+			"It's championship time, and {home_club} have asked if he'll come home and play. He grew up on it."
+		],
+		"choices": [
+			{
+				"key": "go",
+				"label": "Let him go home for the championship",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 10
+					},
+					{
+						"op": "trust",
+						"d": 8,
+						"why": "You let him go home to play for his county"
+					},
+					{
+						"op": "rest"
+					}
+				],
+				"result": "{first} flies home to play for {home_club}."
+			},
+			{
+				"key": "final",
+				"label": "Release him for the final only",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 6
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You released him for his county's final"
+					},
+					{
+						"op": "heavy_legs"
+					}
+				],
+				"result": "{first} makes a quick trip home for the final and comes straight back. He's heavy-legged on Saturday."
+			},
+			{
+				"key": "no",
+				"label": "Tell him his contract is with us",
+				"effects": [
+					{
+						"op": "board",
+						"d": 2
+					},
+					{
+						"op": "morale",
+						"d": -8
+					},
+					{
+						"op": "trust",
+						"d": -8,
+						"why": "You told him no when his county wanted him home"
+					}
+				],
+				"result": "{first} stays. He's quiet about it."
+			}
+		],
+		"when": {
+			"round_min": 8,
+			"round_max": 16
+		},
+		"default": 2,
+		"private": true
+	},
+	{
+		"id": "intl_irish_torn",
+		"category": "contracts",
+		"weight": 3,
+		"per_season": 1,
+		"cooldown": 40,
+		"subject_cooldown": 12,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"intl_region": "ireland",
+				"seasons_listed_min": 2,
+				"contract_years_max": 1,
+				"extension_ok": true,
+				"fit": true,
+				"intl": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{first} is torn about home"
+		],
+		"text": [
+			"His deal ends this year, and the pull of {from} is real. He hasn't said yes or no."
+		],
+		"choices": [
+			{
+				"key": "extend",
+				"label": "Offer him an early extension",
+				"effects": [
+					{
+						"op": "extend_early"
+					}
+				]
+			},
+			{
+				"key": "time",
+				"label": "Tell him to take the off-season to decide",
+				"effects": [
+					{
+						"op": "trust",
+						"d": 6,
+						"why": "You gave him the off-season to decide about home"
+					},
+					{
+						"op": "morale",
+						"d": 3
+					},
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "{first} has until the end of the season. The board would rather it was settled."
+			}
+		],
+		"when": {
+			"round_min": 10
+		},
+		"default": 1,
+		"private": true
+	},
+	{
+		"id": "intl_usa_visit",
+		"category": "family",
+		"weight": 3,
+		"per_season": 1,
+		"cooldown": 40,
+		"subject_cooldown": 12,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"intl_region": "usa",
+				"seasons_listed_max": 2,
+				"games_min": 1,
+				"fit": true,
+				"intl": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{first}'s college coach is in town"
+		],
+		"text": [
+			"His old college coach and his parents have flown in for the weekend, and a podcast back home wants to film a session."
+		],
+		"choices": [
+			{
+				"key": "open",
+				"label": "Welcome them to training",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 7
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You welcomed his college coach and family to training"
+					},
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "side"
+					}
+				],
+				"result": "The coach watches from the fence. The cameras put the group off a little."
+			},
+			{
+				"key": "weekend",
+				"label": "Keep it to the weekend, away from the club",
+				"effects": [
+					{
+						"op": "fresh"
+					},
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You kept his visitors away from training"
+					},
+					{
+						"op": "morale",
+						"d": -3
+					}
+				],
+				"result": "{first} shows them around the city instead. He'd wanted them to see the club."
+			}
+		],
+		"default": 1,
+		"private": true
+	},
+	{
+		"id": "intl_nz_rugby_offer",
+		"category": "contracts",
+		"weight": 3,
+		"per_season": 1,
+		"cooldown": 40,
+		"subject_cooldown": 12,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"intl_region": "nz",
+				"seasons_listed_min": 2,
+				"contract_years_max": 1,
+				"extension_ok": true,
+				"fit": true,
+				"intl": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"A rugby club has rung about {first}"
+		],
+		"text": [
+			"A club back in {from} has offered him more money to come home and play rugby. His manager has told you."
+		],
+		"choices": [
+			{
+				"key": "extend",
+				"label": "Offer him an early extension",
+				"effects": [
+					{
+						"op": "extend_early"
+					}
+				]
+			},
+			{
+				"key": "meet",
+				"label": "Let him take the meeting",
+				"effects": [
+					{
+						"op": "trust",
+						"d": 6,
+						"why": "You let him hear out a rugby offer"
+					},
+					{
+						"op": "morale",
+						"d": 2
+					},
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "{first} hears them out. Word gets round, and the board isn't happy."
+			},
+			{
+				"key": "no",
+				"label": "Tell him he's a footballer now",
+				"effects": [
+					{
+						"op": "board",
+						"d": 2
+					},
+					{
+						"op": "trust",
+						"d": -6,
+						"why": "You shut the door on a rugby offer without hearing it"
+					},
+					{
+						"op": "morale",
+						"d": -3
+					}
+				],
+				"result": "{first} nods. He doesn't say much."
+			}
+		],
+		"default": 2,
+		"private": true
+	},
+	{
+		"id": "intl_africa_ambassador",
+		"category": "media",
+		"weight": 3,
+		"per_season": 1,
+		"cooldown": 40,
+		"subject_cooldown": 12,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"intl_region": "africa",
+				"seasons_listed_max": 3,
+				"games_min": 1,
+				"fit": true,
+				"intl": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"A program back home wants {first}"
+		],
+		"text": [
+			"The football program he came through in {from} wants him as its face: a video for the kids, and a clinic when he can get back."
+		],
+		"choices": [
+			{
+				"key": "yes",
+				"label": "Say yes",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 6
+					},
+					{
+						"op": "board",
+						"d": 2
+					},
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "side"
+					}
+				],
+				"result": "{first} films the message for the kids. The other young players notice who's getting the spotlight."
+			},
+			{
+				"key": "later",
+				"label": "Ask them to wait until he's established",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 6
+					},
+					{
+						"op": "morale",
+						"d": -3
+					},
+					{
+						"op": "trust",
+						"d": -3,
+						"why": "You asked him to put his home program off"
+					}
+				],
+				"result": "{first} sends a short note instead and keeps his head down."
+			}
+		],
+		"default": 1,
+		"private": true
+	},
+	{
+		"id": "intl_africa_visa",
+		"category": "family",
+		"weight": 6,
+		"per_season": 1,
+		"cooldown": 40,
+		"subject_cooldown": 12,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"intl_region": "africa",
+				"games_max": 0,
+				"selected": true,
+				"fit": true,
+				"intl": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{first}'s family can't get a visa"
+		],
+		"text": [
+			"His debut is this week and his parents' visas haven't come through. They won't be in the stands."
+		],
+		"choices": [
+			{
+				"key": "push",
+				"label": "Have the club push the visas through",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 6
+					},
+					{
+						"op": "trust",
+						"d": 6,
+						"why": "You went to bat for his family's visas before his debut"
+					},
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "The club's staff spend the week on the phone. The visas arrive on Friday."
+			},
+			{
+				"key": "wait",
+				"label": "Hold his debut back a week",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 8
+					},
+					{
+						"op": "trust",
+						"d": 8,
+						"why": "You held his debut back so his family could be there"
+					},
+					{
+						"op": "rest"
+					}
+				],
+				"result": "{first} waits a week. His family will be there."
+			},
+			{
+				"key": "stream",
+				"label": "Set up a live stream and a call after the game",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3
+					},
+					{
+						"op": "trust",
+						"d": -3,
+						"why": "You asked him to make do without his family at his debut"
+					}
+				],
+				"result": "{first} plays his debut without them. They watch on a phone in the kitchen."
+			}
+		],
+		"default": 2,
+		"private": true
+	}
+]
