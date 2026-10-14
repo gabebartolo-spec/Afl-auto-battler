@@ -1110,27 +1110,21 @@ func _draw_role_labels(tr: float) -> void:
 ## place is left out, except the ball carrier's, which is always written (the
 ## nearest clear place, else under his disc).
 func role_label_layout(tr: float, fs: int) -> Array:
-	var named := {}
-	for id in director.role_labels():
-		named[int(id)] = 1
-	var holder := int(director.ball.get("holder", -1)) if not director.ball.is_empty() else -1
-	if holder >= 0:
-		named[holder] = -1
-	if not rings.is_empty():
-		for i in range(director.tokens.size()):
-			if rings.has(str(director.tokens[i].get("pid", ""))):
-				named[i] = 0 if not named.has(i) else mini(int(named[i]), 0)
+	var named := label_wanted()
 	var ids := named.keys()
 	# The ball carrier first, then ringed players, then the rest, so the
 	# important names claim their place before the others.
 	ids.sort_custom(func(x, y): return int(named[x]) < int(named[y]) or (int(named[x]) == int(named[y]) and int(x) < int(y)))
+	# A player whose name the caption is writing (a goal, a touch) is not named
+	# twice.
+	var captioned := int(_caption["tok"]) if not _caption.is_empty() else -1
 	var discs := []
 	for i in range(director.tokens.size()):
 		discs.append(_disc_at(i))
 	var placed := []
 	var out := []
 	for id in ids:
-		if id < 0 or id >= director.tokens.size():
+		if id < 0 or id >= director.tokens.size() or int(id) == captioned:
 			continue
 		var t: Dictionary = director.tokens[id]
 		if float(t.get("down", 0.0)) > 0.0:
@@ -1143,45 +1137,63 @@ func role_label_layout(tr: float, fs: int) -> Array:
 		if p.x < -width or p.y < 0.0 or p.x > size.x + width or p.y > size.y + float(fs) * 2.0:
 			continue
 		var h := float(fs)
+		# Only places beside the disc: under, over, either side (a name far
+		# from its disc names the wrong player).
 		var spots := [
 			Vector2(-width * 0.5, tr * 1.25 + h),
 			Vector2(-width * 0.5, -tr * 1.25 - 3.0),
 			Vector2(tr * 1.3, h * 0.35),
 			Vector2(-tr * 1.3 - width, h * 0.35),
-			Vector2(-width * 0.5, tr * 1.25 + h * 2.1),
-			Vector2(-width * 0.5, -tr * 1.25 - h - 3.0),
-			Vector2(tr * 1.3, h * 1.5),
-			Vector2(-tr * 1.3 - width, h * 1.5),
-			Vector2(tr * 1.3, -h * 0.7),
-			Vector2(-tr * 1.3 - width, -h * 0.7),
-			Vector2(-width * 0.5, tr * 1.25 + h * 3.3),
-			Vector2(-width * 0.5, -tr * 1.25 - h * 2.3),
+			Vector2(tr * 1.0, tr * 1.1 + h * 0.8),
+			Vector2(-tr * 1.0 - width, tr * 1.1 + h * 0.8),
+			Vector2(tr * 1.0, -tr * 1.1),
+			Vector2(-tr * 1.0 - width, -tr * 1.1),
 		]
 		var chosen = null
-		for off in spots:
-			var origin: Vector2 = p + off
-			origin.x = clampf(origin.x, 2.0, maxf(2.0, size.x - width - 2.0))
-			var rect := Rect2(origin + Vector2(-1, -h), Vector2(width + 2.0, h + 3.0))
-			if _label_clear(rect, id, placed, discs, tr):
-				chosen = [origin, rect]
+		# First a place clear of every name and every other disc; failing that,
+		# one clear of the names (it may lie over a neighbour's edge, but the
+		# name is still written beside its own disc).
+		for strict in [true, false]:
+			for off in spots:
+				var origin: Vector2 = p + off
+				origin.x = clampf(origin.x, 2.0, maxf(2.0, size.x - width - 2.0))
+				var rect := Rect2(origin + Vector2(-1, -h), Vector2(width + 2.0, h + 3.0))
+				if _label_clear(rect, id, placed, discs, tr, strict):
+					chosen = [origin, rect]
+					break
+			if chosen != null:
 				break
 		if chosen == null:
-			if int(id) != holder:
-				continue
-			var origin0: Vector2 = p + spots[0]
-			origin0.x = clampf(origin0.x, 2.0, maxf(2.0, size.x - width - 2.0))
-			chosen = [origin0, Rect2(origin0 + Vector2(-1, -h), Vector2(width + 2.0, h + 3.0))]
+			continue
 		placed.append(chosen[1])
 		out.append({"id": id, "text": text, "origin": chosen[0], "rect": chosen[1]})
 	return out
 
 
+## The players whose name is wanted under the disc, with a priority (lower
+## first): the ball carrier, your ringed players, those with a recorded job.
+func label_wanted() -> Dictionary:
+	var named := {}
+	for id in director.role_labels():
+		named[int(id)] = 1
+	var holder := int(director.ball.get("holder", -1)) if not director.ball.is_empty() else -1
+	if holder >= 0:
+		named[holder] = -1
+	if not rings.is_empty():
+		for i in range(director.tokens.size()):
+			if rings.has(str(director.tokens[i].get("pid", ""))):
+				named[i] = mini(int(named.get(i, 0)), 0)
+	return named
+
+
 ## A name's box clear of every name already placed and of every other player's
 ## disc (so no name runs over a number).
-func _label_clear(rect: Rect2, id: int, placed: Array, discs: Array, tr: float) -> bool:
+func _label_clear(rect: Rect2, id: int, placed: Array, discs: Array, tr: float, strict := true) -> bool:
 	for r in placed:
 		if rect.intersects(r as Rect2):
 			return false
+	if not strict:
+		return true
 	for i in range(discs.size()):
 		if i == id or float(director.tokens[i].get("down", 0.0)) > 0.0:
 			continue

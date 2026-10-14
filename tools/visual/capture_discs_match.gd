@@ -33,8 +33,10 @@ func _run() -> void:
 			root.add_child(pv)
 			pv.setup(res)
 			var ringed := {}
+			# As a real match: three of your players ringed (a call or a promised run).
 			for t in pv.director.tokens:
-				ringed[str(t.get("pid", ""))] = true
+				if ringed.size() < 3:
+					ringed[str(t.get("pid", ""))] = true
 			pv.rings = ringed
 			pv.set_speed(4.0)
 			pv.play()
