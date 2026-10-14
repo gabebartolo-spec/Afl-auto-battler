@@ -161,14 +161,16 @@ func _run() -> void:
 			await process_frame
 		var node: Control = root.get_tree().current_scene.find_child("WeekEvent", true, false)
 		var sc := node.get_parent() if node != null else null
+		var chain := []
 		while sc != null and not (sc is ScrollContainer):
+			chain.append(sc.name)
 			sc = sc.get_parent()
-		if sc != null:
-			(sc as ScrollContainer).scroll_vertical = 0
-			for i in range(3):
-				await process_frame
-			(sc as ScrollContainer).scroll_vertical = int(node.global_position.y - (sc as Control).global_position.y) + (sc as ScrollContainer).scroll_vertical - 24
-			for i in range(4):
+		print("DEBUG ", id, " node ", node != null, " rect ", node.get_global_rect() if node != null else "-", " visible ", node.is_visible_in_tree() if node != null else "-",
+				" modulate ", node.modulate if node != null else "-", " children ", node.get_child_count() if node != null else 0, " chain ", chain,
+				" sc ", (sc as Control).get_global_rect() if sc != null else "-", " scroll ", (sc as ScrollContainer).scroll_vertical if sc != null else "-")
+		if sc != null and node != null:
+			(sc as ScrollContainer).ensure_control_visible(node)
+			for i in range(6):
 				await process_frame
 		await _shot("%s_%s%s_%s.png" % [out, id, str(sh[4]), club])
 		if p.has("injury_weeks"):
