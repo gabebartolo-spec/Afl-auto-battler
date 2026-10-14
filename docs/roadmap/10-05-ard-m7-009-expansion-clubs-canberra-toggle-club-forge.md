@@ -12,6 +12,7 @@
 7. The coach is told during the season when a new club approaches his player and can re-sign him at his asking price.
 8. The coach as the new club: yes, built after the package (not built yet).
 9. A save that has not reached 2028 gets the package when Tasmania arrives; a save past 2028 keeps its Tasmania.
+10. (2026-10-14, after the 12-career measurement) A star his club wants but cannot fit under its cap is not the new club's to sign first: "No, he goes to free agency" (`Expansion.FIRST_CALL_CAP_SQUEEZED` off).
 
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`

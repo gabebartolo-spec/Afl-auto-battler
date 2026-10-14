@@ -49,7 +49,8 @@ const SIGN_ON_SEASON_MAX := 3000000
 static var MATCHED_PLAYER_DECIDES := false
 ## A player his club wants but cannot fit under its cap: may the new club
 ## sign him first (true), or does he go to free agency like anyone else?
-static var FIRST_CALL_CAP_SQUEEZED := true
+## Director, 2026-10-14: "No, he goes to free agency".
+static var FIRST_CALL_CAP_SQUEEZED := false
 ## A senior player, for the pick that must be traded: at least this old.
 const SENIOR_AGE := 23.0
 ## An entry year that never comes: a club this career leaves out.

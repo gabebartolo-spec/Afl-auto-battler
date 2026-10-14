@@ -422,7 +422,7 @@ func run() -> void:
 	if real_build:
 		Features.set_on("expansion_package", true)
 		Expansion.MATCHED_PLAYER_DECIDES = OS.get_environment("EXPANSION_DECIDES") == "1"
-		Expansion.FIRST_CALL_CAP_SQUEEZED = OS.get_environment("EXPANSION_NO_CAP") != "1"
+		Expansion.FIRST_CALL_CAP_SQUEEZED = OS.get_environment("EXPANSION_CAP_FIRST") == "1"
 		print("RULES matched player decides %s, first call on cap-squeezed players %s" % [
 				str(Expansion.MATCHED_PLAYER_DECIDES), str(Expansion.FIRST_CALL_CAP_SQUEEZED)])
 		print("FEATURE expansion_package on")
