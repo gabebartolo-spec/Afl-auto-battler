@@ -25,7 +25,7 @@ func _shot(path: String) -> void:
 	print("wrote ", path)
 
 
-func _finals_game(state, db, club: String, seed: int, rank: int) -> void:
+func _finals_game(state, db, club: String, seed: int, rank: int, regular := false) -> void:
 	state.reset()
 	state.set_setting("seen_weekly_loop_intro", true)
 	state.career_seed = seed
@@ -44,8 +44,11 @@ func _finals_game(state, db, club: String, seed: int, rank: int) -> void:
 		row["p"] = 24
 		row["pf"] = 2400 - i * 20
 		row["pa"] = 2000
-	sea.round_index = sea.fixture.size()
 	sea.recalc_ladder()
+	if regular:
+		sea.round_index = 21   # round 22 of the home and away: a regular-season card on a regular-season hub
+		return
+	sea.round_index = sea.fixture.size()
 	sea.start_finals()
 
 
@@ -123,9 +126,9 @@ func _run() -> void:
 		var id := str(sh[0])
 		if not only.is_empty() and not only.has(id):
 			continue
-		_finals_game(state, db, club, 21, 0)
-		var sea = state.season
 		var wk := int(sh[5])
+		_finals_game(state, db, club, 21, 0, wk == 0)
+		var sea = state.season
 		if wk >= 2:
 			sea.finals["week"] = wk
 			sea.finals["weeks"] = []
@@ -133,6 +136,9 @@ func _run() -> void:
 				(sea.finals["weeks"] as Array).append([])
 			if wk == 3:
 				sea.finals["slots"] = {"W_QF1": club} if bool((sh[2] as Dictionary).get("finals_bye", false)) else {"L_QF1": club}
+			elif wk == 5:
+				var rival := "ESS" if club != "ESS" else "COL"
+				sea.finals["slots"] = {"W_PF1": club, "W_PF2": rival}
 			elif wk >= 4:
 				sea.finals["slots"] = {}
 		var rec: Dictionary = state.captaincy_record(club)
