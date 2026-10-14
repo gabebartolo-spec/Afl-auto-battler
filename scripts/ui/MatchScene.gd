@@ -73,7 +73,7 @@ var _rotation := "normal"
 var _pc_break := false
 var _pos_before := 0          # your ladder spot before this match
 var _lead: Label
-var _setup_line: Label
+var _setup_line: RichTextLabel
 var _report_overlay: Control
 var _ft_box := {}               # the full-time review: overlay, body, footer
 var _ft_tabs: HBoxContainer
@@ -81,6 +81,7 @@ var _ft_tab := "summary"        # summary (home), stats or report
 var _run_side := -1            # who kicked the last goal, and how many in a row
 var _run_len := 0
 var _press_said := [false, false]  # the Defensive press line, once a side
+var _name_index := {}           # name -> club for NameInk, built once per match
 var _duel_mem := {}             # the feed's memory of the key match-ups (MatchNotes.duel_feed_line)
 var _matchup_overlay: Control
 var _break_refresh := Callable()   # the one-line break: say each call's answer again after a pick
@@ -183,7 +184,7 @@ func _mount_body(stack: bool) -> void:
 		_side_panel.add_child(sv)
 		# Your match: the calls you have on, so the setup is never a guess.
 		# Every call in full: a long name or several calls wrap, never trim.
-		_setup_line = UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+		_setup_line = NameInk.rich(UiKit.SMALL, UiKit.MUTED)
 		_setup_line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_setup_line.name = "SetupLine"
 		_setup_line.visible = false
@@ -680,7 +681,7 @@ func _show_coach_box() -> void:
 			var dv := UiKit.vbox(4)
 			dv.name = "CallsDid"
 			for t in did:
-				var dl := UiKit.lbl(str(t), UiKit.BODY, UiKit.TEXT)
+				var dl := _say(str(t), UiKit.BODY, UiKit.TEXT)
 				dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				dv.add_child(dl)
 			rep.add_child(dv)
@@ -846,7 +847,7 @@ func _show_coach_box() -> void:
 		minder_box.add_child(none_note)
 	else:
 		var fwds := Matchups.minder_candidates(my_ground)
-		var ask := UiKit.lbl(MatchNotes.minder_question(GameDB.player_display_name(opp_spare),
+		var ask := _say(MatchNotes.minder_question(GameDB.player_display_name(opp_spare),
 				GameDB.club_name(str((sim.squads[1 - _my_side] as Squad).code))), UiKit.BODY, UiKit.TEXT, true)
 		ask.name = "MinderQuestion"
 		ask.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -902,7 +903,7 @@ func _show_coach_box() -> void:
 	var loose_now := str(sim.interceptor[_my_side])
 	if q > 1 and loose_now != "":
 		var stats: Dictionary = (_res.get("players", {}) as Dictionary).get(loose_now, {})
-		var tally := UiKit.lbl(MatchNotes.loose_tally_line(GameDB.player_display_name_by_id(loose_now, "Your loose man"),
+		var tally := _say(MatchNotes.loose_tally_line(GameDB.player_display_name_by_id(loose_now, "Your loose man"),
 				int(float(stats.get("intercepts", 0.0)))), UiKit.SMALL, UiKit.TEXT)
 		tally.name = "LooseTally"
 		tally.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1829,7 +1830,7 @@ func _quarter_view(q: int) -> Control:
 	if lines.is_empty():
 		lines.append("An even quarter.")
 	for t in lines:
-		var l := UiKit.lbl(str(t), UiKit.BODY, UiKit.TEXT)
+		var l := _say(str(t), UiKit.BODY, UiKit.TEXT)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l)
 	return v
@@ -1901,14 +1902,14 @@ func _calls_view(q: int) -> Control:
 	for m in moments:
 		if q > 0 and int(m.get("q", 0)) != q:
 			continue
-		var l2 := UiKit.lbl("%s  %s: %s. %s" % [_clock_text(int(m["q"]), int(m["min"])),
+		var l2 := _say("%s  %s: %s. %s" % [_clock_text(int(m["q"]), int(m["min"])),
 				str(m.get("title", "")), str(m.get("choice_label", "")), str(m.get("outcome", ""))],
 				12, UiKit.EMPH if int(m.get("points", 0)) >= 6 else UiKit.TEXT)
 		l2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l2)
 	var tag_line := _tag_line(q)
 	if tag_line != "":
-		v.add_child(UiKit.lbl(tag_line, 12, UiKit.TEXT))
+		v.add_child(_say(tag_line, 12, UiKit.TEXT))
 	if lines.is_empty() and v.get_child_count() == 1:
 		v.add_child(UiKit.lbl("An even quarter: no call moved the needle much.", 12, UiKit.MUTED))
 	v.add_child(UiKit.lbl("Expected points each call added or cost, from the chances it changed.", 11, UiKit.MUTED))
@@ -1996,11 +1997,11 @@ func _show_moment() -> void:
 		# Vignettes off: the centre ball-up call without its scene, the same
 		# facts the scene would have put over it.
 		for f in StoppageVignette.call_facts(GameState.pending_sim, _my_side):
-			var fl := UiKit.lbl(str(f), UiKit.BODY, UiKit.TEXT, true)
+			var fl := _say(str(f), UiKit.BODY, UiKit.TEXT, true)
 			fl.name = "BounceFact"
 			fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(fl)
-	var text := UiKit.lbl(str(m.get("text", "")), 14, UiKit.TEXT)
+	var text := _say(str(m.get("text", "")), 14, UiKit.TEXT)
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(text)
 	var options: Array = m.get("options", [])
@@ -2052,10 +2053,10 @@ func _show_bounce_moment(m: Dictionary) -> void:
 	var call := UiKit.vbox(6)
 	panel.add_child(call)
 	for f in vignette.facts:
-		var fl := UiKit.lbl(str(f), UiKit.BODY, UiKit.TEXT, true)
+		var fl := _say(str(f), UiKit.BODY, UiKit.TEXT, true)
 		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		call.add_child(fl)
-	var text := UiKit.lbl(str(m.get("text", "")), UiKit.SMALL, UiKit.MUTED)
+	var text := _say(str(m.get("text", "")), UiKit.SMALL, UiKit.MUTED)
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	call.add_child(text)
 	var buttons: Array = []
@@ -2560,7 +2561,7 @@ func _glance_section(v: VBoxContainer, title: String, node_name: String, lines: 
 	var box := UiKit.vbox(4)
 	box.name = node_name
 	for t in lines:
-		var l := UiKit.lbl(str(t), UiKit.BODY, UiKit.TEXT)
+		var l := _say(str(t), UiKit.BODY, UiKit.TEXT)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(l)
 	v.add_child(box)
@@ -2575,8 +2576,8 @@ func _glance_people(v: VBoxContainer, title: String, node_name: String, people: 
 	box.name = node_name
 	for p in people:
 		var row := UiKit.vbox(0)
-		row.add_child(UiKit.ellipsis(str(p["name"]), UiKit.BODY, UiKit.TEXT, true))
-		row.add_child(UiKit.ellipsis(str(p["line"]), UiKit.SMALL, UiKit.MUTED))
+		row.add_child(_say(str(p["name"]), UiKit.BODY, UiKit.TEXT, true))
+		row.add_child(_say(str(p["line"]), UiKit.SMALL, UiKit.MUTED))
 		box.add_child(row)
 	v.add_child(box)
 
@@ -2717,7 +2718,7 @@ func _show_setup(t: Dictionary) -> void:
 	var ruck_id := str(t.get("main_ruck", ""))
 	if ruck_id != "":
 		bits.append(GameDB.player_display_name_by_id(ruck_id, "your ruck") + " the main ruck")
-	_setup_line.text = "  ·  ".join(bits)
+	NameInk.set_line(_setup_line, "  ·  ".join(bits), _names())
 	_setup_line.visible = true
 
 
@@ -2897,7 +2898,11 @@ func _goal_row(ev: Dictionary, stamp: String) -> Control:
 	row.add_child(v)
 	var who := str(ev.get("name", ""))
 	var head := "Goal  " + (who if who != "" else GameDB.club_short(code))
-	var hl := UiKit.lbl(head, UiKit.NAME, UiKit.TEXT, true)
+	# The scorer's club is the event's own, whatever the index knows.
+	var names := _names().duplicate()
+	if who != "":
+		names[who] = code
+	var hl := NameInk.label(head, names, UiKit.NAME, UiKit.TEXT, true)
 	hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(hl)
 	var g: Array = ev.get("goals", [0, 0])
@@ -2984,10 +2989,43 @@ func _feed_add(ev: Dictionary) -> void:
 		_feed_text("%s  %s" % [stamp, str(line["text"])], UiKit.TEXT, false, "PlayLine")
 
 
+## The players of both clubs in this match, by name, so a name in a sentence can
+## wear his club's colour (NameInk). Built from the squads, never from the text.
+func _names() -> Dictionary:
+	if not _name_index.is_empty():
+		return _name_index
+	var lists := []
+	var codes := []
+	var sim: MatchSim = GameState.pending_sim
+	if sim != null and sim.squads.size() == 2:
+		for sq in sim.squads:
+			lists.append((sq as Squad).list + (sq as Squad).ground + (sq as Squad).bench)
+			codes.append(str((sq as Squad).code))
+	else:
+		var roster: Array = _res.get("roster", [])
+		for side in range(mini(2, roster.size())):
+			lists.append(roster[side])
+			codes.append(str(_res["home"]) if side == 0 else str(_res["away"]))
+	_name_index = NameInk.from_squads(lists, codes)
+	return _name_index
+
+
+## A line whose words change later (the break match-up line): always tinted-capable.
+func _say_live(text: String, fs: int, col: Color) -> RichTextLabel:
+	var r := NameInk.rich(fs, col)
+	NameInk.set_line(r, text, _names())
+	return r
+
+
+## A line of the match's talk: plain, or with each player's name in his club's ink.
+func _say(text: String, fs: int, col: Color, bold := false) -> Control:
+	return NameInk.label(text, _names(), fs, col, bold)
+
+
 func _feed_text(text: String, col: Color, strong: bool, node_name: String) -> void:
 	if _feed == null:
 		return
-	var l := UiKit.lbl(text, UiKit.SMALL, col, strong)
+	var l := _say(text, UiKit.SMALL, col, strong)
 	l.name = node_name
 	# Siblings cannot share a name, so the row's kind rides as metadata.
 	l.set_meta("feed_kind", node_name)
@@ -3266,7 +3304,7 @@ func _ft_summary(v: VBoxContainer) -> void:
 	factors.name = "MatchFactors"
 	factors.add_theme_constant_override("separation", 4)
 	for f in MatchNotes.match_factors(_res, me if mine else 0):
-		var fl := UiKit.lbl(str(f), UiKit.BODY, UiKit.TEXT)
+		var fl := _say(str(f), UiKit.BODY, UiKit.TEXT)
 		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		factors.add_child(fl)
 	v.add_child(factors)
@@ -3504,14 +3542,14 @@ func _matchups_view(sim: MatchSim, q: int) -> Control:
 	v.add_child(UiKit.lbl("Key match-ups", UiKit.BODY, UiKit.TEXT, true))
 	var their_spare := sim._roaming_interceptor(1 - _my_side)
 	if not their_spare.is_empty():
-		var loose := UiKit.lbl("%s is roaming loose behind their backline." % GameDB.player_display_name(their_spare),
+		var loose := _say("%s is roaming loose behind their backline." % GameDB.player_display_name(their_spare),
 				UiKit.BODY, UiKit.TEXT)
 		loose.name = "OppInterceptor"
 		loose.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(loose)
 	var our_spare := sim._roaming_interceptor(_my_side)
 	if not our_spare.is_empty():
-		var loose2 := UiKit.lbl("Yours: %s is roaming as the spare." % GameDB.player_display_name(our_spare),
+		var loose2 := _say("Yours: %s is roaming as the spare." % GameDB.player_display_name(our_spare),
 				UiKit.SMALL, UiKit.MUTED)
 		loose2.name = "MyInterceptor"
 		loose2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -3519,7 +3557,7 @@ func _matchups_view(sim: MatchSim, q: int) -> Control:
 	for fid in theirs.keys():
 		var row := UiKit.hbox(8)
 		row.name = "BreakMatchup_" + str(fid)
-		var l := UiKit.lbl(_matchup_text(str(fid), str(theirs[fid]), q), UiKit.BODY, UiKit.TEXT)
+		var l := _say_live(_matchup_text(str(fid), str(theirs[fid]), q), UiKit.BODY, UiKit.TEXT)
 		l.name = "MatchupLine"
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -3532,7 +3570,7 @@ func _matchups_view(sim: MatchSim, q: int) -> Control:
 		row.add_child(b)
 		v.add_child(row)
 	for fid in ours.keys():
-		var l2 := UiKit.lbl("Yours: " + _matchup_text(str(fid), str(ours[fid]), q), UiKit.SMALL, UiKit.MUTED)
+		var l2 := _say("Yours: " + _matchup_text(str(fid), str(ours[fid]), q), UiKit.SMALL, UiKit.MUTED)
 		l2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l2)
 	# Who made these calls: your assistant, until you make them yourself.
@@ -3553,7 +3591,7 @@ func _matchup_text(fid: String, did: String, q: int) -> String:
 
 ## Who goes to their forward, from your defenders on the ground. The change
 ## is made in the engine at once and takes effect from the next bounce.
-func _show_break_matchup(sim: MatchSim, fid: String, line: Label, q: int) -> void:
+func _show_break_matchup(sim: MatchSim, fid: String, line: RichTextLabel, q: int) -> void:
 	if _matchup_overlay != null and is_instance_valid(_matchup_overlay):
 		_matchup_overlay.queue_free()
 	var box := UiKit.modal_box(self, 480.0, 0.0, _wash())
@@ -3562,7 +3600,7 @@ func _show_break_matchup(sim: MatchSim, fid: String, line: Label, q: int) -> voi
 	var v: VBoxContainer = box["body"]
 	v.add_theme_constant_override("separation", 6)
 	var fwd := sim._on_ground(1 - _my_side, fid)
-	v.add_child(UiKit.lbl("Who goes to %s?" % MatchNotes._pname(fid), UiKit.H1, UiKit.TEXT, true))
+	v.add_child(_say("Who goes to %s?" % MatchNotes._pname(fid), UiKit.H1, UiKit.TEXT, true))
 	if not fwd.is_empty():
 		v.add_child(UiKit.lbl(Matchups.describe(fwd), UiKit.SMALL, UiKit.MUTED))
 	var cur := str((sim.duels[_my_side] as Dictionary).get(fid, ""))
@@ -3575,7 +3613,7 @@ func _show_break_matchup(sim: MatchSim, fid: String, line: Label, q: int) -> voi
 		var pid := str(p["id"])
 		b.pressed.connect(func():
 			sim.coach_matchup(_my_side, fid, pid)
-			line.text = _matchup_text(fid, pid, 1).trim_suffix(".") + " from the next bounce."
+			NameInk.set_line(line, _matchup_text(fid, pid, 1).trim_suffix(".") + " from the next bounce.", _names())
 			if _break_refresh.is_valid():
 				_break_refresh.call()
 			_matchup_overlay.queue_free()

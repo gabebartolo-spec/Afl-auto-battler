@@ -70,7 +70,7 @@ func _hub_tests() -> void:
 	_check(venue != null and venue.text.begins_with("Home · " if str(nxt["venue"]) == "home" else "Away · ")
 			and not venue.text.contains("at " + db.club_name(str(nxt["code"]))),
 			"Then where: home or away and the ground, not 'at' the opponent (%s)" % (venue.text if venue else "-"))
-	var facts := hub.find_children("Fact_*", "Label", true, false)
+	var facts := hub.find_children("Fact_*", "Control", true, false)
 	_check(facts.size() <= 3, "At most three facts about them (%d)" % facts.size())
 	var expected: Array = _state.opponent_facts(str(nxt["code"]))
 	# How they play, after three games: at most two lines, words not numbers.
@@ -143,8 +143,8 @@ func _hub_tests() -> void:
 			best = p
 	best["injury_weeks"] = 2
 	hub = await _open_hub()
-	var note: Label = hub.find_child("OwnNote_0", true, false)
-	_check(note != null and note.text.contains("out injured"), "Your injured star is this week's news")
+	var note: Control = hub.find_child("OwnNote_0", true, false)
+	_check(note != null and _plain(note).contains("out injured"), "Your injured star is this week's news")
 	best.erase("injury_weeks")
 	hub.queue_free()
 	await _settle()
@@ -164,7 +164,7 @@ func _hub_tests() -> void:
 			hub = await _open_hub()
 			var status: String = _state.my_finals_status()
 			var up := hub.find_child("Opponent", true, false) != null
-			if not up and not hub.find_children("Fact_*", "Label", true, false).is_empty():
+			if not up and not hub.find_children("Fact_*", "Control", true, false).is_empty():
 				facts_bad.append(status)
 			var acts: Control = hub.find_child("WeekActions", true, false)
 			if not (acts != null and acts.get_child_count() > 0):
@@ -176,7 +176,7 @@ func _hub_tests() -> void:
 	_check(acts_bad.is_empty(), "Every finals week has a next action (%s)" % str(acts_bad))
 	hub = await _open_hub()
 	_check(_screen_text(hub).contains("Season complete"), "A finished season says so")
-	_check(hub.find_children("Fact_*", "Label", true, false).is_empty(), "No facts once the season is over")
+	_check(hub.find_children("Fact_*", "Control", true, false).is_empty(), "No facts once the season is over")
 	_check(_button(hub.find_child("WeekActions", true, false), "National Draft") != null,
 			"The national draft is the next step")
 	hub.queue_free()
@@ -820,3 +820,10 @@ func _pre_match_scene() -> void:
 		if is_instance_valid(hub):
 			hub.queue_free()
 		await process_frame
+
+
+## The words a line shows, whether a Label or a tinted RichTextLabel carries them.
+func _plain(c: Control) -> String:
+	if c.has_meta("plain"):
+		return str(c.get_meta("plain"))
+	return (c as Label).text if c is Label else ""

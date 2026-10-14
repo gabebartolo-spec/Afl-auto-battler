@@ -81,12 +81,12 @@ func _selection_tests() -> void:
 			h2h_ok = false
 	_check(h2h_ok, "The matchup reads line against line, in words (%s)" %
 			" | ".join(h2h_lines.map(func(l): return str(l.text))))
-	var mid_line: Label = ui.find_child("H2H_midfield", true, false)
-	_check(mid_line != null and mid_line.text.begins_with("Midfield: yours "), "Midfield sets yours against theirs")
+	var mid_line: Control = ui.find_child("H2H_midfield", true, false)
+	_check(mid_line != null and _plain(mid_line).begins_with("Midfield: yours "), "Midfield sets yours against theirs")
 	# Their key forwards are facts here; who goes to them and the game plan are
 	# asked only in the pre-bounce menu (director, 2026-10-13).
 	var km: Node = ui.find_child("KeyMatchups", true, false)
-	_check(km != null and not km.find_children("KeyForward_*", "Label", true, false).is_empty(),
+	_check(km != null and not km.find_children("KeyForward_*", "Control", true, false).is_empty(),
 			"Selection names their key forwards")
 	_check(ui.find_child("ChangeMatchup", true, false) == null and ui.find_child("ChangePlan", true, false) == null
 			and ui.find_child("PlanLine", true, false) == null and km != null
@@ -147,13 +147,13 @@ func _selection_tests() -> void:
 		if guide != null:
 			for key in Traits.SYNERGIES:
 				var row2: Node = guide.find_child("Synergy_" + str(key), true, false)
-				var cl: Label = row2.find_child("Carriers", true, false) if row2 != null else null
-				if cl == null or not cl.text.contains("in your side:"):
+				var cl: Control = row2.find_child("Carriers", true, false) if row2 != null else null
+				if cl == null or not _plain(cl).contains("in your side:"):
 					carriers_ok = false
 				else:
 					for c in Traits.carriers(str(key), _state.my_squad().ground):
 						for p in c[1]:
-							if not cl.text.contains(str(root.get_node("GameDB").player_display_name(p))):
+							if not _plain(cl).contains(str(root.get_node("GameDB").player_display_name(p))):
 								carriers_ok = false
 		_check(carriers_ok, "Each synergy names who in your side carries what it needs")
 		var gtext := _screen_text(guide) if guide != null else ""
@@ -641,13 +641,15 @@ func _team_changes_tests() -> void:
 			for_ok = true
 	_check(for_ok, "Someone comes in for him (%s)" % str(ch["ins"]))
 	var ui := await _open()
-	var line: Label = ui.find_child("TeamChanges", true, false)
+	var line: Control = ui.find_child("TeamChanges", true, false)
 	var name: String = db.player_display_name(hurt)
-	_check(line != null and line.text.contains("Outs: ") and line.text.contains(name)
-			and line.text.contains("for " + name), "Selection reads the team sheet (%s)" % (line.text if line else "-"))
+	_check(line != null and _plain(line).contains("Outs: ") and _plain(line).contains(name)
+			and _plain(line).contains("for " + name), "Selection reads the team sheet (%s)" % (_plain(line) if line else "-"))
 	var said := 0
-	for l in ui.find_children("*", "Label", true, false):
-		if str(l.text).contains(name) and str(l.text).contains("injur"):
+	for l in ui.find_children("*", "Control", true, false):
+		if not (l is Label or l is RichTextLabel):
+			continue
+		if _plain(l).contains(name) and _plain(l).contains("injur"):
 			said += 1
 	_check(said == 1, "His injury is said once, on the team sheet (%d)" % said)
 	ui.queue_free()
@@ -723,9 +725,9 @@ func _backing_ui_tests() -> void:
 			_check(_screen_text(ui).contains("has your word for three games"), "Selection says what changed")
 			root.size = Vector2i(1280, 720)  # the week is in view beside the side
 			await _settle()
-			var line: Label = ui.find_child("Backing_" + kid_id, true, false)
-			_check(line != null and line.text == "You promised %s a run: game one of three." % db.player_display_name(kid)
-					and digits.search(line.text) == null, "Selection reminds you of the run, in words (%s)" % (line.text if line else "-"))
+			var line: Control = ui.find_child("Backing_" + kid_id, true, false)
+			_check(line != null and _plain(line) == "You promised %s a run: game one of three." % db.player_display_name(kid)
+					and digits.search(_plain(line)) == null, "Selection reminds you of the run, in words (%s)" % (_plain(line) if line else "-"))
 			var tile2: Node = _card_of(ui.find_child("BuilderField", true, false), kid_id)
 			_check(tile2 != null, "Auto-pick now names him")
 			if tile2 != null:
@@ -1105,3 +1107,12 @@ func _week_ink_tests() -> void:
 		await _settle()
 	_check(bad.is_empty(), "Every club's week headings read at 4.5:1 or better on the dark page (%s)" % str(bad))
 	_check(codes.size() >= 18, "All the clubs were checked (%d)" % codes.size())
+
+
+## The words a line shows, whether a Label or a tinted RichTextLabel carries them.
+func _plain(c: Control) -> String:
+	if c.has_meta("plain"):
+		return str(c.get_meta("plain"))
+	if c is Label:
+		return (c as Label).text
+	return (c as RichTextLabel).get_parsed_text() if c is RichTextLabel else ""
