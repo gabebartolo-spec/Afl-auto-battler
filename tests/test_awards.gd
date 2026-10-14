@@ -138,6 +138,18 @@ func _test_norm_smith_rules() -> void:
 	_check(Awards.norm_smith({}).is_empty(), "A match with no player stats names nobody")
 
 
+func _find_player(id: String) -> Dictionary:
+	var groups: Array = [GameState.my_list, GameState.free_agents]
+	for code in GameState.season.lists:
+		groups.append(GameState.season.lists[code])
+	for arr in groups:
+		for p in arr:
+			if p is Dictionary and str(p.get("id", "")) == id:
+				return p
+	var gone = GameState.departed_names.get(id)
+	return gone if gone is Dictionary and (gone as Dictionary).has("attr") else {}
+
+
 func _test_full_season() -> void:
 	GameState.reset()
 	GameState.start_season("GEE", GameDB.club_list("GEE"))
@@ -168,8 +180,9 @@ func _test_full_season() -> void:
 			for p in GameState.season.lists[c]:
 				if str(p.get("role", "")) == "FWD":
 					kicks.append(float(p["attr"]["goalkicking"]))
-				if str(p["id"]) == str(coleman[0].get("id", "")):
-					winner = p
+		# He may have been delisted as the season closed (the off-season opens
+		# first), so look him up as the screens do: lists, then free agents.
+		winner = _find_player(str(coleman[0].get("id", "")))
 		kicks.sort()
 		var median: float = kicks[kicks.size() / 2]
 		_check(not winner.is_empty() and float(winner["attr"]["goalkicking"]) >= median,
