@@ -354,34 +354,43 @@ static func fill(body: Container, items: Array, my_club: String, wide: bool) -> 
 		var card := UiKit.panel(UiKit.PANEL, 12)
 		card.add_child(_story_block(st, false))
 		side.add_child(card)
-	if wide and not page["secondary"].is_empty():
-		var top := UiKit.hbox(14)
-		top.add_child(lead_panel)
-		lead_panel.size_flags_stretch_ratio = 1.5
-		side.size_flags_stretch_ratio = 1.0
-		top.add_child(side)
-		body.add_child(top)
+	var long_one: Control = null
+	var blocks := []
+	for b in page["briefs"]:
+		var blk := _brief_block(b, wide)
+		blk.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if wide and str(b["key"]) == _FIRST_GOAL:
+			long_one = blk  # the long list takes the whole row, under the rest
+		else:
+			blocks.append(blk)
+	if wide:
+		# Two columns that each end where their own stories end: the lead and
+		# some briefs on the left, the secondary stories and the rest on the right.
+		var cols := UiKit.hbox(24)
+		var left := UiKit.vbox(16)
+		var right := UiKit.vbox(16)
+		for c in [left, right]:
+			(c as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			(c as Control).size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		left.size_flags_stretch_ratio = 1.4
+		right.size_flags_stretch_ratio = 1.0
+		lead_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		left.add_child(lead_panel)
+		if not page["secondary"].is_empty():
+			right.add_child(side)
+		for i in range(blocks.size()):
+			(left if i % 2 == 0 else right).add_child(blocks[i])
+		cols.add_child(left)
+		cols.add_child(right)
+		body.add_child(cols)
+		if long_one != null:
+			body.add_child(long_one)
 	else:
 		body.add_child(lead_panel)
 		if not page["secondary"].is_empty():
 			body.add_child(side)
-	if not page["briefs"].is_empty():
-		var grid := GridContainer.new()
-		grid.name = "Briefs"
-		grid.columns = 2 if wide else 1
-		grid.add_theme_constant_override("h_separation", 24)
-		grid.add_theme_constant_override("v_separation", 16)
-		var long_one: Control = null
-		for b in page["briefs"]:
-			var blk := _brief_block(b, wide)
-			blk.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			if wide and str(b["key"]) == _FIRST_GOAL:
-				long_one = blk  # the long list takes the whole row, under the short briefs
-			else:
-				grid.add_child(blk)
-		body.add_child(grid)
-		if long_one != null:
-			body.add_child(long_one)
+		for blk in blocks:
+			body.add_child(blk)
 	# Earlier rounds: the same grouping, as plain lines under a dateline.
 	var older := rounds(older_items(items))
 	if not older.is_empty():

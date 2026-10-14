@@ -544,7 +544,7 @@ func _news_card() -> Control:
 
 func _show_news() -> void:
 	var wide := ScreenLayout.roomy(UiKit.view_width(self), UiKit.view_height(self))
-	var box := UiKit.modal_box(self, 1080.0 if wide else 620.0, 640.0 if wide else 560.0)
+	var box := UiKit.modal_box(self, 1080.0 if wide else 620.0, 0.0 if wide else 560.0)
 	_news_overlay = box["overlay"]
 	_news_overlay.name = "NewsFeed"
 	NewsFront.fill(box["body"], GameState.news, GameState.my_club, wide)
