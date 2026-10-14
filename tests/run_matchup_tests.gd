@@ -34,10 +34,12 @@ func _run() -> void:
 	_checks += suite.checks
 	_failures.append_array(suite.failures)
 	await _hub_tests()
+	await _poster_ball()
 	await _wide_hub_footer()
 	await _regular_bye()
 	await _finals_week_by_week()
 	await _finals_cup()
+	await _finals_status_paths()
 	await _coach_approach_card()
 	await _season_wrap()
 	await _season_review_scrolls()
@@ -421,10 +423,153 @@ func _season_wrap() -> void:
 
 ## A fresh career on the suite's seeds (tools/audit/README.md: both seeds,
 ## after reset and before start_season).
+## The match ball on the poster (director, 2026-10-14): the real picture
+## where the "v" was, never tinted, taking no room from the clubs' names and
+## no taps; without the file the "v" is back and nothing has moved.
+func _poster_ball() -> void:
+	var db = root.get_node("GameDB")
+	var art = load("res://scripts/ui/UiArt.gd")
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		var tag := "%dx%d" % [sz.x, sz.y]
+		_reset()
+		# The first-visit intro is answered, as a returning player has.
+		_state.set_setting("seen_weekly_loop_intro", true)
+		_state.start_season("FRE", db.club_list("FRE"))
+		root.size = sz
+		var hub := await _open_hub()
+		var poster: Control = hub.find_child("MatchPoster", true, false)
+		var ball: TextureRect = poster.find_child("MatchBall", true, false) if poster != null else null
+		var tex: Texture2D = ball.texture if ball != null else null
+		_check(tex != null and tex.resource_path == "res://assets/ui/models/match_ball.png"
+				and float(tex.get_width()) >= 2.0 * ball.size.x,
+				"%s: the poster shows the match ball's own picture, sharp at this size (%s)" % [tag, tex.resource_path if tex != null else "missing"])
+		if ball == null:
+			hub.queue_free()
+			await _settle()
+			continue
+		var img := tex.get_image()
+		var mid := img.get_pixel(img.get_width() / 2, img.get_height() / 2)
+		_check(img.get_pixel(0, 0).a < 0.05 and mid.a > 0.95 and mid.r > 2.0 * mid.g and mid.r > 2.0 * mid.b
+				and ball.modulate == Color.WHITE,
+				"%s: it is a red football on a clear background, in no club's colour" % tag)
+		var crests := poster.find_children("ClubMarker", "", true, false)
+		var clear := poster.get_global_rect().grow(0.5).encloses(ball.get_global_rect())
+		for c in crests:
+			clear = clear and not (c as Control).get_global_rect().grow(7.5).intersects(ball.get_global_rect())
+		var venue: Label = poster.find_child("MatchVenue", true, false)
+		clear = clear and not venue.get_global_rect().intersects(ball.get_global_rect())
+		_check(crests.size() == 2 and clear and absf(ball.get_global_rect().get_center().x - poster.get_global_rect().get_center().x) <= 1.0,
+				"%s: the ball sits between the two guernseys, on the poster's centre, at least 8 from each and clear of the fixture line" % tag)
+		var names_fit := true
+		var name_places := []
+		for l in poster.find_children("*", "Label", true, false):
+			var lab := l as Label
+			if lab.name == "Versus" or lab.name == "Opponent":
+				continue
+			name_places.append(lab.get_global_rect())
+			var need := lab.get_theme_font("font").get_string_size(lab.text, HORIZONTAL_ALIGNMENT_LEFT, -1, lab.get_theme_font_size("font_size")).x
+			if lab.autowrap_mode == TextServer.AUTOWRAP_OFF and need > lab.size.x + 0.5:
+				names_fit = false
+			if lab.autowrap_mode == TextServer.AUTOWRAP_OFF and Rect2(lab.global_position.x + (lab.size.x - need) / 2.0,
+					lab.global_position.y, need, lab.size.y).intersects(ball.get_global_rect()):
+				names_fit = false
+		_check(names_fit, "%s: both clubs' names are whole and clear of the ball" % tag)
+		_check(ball.mouse_filter == Control.MOUSE_FILTER_IGNORE
+				and (poster.find_child("MatchBallShadow", true, false) as Control).mouse_filter == Control.MOUSE_FILTER_IGNORE,
+				"%s: the ball takes no taps" % tag)
+		if sz.x < 600:
+			var acts: Control = hub.find_child("WeekActions", true, false)
+			var first: Button = null
+			for b in (acts.find_children("*", "Button", true, false) if acts != null else []):
+				if (b as Button).is_visible_in_tree() and not (b as Button).disabled:
+					first = b
+					break
+			var act_h := first.size.y if first != null else 0.0
+			var poster_rect := poster.get_global_rect()
+			# Its route unhooked, so the tap does not leave the hub mid-test.
+			for c in (first.pressed.get_connections() if first != null else []):
+				first.pressed.disconnect(c["callable"])
+			var why: String = await Tap.tap(first)
+			_check(why == "", "%s: a real tap still reaches the week's first action under the poster (%s)" % [tag, why])
+			if is_instance_valid(hub):
+				hub.queue_free()
+			await _settle()
+			# Without the file: the "v", and every word where it was.
+			art.dir = "res://assets/ui/no_such_folder"
+			hub = await _open_hub()
+			poster = hub.find_child("MatchPoster", true, false)
+			var v: Label = poster.find_child("Versus", true, false)
+			var same := poster.get_global_rect().is_equal_approx(poster_rect)
+			var i := 0
+			for l in poster.find_children("*", "Label", true, false):
+				if (l as Label).name != "Versus" and (l as Label).name != "Opponent":
+					same = same and i < name_places.size() and (l as Label).get_global_rect().is_equal_approx(name_places[i])
+					i += 1
+			_check(poster.find_child("MatchBall", true, false) == null and v != null and v.self_modulate.a == 1.0 and v.text == "v",
+					"%s: without the picture the poster says 'v', as before" % tag)
+			_check(same and i == name_places.size(), "%s: the ball moves no word on the poster and does not change its size" % tag)
+			acts = hub.find_child("WeekActions", true, false)
+			first = null
+			for b in (acts.find_children("*", "Button", true, false) if acts != null else []):
+				if (b as Button).is_visible_in_tree() and not (b as Button).disabled:
+					first = b
+					break
+			_check(first != null and is_equal_approx(first.size.y, act_h) and act_h >= 44.0,
+					"%s: the week's actions keep their size, a thumb tall (%d)" % [tag, int(act_h)])
+			art.dir = "res://assets/ui/models"
+		hub.queue_free()
+		await _settle()
+
+
 func _reset() -> void:
 	_state.reset()
 	_state.career_seed = SUITE_SEED
 	_state.replay_seed = SUITE_SEED
+
+
+## The status line over the bracket on every path a side can take through the finals: a
+## qualifying final's loser is still alive (the double chance), every other loser's season
+## has ended, the premiers say so (found by uiart: "Your season ended in the Qualifying
+## Final 2" over a side in the Grand Final).
+func _finals_status_paths() -> void:
+	var db = root.get_node("GameDB")
+	_reset()
+	_state.start_season("FRE", db.club_list("FRE"))
+	var top: Array = ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10"]
+	var me := "A1"
+	var cases := [
+		["a week off in the wildcard round", {}, false, "Still alive"],
+		["lost the qualifying final", {"L_QF1": me}, false, "Still alive"],
+		["lost the qualifying final, won the semi", {"L_QF1": me, "W_SF1": me}, false, "Still alive"],
+		["lost the qualifying final, won the semi and the preliminary final", {"L_QF1": me, "W_SF1": me, "W_PF1": me}, false, "Still alive"],
+		["lost the qualifying final, then the semi", {"L_QF1": me, "L_SF1": me}, false, "season ended in the Semi Final 1"],
+		["won the qualifying final, lost the preliminary final", {"W_QF1": me, "L_PF1": me}, false, "season ended in the Preliminary Final 1"],
+		["lost an elimination final", {"L_EF1": me}, false, "season ended in the Elimination Final 1"],
+		["lost a wildcard final", {"L_WC1": me}, false, "season ended in the Wildcard Final 1"],
+		["lost the Grand Final", {"W_QF1": me, "L_GF": me}, true, "season ended in the Grand Final"],
+		["won the Grand Final", {"W_QF1": me, "W_GF": me}, true, "Premiers"],
+	]
+	for c in cases:
+		var f: Dictionary = {"week": 5, "top": top, "slots": (c[1] as Dictionary).duplicate(), "weeks": [], "premier": "", "runner_up": "", "done": bool(c[2])}
+		if str(c[3]) == "Premiers":
+			f["premier"] = me
+		var sea = _state.season
+		var saved: Dictionary = sea.finals
+		sea.finals = f
+		var host := MarginContainer.new()
+		root.add_child(host)
+		var fb = load("res://scripts/ui/FinalsBracket.gd").new()
+		host.add_child(fb)
+		fb.setup(sea, me, func(_md): pass)
+		await _settle()
+		var you: Label = fb.find_child("FinalsYou", true, false)
+		var text := you.text if you != null else "-"
+		_check(text.contains(str(c[3])), "Finals status, %s: reads %s (%s)" % [c[0], c[3], text])
+		if str(c[3]) == "Still alive":
+			_check(not text.contains("ended"), "Finals status, %s: never says the season ended" % c[0])
+		host.queue_free()
+		sea.finals = saved
+		await _settle()
 
 
 ## The cup on the finals series (director, 2026-10-14): the real cup art over
@@ -473,6 +618,7 @@ func _finals_cup() -> void:
 				if sz.x < 600:
 					_check(fb.find_child("FinalsCupBand", true, false) != null and (fb.find_child("FinalsCupBand", true, false) as Control).mouse_filter == Control.MOUSE_FILTER_IGNORE,
 							"%s: with both Grand Finalists known the cup stands between their colours" % tag)
+				_check(fb.find_child("FinalsRibbons", true, false) == null, "%s: no ribbons before there is a premier" % tag)
 				var why: String = await Tap.tap(gf)
 				_check(why == "" and tapped == ["GF"], "%s: a real tap still opens the Grand Final (%s)" % [tag, why])
 			else:
@@ -487,7 +633,7 @@ func _finals_cup() -> void:
 						and (absf((wash.colour as Color).h - ink.h) < 0.03 or ink.s < 0.1),
 						"%s: the cup stands in the premier's own colour, dark enough for white type (%s for %s)" % [tag, (wash.colour as Color).to_html(false) if wash != null else "-", prem])
 				var who: Label = hero.find_child("FinalsPremier", true, false) if hero != null else null
-				var whole := who != null and who.text == str(db.club_name(prem) if sz.x >= 900 else db.club_short(prem))
+				var whole := who != null and who.text == str(db.club_short(prem))
 				for l in (hero.find_children("*", "Label", true, false) if hero != null else []):
 					var lab := l as Label
 					if lab.size.y + 1.0 < lab.get_combined_minimum_size().y or not hero.get_global_rect().grow(0.5).encloses(lab.get_global_rect()):
@@ -498,9 +644,23 @@ func _finals_cup() -> void:
 				_check(whole and Rect2(Vector2.ZERO, Vector2(sz)).encloses(hero.get_global_rect()),
 						"%s: the premiers are named whole beside the cup, on the screen (%s)" % [tag, who.text if who != null else "-"])
 				var you: Label = fb.find_child("FinalsYou", true, false)
-				_check(you != null and you.text != "" and you.global_position.y >= hero.get_global_rect().end.y - 0.5,
-						"%s: your own finish is still said under it (%s)" % [tag, you.text if you != null else "-"])
+				var said := 0
+				for l in fb.find_children("*", "Label", true, false):
+					if (l as Label).is_visible_in_tree() and (l as Label).text.begins_with("Premiers"):
+						said += 1
+				_check(said == 1 and ((prem == str(_state.my_club) and you == null)
+						or (prem != str(_state.my_club) and you != null and you.text != "" and you.global_position.y >= hero.get_global_rect().end.y - 0.5)),
+						"%s: 'Premiers' is said once, and your own finish under it unless the cup is yours (%s)" % [tag, you.text if you != null else "the cup is yours"])
 				_check(fb.find_child("FinalsCup", true, false) == null, "%s: one cup on the screen, not two" % tag)
+				var rib: Control = hero.find_child("FinalsRibbons", true, false) if hero != null else null
+				var rib_art: TextureRect = rib.find_child("Art_premiership_ribbons", true, false) if rib != null else null
+				var rib_mat: ShaderMaterial = rib_art.material as ShaderMaterial if rib_art != null else null
+				var cols: Array = db.club_colours(prem)
+				_check(rib_art != null and rib_art.texture.resource_path == "res://assets/honours/premiership_ribbons.png" and rib_mat != null
+						and (rib_mat.get_shader_parameter("primary") as Color).is_equal_approx(cols[0])
+						and (rib_mat.get_shader_parameter("secondary") as Color).is_equal_approx(cols[1])
+						and art != null and rib_art.get_global_rect().is_equal_approx(art.get_global_rect()),
+						"%s: the cup wears the premier's ribbons in the club's two colours, laid straight over it (%s)" % [tag, prem])
 				var why: String = await Tap.tap(gf) if gf != null and gf.is_visible_in_tree() else "the Grand Final is not shown"
 				_check(why == "" and tapped == ["GF"], "%s: a real tap still opens the Grand Final that was played (%s)" % [tag, why])
 			host.queue_free()

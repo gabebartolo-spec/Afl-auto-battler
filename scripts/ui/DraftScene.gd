@@ -201,13 +201,13 @@ func _show_club_select() -> void:
 	var real := GameState.opening_draft
 	var active := GameDB.active_clubs(GameDB.START_YEAR if real else GameState.season_year)
 	if real:
-		_root.add_child(_header("CHOOSE YOUR CLUB",
+		_root.add_child(_header("Choose your club",
 				"Real 2026 lists  /  the 2026 National Draft, then 2027"))
 		_root.add_child(UiKit.lbl(
 				"Every club starts with its real list, less the players who retired or were delisted after 2026; the delisted are free agents. The 2026 National Draft comes first, worst club on the ladder picking first; then the 2027 season.",
 				16, UiKit.MUTED))
 	else:
-		_root.add_child(_header("CHOOSE YOUR CLUB",
+		_root.add_child(_header("Choose your club",
 				"%d  /  A fresh start for all %d clubs" % [GameState.season_year, active.size()]))
 		_root.add_child(UiKit.lbl(
 				"One player pool. One salary cap. The whole league re-drafts in a random snake order.",
@@ -300,21 +300,20 @@ func _header(title_text: String, sub: String) -> Control:
 	if not _short:
 		v.add_child(UiKit.ellipsis(sub, UiKit.SMALL, UiKit.MUTED))
 	if not _club.is_empty():
-		# Draft night's stage where the club's small marker was; without the
-		# pictures, the marker as before.
-		var stage := _stage()
-		h.add_child(stage if stage != null else UiKit.club_badge(_club, 14, true))
+		# The guernsey of the club on the clock, where the club's small marker was.
+		h.add_child(_stage())
 	return h
 
 
-## Draft night's stage (director, 2026-10-14): the lectern, and beside it the
-## guernsey of the club on the clock on a wooden hanger - the club's own
-## guernsey, as everywhere else in the game. Decoration: it takes no tap.
+## Draft night's hero (director, 2026-10-14): the guernsey of the club on the
+## clock, on its own - the club's own guernsey, as everywhere else in the
+## game. No hanger ("remove the coat hanger from the guernsey") and no lectern.
+## Decoration: it takes no tap.
 const STAGE_NARROW := 60.0
 const STAGE_WIDE := 72.0
-## The hanger is this wide against the guernsey's square (the guernsey fills
-## 64% of it, so the hanger's tips show at the shoulders).
-const HANGER_SPAN := 0.78
+## The guernsey's square against the stage's height: the size and the place it
+## had under the hanger, standing on the stage's foot.
+const GUERNSEY_SHARE := 0.89
 var _hung: Control
 var _hung_code := ""
 
@@ -323,53 +322,33 @@ func _stage_h() -> float:
 	return STAGE_WIDE if _wide else STAGE_NARROW
 
 
+func _crest_size() -> float:
+	return floor(_stage_h() * GUERNSEY_SHARE)
+
+
 func _stage() -> Control:
-	var lectern := UiArt.view("lectern", _stage_h(), CultureSheet.emblem_tint(_club))
-	var wood := UiArt.texture("hanger")
-	if lectern == null or wood == null:
-		return null
 	var h := UiKit.hbox(8)
 	h.name = "DraftStage"
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	lectern.name = "DraftLectern"
-	h.add_child(lectern)
 	_hung = Control.new()
 	_hung.name = "DraftGuernsey"
 	_hung.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hung.custom_minimum_size = Vector2(round(_crest_size(wood) * (HANGER_SPAN + 0.04)), _stage_h())
+	_hung.custom_minimum_size = Vector2(round(_crest_size() * 0.82), _stage_h())
 	h.add_child(_hung)
 	_hung_code = ""
 	_hang(_club)
 	return h
 
 
-## The hanger's height for a guernsey square of 1.
-func _hanger_rise(wood: Texture2D) -> float:
-	return HANGER_SPAN * float(wood.get_height()) / float(maxi(1, wood.get_width()))
-
-
-## The guernsey's square: with the hanger's hook over its collar (the hanger's
-## lower 58% is behind the guernsey) the two are as tall as the stage.
-func _crest_size(wood: Texture2D) -> float:
-	return floor(_stage_h() / (1.0 + 0.42 * _hanger_rise(wood)))
-
-
-## Hang `code`'s guernsey on the stage's hanger.
+## Show `code`'s guernsey on the stage.
 func _hang(code: String) -> void:
 	if not is_instance_valid(_hung) or code == "" or code == _hung_code:
 		return
-	var wood := UiArt.texture("hanger")
-	if wood == null:
-		return
 	_hung_code = code
 	UiKit.clear(_hung)
-	var s := _crest_size(wood)
+	var s := _crest_size()
 	var w := _hung.custom_minimum_size.x
-	var hanger := UiArt.view("hanger", round(s * _hanger_rise(wood)))
-	hanger.size = hanger.custom_minimum_size
-	hanger.position = Vector2(round((w - hanger.size.x) / 2.0), 0)
-	_hung.add_child(hanger)
 	var crest := UiKit.club_marker(code, s + 2.0)
 	crest.size = Vector2(s, s)
 	crest.position = Vector2(round((w - s) / 2.0), _stage_h() - s)
@@ -389,7 +368,7 @@ func _show_board() -> void:
 		_root.add_child(_compact_header())
 	else:
 		if _draft.intake_mode:
-			_root.add_child(_header("%d NATIONAL DRAFT" % GameState.season_year,
+			_root.add_child(_header("%d National Draft" % GameState.season_year,
 					"%d prospects  /  keep your list  /  reversed ladder" % _draft.pool.size()))
 		else:
 			var sub := "%d  /  %d clubs  /  Snake draft" % [
@@ -1447,7 +1426,7 @@ func _refresh_history() -> void:
 		var entry: Dictionary = _draft.pick_history[i]
 		if _history_club.is_empty() or str(entry["club"]) == _history_club:
 			entries.append(entry)
-	_history_info.text = "%d %s" % [entries.size(), "PICK" if entries.size() == 1 else "PICKS"]
+	_history_info.text = "%d %s" % [entries.size(), "pick" if entries.size() == 1 else "picks"]
 	if entries.is_empty():
 		_history_box.add_child(UiKit.lbl("No picks yet" if _history_club.is_empty() else "No picks for this club yet", UiKit.HEADING, UiKit.TEXT, true))
 		_history_box.add_child(UiKit.lbl(
@@ -1494,7 +1473,7 @@ func _history_row(entry: Dictionary) -> Control:
 	var club_row := UiKit.hbox(6)
 	info.add_child(club_row)
 	club_row.add_child(UiKit.club_badge(str(entry["club"]), 12, true))
-	var tag := "YOUR PICK" if mine else "selected"
+	var tag := "Your pick" if mine else "selected"
 	if bool(entry.get("released", false)):
 		tag = "released"
 	club_row.add_child(UiKit.ellipsis(tag, UiKit.FINE, UiKit.EMPH if mine else UiKit.MUTED))
@@ -1665,7 +1644,7 @@ func _refresh_order() -> void:
 		v.add_child(badge)
 		var description := "Up next"
 		if index == _draft.pick_index and not _draft.is_finished():
-			description = "ON THE CLOCK"
+			description = "On the clock"
 		elif index < _draft.pick_index:
 			var entry: Dictionary = by_pick.get(index + 1, {})
 			description = _entry_player_name(entry) if not entry.is_empty() \
@@ -1705,7 +1684,7 @@ func _refresh() -> void:
 func _refresh_status() -> void:
 	var done := _draft.is_finished()
 	_hang(_club if done else str(_draft.current_club()))
-	_status.text = "DRAFT COMPLETE" if done else "YOUR PICK #%d" % (_draft.pick_index + 1)
+	_status.text = "Draft complete" if done else "Your pick #%d" % (_draft.pick_index + 1)
 	if not done and not _draft.is_user_turn():
 		_status.text = "%s on the clock" % GameDB.club_short(_draft.current_club())
 	_round_info.text = "%d / %d signed · Round %d of %d" % [_draft.count(), _draft.target_size,
@@ -1714,7 +1693,7 @@ func _refresh_status() -> void:
 		_round_info.text = "%s · %d/%d signed · R%d/%d" % [_club, _draft.count(),
 				_draft.target_size, mini(_draft.current_round(), _draft.target_size), _draft.target_size]
 	if _draft.intake_mode:
-		_cap.text = "ROUNDS %d\n%d prospects left" % [_draft.target_size, _draft.remaining_pool()]
+		_cap.text = "Rounds %d\n%d prospects left" % [_draft.target_size, _draft.remaining_pool()]
 	else:
 		# The cap you have, and what you can actually spend on this pick once
 		# enough is kept to fill the rest of your list.
@@ -1772,11 +1751,11 @@ func _refresh_status() -> void:
 	if done:
 		_ticker.text = "League draft complete · View all %d picks ›" % _draft.pick_history.size()
 	elif new_rivals == 0 and not _draft.pick_history.is_empty() and _draft.is_user_turn():
-		_ticker.text = "BACK-TO-BACK PICKS · You're up again. View the pick log ›"
+		_ticker.text = "Back-to-back picks · You're up again. View the pick log ›"
 	elif latest.is_empty():
 		_ticker.text = "League picks  ·  You're first on the clock. View the pick log ›"
 	else:
-		_ticker.text = "RIVAL #%d · %s: %s · +%d picks ›" % [
+		_ticker.text = "Rival #%d · %s: %s · +%d picks ›" % [
 			latest["pick"], str(latest["club"]), _entry_player_name(latest), new_rivals]
 	_ticker.tooltip_text = _ticker.text + "\nTap to see every club's selections."
 

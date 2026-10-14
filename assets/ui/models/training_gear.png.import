@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://r6wdarlt58ebr"
-path="res://.godot/imported/lectern.png-9674d0488a80d1ec796f87b75c203774.ctex"
+uid="uid://c7iwo1gelbcqo"
+path="res://.godot/imported/training_gear.png-2270662646dd0f4460221af2249fa0fa.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/models/lectern.png"
-dest_files=["res://.godot/imported/lectern.png-9674d0488a80d1ec796f87b75c203774.ctex"]
+source_file="res://assets/ui/models/training_gear.png"
+dest_files=["res://.godot/imported/training_gear.png-2270662646dd0f4460221af2249fa0fa.ctex"]
 
 [params]
 
