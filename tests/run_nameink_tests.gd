@@ -88,6 +88,8 @@ func _helper() -> void:
 			worst = ratio
 			worst_club = str(c)
 	_check(worst >= 4.5, "Every club's ink reads on the dark page (lowest %.1f, %s)" % [worst, worst_club])
+	_check(UK.club_ink("ADE").to_html(false).to_upper() == "FFB81C",
+			"Adelaide's name ink is the Crows' gold, not a red that reads as Melbourne or Essendon (director, 2026-10-14)")
 
 
 func _match_screen() -> void:
