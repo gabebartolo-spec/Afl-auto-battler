@@ -1527,6 +1527,10 @@ func begin_intake_draft() -> bool:
 		order.append(str(row["code"]))
 	order.reverse()
 
+	# A new club's extra picks, and the pick it must trade: made first, because
+	# that trade moves a player and the lists are measured next.
+	var new_club_picks: Array = ExpansionBuild.draft_picks(self, GameDB.active_clubs(season_year).size(), open_pool.size())
+
 	var sizes := {}
 	var role_counts := {}
 	var role_pairs := {}
@@ -1549,11 +1553,6 @@ func begin_intake_draft() -> bool:
 	# building its list (ExpansionBuild): then it has a seat and early picks.
 	var active := GameDB.active_clubs(season_year)
 	var seed := _clock_seed(2)
-	var new_club_picks: Array = ExpansionBuild.draft_picks(self, active.size(), open_pool.size())
-	if not new_club_picks.is_empty():
-		# One of those picks was traded for a player: the lists moved.
-		for code in season.lists:
-			sizes[code] = (season.lists[code] as Array).size()
 	draft = Draft.build_intake(open_pool, active.duplicate(), order,
 			seed, sizes, role_counts, role_pairs)
 	ExpansionBuild.seat_guests(self, draft)

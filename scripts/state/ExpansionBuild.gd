@@ -30,13 +30,16 @@ static func on() -> bool:
 	return Features.on("expansion_package")
 
 
-## Clubs whose first season is next year.
+## Clubs whose first season is next year and that build their list this way:
+## every such club while the switch is on, and one whose build is already
+## saved in the career even if the switch has since been turned off (a build
+## under way is finished, never dropped half done).
 static func building(gs) -> Array:
 	var out := []
-	if not on() or gs.season == null:
+	if gs.season == null:
 		return out
 	for code in GameDB.club_order:
-		if GameDB.enter_year(str(code)) == int(gs.season_year) + 1:
+		if GameDB.enter_year(str(code)) == int(gs.season_year) + 1 and (on() or has_package(gs, str(code))):
 			out.append(str(code))
 	return out
 
@@ -44,7 +47,7 @@ static func building(gs) -> Array:
 ## Clubs in their first season that built their list this way.
 static func first_season(gs) -> Array:
 	var out := []
-	if not on() or gs.season == null:
+	if gs.season == null:
 		return out
 	for code in gs.expansion:
 		if GameDB.enter_year(str(code)) == int(gs.season_year) and has_package(gs, str(code)):
@@ -87,7 +90,7 @@ static func ensure_foundation(gs, code: String) -> void:
 # ---------------------------------------------------------------------------
 ## Each week: with a few rounds left, the new clubs make their approaches.
 static func week(gs) -> void:
-	if not on() or gs.season == null or gs.season.is_regular_done():
+	if gs.season == null or gs.season.is_regular_done():
 		return
 	if int(gs.season.round_index) < Season.REGULAR_ROUNDS - Expansion.APPROACH_ROUNDS_LEFT:
 		return
@@ -213,16 +216,20 @@ static func terms(p: Dictionary) -> Dictionary:
 
 ## Your player a new club has asked about and you have not answered, or {}.
 static func pending_target(gs) -> Dictionary:
-	if not on():
-		return {}
 	for code in gs.expansion:
 		for t in (gs.expansion[code] as Dictionary).get("targets", []):
 			if str(t["club"]) == str(gs.my_club) and str(t["status"]) == "asked" \
 					and int(t["year"]) == int(gs.season_year):
-				var out: Dictionary = t
-				out["to"] = str(code)
-				return out
+				return t
 	return {}
+
+
+## The new club that made this approach.
+static func asked_by(gs, t: Dictionary) -> String:
+	for code in gs.expansion:
+		if ((gs.expansion[code] as Dictionary).get("targets", []) as Array).has(t):
+			return str(code)
+	return ""
 
 
 ## The new club asking about your player: the one with an approach waiting,
@@ -230,7 +237,7 @@ static func pending_target(gs) -> Dictionary:
 static func asking_club(gs) -> String:
 	var t := pending_target(gs)
 	if not t.is_empty():
-		return str(t["to"])
+		return asked_by(gs, t)
 	var next := ""
 	for code in GameDB.club_order:
 		var y := GameDB.data_enter_year(str(code))
@@ -249,7 +256,7 @@ static func card(gs) -> Dictionary:
 		t["status"] = "stayed"
 		return {}
 	t["carded"] = true
-	return ClubStories.card_for(gs, "contracts_new_club_approach", p, card_facts(gs, p, str(t["to"])))
+	return ClubStories.card_for(gs, "contracts_new_club_approach", p, card_facts(gs, p, asked_by(gs, t)))
 
 
 ## What the card needs to say: who is asking, what keeping him costs, and
@@ -308,7 +315,7 @@ static func let_go(gs, p: Dictionary) -> String:
 		return ""
 	t["status"] = "joining"
 	return "%s will join %s when the season ends. %s" % [GameDB.player_display_name(p),
-			GameDB.club_name(str(t["to"])), str(compensation(gs, p)["line"])]
+			GameDB.club_name(asked_by(gs, t)), str(compensation(gs, p)["line"])]
 
 
 ## The season is over: every approach is settled, before rivals re-sign and
@@ -317,7 +324,7 @@ static func let_go(gs, p: Dictionary) -> String:
 ## cards off, by the rule a rival follows). A club that was never approached
 ## this year (a career saved past that week) is approached now, rivals only.
 static func resolve(gs) -> void:
-	if not on() or gs.season == null:
+	if gs.season == null:
 		return
 	for code in building(gs) + first_season(gs):
 		var st := state(gs, code)
@@ -400,8 +407,6 @@ static func _sign(gs, code: String, p: Dictionary, salary: int, years: int) -> v
 ## in the ordinary order.
 static func draft_picks(gs, n_clubs: int, pool_size: int) -> Array:
 	var comps := []
-	if not on():
-		return comps
 	var rounds := clampi(ceili(float(pool_size) / float(maxi(1, n_clubs))), 1, 4)
 	for code in building(gs):
 		ensure_foundation(gs, code)
@@ -417,24 +422,29 @@ static func draft_picks(gs, n_clubs: int, pool_size: int) -> Array:
 ## ordinary pick of this year's draft (`n` clubs in the order): what a traded
 ## pick's number has to allow for. Nothing for any other year's draft.
 static func picks_ahead(gs, year: int, regular: int, n: int) -> int:
-	if not on() or gs.season == null or year != int(gs.season_year):
+	if gs.season == null:
 		return 0
 	var ahead := 0
-	for code in building(gs):
-		for e in Expansion.first_draft_picks(code, n, 4):
-			if int(e["after"]) < regular:
-				ahead += 1
-	for code in first_season(gs):
-		for e in Expansion.second_draft_picks(code):
-			if int(e["after"]) < regular:
-				ahead += 1
+	if year == int(gs.season_year):
+		for code in building(gs):
+			for e in Expansion.first_draft_picks(code, n, 4):
+				if int(e["after"]) < regular:
+					ahead += 1
+		for code in first_season(gs):
+			for e in Expansion.second_draft_picks(code):
+				if int(e["after"]) < regular:
+					ahead += 1
+	elif year == int(gs.season_year) + 1:
+		# Next year's draft: a club entering then is in its first season.
+		for code in building(gs):
+			for e in Expansion.second_draft_picks(code):
+				if int(e["after"]) < regular:
+					ahead += 1
 	return ahead
 
 
 ## A seat at the draft for each club still to enter, with the list it has.
 static func seat_guests(gs, draft: Draft) -> void:
-	if not on():
-		return
 	for code in building(gs):
 		if not has_package(gs, code):
 			continue
@@ -490,7 +500,9 @@ static func forced_trade(gs, code: String, picks: Array) -> void:
 	if best.is_empty():
 		return   # nobody would deal: the pick stays, and the news says nothing
 	(gs.season.lists[best_club] as Array).erase(best)
-	var years := maxi(1, int(best.get("contract_years", 1)))
+	# His deal runs on from where it was, ticked down a season at the rollover
+	# like everyone's (the list he joins is not ticked).
+	var years := maxi(1, int(best.get("contract_years", 1)) - 1)
 	_sign(gs, code, best, int(best.get("salary", Contracts.asking_salary(best))), years)
 	entry["club"] = best_club
 	entry["traded"] = true
@@ -510,7 +522,7 @@ static func forced_trade(gs, code: String, picks: Array) -> void:
 ## is off, or the career was saved past its build): the caller generates the
 ## old list.
 static func enter(gs, code: String) -> bool:
-	if not on() or not has_package(gs, code):
+	if not has_package(gs, code):
 		return false
 	var st := state(gs, code)
 	ensure_foundation(gs, code)
@@ -543,8 +555,6 @@ static func entry_line(gs, code: String) -> String:
 ## The season has its lists and contracts: set this year's sign-on money for
 ## each club still inside its first two seasons.
 static func set_relief(gs, year: int) -> void:
-	if not on():
-		return
 	for code in gs.expansion:
 		if not has_package(gs, str(code)):
 			continue
@@ -572,7 +582,7 @@ static func _signing_salaries(gs, code: String) -> int:
 ## Sign-on money off `code`'s payroll: this season's, or, once the season is
 ## over and clubs are deciding next year's lists, next season's.
 static func relief(gs, code: String) -> int:
-	if not on() or not has_package(gs, code) or gs.season == null:
+	if not has_package(gs, code) or gs.season == null:
 		return 0
 	var st: Dictionary = gs.expansion[code]
 	var year := int(gs.season_year)

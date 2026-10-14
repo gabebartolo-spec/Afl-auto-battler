@@ -528,6 +528,36 @@ func _test_old_saves() -> void:
 	GameState.finish_intake_draft()
 	_check(extra == 0 and not GameState.expansion.has("TAS"), "A save past 2028 gets no extra pick and no approaches")
 	_check(_count_prefix(GameState.season.lists["TAS"], "EXP_") >= 20, "It keeps the Tasmania it has into 2029")
+	# A career saved mid-build with the switch on, loaded with it off: the build
+	# is finished, not dropped (W7 on #745).
+	_new_career()
+	GameState.season.round_index = Season.REGULAR_ROUNDS - Expansion.APPROACH_ROUNDS_LEFT
+	GameState._next_week_event()
+	GameState.season.round_index = GameState.season.fixture.size()
+	GameState.open_offseason()
+	_check(GameState.begin_intake_draft(), "Mid-build: the draft before entry opens")
+	var built: Array = _ids(ExpansionBuild.list_of(GameState, "TAS"))
+	_check(GameState.save_career(), "A career saves mid-build, with the draft open")
+	Features.set_on(FEATURE, false)
+	GameState.load_career()
+	_run_draft()
+	var mine := _picks_of(GameState.draft.pick_history, "TAS")
+	GameState.finish_intake_draft()
+	var tas_now: Array = GameState.season.lists["TAS"]
+	var kept_all := true
+	for id in built:
+		if not _ids(tas_now).has(id):
+			kept_all = false
+	var twice := 0
+	var seen := {}
+	for code in GameState.season.lists:
+		for q in GameState.season.lists[code]:
+			if seen.has(str(q["id"])):
+				twice += 1
+			seen[str(q["id"])] = true
+	_check(kept_all and mine.has(1) and _count_prefix(tas_now, "EXP_") == 0 and twice == 0,
+			"Loaded with the switch off, the build finishes: every player it had and its draftees, nobody twice (picks %s)" % str(mine))
+	Features.set_on(FEATURE, true)
 	# A save written with the switch on still loads with it off: it carries on as an ordinary career.
 	_new_career()
 	_rollover()
