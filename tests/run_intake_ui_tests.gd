@@ -107,7 +107,7 @@ func _run() -> void:
 	again.queue_free()
 	await _settle()
 	var cap: Label = ui.find_child("SalaryCap", true, false)
-	_check(cap != null and cap.text.contains("ROUNDS"), "Intake swaps the cap line for rounds")
+	_check(cap != null and cap.text.begins_with("Rounds "), "Intake swaps the cap line for rounds")
 
 	var board0 = draft.board("", "", "", "overall", true)
 	if not draft.is_user_turn():
