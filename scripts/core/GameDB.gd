@@ -23,6 +23,11 @@ const CLUBS_CSV := "res://data/clubs.csv"
 const PLAYERS_ENRICHED_CSV := "res://data/players_enriched_2026.csv"
 const DRAFTEES_CSV := "res://data/draftees_2026.csv"
 const POTENTIAL_CSV := "res://data/potential_overrides.csv"
+const OVR_CSV := "res://data/ovr_overrides.csv"
+## Which override rows (file|club|first|last) found their player, and the rows
+## that found nobody in the players or the list additions.
+var override_hits := {}
+var override_unmatched: Array = []
 ## Draft pedigree and rated past seasons, built by tools/build_history.py.
 const HISTORY_CSV := "res://data/player_history_2026.csv"
 ## How real players look on the vignette figures (Appearance.gd): skin tone and
@@ -171,11 +176,20 @@ func reload() -> void:
 	_apply_history(players)
 	for p in players:
 		Ratings.rate_on_record(p)
+	override_hits = {}
+	_apply_ovr_overrides(players)
 	for p in players:
 		Potential.assign(p)
+	_apply_relative_pot(players)
 	_apply_potential_overrides(players)
 	draftees = _load_draftees()
 	list_additions = _load_list_additions()
+	# List additions become real players here, so the hand-set numbers reach
+	# them too; a row that matched nobody in either list is reported.
+	_apply_ovr_overrides(list_additions)
+	_apply_relative_pot(list_additions)
+	_apply_potential_overrides(list_additions)
+	override_unmatched = _report_unmatched_overrides()
 	departures = _load_departures()
 	mark_unicorns(players + draftees)
 	late_draftees = []
@@ -1129,21 +1143,46 @@ func _apply_history_rows(list: Array) -> void:
 			p["history"] = hist
 
 
-## Hand-set potentials, matched on club + first + last name. An unmatched row
-## is reported rather than silently ignored, so a typo is easy to spot.
-func _apply_potential_overrides(list: Array) -> void:
-	if not FileAccess.file_exists(POTENTIAL_CSV):
+## Hand-set OVR (data/ovr_overrides.csv), matched on club + first + last name.
+## Every attribute is scaled by one factor (capped 1-99) until the rating in his
+## own position lands on the target, so his strengths stay his strengths. Runs
+## before POT is assigned. An unmatched row is reported.
+func _apply_ovr_overrides(list: Array) -> void:
+	_each_override_row(OVR_CSV, "ovr", list, func(p, cell):
+		var text: String = str(cell).strip_edges()
+		if text.begins_with("+") and text.ends_with("%"):
+			# A relative row: his computed OVR and his assigned POT both scale.
+			var mult: float = 1.0 + float(text.substr(1, text.length() - 2)) / 100.0
+			p["_pot_mult"] = mult
+			set_player_ovr(p, int(round(float(p["overall"]) * mult)))
+		else:
+			set_player_ovr(p, int(text)))
+
+
+## A relative row raises POT by the same share, after POT is assigned.
+func _apply_relative_pot(list: Array) -> void:
+	for p in list:
+		if p.has("_pot_mult"):
+			var pot := int(round(float(p.get("potential", p["overall"])) * float(p["_pot_mult"])))
+			p["potential"] = clampi(maxi(pot, int(p["overall"])), 1, Potential.MAX_POT)
+			p.erase("_pot_mult")
+
+
+## Walks a hand-set csv (club, first, last + one value column), matching on
+## club + real name, and hands each matched player and his cell to `apply`.
+func _each_override_row(path: String, column: String, list: Array, apply: Callable) -> void:
+	if not FileAccess.file_exists(path):
 		return
-	var rows := _read_rows(POTENTIAL_CSV)
+	var rows := _read_rows(path)
 	if rows.size() < 2:
 		return
 	var header: Array = rows[0]
 	var idx := {}
 	for j in range(header.size()):
 		idx[str(header[j]).strip_edges()] = j
-	for key in ["club", "first", "last", "potential"]:
+	for key in ["club", "first", "last", column]:
 		if not idx.has(key):
-			push_warning("GameDB: %s needs a '%s' column" % [POTENTIAL_CSV, key])
+			push_warning("GameDB: %s needs a '%s' column" % [path, key])
 			return
 	var by_key := {}
 	for p in list:
@@ -1156,9 +1195,65 @@ func _apply_potential_overrides(list: Array) -> void:
 				str(cells[idx["first"]]).strip_edges().to_lower(),
 				str(cells[idx["last"]]).strip_edges().to_lower()]
 		if not by_key.has(key):
-			push_warning("GameDB: potential override matches no player: %s" % key)
 			continue
-		Potential.set_override(by_key[key], int(str(cells[idx["potential"]])))
+		override_hits[path + "|" + key] = true
+		apply.call(by_key[key], str(cells[idx[column]]))
+
+
+## Rows in either file that matched no player, warned about and kept in
+## override_unmatched for the tests.
+func _report_unmatched_overrides() -> Array:
+	var out := []
+	for path in [OVR_CSV, POTENTIAL_CSV]:
+		if not FileAccess.file_exists(path):
+			continue
+		var rows := _read_rows(path)
+		for i in range(1, rows.size()):
+			var c: Array = rows[i]
+			if c.size() < 3:
+				continue
+			var key := "%s|%s|%s" % [str(c[0]).strip_edges(),
+					str(c[1]).strip_edges().to_lower(), str(c[2]).strip_edges().to_lower()]
+			if not override_hits.has(path + "|" + key):
+				out.append(path.get_file() + ": " + key)
+				push_warning("GameDB: override matches no player: %s %s" % [path.get_file(), key])
+	return out
+
+
+static func set_player_ovr(p: Dictionary, target: int) -> bool:
+	if not p.has("attr"):
+		return false
+	var role := str(p.get("role", "MID"))
+	var games := float(p.get("sample", p.get("gm", 0.0)))
+	if games <= 0.0:
+		games = 14.0     # a prospect with no senior game is rated on 14
+	var base: Dictionary = p["attr"]
+	var best: Dictionary = {}
+	var best_gap := 1000.0
+	for step in range(0, 600):
+		var m := 0.2 + float(step) * 0.005
+		var a := {}
+		for k in base:
+			a[k] = clampi(int(round(float(base[k]) * m)), 1, 99)
+		if Ratings.rate_overall(a, role, games) == target:
+			var gap := absf(m - 1.0)
+			if gap < best_gap:
+				best_gap = gap
+				best = a
+	if best.is_empty():
+		push_warning("GameDB: ovr override cannot reach %d for %s %s" % [target, p["first"], p["last"]])
+		return false
+	p["attr"] = best
+	p["overall"] = target
+	p["value"] = Ratings.salary_value(target)
+	return true
+
+
+## Hand-set potentials, matched on club + first + last name. An unmatched row
+## is reported rather than silently ignored, so a typo is easy to spot.
+func _apply_potential_overrides(list: Array) -> void:
+	_each_override_row(POTENTIAL_CSV, "potential", list, func(p, cell):
+		Potential.set_override(p, int(cell)))
 
 
 func _hex(s) -> Color:
