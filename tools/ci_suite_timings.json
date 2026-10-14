@@ -45,6 +45,7 @@
     "family": 15,
     "scroll": 30,
     "keyboard": 30,
+    "namelink": 30,
     "preseason": 80
   }
 }

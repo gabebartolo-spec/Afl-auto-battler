@@ -129,6 +129,8 @@ func _input(event: InputEvent) -> void:
 ## desktop never quits.
 func handle_back(from_os := false) -> void:
 	var scene := get_tree().current_scene
+	if NameLink.close_open(scene):
+		return
 	if scene != null and scene.has_method("handle_back") and bool(scene.call("handle_back")):
 		return
 	match current():
