@@ -454,7 +454,7 @@ func _finals_status_paths() -> void:
 		var f: Dictionary = {"week": 5, "top": top, "slots": (c[1] as Dictionary).duplicate(), "weeks": [], "premier": "", "runner_up": "", "done": bool(c[2])}
 		if str(c[3]) == "Premiers":
 			f["premier"] = me
-		var sea: Season = _state.season
+		var sea = _state.season
 		var saved: Dictionary = sea.finals
 		sea.finals = f
 		var host := MarginContainer.new()
