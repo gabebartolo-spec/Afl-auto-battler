@@ -251,12 +251,12 @@ const INTRA_MODES := ["even", "best"]
 const INTRA_MODE_LABEL := {"even": "Even sides", "best": "Best side v the rest"}
 ## What each way of picking the sides gains and costs, as it plays out.
 const INTRA_GAIN := {
-	"even": "A closer match, so every player and prospect sees plenty of the ball.",
+	"even": "Two sides matched on rating, so every player and prospect gets a fair test.",
 	"best": "You coach your best 23 as one side, and every prospect is tested against them.",
 }
 const INTRA_COST := {
 	"even": "Your best 23 are split across the two sides.",
-	"best": "A one-sided match: the rest of the list and the prospects see less of the ball.",
+	"best": "The rest of the list and the prospects are up against it, and may see little of the ball.",
 }
 
 
