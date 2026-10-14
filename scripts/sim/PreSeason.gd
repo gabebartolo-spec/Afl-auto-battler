@@ -15,8 +15,9 @@ extends RefCounted
 ## time trial's, from their own seed (trial_seed), so the pre-season never
 ## moves a match, a draft or a story card.
 ##
-## Seams left for later slices: the game-plan focus (add it to "focuses"),
-## the stops after blocks 2 and 3 (STOPS), cards and the papers.
+## The game-plan focus drills plans (plan familiarity, at the foot of this
+## file). Seams left for later slices: the stops after blocks 2 and 3 (STOPS),
+## cards and the papers.
 
 const DATA_PATH := "res://data/preseason.json"
 ## The same sizes, should the file be missing from a build.
@@ -24,7 +25,7 @@ const DEFAULTS := {
 	"weeks": 8,
 	"blocks": [[1, 3], [4, 5], [6, 7]],
 	"loads": ["light", "solid", "heavy"],
-	"focuses": ["running", "skills"],
+	"focuses": ["running", "skills", "plan"],
 	"load_work": {"light": 0.5, "solid": 1.0, "heavy": 1.5},
 	"focus_share": 1.0,
 	"other_share": 0.5,
@@ -53,6 +54,12 @@ const DEFAULTS := {
 	"practice_guests": 3,
 	"practice_injury_rate": 0.5,
 	"practice_xp_games": 1.0,
+	"familiar_default": 1,
+	"familiar_mult": {"well": 1.0, "partly": 0.95, "barely": 0.9},
+	"drill_step_weeks": 2.0,
+	"drill_max_plans": 2,
+	"fade_rounds": 8,
+	"ai_plan_block": {"contending": 2, "building": 2, "rebuilding": 1},
 	"default_blocks": [["solid", "running"], ["solid", "skills"], ["solid", "skills"]],
 	"ai_blocks": {
 		"contending": [["heavy", "running"], ["solid", "running"], ["solid", "skills"]],
@@ -62,7 +69,7 @@ const DEFAULTS := {
 }
 
 const LOAD_LABEL := {"light": "Light", "solid": "Solid", "heavy": "Heavy"}
-const FOCUS_LABEL := {"running": "Running", "skills": "Skills"}
+const FOCUS_LABEL := {"running": "Running", "skills": "Skills", "plan": "Game plan"}
 const BASES := ["thin", "sound", "strong"]
 const DEFAULT_BASE := "sound"
 ## The weeks after which the pre-season stops for the coach: {week: stop}.
@@ -141,11 +148,12 @@ static func _blocks(src: Variant) -> Array:
 	var fallback: Array = DEFAULTS["default_blocks"]
 	for i in range(block_count()):
 		var b: Array = fallback[mini(i, fallback.size() - 1)]
-		if src is Array and i < (src as Array).size() and (src as Array)[i] is Array \
-				and ((src as Array)[i] as Array).size() >= 2 \
-				and valid_block(str((src as Array)[i][0]), str((src as Array)[i][1])):
+		if src is Array and i < (src as Array).size() and (src as Array)[i] is Array 				and ((src as Array)[i] as Array).size() >= 2 				and valid_block(str((src as Array)[i][0]), str((src as Array)[i][1])):
 			b = (src as Array)[i]
-		out.append([str(b[0]), str(b[1])])
+		var row := [str(b[0]), str(b[1])]
+		if str(b[1]) == "plan":
+			row.append(clean_drills(b[2] if b.size() > 2 else []))
+		out.append(row)
 	return out
 
 
@@ -414,8 +422,17 @@ const _GAIN := {
 }
 
 
-## What block `i`'s load and focus gain.
-static func gain_line(load: String, focus: String, i: int) -> String:
+## What block `i`'s load and focus gain. `plans` are the plans a Game plan
+## block drills.
+static func gain_line(load: String, focus: String, i: int, plans := []) -> String:
+	if focus == "plan":
+		var drill := drill_sentence(plans)
+		match load:
+			"light":
+				return "%s %s" % [gain_line("light", "running", i), drill]
+			"heavy":
+				return "%s More running and skills work than a Solid block on the plan." % drill
+		return drill
 	if load == "light":
 		if is_last_block(i):
 			return "Fresh legs and less soft-tissue risk in Round 1."
@@ -424,15 +441,22 @@ static func gain_line(load: String, focus: String, i: int) -> String:
 
 
 ## What it costs, or "" when it costs nothing (a Solid block).
-static func cost_line(load: String, _focus: String, i: int) -> String:
+static func cost_line(load: String, focus: String, i: int) -> String:
+	var line := ""
 	match load:
 		"light":
-			return "Half the running and half the skills work of a Solid block."
+			line = "Half the running and half the skills work of a Solid block."
+			if focus == "plan":
+				line = "Half the running and skills work of a Solid block on the plan."
 		"heavy":
 			if is_last_block(i):
-				return "A risk of soft-tissue injuries in these weeks, and sore legs in Round 1."
-			return "A risk of soft-tissue injuries in these weeks."
-	return ""
+				line = "A risk of soft-tissue injuries in these weeks, and sore legs in Round 1."
+			else:
+				line = "A risk of soft-tissue injuries in these weeks."
+	if focus == "plan" and load != "light":
+		var share := "Running and skills work both get half the time."
+		line = share if line == "" else "%s %s" % [line, share]
+	return line
 
 
 const BASE_LABEL := {"thin": "a thin fitness base", "sound": "a sound fitness base", "strong": "a strong fitness base"}
@@ -524,3 +548,139 @@ static func practice_opponent(pairs: Array, code: String) -> String:
 		if pr[1] == code:
 			return str(pr[0])
 	return ""
+# Plan familiarity (director, 2026-10-13: "Drill a plan, it works better",
+# shown as "Plan fluency: high / medium / low"). A side knows each
+# game plan at one of three levels. Drilling a plan in the pre-season moves it
+# up a step; every plan slips a step over the off-season; a plan not played
+# fades a step slowly through the year. A plan known less than well gives
+# less of its upside in the match (MatchSim._pv); what a plan gives up does
+# not change. Balanced is the base game and is always known well.
+# ---------------------------------------------------------------------------
+const LEVELS := ["barely", "partly", "well"]
+const WELL := 2
+const DRILL_PLANS := ["attacking", "defensive", "contest", "controlled", "through_stars"]
+
+
+static func clamp_level(l: int) -> int:
+	return clampi(l, 0, LEVELS.size() - 1)
+
+
+static func level_word(level: int) -> String:
+	return str(LEVELS[clamp_level(level)])
+
+
+## What the coach reads (director, 2026-10-14): high / medium / low.
+const FLUENCY := ["low", "medium", "high"]
+
+
+static func fluency_word(level: int) -> String:
+	return str(FLUENCY[clamp_level(level)])
+
+
+## "Plan fluency: high".
+static func known_line(level: int) -> String:
+	return "Plan fluency: %s" % fluency_word(level)
+
+
+## How much of a plan's upside a side at this level keeps (1.0 = all of it).
+static func familiar_mult(level: int) -> float:
+	return float((tune("familiar_mult") as Dictionary).get(level_word(level), 1.0))
+
+
+## The starting level of a plan nobody has drilled: well for Balanced and
+## for the club's usual plan, "familiar_default" for the rest.
+static func start_level(plan: String, usual: String) -> int:
+	if plan == "balanced" or plan == usual:
+		return WELL
+	return clamp_level(int(tune("familiar_default")))
+
+
+## A new club record: every plan's level.
+static func start_levels(usual: String) -> Dictionary:
+	var out := {}
+	for plan in ["balanced"] + DRILL_PLANS:
+		out[plan] = start_level(str(plan), usual)
+	return out
+
+
+## The off-season: every plan but Balanced slips one step.
+static func slip_levels(levels: Dictionary) -> Dictionary:
+	var out := levels.duplicate()
+	for plan in DRILL_PLANS:
+		out[plan] = clamp_level(int(levels.get(plan, 0)) - 1)
+	out["balanced"] = WELL
+	return out
+
+
+## Plans to drill, cleaned: real, unique, in order, at most drill_max_plans.
+static func clean_drills(src: Variant) -> Array:
+	var out := []
+	if src is Array:
+		for p in src:
+			if DRILL_PLANS.has(str(p)) and not out.has(str(p)) and out.size() < int(tune("drill_max_plans")):
+				out.append(str(p))
+	return out
+
+
+## What a Game plan block drills when the coach has not said: his usual plan
+## if it takes drilling, else the plan the side knows least (first of equals).
+static func default_drill(usual: String, levels: Dictionary) -> Array:
+	if DRILL_PLANS.has(usual):
+		return [usual]
+	var best := str(DRILL_PLANS[0])
+	for plan in DRILL_PLANS:
+		if int(levels.get(plan, 0)) < int(levels.get(best, 0)):
+			best = str(plan)
+	return [best]
+
+
+## The weeks of drilling each plan gets from a whole plan of blocks: a block's
+## weeks are shared between the plans it drills.
+static func drill_credit(blocks: Array) -> Dictionary:
+	var out := {}
+	for i in range(mini(blocks.size(), block_count())):
+		var b: Array = blocks[i]
+		if str(b[1]) != "plan" or b.size() < 3:
+			continue
+		var drills := clean_drills(b[2])
+		if drills.is_empty():
+			continue
+		var w := block_weeks(i)
+		var weeks := float(int(w[1]) - int(w[0]) + 1) / float(drills.size())
+		for plan in drills:
+			out[plan] = float(out.get(plan, 0.0)) + weeks
+	return out
+
+
+## Steps up that much drilling gives a plan.
+static func drill_steps(credit: float) -> int:
+	return int(floor(credit / float(tune("drill_step_weeks")) + 0.000001))
+
+
+## A level after `credit` weeks of drilling.
+static func drilled_level(level: int, credit: float) -> int:
+	return clamp_level(level + drill_steps(credit))
+
+
+## An AI club's blocks with its usual plan drilled in the block its phase
+## sets aside (the same blocks, the same rules, as the coach's).
+static func with_plan_block(blocks: Array, phase: String, usual: String) -> Array:
+	if not DRILL_PLANS.has(usual):
+		return blocks
+	var table: Dictionary = tune("ai_plan_block")
+	var i := clampi(int(table.get(phase, table.get("building", 2))), 0, blocks.size() - 1)
+	var out := blocks.duplicate(true)
+	out[i] = [str(out[i][0]), "plan", [usual]]
+	return out
+
+
+## "Fluency in Defensive press rises a step for every 2 weeks on it."
+static func drill_sentence(plans: Array) -> String:
+	var names := []
+	for p in clean_drills(plans):
+		names.append(CoachReport.plan_label(str(p)))
+	if names.is_empty():
+		return "Drills a game plan."
+	if names.size() == 1:
+		return "Fluency in %s rises a step for every %d weeks on it." % [names[0], int(tune("drill_step_weeks"))]
+	return "Fluency in %s and %s rises a step for every %d weeks on each, sharing the weeks between them." % [names[0], names[1], int(tune("drill_step_weeks"))]

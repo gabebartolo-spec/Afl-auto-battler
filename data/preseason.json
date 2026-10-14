@@ -22,7 +22,8 @@
 	],
 	"focuses": [
 		"running",
-		"skills"
+		"skills",
+		"plan"
 	],
 	"load_work": {
 		"light": 0.5,
@@ -119,11 +120,25 @@
 	"practice_guests": 3,
 	"practice_injury_rate": 0.5,
 	"practice_xp_games": 1.0,
+	"familiar_default": 1,
+	"familiar_mult": {
+		"well": 1.0,
+		"partly": 0.95,
+		"barely": 0.9
+	},
+	"drill_step_weeks": 2.0,
+	"drill_max_plans": 2,
+	"fade_rounds": 8,
+	"ai_plan_block": {
+		"contending": 2,
+		"building": 2,
+		"rebuilding": 1
+	},
 	"_why": {
 		"weeks": "Length of the pre-season. Week 8 is a quiet week with no training choice.",
 		"blocks": "First and last training week of each block.",
 		"loads": "The training loads on offer.",
-		"focuses": "The focuses on offer. Slice 2 adds the game plan.",
+		"focuses": "The focuses on offer. Game plan drills one or two plans (plan familiarity).",
 		"load_work": "How much of a week's work each load gets done, in every area.",
 		"focus_share": "The share of the week's work the block's focus gets.",
 		"other_share": "The share every other area gets, so nothing is neglected outright.",
@@ -153,6 +168,13 @@
 		"practice_week": "The practice match against another club is played at the end of this week.",
 		"practice_guests": "Prospects a club may trial in it, each in place of the weakest starter in his line.",
 		"practice_injury_rate": "A listed player's injury risk in the practice match, as a share of a normal match's (director, 2026-10-14: half).",
-		"practice_xp_games": "Development for a listed player who plays in it, in reserves games' worth."
+		"practice_xp_games": "Development for a listed player who plays in it, in reserves games' worth.",
+		"familiar_default": "Where a plan starts for a club that has never drilled it, when it is not the club's usual plan: 0 barely, 1 partly, 2 well. The usual plan and Balanced start well.",
+		"familiar_mult": "How much of a plan's upside a side keeps at each level of knowing it (1.0 is today's game). What a plan gives up does not change. The director's call: small to start.",
+		"drill_step_weeks": "Weeks of drilling one plan needs to move up a step. A block's weeks are shared between the two plans it drills.",
+		"drill_max_plans": "The most plans one Game plan block drills.",
+		"fade_rounds": "Rounds a plan can go unplayed before the side knows it a step less (slowly; the off-season slip is a step on every plan).",
+		"ai_plan_block": "The block an AI club gives to drilling its usual plan, by cycle phase (0 is the first block). Its Game plan block replaces that block's own focus.",
+		"intra_spare_number": "Invited prospects wear spare jumper numbers from this one up, skipping any a listed player wears."
 	}
 }

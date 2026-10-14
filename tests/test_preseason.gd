@@ -152,7 +152,7 @@ func _test_rules() -> void:
 			and PreSeason.round_one_flag([["solid", "running"], ["solid", "running"], ["heavy", "skills"]]) == "heavy_legs"
 			and PreSeason.round_one_flag([["solid", "running"], ["solid", "running"], ["light", "skills"]]) == "fresh",
 			"Only the last block's load is still in the legs at Round 1")
-	_check(not PreSeason.valid_block("brutal", "running") and not PreSeason.valid_block("solid", "plan"),
+	_check(not PreSeason.valid_block("brutal", "running") and not PreSeason.valid_block("solid", "yoga"),
 			"A load or focus that is not on offer is refused")
 	# The time trial.
 	var list := []
@@ -183,7 +183,7 @@ func _test_words() -> void:
 			for i in range(PreSeason.block_count()):
 				var gain := PreSeason.gain_line(str(load), str(focus), i)
 				var cost := PreSeason.cost_line(str(load), str(focus), i)
-				clean = clean and gain != "" and (cost != "") == (str(load) != "solid")
+				clean = clean and gain != "" and (cost != "") == (str(load) != "solid" or str(focus) == "plan")
 				for line in [gain, cost]:
 					var low: String = line.to_lower()
 					clean = clean and not line.contains("%") and not line.contains("{") \
@@ -307,8 +307,9 @@ func _test_flow() -> void:
 	var by_phase := true
 	for code in GameState.season.clubs:
 		if str(code) != CLUB:
-			by_phase = by_phase and GameState.preseason_blocks(str(code)) == PreSeason.ai_blocks(
-					GameState._club_phase(str(code)), GameState._best22_age(str(code)))
+			by_phase = by_phase and GameState.preseason_blocks(str(code)) == PreSeason.with_plan_block(
+					PreSeason.ai_blocks(GameState._club_phase(str(code)), GameState._best22_age(str(code))),
+					GameState._club_phase(str(code)), GameState._usual_plan(str(code)))
 	_check(by_phase, "Every AI club runs the blocks its own situation calls for: its phase, and its age")
 	var before := {}
 	var ceilings := {}
@@ -1043,7 +1044,10 @@ func _test_old_saves() -> void:
 	_check(GameState.load_career() and GameState.needs_season_wrap() and not GameState.preseason_active(),
 			"A save from before pre-seasons loads at the off-season wrap, with no pre-season waiting")
 	GameState.replay_seed = SUITE_SEED
+	# Plan familiarity is its own feature (its own suite): none of it here.
+	PreSeason.data()["familiar_mult"] = {"well": 1.0, "partly": 1.0, "barely": 1.0}
 	_play(1)
+	PreSeason.reload()
 	_check(_sig() == wrap_straight and GameState.preseason.is_empty(),
 			"...and goes to Round 1 as it always did")
 	# A new save keeps the pre-season.
@@ -1139,10 +1143,13 @@ func _test_switch_off() -> void:
 	PreSeason.reload()
 	var tree := Engine.get_main_loop() as SceneTree
 	tree.root.size = Vector2i(390, 844)
-	# The reference: a season that never had a pre-season.
+	# The reference: a season that never had a pre-season (plan familiarity is
+	# its own feature, tested in its own suite: none of it here).
+	PreSeason.data()["familiar_mult"] = {"well": 1.0, "partly": 1.0, "barely": 1.0}
 	_career(false)
 	_play(2)
 	var plain := _sig()
+	PreSeason.reload()
 	Features.set_on("preseason", false)
 	_career()
 	_check(GameState.preseason.is_empty() and not GameState.preseason_active() and GameState.preseason_stop() == "",

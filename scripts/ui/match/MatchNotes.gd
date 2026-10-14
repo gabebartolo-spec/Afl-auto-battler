@@ -855,6 +855,49 @@ static func rating_text(r) -> String:
 	return str(int(r))
 
 
+## One player's match rating so far. The single place the Defensive forward
+## block reads a rating from, so when Best players becomes coaches' votes
+## this is the one line to swap.
+static func match_rating(res: Dictionary, id: String) -> int:
+	return rating((res.get("players", {}) as Dictionary).get(id, {}))
+
+
+## How a Defensive forward is going against their loose defender, from the
+## sim's own records: the contests between the two (MatchSim.roam_pairs), the
+## roamer's intercepts and both match ratings. df_id "" is no Defensive
+## forward: then the roamer's roaming contests against anyone stand in.
+static func df_duel(res: Dictionary, df_id: String, roamer_id: String) -> Dictionary:
+	var players: Dictionary = res.get("players", {})
+	var pairs: Dictionary = res.get("roam_pairs", {})
+	var out := {"df_id": df_id, "roamer_id": roamer_id,
+			"roamer_intercepts": int(float((players.get(roamer_id, {}) as Dictionary).get("intercepts", 0.0))),
+			"roamer_rating": match_rating(res, roamer_id),
+			"df_rating": match_rating(res, df_id) if df_id != "" else -1,
+			"contests": 0, "df_won": 0, "roamer_won": 0}
+	if df_id != "":
+		var rec: Array = pairs.get("%s|%s" % [roamer_id, df_id], [0, 0])
+		out["contests"] = int(rec[0])
+		out["roamer_won"] = int(rec[1])
+		out["df_won"] = int(rec[0]) - int(rec[1])
+	else:
+		var st: Dictionary = players.get(roamer_id, {})
+		out["contests"] = int(float(st.get("roam_wins", 0.0)) + float(st.get("roam_losses", 0.0)))
+		out["roamer_won"] = int(float(st.get("roam_wins", 0.0)))
+	return out
+
+
+## The two lines under the ratings: [contests, intercepts]. Surnames given.
+static func df_duel_lines(d: Dictionary, df_name: String, roamer_name: String) -> Array:
+	var n := int(d["contests"])
+	var contests: String
+	if str(d["df_id"]) != "":
+		contests = "No contests between them yet" if n == 0 else "%s won %d of their %d contests" % [df_name, int(d["df_won"]), n]
+	else:
+		contests = "" if n == 0 else "%s won %d of his %d roaming contests" % [roamer_name, int(d["roamer_won"]), n]
+	var ic := int(d["roamer_intercepts"])
+	return [contests, "%s: %d intercept%s" % [roamer_name, ic, "" if ic == 1 else "s"]]
+
+
 ## Every player of a side who took the field, best rated first:
 ## [{id, num, name, stats, rating}].
 static func rated_players(res: Dictionary, side: int) -> Array:
