@@ -365,5 +365,58 @@
 			}
 		],
 		"private": true
+	},
+	{
+		"id": "finals_family_tickets",
+		"category": "family",
+		"phase": [
+			"finals"
+		],
+		"subject": {
+			"kind": "club"
+		},
+		"when": {
+			"finals_week_max": 4
+		},
+		"title": [
+			"Four tickets doesn't go far"
+		],
+		"text": [
+			"Every player gets four for the final. Parents, partners, the junior coach who drove him to training: the list is longer than that."
+		],
+		"choices": [
+			{
+				"key": "more",
+				"label": "Find them more",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 4,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "The club finds two more each, out of the members' allocation."
+			},
+			{
+				"key": "four",
+				"label": "Four is four",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": 1
+					}
+				],
+				"result": "Same four as every club. A few players are working the phones."
+			}
+		]
 	}
 ]

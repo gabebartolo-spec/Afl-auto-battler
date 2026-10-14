@@ -1,6 +1,7 @@
 extends Control
 ## Season hub: your next match, the ladder snapshot, and the round controls.
 
+var _name_index := {}
 var _settled := false   # the hub has shown once this visit; no more entrances
 ## Where your club sat the last time the hub showed it (this run of the game
 ## only; presentation, never saved): {"key": season instance, "pos": n}.
@@ -204,6 +205,7 @@ func _narrow() -> bool:
 
 func _build() -> void:
 	UiKit.clear(_root)
+	_name_index = {}
 	GameState.ensure_finals()
 	var season: Season = GameState.season
 	var settings := UiKit.btn("Settings", 14)
@@ -393,22 +395,22 @@ func _event_card(index: int) -> Control:
 	card.name = "WeekEvent" if index == 0 else "WeekEvent_%d" % index
 	var v := UiKit.vbox(6)
 	card.add_child(v)
-	v.add_child(UiKit.lbl(str(e.get("title", "")), UiKit.BODY, UiKit.TEXT, true))
+	v.add_child(NameInk.label(str(e.get("title", "")), _league_names(), UiKit.BODY, UiKit.TEXT, true))
 	if not bool(e.get("resolved", false)):
-		var t := UiKit.lbl(str(e.get("text", "")), 12, UiKit.TEXT)
+		var t := NameInk.label(str(e.get("text", "")), _league_names(), 12, UiKit.TEXT)
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(t)
 		# What an authored stakes line adds, then what happens if he says
 		# nothing, apart from the choices. Full-strength text: it is what a
 		# coach decides on.
 		if str(e.get("stakes", "")) != "":
-			var sk := UiKit.lbl(str(e["stakes"]), UiKit.SECONDARY, UiKit.TEXT)
+			var sk := NameInk.label(str(e["stakes"]), _league_names(), UiKit.SECONDARY, UiKit.TEXT)
 			sk.name = "EventStakes_%d" % index
 			sk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(sk)
 		var silence := str((e.get("unanswered", {}) as Dictionary).get("hint", ""))
 		if silence != "":
-			var sl := UiKit.lbl(silence, UiKit.SECONDARY, UiKit.TEXT)
+			var sl := NameInk.label(silence, _league_names(), UiKit.SECONDARY, UiKit.TEXT)
 			sl.name = "EventSilence_%d" % index
 			sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(sl)
@@ -449,7 +451,7 @@ func _event_card(index: int) -> Control:
 				elif line.begins_with(StoryEngine.COST_MARK):
 					mark = "Cost:"
 					kind = "Cost"
-				var cl := UiKit.lbl(line.substr(mark.length()).strip_edges() if mark != "" else line, UiKit.SECONDARY, UiKit.TEXT)
+				var cl := NameInk.label(line.substr(mark.length()).strip_edges() if mark != "" else line, _league_names(), UiKit.SECONDARY, UiKit.TEXT)
 				cl.name = "Event%s_%d_%d" % [kind, index, i]
 				cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				if mark == "":
@@ -520,6 +522,15 @@ func _sacked_card() -> Control:
 	return card
 
 
+## Every club's players by name, from the season's lists (they follow trades),
+## so a name in a sentence wears his club's colour (NameInk). Built once per
+## build of the hub; a name two clubs share is left plain.
+func _league_names() -> Dictionary:
+	if _name_index.is_empty() and GameState.season != null:
+		_name_index = NameInk.from_lists(GameState.season.lists)
+	return _name_index
+
+
 ## The latest league headlines; More opens the whole feed.
 func _news_card() -> Control:
 	var card := HBoxContainer.new()
@@ -553,7 +564,7 @@ func _show_news() -> void:
 		if when != last_when:
 			v.add_child(UiKit.lbl(when, UiKit.SECONDARY, UiKit.EMPH, true))
 			last_when = when
-		var l := UiKit.lbl(str(item["text"]), UiKit.SECONDARY, UiKit.TEXT)
+		var l := NameInk.label(str(item["text"]), _league_names(), UiKit.SECONDARY, UiKit.TEXT)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l)
 	var ok := UiKit.btn("Close", UiKit.NAME, true)
@@ -687,11 +698,11 @@ func _week_section(season: Season) -> Control:
 		# rest follow in body copy, so three lines are not three equals.
 		for i in range(facts.size()):
 			var f: Dictionary = facts[i]
-			var fl := UiKit.lbl(str(f["text"]), UiKit.NAME if i == 0 else UiKit.BODY, UiKit.TEXT, i == 0)
+			var fl := NameInk.label(str(f["text"]), _league_names(), UiKit.NAME if i == 0 else UiKit.BODY, UiKit.TEXT, i == 0)
 			fl.name = "Fact_%d" % i
 			nv.add_child(fl)
 		for i in range(notes.size()):
-			var nl := UiKit.lbl(str(notes[i]["text"]), UiKit.BODY,
+			var nl := NameInk.label(str(notes[i]["text"]), _league_names(), UiKit.BODY,
 					UiKit.BAD if str(notes[i].get("key", "")) == "own_injury" else UiKit.TEXT)
 			nl.name = "OwnNote_%d" % i
 			nv.add_child(nl)
@@ -807,7 +818,7 @@ func _week_actions(season: Season) -> Control:
 	elif _upcoming_match().is_empty() and GameState.my_finals_status() == "bye":
 		# Still alive: sim only this week, never past your own final.
 		buttons.append(_nav_button("Team", func(): Router.go("selection")))
-		buttons.append(_nav_button("Play %s" % _finals_label(), _on_sim_round, true))
+		buttons.append(_nav_button(_finals_play_label(), _on_sim_round, true))
 	elif _upcoming_match().is_empty():
 		# Out of the finals, the league still plays them week by week: each
 		# week's results come up before the next, and the rest of the series
@@ -815,7 +826,7 @@ func _week_actions(season: Season) -> Control:
 		var skip := _nav_button("Play to Grand Final", _on_sim_to_end)
 		skip.name = "SimToGrandFinal"
 		buttons.append(skip)
-		var week := _nav_button("Play %s" % _finals_label(), _on_sim_round, true)
+		var week := _nav_button(_finals_play_label(), _on_sim_round, true)
 		week.name = "SimFinalsWeek"
 		buttons.append(week)
 	else:
@@ -994,6 +1005,14 @@ func _nav_button(text: String, cb: Callable, primary := false) -> Button:
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	b.pressed.connect(cb)
 	return b
+
+
+## The button that plays the week: short enough for half a phone's width beside Team
+## ("Play Wildcard Round" ran off the edge at 390).
+func _finals_play_label() -> String:
+	var w := int(GameState.season.finals.get("week", 1))
+	return ["Play the wildcard", "Play the finals", "Play semi finals",
+			"Play the prelims", "Play Grand Final"][clampi(w - 1, 0, 4)]
 
 
 func _finals_label() -> String:
@@ -1373,7 +1392,7 @@ func _show_media_conference() -> void:
 	var by := UiKit.lbl(str(GameState.media_conference.get("by", "Journalist")), UiKit.SMALL, UiKit.MUTED, true)
 	by.name = "MediaByline"
 	prompt.add_child(by)
-	var q := UiKit.lbl(str(GameState.media_conference.get("question", "")), 16, UiKit.TEXT)
+	var q := NameInk.label(str(GameState.media_conference.get("question", "")), _league_names(), 16, UiKit.TEXT)
 	q.name = "MediaQuestion"
 	q.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	prompt.add_child(q)
@@ -1390,6 +1409,7 @@ func _show_media_conference() -> void:
 		b.name = "MediaAnswer_%d" % i
 		b.custom_minimum_size = Vector2(0, 48)
 		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		NameInk.dress_button(b, _league_names())
 		var choice := i
 		b.pressed.connect(func():
 			GameState.resolve_media_conference(choice)
@@ -1398,7 +1418,7 @@ func _show_media_conference() -> void:
 			_build())
 		group.add_child(b)
 		# What the answer does, under it: the board, the players, no numbers.
-		var effect := UiKit.lbl(MediaConference.effect_line(opts[i]), UiKit.SMALL, UiKit.MUTED)
+		var effect := NameInk.label(MediaConference.effect_line(opts[i]), _league_names(), UiKit.SMALL, UiKit.MUTED)
 		effect.name = "MediaAnswerLine_%d" % i
 		effect.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		group.add_child(effect)
