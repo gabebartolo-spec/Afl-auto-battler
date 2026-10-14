@@ -189,6 +189,13 @@ var conditioning := {}
 ## The whole feature sits behind Features.on("preseason"): with the switch
 ## off none is ever opened and one already in a save is left alone, unread.
 var preseason := {}
+## How well each club knows each game plan (PreSeason.gd, plan familiarity):
+## club code -> {plan: 0 barely / 1 partly / 2 well}, and the rounds each plan
+## has gone unplayed. Optional in a save (the key is written only with the
+## pre-season switch on): a save without it gets the defaults, each club's
+## usual plan well and the rest partly (_ensure_plan_known).
+var plan_known := {}
+var plan_idle := {}
 ## Who leads each club (Captaincy.gd): club code -> its record. A club with
 ## no entry has named no one; an older save has none for anyone.
 var captaincy := {}
@@ -681,6 +688,9 @@ func save_career() -> bool:
 		# Players carry p["career"]; saves without this mark predate it.
 		"career_version": CAREER_VERSION,
 	}
+	if Features.on("preseason") and not plan_known.is_empty():
+		state["plan_known"] = plan_known
+		state["plan_idle"] = plan_idle
 	var ok := CareerSave.write(state, _save_meta(), save_path)
 	if ok:
 		_dirty = false
@@ -826,6 +836,9 @@ func load_career() -> bool:
 	career_seed = int(state.get("career_seed", 0))
 	conditioning = state.get("conditioning", {})
 	preseason = state.get("preseason", {})
+	plan_known = state.get("plan_known", {}) if state.get("plan_known") is Dictionary else {}
+	plan_idle = state.get("plan_idle", {}) if state.get("plan_idle") is Dictionary else {}
+	_clean_plan_known()
 	captaincy = state.get("captaincy", {})
 	class_tiers = state.get("class_tiers", {})
 	custom_prospect_id = str(state.get("custom_prospect_id", ""))
@@ -1243,6 +1256,9 @@ func reset() -> void:
 	career_seed = randi_range(1, 999999)
 	conditioning = {}
 	preseason = {}
+	plan_known = {}
+	plan_idle = {}
+	CoachEffects.known = {}
 	captaincy = {}
 	class_tiers = {}
 	last_training_report = {}
@@ -2465,11 +2481,27 @@ func open_preseason() -> void:
 		return
 	if int(preseason.get("year", 0)) == season_year:
 		return
+	# A year on: every plan slips a step over the off-season. The first
+	# year of a career (or of a save from before familiarity) has nothing to slip.
+	var offseason := not plan_known.is_empty()
 	var blocks := {}
 	for club in season.clubs:
-		blocks[str(club)] = PreSeason.default_blocks() if str(club) == my_club \
-				else PreSeason.ai_blocks(_club_phase(str(club)), _best22_age(str(club)))
+		var code := str(club)
+		if code == my_club:
+			var mine := PreSeason.default_blocks()
+			# After a slip, the plan you play is drilled in the last block
+			# unless you say otherwise.
+			if offseason and PreSeason.DRILL_PLANS.has(club_plan):
+				mine[mine.size() - 1] = [str(mine[mine.size() - 1][0]), "plan", [club_plan]]
+			blocks[code] = mine
+		else:
+			blocks[code] = PreSeason.with_plan_block(
+					PreSeason.ai_blocks(_club_phase(code), _best22_age(code)),
+					_club_phase(code), _usual_plan(code))
 	preseason = PreSeason.new_state(season_year, blocks)
+	if offseason:
+		_slip_plan_known()
+	_ensure_plan_known()
 	mark_dirty()
 	autosave()
 
@@ -2557,9 +2589,40 @@ func set_preseason_block(i: int, load: String, focus: String) -> bool:
 	var blocks := preseason_blocks()
 	if i >= blocks.size():
 		return false
-	blocks[i] = [load, focus]
+	if focus == "plan":
+		# The plans it drills stay as they were, or start on the default.
+		var was: Array = PreSeason.clean_drills(blocks[i][2] if (blocks[i] as Array).size() > 2 else [])
+		if was.is_empty():
+			_ensure_plan_known()
+			was = PreSeason.default_drill(_usual_plan(my_club), plan_known.get(my_club, {}))
+		blocks[i] = [load, focus, was]
+	else:
+		blocks[i] = [load, focus]
 	mark_dirty()
 	return true
+
+
+## Choose which plan (or two) a Game plan block drills: the plans given, up to
+## the most it allows. False for a block that is not on Game plan, or that
+## has started, or when none of the plans can be drilled.
+func set_preseason_drills(i: int, plans: Array) -> bool:
+	var blocks := preseason_blocks()
+	if not preseason_block_open(i) or i >= blocks.size() or str(blocks[i][1]) != "plan":
+		return false
+	var drills := PreSeason.clean_drills(plans)
+	if drills.is_empty():
+		return false
+	blocks[i] = [str(blocks[i][0]), "plan", drills]
+	mark_dirty()
+	return true
+
+
+## The plans block `i` drills ([] unless it is a Game plan block).
+func preseason_drills(i: int) -> Array:
+	var blocks := preseason_blocks()
+	if i < 0 or i >= blocks.size() or str(blocks[i][1]) != "plan" or (blocks[i] as Array).size() < 3:
+		return []
+	return PreSeason.clean_drills(blocks[i][2])
 
 
 ## The fitness base your plan is heading for, were every block trained as it
@@ -2681,10 +2744,146 @@ func _finish_preseason() -> void:
 				p[flag] = true
 	preseason["done"] = true
 	preseason["legs"] = true
+	var drilled := _finish_drills()
 	if my_club != "" and clubs.has(my_club):
-		add_news("preseason", "Pre-season is done. %s go into Round 1 on %s." % [
+		add_news("preseason", "Pre-season is done. %s go into Round 1 on %s.%s" % [
 				GameDB.club_name(my_club),
-				str(PreSeason.BASE_LABEL[Conditioning.base_of(fitness_record(my_club))])], "Pre-season")
+				str(PreSeason.BASE_LABEL[Conditioning.base_of(fitness_record(my_club))]), drilled], "Pre-season")
+	mark_dirty()
+
+
+# ---------------------------------------------------------------------------
+# Plan familiarity (PreSeason.gd): how well each club knows each game plan.
+# Behind the same switch. The rules are PreSeason's; this keeps the record.
+# ---------------------------------------------------------------------------
+## The plan a club plays as its own: yours is the one you have set; an AI
+## club's is the one its list suits (PlanFit.standing_plan). "balanced" when none.
+func _usual_plan(club: String) -> String:
+	if club == my_club:
+		return club_plan
+	if season == null or not season.lists.has(club):
+		return "balanced"
+	return PlanFit.standing_plan((Ratings.select_22(season.lists[club])["ground"] as Array))
+
+
+## Give every club a record it lacks (the defaults), and hand the live record
+## to the match engine's coaching table. With the switch off: nothing kept.
+func _ensure_plan_known() -> void:
+	if not Features.on("preseason") or season == null:
+		CoachEffects.known = {}
+		return
+	for club in season.clubs:
+		var code := str(club)
+		if not plan_known.has(code):
+			plan_known[code] = PreSeason.start_levels(_usual_plan(code))
+			plan_idle[code] = {}
+	CoachEffects.known = plan_known
+
+
+## Saved levels read back as whole numbers of real plans, in range.
+func _clean_plan_known() -> void:
+	var clean := {}
+	for club in plan_known:
+		if not (plan_known[club] is Dictionary):
+			continue
+		var row := {}
+		for plan in ["balanced"] + PreSeason.DRILL_PLANS:
+			row[plan] = PreSeason.clamp_level(int((plan_known[club] as Dictionary).get(plan, PreSeason.start_level(str(plan), ""))))
+		row["balanced"] = PreSeason.WELL
+		clean[str(club)] = row
+	plan_known = clean
+	var idle := {}
+	for club in plan_known:
+		var row := {}
+		var src: Variant = plan_idle.get(club, {})
+		if src is Dictionary:
+			for plan in PreSeason.DRILL_PLANS:
+				row[plan] = maxi(0, int((src as Dictionary).get(plan, 0)))
+		idle[club] = row
+	plan_idle = idle
+
+
+## How well `club` knows `plan` (0 barely, 1 partly, 2 well). Without the
+## switch: well, as the game has always played them.
+func plan_level(club: String, plan: String) -> int:
+	if not Features.on("preseason") or season == null:
+		return PreSeason.WELL
+	_ensure_plan_known()
+	return int((plan_known.get(club, {}) as Dictionary).get(plan, PreSeason.WELL))
+
+
+## Your side's plan under its words: "Knows this plan: partly". "" with the switch off.
+func plan_known_line(plan: String) -> String:
+	if not Features.on("preseason") or season == null or my_club == "":
+		return ""
+	return PreSeason.known_line(plan_level(my_club, plan))
+
+
+## Where the pre-season, as your blocks are set now, leaves a plan.
+func plan_level_after_drills(plan: String) -> int:
+	var credit: Dictionary = PreSeason.drill_credit(preseason_blocks())
+	return PreSeason.drilled_level(plan_level(my_club, plan), float(credit.get(plan, 0.0)))
+
+
+## Whether the plans carry a "Knows this plan" line at all (the switch is on).
+func plan_known_shown() -> bool:
+	return Features.on("preseason") and season != null and my_club != ""
+
+
+func _slip_plan_known() -> void:
+	for club in plan_known:
+		plan_known[club] = PreSeason.slip_levels(plan_known[club])
+		plan_idle[club] = {}
+
+
+## Week 8: each club's drilled plans move up (a plan nobody drilled is as it
+## was). Returns the sentence for your news: "" when nothing moved.
+func _finish_drills() -> String:
+	_ensure_plan_known()
+	var line := ""
+	var clubs: Dictionary = preseason.get("clubs", {})
+	for club in clubs:
+		var code := str(club)
+		if not plan_known.has(code):
+			continue
+		var credit: Dictionary = PreSeason.drill_credit((clubs[club] as Dictionary).get("blocks", []))
+		for plan in credit:
+			var was := int((plan_known[code] as Dictionary).get(plan, 0))
+			var now := PreSeason.drilled_level(was, float(credit[plan]))
+			(plan_known[code] as Dictionary)[plan] = now
+			(plan_idle[code] as Dictionary)[plan] = 0
+			if code == my_club and now != was:
+				line += " They know %s %s now." % [CoachReport.plan_label(str(plan)), PreSeason.level_word(now)]
+	return line
+
+
+## A round has been played: a plan played keeps its place; one left alone
+## through fade_rounds rounds slips a step (slowly). Finals do not count.
+func _note_plans_played(results: Array) -> void:
+	if not Features.on("preseason") or plan_known.is_empty():
+		return
+	var fade := maxi(1, int(PreSeason.tune("fade_rounds")))
+	for res in results:
+		if (res as Dictionary).has("tag"):
+			continue
+		var played := [{}, {}]
+		for h in (res as Dictionary).get("tactics_history", []):
+			for side in range(2):
+				played[side][MatchSim.plan_key(str(((h["plans"] as Array)[side] as Dictionary).get("gameplan", "balanced")))] = true
+		for side in range(2):
+			var code := str([res["home"], res["away"]][side])
+			if not plan_known.has(code):
+				continue
+			var idle: Dictionary = plan_idle[code]
+			for plan in PreSeason.DRILL_PLANS:
+				if (played[side] as Dictionary).has(plan):
+					idle[plan] = 0
+					continue
+				idle[plan] = int(idle.get(plan, 0)) + 1
+				if int(idle[plan]) >= fade:
+					idle[plan] = 0
+					var row: Dictionary = plan_known[code]
+					row[plan] = PreSeason.clamp_level(int(row.get(plan, 0)) - 1)
 	mark_dirty()
 
 
@@ -4432,6 +4631,7 @@ func _short_name(id: String) -> String:
 ## Everything that follows a round: injuries, the awards tally, and - when
 ## the Grand Final has just been played - the season's awards.
 func _after_round(results: Array) -> void:
+	_note_plans_played(results)
 	# Who on a promised run could not play this week, before anything ticks.
 	_backing_unavailable = {}
 	for p in my_list:
@@ -8887,6 +9087,7 @@ func _career_over(p: Dictionary) -> void:
 ## Every club's tactics for the coming matches (CoachEffects), derived from
 ## the coach records each time and never saved.
 func _refresh_coach_tactics() -> void:
+	_ensure_plan_known()
 	if coaches.is_empty() or season == null:
 		CoachEffects.table = {}
 		return

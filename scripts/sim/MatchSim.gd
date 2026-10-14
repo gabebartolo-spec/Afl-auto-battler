@@ -803,6 +803,10 @@ func _pv(side: int, key: String, fallback := 1.0) -> float:
 		scale = float((squads[side] as Squad).tactics_exec) \
 				* float((plan_fit[side] as Dictionary).get(plan, 1.0)) \
 				* float((WEATHER_PLAN.get(weather, {}) as Dictionary).get(plan, 1.0))
+		# A plan the side knows less than well gives less of its upside.
+		var know: Dictionary = (squads[side] as Squad).plan_know
+		if not know.is_empty():
+			scale *= float(know.get(plan, 1.0))
 	return fallback + (v - fallback) * scale
 
 

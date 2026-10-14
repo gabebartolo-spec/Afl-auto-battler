@@ -712,6 +712,9 @@ func _show_coach_box() -> void:
 	var loose_was := str(calls["interceptor_id"])
 	var narrow := UiKit.view_width(self) < 560.0
 
+	var plan_known := UiKit.lbl("", UiKit.SECONDARY, UiKit.TEXT, true)
+	plan_known.name = "PlanKnown"
+	plan_known.visible = false
 	var plan_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	plan_note.name = "PlanNote"
 	plan_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -723,11 +726,16 @@ func _show_coach_box() -> void:
 		if fit != "":
 			t += " " + fit
 		plan_note.text = t
+		# How well the side knows it (plan familiarity): a decision, so at full strength.
+		var known := GameState.plan_known_line(key)
+		plan_known.text = known
+		plan_known.visible = known != ""
 	var plan := _choice_grid("PlanPicker", GAMEPLANS, calls, "gameplan", 2 if narrow else 3, sync_note)
 	# The heading and the plan under it stay together.
 	var plan_block := _call_block("Gameplan", plan)
 	plan_block.remove_meta("break_unit")
 	col_a.add_child(plan_block)
+	col_a.add_child(plan_known)
 	col_a.add_child(plan_note)
 	sync_note.call(str(calls["gameplan"]))
 
