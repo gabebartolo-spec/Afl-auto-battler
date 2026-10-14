@@ -21,6 +21,7 @@ func run() -> void:
 	_test_vote_arithmetic()
 	_test_brownlow_eligibility()
 	_test_norm_smith_rules()
+	_test_comeback_records()
 	_test_full_season()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
@@ -234,3 +235,45 @@ func _test_full_season() -> void:
 	GameState.start_next_season()
 	_check(GameState.season_tally.is_empty() and GameState.honour_roll.size() == 1,
 			"A new season starts a fresh tally and keeps the honour roll")
+
+
+## Greatest comeback and biggest lead lost: from the break scores only, past the same bars as the
+## comeback headline, never for an ordinary game, never from extra time.
+func _test_comeback_records() -> void:
+	# Quarter points, home first. GEE trail MEL by 38 at half time and win.
+	var back := {"home": "GEE", "away": "MEL", "quarters": [[10, 20], [6, 34], [40, 6], [30, 10]]}
+	back["score"] = [86, 70]
+	var rec := {}
+	Awards.update_records(rec, {"year": 2028}, [back])
+	_check(int((rec.get("biggest_comeback", {}) as Dictionary).get("value", 0)) == 38 \
+			and str(rec["biggest_comeback"]["club"]) == "GEE" and int(rec["biggest_comeback"]["at"]) == 1,
+			"The comeback record is the winner's biggest deficit at a break (%s)" % str(rec))
+	_check(str(rec["biggest_blown"]["club"]) == "MEL" and int(rec["biggest_blown"]["value"]) == 38,
+			"The lead lost is the loser's biggest lead at a break")
+	# A bigger one replaces it; a smaller one does not.
+	var bigger := {"home": "COL", "away": "CAR", "quarters": [[0, 48], [6, 0], [40, 0], [30, 12]], "score": [76, 60]}
+	var smaller := {"home": "HAW", "away": "ESS", "quarters": [[6, 30], [20, 0], [30, 0], [10, 6]], "score": [66, 36]}
+	Awards.update_records(rec, {"year": 2029}, [smaller, bigger])
+	_check(int(rec["biggest_comeback"]["value"]) == 48 and str(rec["biggest_comeback"]["club"]) == "COL" and int(rec["biggest_comeback"]["year"]) == 2029,
+			"A bigger comeback replaces the record (%s)" % str(rec["biggest_comeback"]))
+	# An ordinary game, a win from 12 down, a draw and extra time leave no record.
+	var plain := {"home": "GEE", "away": "MEL", "quarters": [[20, 18], [15, 17], [14, 16], [20, 14]], "score": [69, 65]}
+	var twelve := {"home": "GEE", "away": "MEL", "quarters": [[6, 18], [15, 17], [24, 0], [20, 14]], "score": [65, 49]}
+	var level := {"home": "GEE", "away": "MEL", "quarters": [[30, 6], [10, 10], [10, 30], [10, 10]], "score": [60, 56]}
+	level["score"] = [60, 60]
+	var extra := back.duplicate(true)
+	extra["score"] = [93, 71]
+	var none := {}
+	Awards.update_records(none, {"year": 2030}, [plain, twelve, level, extra])
+	_check(not none.has("biggest_comeback") and not none.has("biggest_blown"),
+			"No record from an ordinary game, a draw or a result with extra time (%s)" % str(none))
+	# It reads in plain words.
+	var old_records = GameState.records
+	GameState.records = rec
+	var lines: Array = GameState.history_record_lines()
+	var text := " | ".join(PackedStringArray(lines.map(func(x): return str(x))))
+	_check(text.contains("Greatest comeback: Collingwood, from 48 points down at quarter time, beat Carlton (2029)"),
+			"The comeback record reads as football (%s)" % text)
+	_check(text.contains("Biggest lead lost: Carlton led Collingwood by 48 points at quarter time and lost (2029)"),
+			"The lead lost reads as football (%s)" % text)
+	GameState.records = old_records
