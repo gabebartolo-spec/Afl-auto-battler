@@ -2961,14 +2961,6 @@ func _check(condition: bool, message: String) -> void:
 		push_error(message)
 
 
-## The words a line shows, whether a Label or a tinted RichTextLabel carries them.
-func _plain(c: Control) -> String:
-	if c.has_meta("plain"):
-		return str(c.get_meta("plain"))
-	if c is Label:
-		return (c as Label).text
-	return (c as RichTextLabel).get_parsed_text() if c is RichTextLabel else ""
-
 ## Tapping a tag target brings "Who tags" in; no other section changes column
 ## or moves sideways, and nothing lies off the screen (director, 2026-10-14).
 ## Before the first ball-up nobody has played, so there is no Best so far.
@@ -3027,3 +3019,12 @@ func _inside_scroll(c: Node) -> bool:
 			return true
 		p = p.get_parent()
 	return false
+
+
+## The words a line shows, whether a Label or a tinted RichTextLabel carries them.
+func _plain(c: Control) -> String:
+	if c.has_meta("plain"):
+		return str(c.get_meta("plain"))
+	if c is Label:
+		return (c as Label).text
+	return (c as RichTextLabel).get_parsed_text() if c is RichTextLabel else ""

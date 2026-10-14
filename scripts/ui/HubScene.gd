@@ -1448,8 +1448,8 @@ func _show_media_conference() -> void:
 		b.name = "MediaAnswer_%d" % i
 		b.custom_minimum_size = Vector2(0, 56 if wide else 48)
 		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		NameInk.dress_button(b, _league_names())
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		NameInk.dress_button(b, _league_names())
 		var choice := i
 		b.pressed.connect(func():
 			GameState.resolve_media_conference(choice)
