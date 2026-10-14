@@ -245,9 +245,9 @@ func _phone_match(sz: Vector2i) -> void:
 	start.emit_signal("pressed")
 	await _settle()
 	_check(m.find_child("CoachBox", true, false) == null, "The box closes and play starts (%s)" % tag)
-	var setup: Label = m.find_child("SetupLine", true, false)
-	_check(setup != null and setup.visible and setup.text.contains("tagging "),
-			"The live screen says your gameplan and who you are tagging (%s: %s)" % [tag, setup.text if setup else "-"])
+	var setup: Control = m.find_child("SetupLine", true, false)
+	_check(setup != null and setup.visible and _plain(setup).contains("tagging "),
+			"The live screen says your gameplan and who you are tagging (%s: %s)" % [tag, _plain(setup) if setup else "-"])
 	var clock: Label = m.find_child("Clock", true, false)
 	var lead: Label = m.find_child("LeadLine", true, false)
 	_check(clock != null and clock.text.begins_with("Q1") and viewport.encloses(clock.get_global_rect()),
@@ -766,7 +766,7 @@ func _coach_descriptions(sz: Vector2i) -> void:
 			"interceptor_id": longest.call(defs), "spare_accountable": false}
 	m.call("_show_setup", calls)
 	await _settle()
-	var line: Label = m.find_child("SetupLine", true, false)
+	var line: Control = m.find_child("SetupLine", true, false)
 	var jobs := {"MID": "our key midfielder", "FWD": "our key forward target",
 			"DEF": "our key distributor", "RUCK": "our key man in the middle"}
 	var focus_role := ""
@@ -776,8 +776,8 @@ func _coach_descriptions(sz: Vector2i) -> void:
 	var full := "Your plan: Defensive press  ·  tagging %s  ·  %s %s  ·  %s loose behind the ball" % [
 			db.player_display_name_by_id(str(calls["tag_id"]), ""), db.player_display_name_by_id(str(calls["focus_id"]), ""),
 			str(jobs[focus_role]), db.player_display_name_by_id(str(calls["interceptor_id"]), "")]
-	_check(line != null and line.visible and line.text == full, "The plan line names every call (%s)" % tag)
-	_check(line.autowrap_mode != TextServer.AUTOWRAP_OFF and line.text_overrun_behavior == TextServer.OVERRUN_NO_TRIMMING,
+	_check(line != null and line.visible and _plain(line) == full, "The plan line names every call (%s)" % tag)
+	_check(line.autowrap_mode != TextServer.AUTOWRAP_OFF and (line is RichTextLabel or line.text_overrun_behavior == TextServer.OVERRUN_NO_TRIMMING),
 			"The plan line wraps, it does not trim (%s)" % tag)
 	_check(line.size.y >= line.get_minimum_size().y - 0.5 and line.get_line_count() >= 1 and line.get_visible_line_count() == line.get_line_count(),
 			"Every line of the plan is drawn (%s: %d lines)" % [tag, line.get_line_count()])
@@ -1543,7 +1543,7 @@ func _loose_interceptor(sz: Vector2i) -> void:
 			await _settle()
 			continue
 		await _open_call_of(m, block)
-		var tally: Label = block.find_child("LooseTally", true, false)
+		var tally: Control = block.find_child("LooseTally", true, false)
 		var id := str(sim.interceptor[me])
 		if not named:
 			_check(id == "" and tally == null, "With no loose man there is no intercepts line (%s: %s)" % [tag, id])
@@ -1553,9 +1553,9 @@ func _loose_interceptor(sz: Vector2i) -> void:
 		# The number comes from the sim's own count, not from the line.
 		var n := int(float((sim.player_stats.get(id, {}) as Dictionary).get("intercepts", 0.0)))
 		var who: String = db.player_display_name_by_id(id, "")
-		_check(tally != null and tally.text == notes.loose_tally_line(who, n)
-				and (tally.text.contains("%d intercept" % n) if n > 0 else tally.text.contains("no intercepts yet")),
-				"The line says his intercepts this match, %d (%s: %s)" % [n, tag, tally.text if tally else "-"])
+		_check(tally != null and _plain(tally) == notes.loose_tally_line(who, n)
+				and (_plain(tally).contains("%d intercept" % n) if n > 0 else _plain(tally).contains("no intercepts yet")),
+				"The line says his intercepts this match, %d (%s: %s)" % [n, tag, _plain(tally) if tally else "-"])
 		var ask: Label = block.find_child("LooseQuestion", true, false)
 		_check(ask != null and ask.text == notes.loose_question(), "The call asks who plays loose behind the ball (%s)" % tag)
 		_check(_text(m).contains("He leaves his direct man to attack aerial balls. Another defender covers where possible; if he flies and loses, space opens behind him."),
@@ -1669,8 +1669,8 @@ func _main_ruck_picker(sz: Vector2i) -> void:
 		await _settle()
 		_check(gw == "" and str((sim.tactics[me] as Dictionary).get("main_ruck", "")) == str(rucks[1]["id"]),
 				"Start takes the main ruck to the engine (%s)" % tag)
-		var line: Label = m.find_child("SetupLine", true, false)
-		_check(line != null and line.text.contains("%s the main ruck" % nm), "The plan line names the main ruck (%s)" % tag)
+		var line: Control = m.find_child("SetupLine", true, false)
+		_check(line != null and _plain(line).contains("%s the main ruck" % nm), "The plan line names the main ruck (%s)" % tag)
 		m.queue_free()
 		await _settle()
 
@@ -1780,10 +1780,10 @@ func _minder_cards(sz: Vector2i) -> void:
 	_check(not all_text.contains("Their loose defender") and not text.contains("Nobody"),
 			"No 'Their loose defender' heading and no 'Nobody' in the control (%s)" % tag)
 	var notes = load("res://scripts/ui/match/MatchNotes.gd")
-	var q: Label = box.find_child("MinderQuestion", true, false)
+	var q: Control = box.find_child("MinderQuestion", true, false)
 	var want_q: String = notes.minder_question(db.player_display_name(spare), db.club_name(opp_club))
-	_check(q != null and q.text == want_q and q.text.contains("(%s)" % db.club_name(opp_club)),
-			"It names their loose defender and his club (%s: %s)" % [tag, "" if q == null else q.text])
+	_check(q != null and _plain(q) == want_q and _plain(q).contains("(%s)" % db.club_name(opp_club)),
+			"It names their loose defender and his club (%s: %s)" % [tag, "" if q == null else _plain(q)])
 	var cost: Label = box.find_child("MinderNote", true, false)
 	_check(cost != null and cost.text == notes.minder_cost_line(), "One line says what it does and costs (%s)" % tag)
 	var none_b: Button = box.find_child("SpareMinderPickerGrid_", true, false)
@@ -1856,8 +1856,9 @@ func _text(node: Node) -> String:
 	if node == null:
 		return ""
 	var out := ""
-	for n in node.find_children("*", "Label", true, false):
-		out += str(n.text) + "\n"
+	for n in node.find_children("*", "Control", true, false):
+		if n is Label or n is RichTextLabel:
+			out += _plain(n) + "\n"
 	return out
 
 
@@ -3024,3 +3025,12 @@ func _inside_scroll(c: Node) -> bool:
 			return true
 		p = p.get_parent()
 	return false
+
+
+## The words a line shows, whether a Label or a tinted RichTextLabel carries them.
+func _plain(c: Control) -> String:
+	if c.has_meta("plain"):
+		return str(c.get_meta("plain"))
+	if c is Label:
+		return (c as Label).text
+	return (c as RichTextLabel).get_parsed_text() if c is RichTextLabel else ""

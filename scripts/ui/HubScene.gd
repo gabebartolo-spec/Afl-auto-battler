@@ -1,6 +1,7 @@
 extends Control
 ## Season hub: your next match, the ladder snapshot, and the round controls.
 
+var _name_index := {}
 var _settled := false   # the hub has shown once this visit; no more entrances
 ## Where your club sat the last time the hub showed it (this run of the game
 ## only; presentation, never saved): {"key": season instance, "pos": n}.
@@ -204,6 +205,7 @@ func _narrow() -> bool:
 
 func _build() -> void:
 	UiKit.clear(_root)
+	_name_index = {}
 	GameState.ensure_finals()
 	var season: Season = GameState.season
 	var settings := UiKit.btn("Settings", 14)
@@ -520,6 +522,15 @@ func _sacked_card() -> Control:
 	return card
 
 
+## Every club's players by name, from the season's lists (they follow trades),
+## so a name in a sentence wears his club's colour (NameInk). Built once per
+## build of the hub; a name two clubs share is left plain.
+func _league_names() -> Dictionary:
+	if _name_index.is_empty() and GameState.season != null:
+		_name_index = NameInk.from_lists(GameState.season.lists)
+	return _name_index
+
+
 ## The latest league headlines; More opens the whole feed.
 func _news_card() -> Control:
 	var card := HBoxContainer.new()
@@ -553,7 +564,7 @@ func _show_news() -> void:
 		if when != last_when:
 			v.add_child(UiKit.lbl(when, UiKit.SECONDARY, UiKit.EMPH, true))
 			last_when = when
-		var l := UiKit.lbl(str(item["text"]), UiKit.SECONDARY, UiKit.TEXT)
+		var l := NameInk.label(str(item["text"]), _league_names(), UiKit.SECONDARY, UiKit.TEXT)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l)
 	var ok := UiKit.btn("Close", UiKit.NAME, true)
@@ -687,11 +698,11 @@ func _week_section(season: Season) -> Control:
 		# rest follow in body copy, so three lines are not three equals.
 		for i in range(facts.size()):
 			var f: Dictionary = facts[i]
-			var fl := UiKit.lbl(str(f["text"]), UiKit.NAME if i == 0 else UiKit.BODY, UiKit.TEXT, i == 0)
+			var fl := NameInk.label(str(f["text"]), _league_names(), UiKit.NAME if i == 0 else UiKit.BODY, UiKit.TEXT, i == 0)
 			fl.name = "Fact_%d" % i
 			nv.add_child(fl)
 		for i in range(notes.size()):
-			var nl := UiKit.lbl(str(notes[i]["text"]), UiKit.BODY,
+			var nl := NameInk.label(str(notes[i]["text"]), _league_names(), UiKit.BODY,
 					UiKit.BAD if str(notes[i].get("key", "")) == "own_injury" else UiKit.TEXT)
 			nl.name = "OwnNote_%d" % i
 			nv.add_child(nl)
