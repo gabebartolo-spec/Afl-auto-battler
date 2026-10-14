@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cqauwjwtwfvap"
-path="res://.godot/imported/lectern.png-9674d0488a80d1ec796f87b75c203774.ctex"
+uid="uid://46gtiui0cwqa"
+path="res://.godot/imported/premiership_ribbons.png-7663a127a0429edea6519a43fec2a57b.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/models/lectern.png"
-dest_files=["res://.godot/imported/lectern.png-9674d0488a80d1ec796f87b75c203774.ctex"]
+source_file="res://assets/honours/premiership_ribbons.png"
+dest_files=["res://.godot/imported/premiership_ribbons.png-7663a127a0429edea6519a43fec2a57b.ctex"]
 
 [params]
 

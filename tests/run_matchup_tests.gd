@@ -564,7 +564,18 @@ func _finals_status_paths() -> void:
 		await _settle()
 		var you: Label = fb.find_child("FinalsYou", true, false)
 		var text := you.text if you != null else "-"
-		_check(text.contains(str(c[3])), "Finals status, %s: reads %s (%s)" % [c[0], c[3], text])
+		if str(c[3]) == "Premiers":
+			# The premiers' cup says it (#736): one "Premiers" over the club's name, and
+			# the status line under it stays silent rather than saying it twice.
+			var said := ""
+			for n in fb.find_children("*", "Label", true, false):
+				if (n as Label).text == "Premiers":
+					said = (n as Label).text
+			_check(said == "Premiers", "Finals status, %s: the cup reads Premiers (%s)" % [c[0], said])
+			_check(fb.find_child("FinalsPremier", true, false) != null, "Finals status, %s: the cup names the club" % c[0])
+			_check(you == null, "Finals status, %s: the line under it does not say it twice (%s)" % [c[0], text])
+		else:
+			_check(text.contains(str(c[3])), "Finals status, %s: reads %s (%s)" % [c[0], c[3], text])
 		if str(c[3]) == "Still alive":
 			_check(not text.contains("ended"), "Finals status, %s: never says the season ended" % c[0])
 		host.queue_free()
@@ -618,6 +629,7 @@ func _finals_cup() -> void:
 				if sz.x < 600:
 					_check(fb.find_child("FinalsCupBand", true, false) != null and (fb.find_child("FinalsCupBand", true, false) as Control).mouse_filter == Control.MOUSE_FILTER_IGNORE,
 							"%s: with both Grand Finalists known the cup stands between their colours" % tag)
+				_check(fb.find_child("FinalsRibbons", true, false) == null, "%s: no ribbons before there is a premier" % tag)
 				var why: String = await Tap.tap(gf)
 				_check(why == "" and tapped == ["GF"], "%s: a real tap still opens the Grand Final (%s)" % [tag, why])
 			else:
@@ -632,7 +644,7 @@ func _finals_cup() -> void:
 						and (absf((wash.colour as Color).h - ink.h) < 0.03 or ink.s < 0.1),
 						"%s: the cup stands in the premier's own colour, dark enough for white type (%s for %s)" % [tag, (wash.colour as Color).to_html(false) if wash != null else "-", prem])
 				var who: Label = hero.find_child("FinalsPremier", true, false) if hero != null else null
-				var whole := who != null and who.text == str(db.club_name(prem) if sz.x >= 900 else db.club_short(prem))
+				var whole := who != null and who.text == str(db.club_short(prem))
 				for l in (hero.find_children("*", "Label", true, false) if hero != null else []):
 					var lab := l as Label
 					if lab.size.y + 1.0 < lab.get_combined_minimum_size().y or not hero.get_global_rect().grow(0.5).encloses(lab.get_global_rect()):
@@ -643,9 +655,23 @@ func _finals_cup() -> void:
 				_check(whole and Rect2(Vector2.ZERO, Vector2(sz)).encloses(hero.get_global_rect()),
 						"%s: the premiers are named whole beside the cup, on the screen (%s)" % [tag, who.text if who != null else "-"])
 				var you: Label = fb.find_child("FinalsYou", true, false)
-				_check(you != null and you.text != "" and you.global_position.y >= hero.get_global_rect().end.y - 0.5,
-						"%s: your own finish is still said under it (%s)" % [tag, you.text if you != null else "-"])
+				var said := 0
+				for l in fb.find_children("*", "Label", true, false):
+					if (l as Label).is_visible_in_tree() and (l as Label).text.begins_with("Premiers"):
+						said += 1
+				_check(said == 1 and ((prem == str(_state.my_club) and you == null)
+						or (prem != str(_state.my_club) and you != null and you.text != "" and you.global_position.y >= hero.get_global_rect().end.y - 0.5)),
+						"%s: 'Premiers' is said once, and your own finish under it unless the cup is yours (%s)" % [tag, you.text if you != null else "the cup is yours"])
 				_check(fb.find_child("FinalsCup", true, false) == null, "%s: one cup on the screen, not two" % tag)
+				var rib: Control = hero.find_child("FinalsRibbons", true, false) if hero != null else null
+				var rib_art: TextureRect = rib.find_child("Art_premiership_ribbons", true, false) if rib != null else null
+				var rib_mat: ShaderMaterial = rib_art.material as ShaderMaterial if rib_art != null else null
+				var cols: Array = db.club_colours(prem)
+				_check(rib_art != null and rib_art.texture.resource_path == "res://assets/honours/premiership_ribbons.png" and rib_mat != null
+						and (rib_mat.get_shader_parameter("primary") as Color).is_equal_approx(cols[0])
+						and (rib_mat.get_shader_parameter("secondary") as Color).is_equal_approx(cols[1])
+						and art != null and rib_art.get_global_rect().is_equal_approx(art.get_global_rect()),
+						"%s: the cup wears the premier's ribbons in the club's two colours, laid straight over it (%s)" % [tag, prem])
 				var why: String = await Tap.tap(gf) if gf != null and gf.is_visible_in_tree() else "the Grand Final is not shown"
 				_check(why == "" and tapped == ["GF"], "%s: a real tap still opens the Grand Final that was played (%s)" % [tag, why])
 			host.queue_free()

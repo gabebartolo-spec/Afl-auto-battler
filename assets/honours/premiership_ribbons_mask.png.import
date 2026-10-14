@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b1se0ekxpu4f8"
-path="res://.godot/imported/hanger.png-b46065490bccf48258774e632cfe4a14.ctex"
+uid="uid://d3o8nufdtw7q2"
+path="res://.godot/imported/premiership_ribbons_mask.png-d0060790bdc3832d8b3cec00f799966a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/models/hanger.png"
-dest_files=["res://.godot/imported/hanger.png-b46065490bccf48258774e632cfe4a14.ctex"]
+source_file="res://assets/honours/premiership_ribbons_mask.png"
+dest_files=["res://.godot/imported/premiership_ribbons_mask.png-d0060790bdc3832d8b3cec00f799966a.ctex"]
 
 [params]
 
