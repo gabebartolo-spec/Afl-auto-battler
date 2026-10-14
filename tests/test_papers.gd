@@ -385,6 +385,10 @@ func _test_screen() -> void:
 	scene = tree.current_scene as Control
 	_check(scene.find_child("PapersTitle", true, false) != null and scene.find_child("PapersLadder", true, false) != null,
 			"A wide screen shows the story and the ladder together")
+	var last_row := scene.find_child("PapersRow_17", true, false) as Control
+	var foot := scene.find_child("PreSeasonGo", true, false) as Control
+	_check(last_row != null and foot != null and last_row.get_global_rect().end.y <= foot.global_position.y,
+			"On a PC all 18 clubs of the ladder are in view above the footer, no scrolling")
 	tree.root.size = Vector2i(390, 844)
 
 

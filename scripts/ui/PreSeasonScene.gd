@@ -312,6 +312,19 @@ func _papers_ladder() -> Control:
 	v.name = "PapersLadder"
 	v.add_child(_section_head("The papers' ladder"))
 	var order: Array = GameState.papers_record().get("order", [])
+	# A PC is short: the ladder is two columns of nine, so all of it is in view.
+	var cols: Array = [v, v]
+	if _wide():
+		var pair := UiKit.hbox(24)
+		pair.name = "PapersLadderColumns"
+		var left := UiKit.vbox(2)
+		var right := UiKit.vbox(2)
+		left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		pair.add_child(left)
+		pair.add_child(right)
+		v.add_child(pair)
+		cols = [left, right]
 	for i in range(order.size()):
 		var code := str(order[i])
 		var row := UiKit.hbox(10)
@@ -330,7 +343,7 @@ func _papers_ladder() -> Control:
 		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(nm)
-		v.add_child(row)
+		(cols[0] if i < (order.size() + 1) / 2 else cols[1]).add_child(row)
 	return v
 
 
