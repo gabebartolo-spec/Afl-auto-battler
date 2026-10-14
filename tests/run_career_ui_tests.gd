@@ -1635,7 +1635,7 @@ func _run() -> void:
 
 	await _test_season_awards()
 	await _test_back_arrow_taps()
-	# await _test_finals_card_taps()   # held out while career_ui hangs in CI (bisect)
+	await _test_finals_card_taps()
 	_test_type_roles()
 	await _test_names_fit()
 	_state.delete_saved_career()
@@ -1675,7 +1675,7 @@ func _test_finals_card_taps() -> void:
 	_state.career_seed = 4401
 	_state.replay_seed = 4401
 	_state.start_season("FRE", _db.club_list("FRE"))
-	var sea: Season = _state.season
+	var sea = _state.season
 	var codes: Array = sea.ladder.keys()
 	codes.sort()
 	codes.erase("FRE")
@@ -1696,16 +1696,13 @@ func _test_finals_card_taps() -> void:
 	_router.stack = ["main"]
 	_router.go("hub")
 	await _settle()
-	print("FINALS_TAP step 1")
 	var card: Control = current_scene.find_child("WeekEvent", true, false)
 	var ids: Array = _state.week_events.map(func(c): return str(c["tid"]))
 	_check(card != null and ids == ["finals_week_off"], "A club on its week off sees the week-off card on the hub (%s)" % str(ids))
 	var rest: Button = card.find_child("Event_0", true, false) if card != null else null
 	_check(card != null and card.find_child("Event_2", true, false) == null, "Week one of the finals: two choices, no semi to watch")
 	var tap_why: String = await Tap.tap(rest) if rest != null else "missing"
-	print("FINALS_TAP step 2")
 	await _settle()
-	print("FINALS_TAP step 3")
 	var all_fresh := true
 	for q in _state.my_list:
 		all_fresh = all_fresh and bool(q.get("fresh", false))
@@ -1718,27 +1715,24 @@ func _test_finals_card_taps() -> void:
 	_state._next_week_event()
 	_router.go("hub")
 	await _settle()
-	print("FINALS_TAP step 4")
 	card = current_scene.find_child("WeekEvent", true, false)
 	var semi: Button = card.find_child("Event_2", true, false) if card != null else null
 	_check(semi != null and semi.text.contains("Watch the semi together"), "The semi week's card has a third choice: Watch the semi together")
 	var semi_why: String = await Tap.tap(semi) if semi != null else "missing"
-	print("FINALS_TAP step 5")
 	await _settle()
-	print("FINALS_TAP step 6")
 	_check(semi_why == "" and bool(_state.week_events[0].get("resolved", false)), "A finger on it answers the card (%s)" % semi_why)
 	# A captain card in the Grand Final: the rule is one tap away.
 	sea.finals["week"] = 5
 	sea.finals["weeks"] = [[], [], [], []]
 	sea.finals["slots"] = {"W_PF1": "FRE", "W_PF2": "ESS"}
+	var captaincy = load("res://scripts/sim/Captaincy.gd")
 	var cap: Dictionary = {}
 	for q in _state.my_list:
-		if Captaincy.role_of(_state.captaincy_record("FRE"), str(q["id"])) == "captain":
+		if captaincy.role_of(_state.captaincy_record("FRE"), str(q["id"])) == "captain":
 			cap = q
 	_state.week_events = [_state.story_card("finals_second_chance", cap)]
 	_router.go("hub")
 	await _settle()
-	print("FINALS_TAP step 7")
 	card = current_scene.find_child("WeekEvent", true, false)
 	var rule_btn: Control = null
 	if card != null:
