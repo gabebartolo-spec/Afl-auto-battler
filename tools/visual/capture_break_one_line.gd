@@ -29,6 +29,7 @@ func _run() -> void:
 	var vs := "MEL"
 	var quarters: Array = []
 	var played := false
+	var open_key := ""
 	var a := OS.get_cmdline_user_args()
 	for i in range(a.size()):
 		match str(a[i]):
@@ -42,6 +43,8 @@ func _run() -> void:
 				club = str(a[i + 1])
 			"--vs":
 				vs = "" if str(a[i + 1]) == "any" else str(a[i + 1])
+			"--open":
+				open_key = str(a[i + 1])
 			"--played":
 				played = true
 			"--quarters":
@@ -110,6 +113,8 @@ func _run() -> void:
 		var pre := ("q%d_" % int(q)) if as_built else ""
 		await _shot(scene, out, pre + "1_break")
 		var key := str(opened.get(int(q), "tag")) if as_built else "tag"
+		if open_key != "":
+			key = open_key
 		_press(scene, "CallRow_" + key)
 		await _frames(8)
 		if key == "tag":
