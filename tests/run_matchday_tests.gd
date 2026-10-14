@@ -47,10 +47,13 @@ func _run() -> void:
 		await _coach_descriptions(sz)
 		await _tag_targets(sz)
 		await _minder_cards(sz)
+		await _df_how_its_going(sz)
 		await _loose_interceptor(sz)
 		await _main_ruck_picker(sz)
 		await _best_so_far(sz)
 		await _one_line_break(sz)
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720), Vector2i(2560, 1440)]:
+		await _tag_tap_keeps_columns(sz)
 	_break_units_keep_followups()
 	_break_packing_is_shortest()
 	_club_ink_all()
@@ -1693,6 +1696,54 @@ func _tag_not_saved() -> void:
 ## that names their loose defender and his club, "No defensive forward
 ## assigned", a card for every forward with his position, trait and Pressure,
 ## the same on the "Other player..." sheet; real taps; no text cut off.
+func _df_how_its_going(sz: Vector2i) -> void:
+	var tag := "%dx%d" % [sz.x, sz.y]
+	var db = root.get_node("GameDB")
+	var Mu = load("res://scripts/sim/Matchups.gd")
+	var Notes = load("res://scripts/ui/match/MatchNotes.gd")
+	for q_done in [0, 2]:
+		_state.reset()
+		_state.replay_seed = SUITE_SEED
+		_state.start_season("MEL", db.club_list("MEL"))
+		root.size = sz
+		if not _state.prepare_interactive_match():
+			_check(false, "A live match is prepared for How it's going (%s)" % tag)
+			return
+		var sim = _state.pending_sim
+		var me := int(sim.moment_side)
+		for i in range(q_done):
+			sim.run_quarter()
+		var spare: Dictionary = sim._roaming_interceptor(1 - me)
+		if spare.is_empty():
+			spare = Mu.best_interceptor((sim.squads[1 - me] as Object).ground, 0.0)
+			sim.set_interceptor(1 - me, str(spare.get("id", "")), false)
+		var df: Dictionary = Mu.minder_candidates((sim.squads[me] as Object).ground)[0]
+		var t: Dictionary = (sim.tactics[me] as Dictionary).duplicate()
+		t["spare_accountable"] = true
+		t["spare_minder_id"] = str(df["id"])
+		sim.set_tactics(me, t)
+		var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+		root.add_child(m)
+		await _settle()
+		var row: Button = m.find_child("CallRow_minder", true, false)
+		var why: String = await Tap.tap(row)
+		await _settle()
+		var how: Node = m.find_child("DfHowItsGoing", true, false)
+		if q_done == 0:
+			_check(how == null, "No How it's going before the first bounce (%s)" % tag)
+		else:
+			var res: Dictionary = sim.result()
+			var d: Dictionary = Notes.df_duel(res, str(df["id"]), str(spare["id"]))
+			var lines: Array = Notes.df_duel_lines(d, Notes._pname(str(df["id"])).split(" ", false, 1)[-1],
+					Notes._pname(str(spare["id"])).split(" ", false, 1)[-1])
+			var shown := _text(how) if how != null else ""
+			_check(why == "" and how != null and how.is_visible_in_tree() and shown.contains(str(lines[1]))
+					and shown.contains(str(lines[0])) and shown.contains(str(d["df_rating"])) and shown.contains(str(d["roamer_rating"])),
+					"A tap on Defensive forward shows How it's going from the sim's numbers (%s: %s | %s)" % [tag, why, shown])
+		m.queue_free()
+		await _settle()
+
+
 func _minder_cards(sz: Vector2i) -> void:
 	var tag := "%dx%d" % [sz.x, sz.y]
 	var db = root.get_node("GameDB")
@@ -2907,3 +2958,63 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
 		push_error(message)
+
+
+## Tapping a tag target brings "Who tags" in; no other section changes column
+## or moves sideways, and nothing lies off the screen (director, 2026-10-14).
+## Before the first ball-up nobody has played, so there is no Best so far.
+func _tag_tap_keeps_columns(sz: Vector2i) -> void:
+	var tag := "%dx%d" % [sz.x, sz.y]
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("FRE", db.club_list("FRE"))
+	root.size = sz
+	_check(_state.prepare_interactive_match(), "A live match is prepared for the tag jump (%s)" % tag)
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	var box: Node = m.find_child("CoachBox", true, false)
+	_check(box != null and box.find_child("BestSoFar", true, false) == null and box.find_child("BestSoFarOpen", true, false) == null,
+			"Before the first ball-up there is no Best so far (%s)" % tag)
+	var names := ["PlanPicker", "TagPicker", "PepPicker", "RotationPicker", "BreakMatchups", "LegsView",
+			"FocusPicker_focus_mid", "FocusPicker_focus_fwd", "FocusPicker_focus_def"]
+	var before := {}
+	for n in names:
+		var c: Control = box.find_child(n, true, false) if box != null else null
+		if c != null and c.is_visible_in_tree():
+			before[n] = c.get_global_rect().position.x
+	var named: Button = null
+	for b in box.find_child("TagPicker", true, false).find_children("TagPickerGrid_*", "Button", true, false):
+		if str(b.name) != "TagPickerGrid_":
+			named = b
+			break
+	_check(named != null and before.size() >= 3, "A tag target and the sections are there (%s: %d)" % [tag, before.size()])
+	if named != null:
+		var why: String = await Tap.tap(named)
+		await _settle()
+		_check(why == "", "A real tap picks the tag target (%s: %s)" % [tag, why])
+		for n in before:
+			var c2: Control = box.find_child(n, true, false)
+			_check(c2 != null and absf(c2.get_global_rect().position.x - float(before[n])) < 6.0,
+					"%s stays in its column after the tag tap (%s: %s -> %s)" % [n, tag, str(before[n]),
+					str(c2.get_global_rect().position.x if c2 else -1)])
+		var who: Control = box.find_child("TaggerPicker", true, false)
+		_check(who != null, "Who tags is there after the tag tap (%s)" % tag)
+		var out := []
+		for c3 in box.find_children("*", "Control", true, false):
+			var cc := c3 as Control
+			if cc.is_visible_in_tree() and cc.get_global_rect().size.x > 0 and cc.get_global_rect().end.x > sz.x + 1.0 					and not _inside_scroll(cc):
+				out.append(str(cc.name))
+		_check(out.is_empty(), "Nothing lies past the right edge after the tag tap (%s: %s)" % [tag, str(out.slice(0, 5))])
+	m.queue_free()
+	await _settle()
+
+
+## True when c sits inside a ScrollContainer (its overflow is scrolled, not lost).
+func _inside_scroll(c: Node) -> bool:
+	var p := c.get_parent()
+	while p != null:
+		if p is ScrollContainer:
+			return true
+		p = p.get_parent()
+	return false

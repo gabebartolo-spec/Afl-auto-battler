@@ -68,14 +68,16 @@ static func pick_week(deck: Array, ctx: Dictionary, story: Dictionary) -> Array:
 	lapse_arcs(story, w)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("story|%d|%d|%d" % [int(ctx.get("seed", 0)), int(ctx.get("year", 0)), int(ctx.get("week", 0))])
-	var quiet := rng.randf() >= EVENT_CHANCE
+	# September always has something to say (finals weeks); the rest of the year is as quiet as it was.
+	var quiet := rng.randf() >= EVENT_CHANCE and str(ctx.get("phase", "regular")) != "finals"
 	var out := []
 	var first := _pick_one(deck, ctx, story, rng, w, quiet, "", "")
 	if first.is_empty():
 		return out
 	out.append(first)
 	_record_pick(story, first, w)
-	if bool(ctx.get("big", false)) and rng.randf() < SECOND_CHANCE:
+	var second_chance := 1.0 if int((ctx.get("club", {}) as Dictionary).get("finals_week", 0)) == 5 else SECOND_CHANCE
+	if bool(ctx.get("big", false)) and rng.randf() < second_chance:
 		var second := _pick_one(deck, ctx, story, rng, w, false, str(first["category"]), str(first.get("player_id", "")))
 		if not second.is_empty():
 			out.append(second)
@@ -93,6 +95,11 @@ static func _pick_one(deck: Array, ctx: Dictionary, story: Dictionary, rng: Rand
 		if subj.is_empty():
 			continue
 		tiers[tier(t)].append([t, subj])
+	# A priority card (the Grand Final week's, a week off's) comes before the older ones.
+	for name in TIERS:
+		var first: Array = (tiers[name] as Array).filter(func(c): return bool(c[0].get("priority", false)))
+		if not first.is_empty():
+			tiers[name] = first
 	for name in TIERS:
 		if name != "beat" and quiet:
 			break
@@ -127,12 +134,16 @@ static func eligible_subject(t: Dictionary, ctx: Dictionary, story: Dictionary, 
 		return {}   # dealt by the game itself (the result of a role trial), never drawn
 	if not (t.get("phase", ["regular"]) as Array).has(str(ctx.get("phase", "regular"))):
 		return {}
+	# A week off in the finals: only the cards written for it.
+	if bool((ctx.get("club", {}) as Dictionary).get("finals_bye", false)) and not bool(t.get("bye", false)):
+		return {}
 	if w - int(story["last"].get(id, NEVER)) < int(t.get("cooldown", 0)):
 		return {}
 	var per := int(t.get("per_season", 0))
 	if per > 0 and int(story["season"].get(id, 0)) >= per:
 		return {}
-	if category_count(story, str(t["category"]), w) >= DIVERSITY_MAX:
+	# A priority card (September's) is not held back by the mix of the last five weeks.
+	if category_count(story, str(t["category"]), w) >= DIVERSITY_MAX and not bool(t.get("priority", false)):
 		return {}
 	var club: Dictionary = ctx.get("club", {})
 	if not meets(club, t.get("when", {}), story["flags"].get("club", {})):
@@ -203,8 +214,14 @@ static func meets(facts: Dictionary, cond: Dictionary, flags: Dictionary) -> boo
 			var n := int(facts.get(key.trim_suffix("_every"), 0))
 			if n <= 0 or n % maxi(1, int(v)) != 0:
 				return false
-		elif str(facts.get(key, "")) != str(v):
-			return false
+		else:
+			# A number in a card (JSON reads 5 as 5.0) equals the same number in a fact.
+			var have = facts.get(key, "")
+			if (v is float or v is int) and (have is float or have is int):
+				if float(have) != float(v):
+					return false
+			elif str(have) != str(v):
+				return false
 	return true
 
 
@@ -260,14 +277,16 @@ static func build(deck: Array, t: Dictionary, subj: Dictionary, club: Dictionary
 	var texts: Array = t["text"]
 	var options := []
 	for c in t["choices"]:
+		if not meets(facts, c.get("when", {}), {}):
+			continue
 		var detail := " ".join(PackedStringArray([describe(c, facts), fill(str(c.get("note", "")), facts)])).strip_edges()
 		options.append({"key": str(c["key"]), "label": fill(str(c["label"]), facts), "detail": detail,
 				"rule": fill(str(c.get("rule", "")), facts),
 				"effects": (c.get("effects", []) as Array).duplicate(true), "result": fill(str(c.get("result", "")), facts)})
 	var card := {"key": str(t["id"]), "tid": str(t["id"]), "story": true, "category": str(t["category"]),
 			"default": int(t.get("default", -1)), "week": w, "facts": facts,
-			"title": fill(str(titles[rng.randi_range(0, titles.size() - 1)]), facts),
-			"text": fill(str(texts[rng.randi_range(0, texts.size() - 1)]), facts),
+			"title": variant(titles, facts, rng),
+			"text": variant(texts, facts, rng),
 			"options": options}
 	if str(t.get("stakes", "")) != "":
 		card["stakes"] = fill(str(t["stakes"]), facts)
@@ -291,6 +310,30 @@ static func build(deck: Array, t: Dictionary, subj: Dictionary, club: Dictionary
 				"text": fill(str(un.get("text", "")), facts),
 				"hint": "Say nothing: %s" % _lower_first(_trust_words(trust_cost))}
 	return card
+
+
+## One of a card's title or text variants. A variant may be a case,
+## {"when": {facts}, "text": "..."}: the first case whose facts hold is the one
+## (the card says what is true this week); else one plain line, chosen by the
+## story stream as it always was.
+static func variant(list: Array, facts: Dictionary, rng: RandomNumberGenerator) -> String:
+	var pick := rng.randi_range(0, list.size() - 1)
+	for v in list:
+		if v is Dictionary and meets(facts, (v as Dictionary).get("when", {}), {}):
+			return fill(str((v as Dictionary).get("text", "")), facts)
+	var plain := list.filter(func(v): return not (v is Dictionary))
+	if plain.is_empty():
+		return ""
+	return fill(str(list[pick] if not (list[pick] is Dictionary) else plain[0]), facts)
+
+
+## A small chance that was written on a card, rolled once from the save's
+## seed, the year, the week and the card, so the same save gives the same
+## answer however often it is reloaded.
+static func risk_hit(seed: int, year: int, week: int, key: String, chance: int) -> bool:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("risk|%d|%d|%d|%s" % [seed, year, week, key])
+	return rng.randi_range(1, 100) <= chance
 
 
 ## How long an arc waits for its next beat: the longest window of its
@@ -456,6 +499,8 @@ static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
 			return parts
 		"captaincy_swap":
 			return [["gain", SWAP_GAIN], ["cost", SWAP_COST]]
+		"rush_back":
+			return [["gain", RUSH_GAIN], ["cost", RUSH_COST]]
 		"promise_win":
 			return [["gain", PROMISE_WIN_GAIN], ["cost", PROMISE_WIN_COST]]
 		"extend_early":
@@ -478,7 +523,7 @@ static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
 			kind = "gain" if d > 0 else ("cost" if d < 0 else "")
 		"xp", "fresh":
 			kind = "gain"
-		"rest", "sore", "heavy_legs", "expects_game", "start_backing", "back_kid":
+		"rest", "sore", "heavy_legs", "expects_game", "start_backing", "back_kid", "slow_start", "loss_sting":
 			kind = "cost"
 	var s := _effect_words(e, facts)
 	if kind == "" or s == "":
@@ -486,6 +531,8 @@ static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
 	return [[kind, s]]
 
 
+const RUSH_GAIN := "He is cleared to play, and you name him."
+const RUSH_COST := "He plays sore, and there's {sore_odds} chance the injury flares and he is out for weeks."
 const SWAP_GAIN := "{vice_name} takes the armband; {name} stays in the leadership group."
 const SWAP_COST := "Taking it off {name} mid-season drops his morale and he trusts you less. It uses your one change this season."
 const PROMISE_WIN_GAIN := "Win and board confidence goes up."
@@ -550,6 +597,18 @@ static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
 			return "{kid_name} is promised the next {run_games} games; leave him out fit and the promise breaks."
 		"captaincy_swap":
 			return "%s %s" % [SWAP_GAIN, SWAP_COST]
+		"rush_back":
+			return "%s %s" % [RUSH_GAIN, RUSH_COST]
+		"slow_start":
+			# Never "a flat start": what happens, and how likely, in the coach's words.
+			# In Grand Final week there is no next final: it is Saturday that he starts slowly.
+			var when := "Saturday" if str(e.get("on", "")) == "grand_final" else "his next final"
+			if who == "subject":
+				return "A small chance he starts %s slowly." % when
+			return "A small chance %s starts %s slowly." % [("the side" if who == "side" else "the whole list"),
+					"Saturday" if when == "Saturday" else "its next final"]
+		"loss_sting":
+			return "A small chance the side's morale falls instead if you lose that final."
 		"role_trial":
 			return _trial_words(e)
 	return ""

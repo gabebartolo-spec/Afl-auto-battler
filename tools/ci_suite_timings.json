@@ -46,6 +46,7 @@
     "scroll": 30,
     "expansion_package": 120,
     "keyboard": 30,
-    "preseason": 80
+    "preseason": 150,
+    "plan_know": 60
   }
 }
