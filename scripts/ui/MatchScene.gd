@@ -863,8 +863,19 @@ func _show_coach_box() -> void:
 		ask.name = "MinderQuestion"
 		ask.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		minder_box.add_child(ask)
+		# From the first break on there is a match to read: how the two are
+		# going (director, 2026-10-14). It follows the pick.
+		var df_how: VBoxContainer = null
+		if q > 1:
+			df_how = UiKit.vbox(4)
+			df_how.name = "DfHowItsGoing"
+			minder_box.add_child(df_how)
+			_fill_df_duel(df_how, sim, calls, opp_spare)
 		minder_box.add_child(_player_choice("SpareMinderPicker", "No defensive forward assigned", fwds,
-				fwds.slice(0, mini(quick if quick > 0 else 3, fwds.size())), calls, "minder_id", "Who covers him?", Callable(),
+				fwds.slice(0, mini(quick if quick > 0 else 3, fwds.size())), calls, "minder_id", "Who covers him?",
+				func(_id: String) -> void:
+					if df_how != null:
+						_fill_df_duel(df_how, sim, calls, opp_spare),
 				func(p: Dictionary, wide: bool) -> String: return MatchNotes.minder_card_detail(p, wide)))
 		var minder_note := UiKit.lbl(MatchNotes.minder_cost_line(), UiKit.SMALL, UiKit.MUTED)
 		minder_note.name = "MinderNote"
@@ -1106,6 +1117,52 @@ func _show_coach_box() -> void:
 const CALL_TITLES := {"plan": "Game plan", "pep": "Pep talk", "rot": "Rotations", "tag": "Tag", "mu": "Key match-ups",
 		"minder": "Defensive forward", "loose": "Loose interceptor", "pt": "Play through", "ruck": "Main ruck"}
 const CALL_ROW_LABELS := {"pt": "Play through (forward, midfield, back)"}
+
+
+## "How it's going" for the Defensive forward and their loose defender, this
+## match so far: both ratings side by side in the scoreboard face under their
+## names in club colour, then the contests between them and his intercepts.
+func _fill_df_duel(box: VBoxContainer, sim: MatchSim, calls: Dictionary, roamer: Dictionary) -> void:
+	UiKit.clear(box)
+	var df_id := str(calls["minder_id"])
+	var roamer_id := str(roamer.get("id", ""))
+	var d := MatchNotes.df_duel(_res, df_id, roamer_id)
+	var inks := UiKit.club_ink_pair(str(_res["home"]), str(_res["away"]))
+	var head := UiKit.lbl("How it's going", UiKit.SMALL, UiKit.TEXT, true)
+	head.name = "DfHeading"
+	box.add_child(head)
+	var row := UiKit.hbox(12)
+	row.name = "DfRatings"
+	var who := [[df_id, _my_side], [roamer_id, 1 - _my_side]]
+	for w in who:
+		if str(w[0]) == "":
+			continue
+		var col := UiKit.vbox(0)
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var nm := UiKit.ellipsis(_surname(GameDB.player_display_name_by_id(str(w[0]), "Player")), UiKit.NAME,
+				UiKit.club_name_colour(inks[int(w[1])]), true)
+		nm.name = "DfName_" + str(w[0])
+		col.add_child(nm)
+		var rr := UiKit.figure(MatchNotes.rating_text(MatchNotes.match_rating(_res, str(w[0]))), UiKit.NUMBER)
+		rr.name = "DfRating_" + str(w[0])
+		var rrow := UiKit.hbox(6)
+		rrow.add_child(rr)
+		var rtag := UiKit.lbl("rating", UiKit.SECONDARY, UiKit.MUTED)
+		rtag.size_flags_vertical = Control.SIZE_SHRINK_END
+		rrow.add_child(rtag)
+		col.add_child(rrow)
+		row.add_child(col)
+	box.add_child(row)
+	var lines := MatchNotes.df_duel_lines(d,
+			_surname(GameDB.player_display_name_by_id(df_id, "")),
+			_surname(GameDB.player_display_name_by_id(roamer_id, "")))
+	for i in range(lines.size()):
+		if str(lines[i]) == "":
+			continue
+		var l := UiKit.lbl(str(lines[i]), UiKit.BODY, UiKit.TEXT)
+		l.name = "DfLine_%d" % i
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(l)
 
 
 ## Lays the break out as one line a call. Every call was built by

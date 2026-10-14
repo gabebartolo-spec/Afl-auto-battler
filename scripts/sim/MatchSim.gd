@@ -60,6 +60,10 @@ var interceptor_changes: Array = []
 ## forward id -> {"side": attacking side, "contests": [[q, defender id,
 ## forward marked, goal from it]]}.
 var duel_log := {}
+## The loose defender against the player he met in a roaming contest:
+## "roamer id|target id" -> [contests, won by the roamer]. A record only; the
+## contests are decided as before (Defensive forward detail at the breaks).
+var roam_pairs := {}
 ## Match-ups changed during the match: [{"q", "side" (defending), "fwd", "def"}].
 var duel_changes: Array = []
 ## The calls a side's coach has made himself (coach_interceptor, coach_matchup,
@@ -1012,6 +1016,19 @@ static func disposal_efficiency(st: Dictionary) -> int:
 	if d <= 0.0:
 		return 0
 	return int(round(100.0 * float(st.get("effective_disposals", 0.0)) / d))
+
+
+## A roaming contest decided: the roamer's win or loss, and against whom.
+func _roam_note(roamer: Dictionary, target, won: bool) -> void:
+	_p(roamer, "roam_wins" if won else "roam_losses")
+	if target == null or (target is Dictionary and (target as Dictionary).is_empty()):
+		return
+	var key := "%s|%s" % [str(roamer.get("id", "")), str(target.get("id", ""))]
+	var rec: Array = roam_pairs.get(key, [0, 0])
+	rec[0] = int(rec[0]) + 1
+	if won:
+		rec[1] = int(rec[1]) + 1
+	roam_pairs[key] = rec
 
 
 func _p(player, key: String, n := 1.0) -> void:
@@ -2334,7 +2351,7 @@ func _general_aerial_contest(side: int, mark_fp: float, carrier) -> Dictionary:
 				infringement["offender"], infringement["recipient"],
 				str(infringement["cause"]), str(infringement["label"]))
 		if roaming:
-			_p(roamer, "roam_wins" if free_side == opp else "roam_losses")
+			_roam_note(roamer, target, free_side == opp)
 		return {"outcome": "free", "fp": mark, "actor": infringement["recipient"],
 				"free_side": free_side}
 
@@ -2357,7 +2374,7 @@ func _general_aerial_contest(side: int, mark_fp: float, carrier) -> Dictionary:
 		mev["from_id"] = "" if carrier == null else str(carrier.get("id", ""))
 		if roaming:
 			mev["roaming_interceptor_id"] = str(roamer.get("id", ""))
-			_p(roamer, "roam_losses")
+			_roam_note(roamer, target, false)
 		return {"outcome": "mark", "fp": mark_fp, "actor": target}
 
 	var spoil_p := clampf(GENERAL_SPOIL_BASE
@@ -2381,10 +2398,10 @@ func _general_aerial_contest(side: int, mark_fp: float, carrier) -> Dictionary:
 		if roaming:
 			sev["roaming_interceptor"] = defender == roamer
 			if defender == roamer:
-				_p(roamer, "roam_wins")
+				_roam_note(roamer, target, true)
 		return {"outcome": "loose", "fp": mark_fp, "actor": defender}
 	if roaming:
-		_p(roamer, "roam_losses")
+		_roam_note(roamer, target, false)
 	return {}
 
 
@@ -2948,6 +2965,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	var late := false
 	var roamer := _roaming_interceptor(opp)
 	var roam_shift := 0.0
+	var roam_target = shooter
 	if not roamer.is_empty() and str(roamer.get("id", "")) != str(defender.get("id", "")):
 		var u := aerial_rng.randf()
 		if u < _roam_chance(opp):
@@ -2970,7 +2988,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 				infringement["offender"], infringement["recipient"],
 				str(infringement["cause"]), str(infringement["label"]))
 		if roaming:
-			_p(roamer, "roam_wins" if free_side == opp else "roam_losses")
+			_roam_note(roamer, shooter, free_side == opp)
 		return {"outcome": "free", "fp": mark_fp, "actor": infringement["recipient"],
 				"free_side": free_side}
 
@@ -3025,7 +3043,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 			mev["against_id"] = str((matched if not matched.is_empty() else defender).get("id", ""))
 		if roaming:
 			mev["roaming_interceptor_id"] = str(roamer.get("id", ""))
-			_p(roamer, "roam_losses")
+			_roam_note(roamer, shooter, false)
 	var spoil_edge := 0.05 if defender != null and _trait(defender, "interceptor") else 0.0
 	var spoil_read := dfn.def_intercept
 	if not matched.is_empty():
@@ -3045,7 +3063,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		_t(opp, "spoils")
 		_p(spoiler, "spoils")
 		if roaming and spoiler == roamer:
-			_p(roamer, "roam_wins")
+			_roam_note(roamer, shooter, true)
 	if rng.randf() < float(T["one_percenter_share"]):
 		_t(opp, "one_percenters")
 		_p(_one_percenter(opp), "one_percenters")
@@ -3079,7 +3097,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 			goal_p *= 1.0 + (0.15 if marked else 0.08) * gap
 		behind_p *= 1.0 + 0.05 * gap
 		if roaming and not marked:
-			_p(roamer, "roam_losses")
+			_roam_note(roamer, roam_target, false)
 	# Beaten in the air by his direct opponent, a key forward rarely gets the
 	# shot himself: the ball spills or the defender clears it.
 	if not matched.is_empty() and not marked:
@@ -3935,6 +3953,7 @@ func result() -> Dictionary:
 		"moments": moments.duplicate(true),
 		"interchanges": interchanges.duplicate(),
 		"duels": duel_log.duplicate(true),
+		"roam_pairs": roam_pairs.duplicate(true),
 		"duel_changes": duel_changes.duplicate(true),
 		"matchups": duels.duplicate(true),
 		"interceptor": interceptor.duplicate(),
