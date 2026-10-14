@@ -142,6 +142,15 @@ func _screen(key: String, size: Vector2i) -> void:
 	var scene := current_scene
 	var found: Array = []
 	_scrollers(scene, found)
+	if key == "selection":
+		# Team selection does not scroll as a page (director, 2026-10-13): only
+		# the not-picked list scrolls, inside its own area.
+		for f in found:
+			_check((f as Node).name == "NotSelectedScroll", "selection %dx%d: only the not-picked list scrolls, not %s" % [size.x, size.y, (f as Node).name])
+		_check(not (scene.find_child("SelectionScroll", true, false) as ScrollContainer).get_v_scroll_bar().visible,
+				"selection %dx%d: the side page shows no scroll bar" % [size.x, size.y])
+		_check(scene.find_child("WeekScroll", true, false) == null or not (scene.find_child("WeekScroll", true, false) as ScrollContainer).get_v_scroll_bar().visible,
+				"selection %dx%d: the week shows no scroll bar" % [size.x, size.y])
 	var tag := "%s %dx%d" % [key, size.x, size.y]
 	if found.is_empty():
 		_table.append("%s | no long scroller" % tag)

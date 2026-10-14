@@ -4,8 +4,8 @@ extends SceneTree
 ##       -f args="--club FRE --want win --size 390x844"
 ## Looks through first-match career seeds of --club for one whose last quarter turned it
 ## (--want win: you came from behind; --want loss: you let a lead go), then writes
-## <out>_break.png (the three-quarter-time break, its line on top) and <out>_full.png (the
-## result with the turning quarter named). Never touches a real save.
+## <out>_break.png (the three-quarter-time break, its line on top), <out>_full.png (the
+## result, the turn first in How it went) and <out>_hub.png (the hub's last-result card). Never touches a real save.
 ##   --size WxH   window size (default 390x844)    --club CODE (default FRE)
 ##   --want win|loss    --max N   seeds to look through (default 120)
 
@@ -108,6 +108,15 @@ func _run() -> void:
 	root.add_child(full)
 	await _frames(20)
 	_save(out + "_full.png")
+	full.queue_free()
+	await _frames(4)
+	# The hub's last-result card.
+	var hub = load("res://scenes/HubScene.tscn").instantiate()
+	root.add_child(hub)
+	await _frames(10)
+	hub._show_results(state.last_results)
+	await _frames(20)
+	_save(out + "_hub.png")
 	quit(0)
 
 

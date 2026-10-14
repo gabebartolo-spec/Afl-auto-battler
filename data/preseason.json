@@ -109,6 +109,12 @@
 		"quad"
 	],
 	"ai_old_age": 28.0,
+	"intra_week": 5,
+	"intra_side_size": 23,
+	"intra_injury_rate": 0.5,
+	"intra_xp_games": 1.0,
+	"intra_seen_uncertainty": 0.7,
+	"intra_spare_number": 60,
 	"_why": {
 		"weeks": "Length of the pre-season. Week 8 is a quiet week with no training choice.",
 		"blocks": "First and last training week of each block.",
@@ -133,6 +139,12 @@
 		"ai_blocks": "What an AI club runs, by where it is in its cycle (TradeValue.phase): contenders push the running early, middle clubs push skills in the middle block, rebuilders push skills early. An older list does the same at Solid (ai_old_age).",
 		"heavy_week_injury": "Chance a fit player of ordinary durability picks up a soft-tissue injury in one Heavy training week (a match is 0.042 for each player on the ground). Durability moves it as it moves a match injury. Light and Solid weeks carry none.",
 		"soft_tissue_kinds": "What a training injury can be: the soft-tissue kinds among the game's injuries.",
-		"ai_old_age": "An AI club whose best side averages this age or more never trains Heavy: its Heavy blocks are Solid."
+		"ai_old_age": "An AI club whose best side averages this age or more never trains Heavy: its Heavy blocks are Solid.",
+		"intra_week": "The intra-club match is played at the end of this week.",
+		"intra_side_size": "Players a side: the normal 18 on the ground and 5 on the bench.",
+		"intra_injury_rate": "A listed player's injury risk in the intra-club match, as a share of a normal match's (director, 2026-10-14: half).",
+		"intra_xp_games": "Development for a listed player who plays in it, in reserves games' worth (director: a reserves game), spent inside the season's training limit.",
+		"intra_seen_uncertainty": "How wide a club's rating read on a prospect is once it has seen him in its intra-club match, as a share of its usual read (1.0 is no tighter; the recruiting department's own tightening still applies on top).",
+		"intra_spare_number": "Invited prospects wear spare jumper numbers from this one up, skipping any a listed player wears."
 	}
 }

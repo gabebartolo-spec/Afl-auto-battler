@@ -25,7 +25,7 @@ func _ready() -> void:
 	_root = UiKit.vbox(9)
 	margin.add_child(_root)
 	get_viewport().size_changed.connect(func():
-		if is_inside_tree() and GameState.season != null:
+		if is_inside_tree() and GameState.season != null and not UiKit.keyboard_resize(self):
 			var places := UiKit.scroll_places(_root)
 			_build()
 			UiKit.restore_places(_root, places))

@@ -19,6 +19,22 @@ const DESKTOP_REF := Vector2(1280, 720)
 const TITLE := "Aussie Rules Dynasties"
 
 
+## True when the last resize was a phone keyboard coming up or going down: a
+## text field had the focus and the width in pixels did not change. Screens
+## that rebuild on a resize leave themselves alone then (UiKit.keyboard_resize).
+var keyboard_up := false
+## The scale and pixel width of the last resize that was not a phone keyboard.
+var _kept_density := 0.0
+var _kept_width := 0
+
+
+## True while a text field has the focus (the phone keyboard is up, or about
+## to be).
+func typing() -> bool:
+	var owner := get_viewport().gui_get_focus_owner()
+	return owner is LineEdit or owner is TextEdit
+
+
 func _ready() -> void:
 	_fit_first_window()
 	get_window().size_changed.connect(_update_scale)
@@ -52,6 +68,19 @@ func _update_scale() -> void:
 	# Small desktop windows remain usable too. Below 320 UI units there is
 	# no longer room for four touch targets and their position labels.
 	density = minf(density, minf(pixels.x, pixels.y) / 320.0)
+	# A phone keyboard can take most of a sideways phone's height. Fitting
+	# 320 units into what is left would shrink the whole screen and change
+	# its width in units, and every screen would rebuild under the keyboard
+	# (and free the field being typed in). Same width in pixels while a text
+	# field has focus means a keyboard: keep the scale the screen had. Not on
+	# a desktop, which has no such keyboard: there a window made shorter is
+	# just a shorter window.
+	keyboard_up = not is_desktop() and _kept_density > 0.0 			and int(pixels.x) == _kept_width and typing()
+	if keyboard_up:
+		density = _kept_density
+	else:
+		_kept_density = density
+		_kept_width = int(pixels.x)
 	var logical := Vector2i(roundi(pixels.x / density), roundi(pixels.y / density))
 	if window.content_scale_size != logical:
 		window.content_scale_size = logical
@@ -119,10 +148,25 @@ func set_orientation(key: String, from_tap := false) -> Dictionary:
 	if DisplayServer.get_name() == "headless" or is_desktop() and not force_web_phone:
 		return asked
 	if OS.has_feature("web") and key != "auto" and from_tap:
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+		JavaScriptBridge.eval(PAGE_FULLSCREEN_JS % key, true)
 		asked["fullscreen"] = true
 	DisplayServer.screen_set_orientation(asked["orientation"])
 	return asked
+
+
+## The whole page goes fullscreen, not the game's canvas (the engine's own
+## fullscreen). The phone keyboard is raised by a text box the engine keeps
+## beside the canvas; with only the canvas fullscreen that box is off the
+## screen and the keyboard never opens (godotengine/godot#117342). The
+## rotation is held once the page is fullscreen, as the browser requires.
+const PAGE_FULLSCREEN_JS := """(function(o){
+var d=document.documentElement;
+function hold(){try{var p=screen.orientation&&screen.orientation.lock?screen.orientation.lock(o):null;if(p&&p.catch){p.catch(function(){});}}catch(e){}}
+if(document.fullscreenElement||document.webkitFullscreenElement){hold();return;}
+var ask=d.requestFullscreen||d.webkitRequestFullscreen;
+if(!ask){return;}
+try{var p=ask.call(d);if(p&&p.then){p.then(hold).catch(function(){});}else{hold();}}catch(e){}
+})('%s');"""
 
 
 ## A test or capture stands in for the web build: not a desktop, not a phone.

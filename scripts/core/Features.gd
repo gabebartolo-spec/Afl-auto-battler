@@ -21,8 +21,10 @@ extends RefCounted
 ##   preseason   the eight-week pre-season between the wrap and Round 1
 ##               (PreSeason.gd, PreSeasonScene), and everything built on it
 ##               for patch 0.2.0 (the pre-season match comes next).
+##   speccy_front   the low, tight front-on speccy shot that freezes on the grab
+##               (BroadcastVignette). Off, a spectacular mark plays the earlier shot.
 
-const KNOWN := ["preseason"]
+const KNOWN := ["preseason", "speccy_front"]
 
 static var _forced := {}
 static var _from_args := {}
