@@ -48,3 +48,4 @@ scroll 130
 preseason 163
 keyboard 445
 nameink 16
+plan_know 96
