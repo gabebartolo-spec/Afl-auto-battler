@@ -282,9 +282,12 @@ func _build() -> void:
 		# left and the club's screens on the right.
 		if not season.is_season_over() and not _upcoming_match().is_empty():
 			week_row.add_child(_sim_round_button())
+		# The same split as the columns above, so the club buttons stand under the ladder.
+		week_row.size_flags_stretch_ratio = 1.0
 		foot.add_child(week_row)
 		var row := _footer(season, false)
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.size_flags_stretch_ratio = 1.25
 		foot.add_child(row)
 	# Motion plays once per visit, not on every rebuild after an answer.
 	_settled = true
