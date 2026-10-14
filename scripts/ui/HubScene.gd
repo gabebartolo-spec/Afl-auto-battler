@@ -395,22 +395,22 @@ func _event_card(index: int) -> Control:
 	card.name = "WeekEvent" if index == 0 else "WeekEvent_%d" % index
 	var v := UiKit.vbox(6)
 	card.add_child(v)
-	v.add_child(UiKit.lbl(str(e.get("title", "")), UiKit.BODY, UiKit.TEXT, true))
+	v.add_child(NameInk.label(str(e.get("title", "")), _league_names(), UiKit.BODY, UiKit.TEXT, true))
 	if not bool(e.get("resolved", false)):
-		var t := UiKit.lbl(str(e.get("text", "")), 12, UiKit.TEXT)
+		var t := NameInk.label(str(e.get("text", "")), _league_names(), 12, UiKit.TEXT)
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(t)
 		# What an authored stakes line adds, then what happens if he says
 		# nothing, apart from the choices. Full-strength text: it is what a
 		# coach decides on.
 		if str(e.get("stakes", "")) != "":
-			var sk := UiKit.lbl(str(e["stakes"]), UiKit.SECONDARY, UiKit.TEXT)
+			var sk := NameInk.label(str(e["stakes"]), _league_names(), UiKit.SECONDARY, UiKit.TEXT)
 			sk.name = "EventStakes_%d" % index
 			sk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(sk)
 		var silence := str((e.get("unanswered", {}) as Dictionary).get("hint", ""))
 		if silence != "":
-			var sl := UiKit.lbl(silence, UiKit.SECONDARY, UiKit.TEXT)
+			var sl := NameInk.label(silence, _league_names(), UiKit.SECONDARY, UiKit.TEXT)
 			sl.name = "EventSilence_%d" % index
 			sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(sl)
@@ -451,7 +451,7 @@ func _event_card(index: int) -> Control:
 				elif line.begins_with(StoryEngine.COST_MARK):
 					mark = "Cost:"
 					kind = "Cost"
-				var cl := UiKit.lbl(line.substr(mark.length()).strip_edges() if mark != "" else line, UiKit.SECONDARY, UiKit.TEXT)
+				var cl := NameInk.label(line.substr(mark.length()).strip_edges() if mark != "" else line, _league_names(), UiKit.SECONDARY, UiKit.TEXT)
 				cl.name = "Event%s_%d_%d" % [kind, index, i]
 				cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				if mark == "":
@@ -1383,7 +1383,7 @@ func _show_media_conference() -> void:
 	var by := UiKit.lbl(str(GameState.media_conference.get("by", "Journalist")), UiKit.SMALL, UiKit.MUTED, true)
 	by.name = "MediaByline"
 	prompt.add_child(by)
-	var q := UiKit.lbl(str(GameState.media_conference.get("question", "")), 16, UiKit.TEXT)
+	var q := NameInk.label(str(GameState.media_conference.get("question", "")), _league_names(), 16, UiKit.TEXT)
 	q.name = "MediaQuestion"
 	q.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	prompt.add_child(q)
@@ -1400,6 +1400,7 @@ func _show_media_conference() -> void:
 		b.name = "MediaAnswer_%d" % i
 		b.custom_minimum_size = Vector2(0, 48)
 		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		NameInk.dress_button(b, _league_names())
 		var choice := i
 		b.pressed.connect(func():
 			GameState.resolve_media_conference(choice)
@@ -1408,7 +1409,7 @@ func _show_media_conference() -> void:
 			_build())
 		group.add_child(b)
 		# What the answer does, under it: the board, the players, no numbers.
-		var effect := UiKit.lbl(MediaConference.effect_line(opts[i]), UiKit.SMALL, UiKit.MUTED)
+		var effect := NameInk.label(MediaConference.effect_line(opts[i]), _league_names(), UiKit.SMALL, UiKit.MUTED)
 		effect.name = "MediaAnswerLine_%d" % i
 		effect.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		group.add_child(effect)

@@ -725,7 +725,7 @@ func _show_coach_box() -> void:
 	var loose_was := str(calls["interceptor_id"])
 	var narrow := UiKit.view_width(self) < 560.0
 
-	var plan_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+	var plan_note := NameInk.rich(UiKit.SMALL, UiKit.MUTED)
 	plan_note.name = "PlanNote"
 	plan_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var my_ground: Array = (sim.squads[_my_side] as Squad).ground
@@ -735,7 +735,7 @@ func _show_coach_box() -> void:
 		var fit := GameState.plan_fit_line(my_ground, key)
 		if fit != "":
 			t += " " + fit
-		plan_note.text = t
+		NameInk.set_line(plan_note, t, _names())
 	var plan := _choice_grid("PlanPicker", GAMEPLANS, calls, "gameplan", 2 if narrow else 3, sync_note)
 	# The heading and the plan under it stay together.
 	var plan_block := _call_block("Gameplan", plan)
@@ -775,7 +775,7 @@ func _show_coach_box() -> void:
 	var tag_detail := func(r: Dictionary, wide: bool) -> String:
 		var p: Dictionary = my_mids.get(str(r["id"]), r)
 		return MatchNotes.tagger_card_detail(p, float(sim.energy.get(str(r["id"]), 100.0)), wide, season_rating.call(str(r["id"])))
-	var tag_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+	var tag_note := NameInk.rich(UiKit.SMALL, UiKit.MUTED)
 	tag_note.name = "TagNote"
 	tag_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	# Who goes to him is only a question once there is a him: hidden with no
@@ -795,13 +795,13 @@ func _show_coach_box() -> void:
 		var who = my_mids.get(str(calls["tagger_id"]), tagger)
 		var target := GameDB.player_display_name_by_id(str(calls["tag_id"]), "")
 		if str(calls["tag_id"]) == "":
-			tag_note.text = "No tag: your midfielders play their own game."
+			NameInk.set_line(tag_note, "No tag: your midfielders play their own game.", _names())
 		elif who == null:
-			tag_note.text = "No midfielder on the ground to tag with."
+			NameInk.set_line(tag_note, "No midfielder on the ground to tag with.", _names())
 		elif Roles.is_tagger(who):
-			tag_note.text = "%s, your tagger, tags %s." % [GameDB.player_display_name(who), target]
+			NameInk.set_line(tag_note, "%s, your tagger, tags %s." % [GameDB.player_display_name(who), target], _names())
 		else:
-			tag_note.text = "%s tags %s. He gives up his own game." % [GameDB.player_display_name(who), target]
+			NameInk.set_line(tag_note, "%s tags %s. He gives up his own game." % [GameDB.player_display_name(who), target], _names())
 	# The tag is offered on their listed midfielders only (director, 2026-10-14:
 	# "Only listed midfielders"): the names, and "Other midfielder..." for the
 	# listed midfielders not already shown, which is not drawn when none is
@@ -1240,7 +1240,7 @@ func _mount_one_line(c: Dictionary) -> void:
 		for key in order:
 			var r: Button = row_of[key]
 			var a := _call_answer(str(key), calls, c)
-			(r.get_meta("answer") as Label).text = a
+			NameInk.set_line(r.get_meta("answer") as RichTextLabel, a, _names())
 			var changed := a != str(first[key])
 			(r.get_meta("changed") as Label).visible = changed
 			(r.get_meta("rule") as ColorRect).color = UiKit.club_vivid(str(GameState.my_club), UiKit.SURFACE) if changed else Color.TRANSPARENT
@@ -1405,8 +1405,10 @@ func _call_row(key: String, label: String) -> Button:
 	changed.visible = false
 	top.add_child(changed)
 	col.add_child(top)
-	var answer := UiKit.ellipsis("", UiKit.NAME, UiKit.TEXT, true)
+	var answer := NameInk.rich(UiKit.NAME, UiKit.TEXT, true, false)
 	answer.name = "RowAnswer"
+	answer.clip_contents = true
+	answer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.add_child(answer)
 	h.add_child(col)
 	var chev := UiKit.line("›", UiKit.HEADING, UiKit.MUTED)
@@ -2295,6 +2297,8 @@ func _dress_tagger_card(b: Button, who_name: String, c: Dictionary, is_pick: boo
 	head.add_theme_constant_override("v_separation", 0)
 	var nm := UiKit.line(who_name, UiKit.NAME, UiKit.TEXT, true)
 	nm.name = "CardName"
+	if _names().has(who_name):
+		nm.add_theme_color_override("font_color", UiKit.club_ink(str(_names()[who_name])))
 	head.add_child(nm)
 	var where := UiKit.line(str(c["where"]), UiKit.SECONDARY, UiKit.MUTED)
 	where.name = "CardWhere"
@@ -2381,6 +2385,7 @@ func _player_sheet(title: String, roster: Array, current: String, detail: Callab
 			b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		b.custom_minimum_size = Vector2(0, 44 if extra == "" else 60)
 		UiKit.paint_choice(b, id == current)
+		NameInk.dress_button(b, _names())
 		b.pressed.connect(func():
 			_close_sheet()
 			on_pick.call(id))
@@ -3403,7 +3408,7 @@ func _standout_row(p: Dictionary, side: int, best: bool) -> Control:
 	var name := "%s  ·  %s" % [str(p["name"]), GameDB.club_short(code)]
 	if best:
 		name += "  ·  best on ground"
-	v.add_child(UiKit.ellipsis(name, UiKit.BODY, UiKit.TEXT, true))
+	v.add_child(UiKit.ellipsis(name, UiKit.BODY, UiKit.club_ink(code), true))
 	v.add_child(UiKit.ellipsis(str(p["line"]), UiKit.SMALL, UiKit.MUTED))
 	var r := UiKit.line(MatchNotes.rating_text(float(p["rating"])), 20, UiKit.TEXT, true)
 	r.name = "StandoutRating"
@@ -3623,6 +3628,7 @@ func _show_break_matchup(sim: MatchSim, fid: String, line: RichTextLabel, q: int
 		b.custom_minimum_size = Vector2(0, 56)
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		UiKit.paint_choice(b, str(p["id"]) == cur)
+		NameInk.dress_button(b, _names())
 		var pid := str(p["id"])
 		b.pressed.connect(func():
 			sim.coach_matchup(_my_side, fid, pid)
