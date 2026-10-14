@@ -28,6 +28,7 @@ func run() -> void:
 	_test_build_and_entry()
 	_test_second_year_and_end()
 	_test_your_player_is_approached()
+	_test_who_a_rival_keeps()
 	_test_save_round_trip()
 	_test_old_saves()
 	Features.clear(FEATURE)
@@ -297,7 +298,6 @@ func _test_build_and_entry() -> void:
 	_check(GameState.cap_for("GEE") == GameState.salary_cap, "On: no other club's cap moves")
 	_check(not GameState.expansion.has("CANB") and not GameState.season.ladder.has("CANB"),
 			"On: Canberra, not chosen, builds nothing")
-	_check(not signings.is_empty(), "On: Tasmania signed at least one out-of-contract player from a rival club (%d)" % signings.size())
 	var comp_ok := true
 	for c in GameState.compensation:
 		if str(c["to"]) == "TAS" and not lost.has(str(c["club"])):
@@ -404,6 +404,63 @@ func _test_your_player_is_approached() -> void:
 			# Unanswered, the card settles as "let him go" before the next round.
 			GameState._settle_week_event()
 			_check(str(asked.get("status", "")) == "joining", "Say nothing and he goes: the card settles that way")
+
+
+## The rule for a rival's player, case by case: his club keeps a player it
+## would have re-signed anyway; one it would let go, who would get a game at
+## the new club, joins it; one it wants but cannot fit under its cap joins it
+## only while the new club has first call on such players; and a club that
+## loses a player it wanted gets a draft pick.
+func _test_who_a_rival_keeps() -> void:
+	var was := Expansion.FIRST_CALL_CAP_SQUEEZED
+	for case: String in ["kept", "let go", "cap", "cap, no first call"]:
+		Expansion.FIRST_CALL_CAP_SQUEEZED = case != "cap, no first call"
+		_new_career()
+		var club := "SYD"
+		var list: Array = GameState.season.lists[club]
+		for q in list:
+			q["contract_years"] = 3
+		list.sort_custom(func(x, y): return int(x["overall"]) > int(y["overall"]))
+		var p: Dictionary = list[12]
+		p["contract_years"] = 1
+		p["age"] = 26.0
+		p.erase("retiring")
+		if case == "let go":
+			for q in list:
+				if q != p:
+					q["overall"] = maxi(int(q["overall"]), int(p["overall"]) + 8)
+					q["potential"] = maxi(int(q.get("potential", 0)), int(q["overall"]))
+		elif case.begins_with("cap"):
+			p["overall"] = maxi(int(p["overall"]), 84)
+			p["potential"] = maxi(int(p.get("potential", 0)), 86)
+			var others := 0
+			for q in list:
+				if q != p:
+					others += int(q.get("salary", 0))
+			var share := int((GameState.salary_cap - Contracts.asking_salary(p) + 400000) / maxi(1, list.size() - 1))
+			for q in list:
+				if q != p:
+					q["salary"] = share + 100000
+		var why := Contracts.ai_release_reason(p, list, GameState.cap_for(club))
+		var expect_why: String = {"kept": "", "let go": "delist", "cap": "cap", "cap, no first call": "cap"}[case]
+		ExpansionBuild.ensure_foundation(GameState, "TAS")
+		var st := ExpansionBuild.state(GameState, "TAS")
+		(st["approached"] as Array).append(2027)
+		var t := {"id": str(p["id"]), "club": club, "year": 2027, "name": "x", "status": "asked"}
+		(st["targets"] as Array).append(t)
+		GameState.season.round_index = GameState.season.fixture.size()
+		GameState.open_offseason()
+		var joined: bool = (ExpansionBuild.list_of(GameState, "TAS") as Array).has(p)
+		var paid := false
+		for c in GameState.compensation:
+			if str(c["player"]) == str(p["id"]):
+				paid = true
+		var want_join: bool = case == "let go" or case == "cap"
+		_check(why == expect_why and joined == want_join and str(t["status"]) == ("joined" if want_join else "stayed")
+				and (case != "cap" or paid or not GameState.comp_tenure_ok(p)) and (case != "let go" or not paid),
+				"A rival's player, %s: %s (his club's reason '%s', joined %s, pick to his club %s)" % [case,
+				"he joins the new club" if want_join else "he stays", why, str(joined), str(paid)])
+	Expansion.FIRST_CALL_CAP_SQUEEZED = was
 
 
 func _test_save_round_trip() -> void:
