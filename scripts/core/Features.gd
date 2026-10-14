@@ -24,7 +24,13 @@ extends RefCounted
 ##   speccy_front   the low, tight front-on speccy shot that freezes on the grab
 ##               (BroadcastVignette). Off, a spectacular mark plays the earlier shot.
 
-const KNOWN := ["preseason", "speccy_front"]
+##   expansion_package   how a new club builds its list (director, 2026-10-14):
+##               state-league signings, early draft picks, one out-of-contract
+##               player per rival club, and Canberra as a career choice
+##               (ExpansionBuild). Off, a new club arrives with the 36
+##               generated players it always did and Canberra always joins.
+
+const KNOWN := ["preseason", "speccy_front", "expansion_package"]
 
 static var _forced := {}
 static var _from_args := {}

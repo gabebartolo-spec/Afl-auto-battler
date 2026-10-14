@@ -144,6 +144,9 @@ func _build_sequence(comps: Array) -> void:
 		(by_after[k] as Array).append(c)
 	var slots := []   # [club, round, comp entry or {}]
 	var regular := 0
+	# An extra pick before the first regular pick (a new club's pick 1).
+	for c in by_after.get(0, []):
+		slots.append([str(c["club"]), int(c.get("round", 1)), c, str(c.get("origin", c["club"]))])
 	for r in range(target_size):
 		var round_order := draft_order.duplicate()
 		if r % 2 == 1:
@@ -153,7 +156,7 @@ func _build_sequence(comps: Array) -> void:
 			slots.append([owner, r + 1, {}, code])
 			regular += 1
 			for c in by_after.get(regular, []):
-				slots.append([str(c["club"]), r + 1, c, str(c["club"])])
+				slots.append([str(c["club"]), int(c.get("round", r + 1)), c, str(c.get("origin", c["club"]))])
 	# A pick placed after one the draft never reaches goes at the very end.
 	var ks := by_after.keys()
 	ks.sort()
@@ -207,6 +210,21 @@ func add_compensation(comps: Array) -> void:
 			return float(a.get("value", 0.0)) > float(b.get("value", 0.0))
 		return draft_order.find(str(a["club"])) < draft_order.find(str(b["club"])))
 	_build_sequence(sorted)
+
+
+## A seat at the intake draft for a club that is not playing yet (a new club
+## building its list): it holds no regular pick, only the extra ones slotted
+## in with add_compensation. `size`, `counts` and `pairs` describe the list it
+## has so far, as existing_sizes and friends do for every other club.
+func add_guest(code: String, size: int, counts: Dictionary, pairs: Array) -> void:
+	if clubs.has(code) or pick_index != 0:
+		return
+	clubs.append(code)
+	club_lists[code] = []
+	club_spend[code] = 0
+	existing_sizes[code] = size
+	existing_role_counts[code] = counts
+	existing_roles[code] = pairs
 
 
 func start_for_user(code: String) -> void:

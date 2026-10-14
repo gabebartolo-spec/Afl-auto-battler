@@ -1679,7 +1679,12 @@ func _refresh_order() -> void:
 			v.add_child(tl)
 		var comp := _draft.comp_at(index)
 		if not comp.is_empty():
-			var why := UiKit.ellipsis("Compensation for losing %s" % str(comp.get("name", "a free agent")), UiKit.SMALL, UiKit.TEXT)
+			var said := "Compensation for losing %s" % str(comp.get("name", "a free agent"))
+			if bool(comp.get("concession", false)):
+				var from := GameDB.club_name(str(comp.get("origin", code)))
+				said = ("Traded by %s for a senior player" % from) if bool(comp.get("traded", false)) \
+						else "%s list-build pick" % from
+			var why := UiKit.ellipsis(said, UiKit.SMALL, UiKit.TEXT)
 			why.name = "CompPick"
 			v.add_child(why)
 		elif index < _draft.pick_origin.size() and str(_draft.pick_origin[index]) != code:

@@ -36,6 +36,9 @@ const OPS := {
 	# trust in you; a promised run for the young player the card names; the vice-captain
 	# takes the armband (through the Captaincy rules and their costs).
 	"delegate": true, "back_kid": false, "captaincy_swap": false,
+	# A new club has asked about your out-of-contract player (ExpansionBuild):
+	# re-sign him now at his asking price, or let him go at season's end.
+	"new_club_keep": true, "new_club_go": true,
 }
 ## A role trial lasts this many of your games at most ("weeks" on the effect).
 const TRIAL_GAMES_MAX := 6
@@ -50,7 +53,8 @@ const PLAYER_FACTS := ["name", "first", "age", "games", "fit", "selected", "over
 		"fit_rank", "talk_case", "kpi", "kpi_or_need", "explain_label", "talk_text", "sore_odds",
 		"ask", "early_price", "more_seasons", "extension_ok", "job", "real_named",
 		"form", "form_games", "has_role2", "starting", "form_low", "role_avg", "role_word", "trial_word", "trial_home", "trial_avg", "trial_par", "trial_tail",
-		"leadership", "captain", "delegate_holds", "holds_at", "holds_trust_at"]
+		"leadership", "captain", "delegate_holds", "holds_at", "holds_trust_at",
+		"new_club", "keep_price", "keep_seasons", "keep_note", "comp_line"]
 ## Facts about the club and the week (GameState._story_club_facts).
 const CLUB_FACTS := ["club", "opp", "round", "year", "losing_run", "winning_run", "ladder",
 		"board", "fit_count", "run_games", "finals_week", "captain_name", "vice_name", "vice_id",
