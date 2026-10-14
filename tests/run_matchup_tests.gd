@@ -488,7 +488,7 @@ func _finals_cup() -> void:
 						and (absf((wash.colour as Color).h - ink.h) < 0.03 or ink.s < 0.1),
 						"%s: the cup stands in the premier's own colour, dark enough for white type (%s for %s)" % [tag, (wash.colour as Color).to_html(false) if wash != null else "-", prem])
 				var who: Label = hero.find_child("FinalsPremier", true, false) if hero != null else null
-				var whole := who != null and who.text == str(db.club_name(prem) if sz.x >= 900 else db.club_short(prem))
+				var whole := who != null and who.text == str(db.club_short(prem))
 				for l in (hero.find_children("*", "Label", true, false) if hero != null else []):
 					var lab := l as Label
 					if lab.size.y + 1.0 < lab.get_combined_minimum_size().y or not hero.get_global_rect().grow(0.5).encloses(lab.get_global_rect()):
@@ -499,8 +499,13 @@ func _finals_cup() -> void:
 				_check(whole and Rect2(Vector2.ZERO, Vector2(sz)).encloses(hero.get_global_rect()),
 						"%s: the premiers are named whole beside the cup, on the screen (%s)" % [tag, who.text if who != null else "-"])
 				var you: Label = fb.find_child("FinalsYou", true, false)
-				_check(you != null and you.text != "" and you.global_position.y >= hero.get_global_rect().end.y - 0.5,
-						"%s: your own finish is still said under it (%s)" % [tag, you.text if you != null else "-"])
+				var said := 0
+				for l in fb.find_children("*", "Label", true, false):
+					if (l as Label).is_visible_in_tree() and (l as Label).text.begins_with("Premiers"):
+						said += 1
+				_check(said == 1 and ((prem == str(_state.my_club) and you == null)
+						or (prem != str(_state.my_club) and you != null and you.text != "" and you.global_position.y >= hero.get_global_rect().end.y - 0.5)),
+						"%s: 'Premiers' is said once, and your own finish under it unless the cup is yours (%s)" % [tag, you.text if you != null else "the cup is yours"])
 				_check(fb.find_child("FinalsCup", true, false) == null, "%s: one cup on the screen, not two" % tag)
 				var rib: Control = hero.find_child("FinalsRibbons", true, false) if hero != null else null
 				var rib_art: TextureRect = rib.find_child("Art_premiership_ribbons", true, false) if rib != null else null

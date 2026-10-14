@@ -83,11 +83,13 @@ func _status() -> Control:
 				if str(f["slots"].get("L_" + str(m[0]), "")) == _me:
 					out_in = str(m[1])
 		if bool(f.get("done", false)) and str(f.get("premier", "")) == _me:
-			words = "Premiers."
+			words = ""   # the cup over this line already says it
 		elif out_in != "":
 			words = "Your season ended in the %s." % out_in + ("" if done else " The series plays on.")
 		else:
 			words = "You finished %s. Still alive." % _ordinal(top.find(_me) + 1)
+	if words == "":
+		return v
 	var l := UiKit.lbl(words, UiKit.BODY, UiKit.TEXT)
 	l.name = "FinalsYou"
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -122,7 +124,7 @@ func _premiers(prem: String) -> Control:
 	for e in ["left", "right", "top", "bottom"]:
 		m.add_theme_constant_override("margin_" + e, 14)
 	p.add_child(m)
-	var row: BoxContainer = UiKit.hbox(20) if wide else UiKit.vbox(6)
+	var row: BoxContainer = UiKit.hbox(20) if wide else UiKit.vbox(14)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	m.add_child(row)
 	var cup := _cup(HERO_CUP_WIDE if wide else HERO_CUP_NARROW)
@@ -140,7 +142,8 @@ func _premiers(prem: String) -> Control:
 	t.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var said := UiKit.line("Premiers", UiKit.BODY, Color.WHITE)
 	ClubDuel.on_colour(said)
-	var who := UiKit.figure(GameDB.club_name(prem) if wide else GameDB.club_short(prem), UiKit.HERO, Color.WHITE)
+	# One name for the premiers on every screen: the name the bracket under it uses.
+	var who := UiKit.figure(GameDB.club_short(prem), UiKit.HERO, Color.WHITE)
 	who.name = "FinalsPremier"
 	ClubDuel.on_colour(who)
 	if not wide:
