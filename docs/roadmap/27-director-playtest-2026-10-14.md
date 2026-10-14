@@ -65,3 +65,4 @@ committing all my comments to the roadmap". An item leaves this chapter only whe
 | # | His words | Status |
 |---|---|---|
 | D1 | "\"wet\", could be replaced with an icon, unique icon for each weather condition (not high priority, dont build it now)" (match header "Away · Engie Stadium · Wet") | parked; not assigned |
+| D2 | "stretch goal: personality types, for example 'egotistical', 'natural leader'", "each personality with its own strengths and weaknesses" | recorded in [Stretch Goals](25-stretch-goals.md#player-personality-types); not assigned |
