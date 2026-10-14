@@ -757,7 +757,9 @@ func _show_coach_box() -> void:
 	for p in my_ground:
 		if MatchSim.midfielder_on_ground(p):
 			my_mids[str(p["id"])] = p
-	if not my_mids.has(str(calls["tagger_id"])):
+	# The tagger the coach named stays his call at every break (director,
+	# 2026-10-14); only a man gone from the match hands the job back.
+	if not my_mids.has(str(calls["tagger_id"])) and not sim.taking_part(_my_side, str(calls["tagger_id"])):
 		calls["tagger_id"] = ""
 	var others := _roster_side(_my_side).filter(func(r):
 		return my_mids.has(str(r["id"])) and (tagger == null or str(r["id"]) != str(tagger["id"])))
@@ -797,6 +799,9 @@ func _show_coach_box() -> void:
 			tag_note.text = "No tag: your midfielders play their own game."
 		elif who == null:
 			tag_note.text = "No midfielder on the ground to tag with."
+		elif str(calls["tagger_id"]) != "" and not my_mids.has(str(calls["tagger_id"])):
+			tag_note.text = "%s, your tagger, is on the bench. %s tags %s until he is back." % [
+					GameDB.player_display_name_by_id(str(calls["tagger_id"]), "Your tagger"), GameDB.player_display_name(who), target]
 		elif Roles.is_tagger(who):
 			tag_note.text = "%s, your tagger, tags %s." % [GameDB.player_display_name(who), target]
 		else:
@@ -806,9 +811,17 @@ func _show_coach_box() -> void:
 	# listed midfielders not already shown, which is not drawn when none is
 	# left. A ruck or a defender running through the middle is not offered, so
 	# "Tag which midfielder?" stays true.
-	var opp_listed := opp.filter(func(r): return _listed_midfielder(sim, r))
-	var tag := _player_choice("TagPicker", "No tag", opp_listed, _in_the_game(opp_listed, quick if quick > 0 else 4), calls, "tag_id",
-			"Tag which midfielder?", sync_tag, Callable(), Callable(), "Other midfielder…", true)
+	var opp_listed := opp.filter(func(r): return _can_play_midfield(sim, r))
+	var tag_first := _in_the_game(opp_listed, quick if quick > 0 else 4)
+	# The player the break names as their best is always on offer, if he can
+	# play midfield at all.
+	for best_p in MatchNotes.standouts(_res, 1 - _my_side, 1):
+		var bid := str(best_p.get("id", ""))
+		for r in opp_listed:
+			if str(r["id"]) == bid and not tag_first.any(func(x): return str(x["id"]) == bid):
+				tag_first.append(r)
+	var tag := _player_choice("TagPicker", "No tag", opp_listed, tag_first, calls, "tag_id",
+			"Tag which player?", sync_tag, Callable(), Callable(), "Other player…", true)
 	col_a.add_child(_call_block("Tag", tag))
 	if tagger != null and not others.is_empty():
 		# Your assistant's man carries the same facts as the others, so
@@ -928,7 +941,7 @@ func _show_coach_box() -> void:
 
 	# Play through, three calls (director, 2026-10-07): each offers the men who
 	# fill that job now, and says what it does or that it waits.
-	for slot in MatchSim.FOCUS_SLOTS:
+	for slot in MatchNotes.FOCUS_ORDER:
 		var fits := mine.filter(func(r): return (MatchSim.FOCUS_SLOT_ROLES[slot] as Array).has(
 				str(_focus_player(str(r["id"])).get("role", r.get("role", "")))))
 		var note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
@@ -950,7 +963,12 @@ func _show_coach_box() -> void:
 	# named, whoever stands in the ruck spot does.
 	var rucks := _my_rucks(sim)
 	if rucks.size() >= 2:
-		var ruck_opts := [["", "No main ruck"]]
+		# Always someone (director, 2026-10-14): the assistant's pick unless the
+		# coach named another, so the list has no "No main ruck".
+		var ruck_pick := str(rucks[0]["id"])
+		if str(calls["main_ruck"]) == "":
+			calls["main_ruck"] = ruck_pick
+		var ruck_opts := []
 		for r in rucks:
 			# His Ruck and Contested ratings, named as the Ratings screen names
 			# them, so a weak tap man is plain before he is named. The position
@@ -963,6 +981,9 @@ func _show_coach_box() -> void:
 					places.append(str(UiKit.ROLE_LABEL.get(str(pos), str(pos))))
 			var detail := skills if places.is_empty() else "/".join(places) + "
 " + skills
+			if str(r["id"]) == ruck_pick:
+				detail += "
+Your assistant's pick"
 			ruck_opts.append([str(r["id"]), "%s
 %s" % [GameDB.player_display_name(r), detail]])
 		var ruck_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
@@ -1215,7 +1236,7 @@ func _mount_one_line(c: Dictionary) -> void:
 	body.call("minder", [take.call("MinderBlock")])
 	body.call("loose", [take.call("LooseBlock"), c["roam_note"]])
 	var through: Array = []
-	for slot in MatchSim.FOCUS_SLOTS:
+	for slot in MatchNotes.FOCUS_ORDER:
 		through.append(take.call("FocusPicker_" + str(slot), true))
 	body.call("pt", through)
 	body.call("ruck", [take.call("MainRuckPicker", true), take.call("MainRuckNote")])
@@ -1474,11 +1495,14 @@ func _call_answer(key: String, calls: Dictionary, c: Dictionary) -> String:
 		"loose":
 			return named.call(str(calls["interceptor_id"]), "No loose defender")
 		"pt":
+			# Same order as the row's label: forward, midfield, back. An empty
+			# slot says "no one", so each name stays under its own heading.
 			var who_through := PackedStringArray()
-			for slot in MatchSim.FOCUS_SLOTS:
-				if str(calls[slot]) != "":
-					who_through.append(named.call(str(calls[slot]), ""))
-			return "No one" if who_through.is_empty() else ", ".join(who_through)
+			var any_through := false
+			for slot in MatchNotes.FOCUS_ORDER:
+				any_through = any_through or str(calls[slot]) != ""
+				who_through.append(named.call(str(calls[slot]), "no one"))
+			return ", ".join(who_through) if any_through else "No one"
 		"ruck":
 			return named.call(str(calls["main_ruck"]), "No main ruck")
 	return ""
@@ -2434,6 +2458,10 @@ func _taggable_now(sim: MatchSim, r: Dictionary) -> bool:
 ## a ruck in a midfield slot and a defender with midfield second were offered
 ## under "Tag which midfielder?"). The sim's own rule (MatchSim.tag_target_ok)
 ## is untouched; the tag's names and "Other midfielder..." both offer only these.
+func _can_play_midfield(sim: MatchSim, r: Dictionary) -> bool:
+	return sim.tag_target_ok(1 - _my_side, str(r["id"]))
+
+
 func _listed_midfielder(sim: MatchSim, r: Dictionary) -> bool:
 	var id := str(r["id"])
 	var p := sim._on_ground(1 - _my_side, id)
@@ -2657,7 +2685,7 @@ func _my_rucks(sim: MatchSim) -> Array:
 ## Under the Main ruck call: who goes up, and who does while he rests.
 func _main_ruck_note(rucks: Array, id: String) -> String:
 	if id == "":
-		return "No main ruck: whoever is in the ruck spot goes up. While he is on the bench, another ruck does."
+		return "Whoever is in the ruck spot goes up."
 	var others := rucks.filter(func(r): return str(r["id"]) != id)
 	var next := GameDB.player_display_name(others[0]) if others.size() == 1 else "another ruck"
 	return "%s goes up at every stoppage while he is on the ground, wherever he lines up, and tires like a ruck for it. While he is on the bench, %s does." % [
@@ -2709,7 +2737,7 @@ func _show_setup(t: Dictionary) -> void:
 	var tag_id := str(t.get("tag_id", ""))
 	if tag_id != "":
 		bits.append("tagging " + GameDB.player_display_name_by_id(tag_id, "their player"))
-	for slot in MatchSim.FOCUS_SLOTS:
+	for slot in MatchNotes.FOCUS_ORDER:
 		var fid := str(t.get(slot, ""))
 		if fid != "":
 			bits.append("%s %s" % [GameDB.player_display_name_by_id(fid, "your player"),

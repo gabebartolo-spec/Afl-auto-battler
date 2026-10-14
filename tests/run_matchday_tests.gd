@@ -56,6 +56,9 @@ func _run() -> void:
 	_club_ink_all()
 	for club in ["COL", "GWS", "STK"]:
 		await _pc_break_worst_case(club)
+	await _main_ruck_default_and_sticks()
+	await _play_through_order()
+	await _tag_is_permanent()
 	await _tag_not_saved()
 	await _bounce_close_up()
 	await _playtest_bounce_scene()
@@ -211,9 +214,9 @@ func _phone_match(sz: Vector2i) -> void:
 	# every one of them is already a name.
 	var tag_sim = _state.pending_sim
 	var opp_side: Array = (m.get("_res")["roster"][1 - int(m.get("_my_side"))] as Array).filter(
-			func(r): return bool(m.call("_taggable_now", tag_sim, r)) and bool(m.call("_listed_midfielder", tag_sim, r)))
+			func(r): return bool(m.call("_taggable_now", tag_sim, r)) and bool(m.call("_can_play_midfield", tag_sim, r)))
 	var named := tag_choices.size() - 1
-	_check((tag_other != null and tag_other.text == "Other midfielder…") or named == opp_side.size(),
+	_check((tag_other != null and tag_other.text == "Other player…") or named == opp_side.size(),
 			"Every listed midfielder is a name or behind Other midfielder (%s: %d of %d named)" % [tag, named, opp_side.size()])
 	if tag_other != null:
 		tag_other.emit_signal("pressed")
@@ -846,14 +849,14 @@ func _tag_targets(sz: Vector2i) -> void:
 			named_ids[str(b.name).trim_prefix("TagPickerGrid_")] = true
 	var listed_ids := {}
 	for id in eligible:
-		if bool(m.call("_listed_midfielder", sim, {"id": id})):
+		if bool(m.call("_can_play_midfield", sim, {"id": id})):
 			listed_ids[id] = true
 	_check(other != null or named_ids.size() == listed_ids.size(),
 			"Every listed midfielder is a name or behind Other midfielder (%s: %d of %d named)" % [tag, named_ids.size(), listed_ids.size()])
 	var pick: Button = null
 	if other != null:
 		var why: String = await Tap.tap(other)
-		_check(why == "" and other.text == "Other midfielder…", "A finger opens Other midfielder (%s: %s %s)" % [tag, other.text, why])
+		_check(why == "" and other.text == "Other player…", "A finger opens Other midfielder (%s: %s %s)" % [tag, other.text, why])
 		await _settle()
 		var sheet: Node = m.find_child("PlayerSheet", true, false)
 		var rows: Array = sheet.find_children("Sheet_*", "Button", true, false) if sheet != null else []
@@ -1221,7 +1224,7 @@ func _one_line_break(sz: Vector2i) -> void:
 		if pick == null:
 			pick = b
 		var p: Dictionary = sim._on_ground(1 - me, id)
-		if not p.is_empty() and str(p.get("own_role", p.get("role", ""))) != "MID":
+		if not p.is_empty() and not Ratings.positions(p).has("MID"):
 			not_listed.append(names.back())
 	_check(pick != null and not_listed.is_empty(), "The tag names are their listed midfielders only (%s: %s)" % [tag, str(not_listed)])
 	if them == "MEL":
@@ -1229,7 +1232,7 @@ func _one_line_break(sz: Vector2i) -> void:
 		# midfield second) are both taggable in the sim at half time here.
 		var through := []
 		for p in (sim.squads[1 - me] as Object).ground:
-			if sim.tag_target_ok(1 - me, str(p["id"])) and str(p.get("own_role", p.get("role", ""))) != "MID":
+			if sim.tag_target_ok(1 - me, str(p["id"])) and not Ratings.positions(p).has("MID"):
 				through.append(str(p["id"]))
 		var offered := through.filter(func(id): return tp.find_child("TagPickerGrid_" + str(id), true, false) != null)
 		_check(not through.is_empty() and offered.is_empty(),
@@ -1239,7 +1242,7 @@ func _one_line_break(sz: Vector2i) -> void:
 		# the middle is behind it either.
 		var listed_n := 0
 		for r in (m.call("_roster_side", 1 - me) as Array):
-			if bool(m.call("_taggable_now", sim, r)) and bool(m.call("_listed_midfielder", sim, r)):
+			if bool(m.call("_taggable_now", sim, r)) and bool(m.call("_can_play_midfield", sim, r)):
 				listed_n += 1
 		var other: Button = tp.find_child("TagPickerOther", true, false)
 		if other != null:
@@ -1252,7 +1255,7 @@ func _one_line_break(sz: Vector2i) -> void:
 				var rid := str(b.name).trim_prefix("Sheet_")
 				if through.has(rid) or tp.find_child("TagPickerGrid_" + rid, true, false) != null:
 					stray.append(rid)
-			_check(w_other == "" and other.text == "Other midfielder…" and stray.is_empty() and rest.size() == listed_n - names.size(),
+			_check(w_other == "" and other.text == "Other player…" and stray.is_empty() and rest.size() == listed_n - names.size(),
 					"Other midfielder lists only their listed midfielders not already named (%s: %d listed, %d named, %d behind, off %s%s)"
 					% [tag, listed_n, names.size(), rest.size(), str(stray), (", " + w_other) if w_other != "" else ""])
 			m.call("handle_back")
@@ -1629,8 +1632,16 @@ func _main_ruck_picker(sz: Vector2i) -> void:
 			continue
 		var rucks: Array = m.call("_my_rucks", sim)
 		var note: Label = box.find_child("MainRuckNote", true, false)
-		_check(note != null and note.text.begins_with("No main ruck: whoever is in the ruck spot goes up."),
-				"With nobody named, it says the ruck spot decides (%s)" % tag)
+		var best_id := str(rucks[0]["id"])
+		var best_nm: String = db.player_display_name(rucks[0])
+		_check(box.find_child("MainRuckPicker_", true, false) == null and not _any_text(pick, "No main ruck"),
+				"The Main ruck call has no \"No main ruck\" choice (%s)" % tag)
+		var pick_btn: Button = box.find_child("MainRuckPicker_" + best_id, true, false)
+		var other_btn: Button = box.find_child("MainRuckPicker_" + str(rucks[1]["id"]), true, false)
+		_check(pick_btn != null and pick_btn.text.contains("Your assistant's pick") and other_btn != null
+				and not other_btn.text.contains("assistant"), "The assistant's pick, the best Ruck rating, is marked (%s)" % tag)
+		_check(note != null and note.text.begins_with("%s goes up at every stoppage" % best_nm),
+				"With nobody named by the coach, the assistant's pick goes up (%s)" % tag)
 		var b: Button = box.find_child("MainRuckPicker_" + str(rucks[1]["id"]), true, false)
 		var rr := roundi(float((rucks[1]["attr"] as Dictionary).get("ruck", 0.0)))
 		_check(b != null and b.text.contains("Ruck %d" % rr), "His card shows his Ruck rating, %d (%s)" % [rr, tag])
@@ -1664,6 +1675,144 @@ func _main_ruck_picker(sz: Vector2i) -> void:
 		_check(line != null and line.text.contains("%s the main ruck" % nm), "The plan line names the main ruck (%s)" % tag)
 		m.queue_free()
 		await _settle()
+
+
+## Old calls with main_ruck "" load and get the assistant's pick, which Start
+## takes to the engine; a coach's change sticks into the next quarter.
+func _main_ruck_default_and_sticks() -> void:
+	var db = root.get_node("GameDB")
+	var Ms = load("res://scripts/sim/MatchSim.gd")
+	for c in ["BRL", "HAW", "GWS", "WCE", "STK", "COL", "GEE", "CAR", "SYD", "MEL"]:
+		_state.reset()
+		_state.start_season(c, db.club_list(c))
+		if not _state.prepare_interactive_match():
+			continue
+		var sim = _state.pending_sim
+		var me := int(sim.moment_side)
+		var n := 0
+		for p in sim.squads[me].ground:
+			if Ms._is_ruckman(p):
+				n += 1
+		if n < 2:
+			continue
+		var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+		root.add_child(m)
+		await _settle()
+		m.set("_last_tactics", {"main_ruck": ""})
+		var box: Node = m.find_child("CoachBox", true, false)
+		var rucks: Array = m.call("_my_rucks", sim)
+		var gw: String = await Tap.tap(box.find_child("StartQuarter", true, false))
+		await _settle()
+		_check(gw == "" and str((sim.tactics[me] as Dictionary).get("main_ruck", "")) == str(rucks[0]["id"]),
+				"Old calls with no main ruck get the assistant's pick at the bounce (%s)" % c)
+		m.queue_free()
+		await _settle()
+		return
+	_check(false, "(setup) a club with two rucks for the default check")
+
+
+## "Play through (forward, midfield, back)": the value lists the same order,
+## with "no one" holding an empty slot's place, for every combination.
+func _play_through_order() -> void:
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("MEL", db.club_list("MEL"))
+	var players: Array = db.club_list("MEL")
+	var ids := [str(players[0]["id"]), str(players[1]["id"]), str(players[2]["id"])]
+	var surnames := []
+	for i in 3:
+		surnames.append(" ".join(str(db.player_display_name_by_id(ids[i], "")).split(" ").slice(1)))
+	var m = load("res://scripts/ui/MatchScene.gd").new()
+	var slots: Array = (load("res://scripts/ui/match/MatchNotes.gd").FOCUS_ORDER as Array)
+	_check(slots == ["focus_fwd", "focus_mid", "focus_def"], "Play through lists forward, midfield, back")
+	var bad := []
+	for mask in range(8):
+		var calls := {}
+		for i in 3:
+			calls[slots[i]] = ids[i] if (mask >> i) & 1 == 1 else ""
+		var got: String = m.call("_call_answer", "pt", calls, {})
+		if mask == 0:
+			if got != "No one":
+				bad.append(got)
+			continue
+		var parts := got.split(", ")
+		if parts.size() != 3:
+			bad.append(got)
+			continue
+		for i in 3:
+			var want_empty := (mask >> i) & 1 == 0
+			if want_empty != (parts[i] == "no one") or (not want_empty and not parts[i].ends_with(surnames[i])):
+				bad.append(got)
+	_check(bad.is_empty(), "The Play through row reads in its label's order for all 8 combinations, empties held as \"no one\" (%s)" % str(bad))
+	m.free()
+
+
+## True when any button or label under a node says the text.
+func _any_text(node: Node, text: String) -> bool:
+	for n in node.find_children("*", "Control", true, false):
+		if (n is Button or n is Label) and str(n.text).contains(text):
+			return true
+	return false
+
+
+## The tag is the coach's call all match (director, 2026-10-14): a named
+## tagger is not rotated off while his tag is on, and a mid/forward can be tagged.
+func _tag_is_permanent() -> void:
+	var db = root.get_node("GameDB")
+	var Ms = load("res://scripts/sim/MatchSim.gd")
+	_state.reset()
+	_state.start_season("MEL", db.club_list("MEL"))
+	_check(_state.prepare_interactive_match(), "A match is prepared for the tagger check")
+	var sim = _state.pending_sim
+	var me := int(sim.moment_side)
+	var mids: Array = (sim.squads[me].ground as Array).filter(func(p): return Ms.midfielder_on_ground(p))
+	var theirs := ""
+	for p in sim.squads[1 - me].ground:
+		if sim.tag_target_ok(1 - me, str(p["id"])):
+			theirs = str(p["id"])
+			break
+	_check(mids.size() >= 2 and theirs != "", "(setup) midfielders to tag with and a target")
+	if mids.size() < 2 or theirs == "":
+		return
+	var tagger_id := str(mids[0]["id"])
+	var t: Dictionary = (sim.tactics[me] as Dictionary).duplicate()
+	t["tag_id"] = theirs
+	t["tagger_id"] = tagger_id
+	sim.set_tactics(me, t)
+	sim.energy[tagger_id] = 5.0
+	for i in 40:
+		sim._auto_rotate(me)
+	var still := false
+	for p in sim.squads[me].ground:
+		if str(p["id"]) == tagger_id:
+			still = true
+	_check(still, "The named tagger stays on the ground with the tag on, however tired")
+	var t2: Dictionary = (sim.tactics[me] as Dictionary).duplicate()
+	t2["tag_id"] = ""
+	sim.set_tactics(me, t2)
+	for i in 3:
+		sim._auto_rotate(me)
+	var off := true
+	for p in sim.squads[me].ground:
+		if str(p["id"]) == tagger_id:
+			off = false
+	_check(off, "With no tag, the tired man is rotated off as before")
+	# A mid/forward is a valid tag target; a pure forward or ruck is not.
+	var mf := {}
+	var plain := {}
+	for p in sim.squads[1 - me].ground:
+		var pos: Array = Ratings.positions(p)
+		if pos.has("MID") and str(p["role"]) != "MID":
+			mf = p
+		elif not pos.has("MID"):
+			plain = p
+	if not mf.is_empty():
+		_check(sim.tag_target_ok(1 - me, str(mf["id"])), "A player who can play midfield is a tag target in a forward slot")
+	if not plain.is_empty():
+		_check(not sim.tag_target_ok(1 - me, str(plain["id"])), "A player with no midfield position is not a tag target")
+	var fake := {"role": "FWD", "own_role": "FWD", "role2": "MID", "id": "x", "attr": {}}
+	_check(Ms.can_be_tagged(fake) and not Ms.can_be_tagged({"role": "MID", "own_role": "RUCK", "role2": ""}),
+			"Mid/forward can be tagged; a ruck in a midfield slot cannot")
 
 
 ## A live match is not saved: a career saved and loaded mid-match comes back
