@@ -191,8 +191,10 @@ func _hub(size: Vector2i, wide: bool) -> void:
 	if wide:
 		var lr := lad.get_global_rect()
 		var cr := card.get_global_rect()
-		_check(absf(cr.position.x - lr.position.x) < 2.0 and cr.position.y >= lr.end.y - 1.0,
-				"%s: the front page sits directly under the ladder (%s under %s)" % [tag, cr, lr])
+		_check(absf(cr.position.y - lr.position.y) < 30.0 and cr.position.x >= lr.end.x - 1.0,
+				"%s: the front page stands beside the ladder (%s beside %s)" % [tag, cr, lr])
+		var view := Rect2(Vector2.ZERO, Vector2(size.x, size.y - 70))
+		_check(view.encloses(cr) and view.encloses(lr), "%s: ladder and front page are both in view without scrolling (%s, %s)" % [tag, cr, lr])
 	var texts: Array = []
 	_texts(card, texts)
 	var blob := "\n".join(texts)

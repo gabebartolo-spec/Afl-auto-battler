@@ -223,7 +223,10 @@ func _build() -> void:
 	var page := UiKit.vbox(UiKit.SECTION)
 	_root.add_child(UiKit.scroll(page))
 	var week := _week_section(season)
-	var ladder := _ladder_section(season)
+	# PC: the ladder and the league's front page stand side by side in the right
+	# column, both in view without scrolling (director, 2026-10-14).
+	var right_w := (_content_width() - 28.0) * 0.56
+	var ladder := _ladder_section(season, -1.0 if _narrow() else right_w * 0.42)
 	if _narrow():
 		page.add_child(week)
 		page.add_child(UiKit.rule())
@@ -241,12 +244,20 @@ func _build() -> void:
 		left.add_child(UiKit.rule())
 		left.add_child(_standing_card())
 		# The front page sits under the ladder, in the space it leaves empty.
-		var right := UiKit.vbox(UiKit.SECTION)
+		var right := UiKit.hbox(20)
 		right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		right.size_flags_stretch_ratio = 1.25
+		left.size_flags_stretch_ratio = 1.0
 		cols.add_child(right)
+		ladder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		ladder.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		right.add_child(ladder)
 		if not GameState.news.is_empty():
-			right.add_child(_news_card())
+			var news := _news_card()
+			news.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			news.size_flags_stretch_ratio = 1.2
+			news.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			right.add_child(news)
 	if _narrow():
 		_root.add_child(_bar_air())
 		_root.add_child(_footer(season))
@@ -286,7 +297,7 @@ func _week_title(season: Season) -> String:
 	return _finals_label()
 
 
-func _ladder_section(season: Season) -> Control:
+func _ladder_section(season: Season, table_width := -1.0) -> Control:
 	var v := UiKit.vbox(6)
 	v.name = "LadderSection"
 	var head := UiKit.hbox(8)
@@ -305,6 +316,8 @@ func _ladder_section(season: Season) -> Control:
 		series.pressed.connect(_show_finals)
 		head.add_child(series)
 	var width := _content_width() if _narrow() else _content_width() * 0.45
+	if table_width > 0.0:
+		width = table_width
 	v.add_child(UiKit.ladder_table(season.ladder_sorted(), GameState.my_club, width, 0, false))
 	return v
 
