@@ -1477,7 +1477,7 @@ func begin_draft() -> void:
 # End-of-season intake draft (the national draft: keep your list, add rookies)
 # ---------------------------------------------------------------------------
 ## Open this year's intake. Club-tied prospects (father-son / NGA) land with
-## their clubs before the snake starts; the rest forms the open pool, drafted
+## their clubs before the draft starts; the rest forms the open pool, drafted
 ## in reversed-ladder order (worst club first) like the real national draft.
 ## Returns false when there is nothing to draft.
 func begin_intake_draft() -> bool:
@@ -6068,13 +6068,12 @@ func pick_asset(id: String) -> Dictionary:
 
 
 ## The overall pick a club's pick in `rnd` will be in this year's national
-## draft: the reversed ladder, snaking back each round.
+## draft: the reversed ladder, the same order every round.
 func draft_spot(year: int, rnd: int, origin: String) -> int:
 	var order := _draft_order()
 	var n := order.size()
 	var i := order.find(origin)
-	var in_round := i + 1 if rnd % 2 == 1 else n - i
-	return (rnd - 1) * n + in_round
+	return (rnd - 1) * n + i + 1
 
 
 ## Where a club's pick in next year's draft might fall: [[overall pick,
@@ -6090,7 +6089,7 @@ func future_spots(rnd: int, origin: String) -> Array:
 	var sigma := float(n) / 4.0
 	var out := []
 	for place in range(n):
-		var in_round := n - place if rnd % 2 == 1 else place + 1
+		var in_round := n - place
 		var w := exp(-pow(float(place) - expect, 2.0) / (2.0 * sigma * sigma))
 		out.append([(rnd - 1) * n + in_round, w])
 	out.sort_custom(func(a, b): return float(a[1]) > float(b[1]))
