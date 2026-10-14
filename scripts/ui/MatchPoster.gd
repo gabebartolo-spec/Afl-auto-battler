@@ -9,9 +9,10 @@ extends Control
 const H_NARROW := 196.0
 const H_WIDE := 220.0
 ## The match ball between the two clubs, where the "v" was (director,
-## 2026-10-14): this tall on a phone and on a wide screen.
-const BALL_NARROW := 44.0
-const BALL_WIDE := 56.0
+## 2026-10-14: "Bigger, in real colours"): the poster's one hero object, as
+## tall as the guernseys beside it on a phone and taller on a wide screen.
+const BALL_NARROW := 60.0
+const BALL_WIDE := 92.0
 
 var _mine := ""
 var _opp := ""

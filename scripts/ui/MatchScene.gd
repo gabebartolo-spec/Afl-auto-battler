@@ -634,7 +634,7 @@ func _show_coach_box() -> void:
 	if q == 1:
 		# The match ball between the two clubs, where the "v" was (director,
 		# 2026-10-14). Without the picture the one line says it, as before.
-		var ball := UiArt.view("match_ball", 24.0)
+		var ball := UiArt.view("match_ball", 40.0)
 		var where_text := "%s  ·  %s v %s  ·  %s" % [str(_res.get("label", "Match")),
 				GameDB.club_short(str(_res["home"])), GameDB.club_short(str(_res["away"])), _venue()]
 		if ball != null:
