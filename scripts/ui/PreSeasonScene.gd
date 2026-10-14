@@ -139,16 +139,46 @@ func _header(stop: String) -> Control:
 		for n in names.get_children():
 			(n as Label).autowrap_mode = TextServer.AUTOWRAP_OFF
 		who.add_theme_constant_override("separation", 14)
+		_hang_watch(stop, who, WATCH_WIDE)   # between the club and the big line it belongs to
 		var words := UiKit.vbox(0)
 		words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		words.add_child(hero)
 		words.add_child(sub)
 		who.add_child(words)
 	else:
+		_hang_watch(stop, who, WATCH)   # at the end of the club's row, down beside the big line
 		v.add_child(hero)
 		v.add_child(sub)
 	v.add_child(_club_rule())
 	return v
+
+
+## The stopwatch at the time trial, hung from the top of the club's row in a
+## slot with no height of its own: the header is exactly as tall as without
+## it and nothing under it moves. Steel and white, never tinted; no tap.
+func _hang_watch(stop: String, who: HBoxContainer, height: float) -> void:
+	if stop != "trial":
+		return
+	var watch := UiArt.view("stopwatch", height)
+	if watch == null:
+		return
+	watch.name = "TrialStopwatch"
+	var slot := Control.new()
+	slot.name = "TrialStopwatchSlot"
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.custom_minimum_size = Vector2(watch.custom_minimum_size.x, 0)
+	slot.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	watch.size = watch.custom_minimum_size
+	slot.add_child(watch)
+	who.add_child(slot)
+
+
+## The stopwatch at the time trial stop (director, 2026-10-14: "Bigger, in
+## real colours"). It may not move anything, so it is as tall as the words it
+## stands beside: on a phone the club's row and the big line (56), on a wide
+## screen the one row the header is (40).
+const WATCH := 56.0
+const WATCH_WIDE := 40.0
 
 
 func _hero(stop: String) -> String:
