@@ -29,6 +29,8 @@ var _scope := "all"      # "all" or the quarter number as a string
 var _live := false        # at a break: the match so far
 ## Opens on the player table (the break's "All player stats"), not the team's.
 var players_first := false
+## Beside the score on a PC page: two groups across, whatever the screen's width.
+var compact := false
 
 
 func setup(res: Dictionary, my_side: int, live := false) -> MatchStatsView:
@@ -133,7 +135,7 @@ static func _minus(now: Dictionary, was: Dictionary) -> Dictionary:
 func _team(res: Dictionary) -> Control:
 	var codes := [str(res["home"]), str(res["away"])]
 	var t: Array = res["team"]
-	var cols := clampi(int(UiKit.view_width(self) / (GROUP_W + 40.0)), 1, GROUPS.size())
+	var cols := 2 if compact else clampi(int(UiKit.view_width(self) / (GROUP_W + 40.0)), 1, GROUPS.size())
 	var grid := GridContainer.new()
 	grid.name = "TeamStats"
 	grid.columns = cols
@@ -142,7 +144,7 @@ func _team(res: Dictionary) -> Control:
 	for g in GROUPS:
 		var box := UiKit.vbox(2)
 		box.name = "Group_" + str(g[0])
-		box.custom_minimum_size.x = GROUP_W if cols > 1 else 0.0
+		box.custom_minimum_size.x = (260.0 if compact else GROUP_W) if cols > 1 else 0.0
 		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL if cols == 1 else Control.SIZE_FILL
 		# Your club on the left, every group, so you never have to look up
 		# which column is yours.
