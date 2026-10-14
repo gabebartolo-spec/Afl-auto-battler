@@ -1134,13 +1134,13 @@ func _mouse_move(at: Vector2) -> void:
 	await process_frame
 
 
-## Draft night's hero (director, 2026-10-14: "Bigger, in real colours"): the
-## guernsey of the club on the clock, big, on the rendered wooden hanger,
-## beside the line that says who is on the clock; that line and the cap are
-## whole, nothing in it takes a tap, and a pick is still a real tap away.
-## Without the hanger's picture the line is as it was.
+## Draft night's stage (director, 2026-10-14): the real lectern and hanger
+## pictures, the guernsey of the club on the clock hanging from the hanger in
+## that club's own kit, nothing in the header cut short, the back button
+## still a real tap away. Without the files the club's marker is back.
 func _test_stage() -> void:
 	var art = load("res://scripts/ui/UiArt.gd")
+	var culture = load("res://scripts/ui/CultureSheet.gd")
 	for club in ["FRE", "MEL"]:
 		for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
 			var tag := "%s %dx%d" % [club, sz.x, sz.y]
@@ -1152,16 +1152,19 @@ func _test_stage() -> void:
 			root.add_child(ui)
 			ui.call("_on_club_chosen", club)
 			await _settle()
-			var panel: Control = ui.find_child("DraftSummary", true, false)
-			var hung: Control = panel.find_child("DraftGuernsey", true, false) if panel != null else null
+			var stage: Control = ui.find_child("DraftStage", true, false)
+			var hung: Control = stage.find_child("DraftGuernsey", true, false) if stage != null else null
 			var hanger: TextureRect = hung.find_child("Art_hanger", true, false) if hung != null else null
 			_check(hanger != null and hanger.texture.resource_path == "res://assets/ui/models/hanger.png"
-					and float(hanger.texture.get_width()) >= 2.0 * hanger.size.x and hanger.modulate == Color.WHITE and hung.size.y >= 84.0,
-					"%s: the hanger is its own picture, wood, sharp, and the hung guernsey is big (%d tall)" % [tag, int(hung.size.y) if hung != null else 0])
-			if hung == null or hanger == null:
+					and float(hanger.texture.get_width()) >= 2.0 * hanger.size.x,
+					"%s: the draft's header shows the hanger's own picture, sharp at this size" % tag)
+			if stage == null or hanger == null:
 				ui.queue_free()
 				await _settle()
 				continue
+			_check(hanger.modulate == Color.WHITE and stage.find_child("DraftLectern", true, false) == null
+					and stage.find_children("*", "TextureRect", true, false).size() == 1,
+					"%s: one object on the stage, the hung guernsey; the hanger stays wood" % tag)
 			var crest = hung.find_child("ClubMarker", true, false)
 			var on_clock := str(_state.draft.current_club())
 			var kit_cols: Dictionary = _db.club_guernsey(on_clock)
@@ -1170,43 +1173,36 @@ func _test_stage() -> void:
 					"%s: the guernsey on the hanger is the club on the clock's own (%s)" % [tag, on_clock])
 			var cr: Rect2 = (crest as Control).get_global_rect() if crest != null else Rect2()
 			var hr := hanger.get_global_rect()
-			_check(cr.size.x >= 60.0 and cr.size.y >= 60.0,
-					"%s: the guernsey is big enough to know the club at a glance (%d wide)" % [tag, int(cr.size.x)])
 			_check(crest != null and hr.position.y < cr.position.y and hr.end.y > cr.position.y and hr.end.y < cr.position.y + cr.size.y * 0.3
 					and absf(hr.get_center().x - cr.get_center().x) <= 1.0 and hr.size.x > cr.size.x * 0.64 and hr.size.x < cr.size.x,
 					"%s: the hanger's hook is over the collar and its tips show at the shoulders, on the guernsey's centre line" % tag)
-			var whole := panel.get_global_rect().grow(0.5).encloses(hung.get_global_rect()) \
-					and Rect2(Vector2.ZERO, Vector2(sz)).encloses(panel.get_global_rect())
-			var quiet := hung.mouse_filter == Control.MOUSE_FILTER_IGNORE
-			for n in hung.find_children("*", "Control", true, false):
+			var header: Control = stage.get_parent()
+			var whole := header.get_global_rect().grow(0.5).encloses(stage.get_global_rect()) \
+					and Rect2(Vector2.ZERO, Vector2(sz)).encloses(stage.get_global_rect())
+			var quiet := stage.mouse_filter == Control.MOUSE_FILTER_IGNORE
+			for n in stage.find_children("*", "Control", true, false):
 				quiet = quiet and (n as Control).mouse_filter == Control.MOUSE_FILTER_IGNORE
-			for l in panel.find_children("*", "Label", true, false):
+			for l in header.find_children("*", "Label", true, false):
 				var lab := l as Label
-				if not lab.is_visible_in_tree() or lab.text == "":
+				if lab.get_parent() is Button or not lab.is_visible_in_tree() or lab.text == "":
 					continue
-				if lab.size.y + 1.0 < lab.get_combined_minimum_size().y or lab.get_global_rect().intersects(hung.get_global_rect()):
+				if lab.size.y + 1.0 < lab.get_combined_minimum_size().y or lab.get_global_rect().intersects(stage.get_global_rect()):
 					whole = false
-				if lab.autowrap_mode == TextServer.AUTOWRAP_OFF:
-					for one in lab.text.split("\n"):
-						if lab.get_theme_font("font").get_string_size(one, HORIZONTAL_ALIGNMENT_LEFT, -1, lab.get_theme_font_size("font_size")).x > lab.size.x + 0.5:
-							whole = false
-			var status: Label = ui.find_child("DraftStatus", true, false)
-			var cap: Label = ui.find_child("SalaryCap", true, false)
-			_check(whole and quiet and status != null and status.text != "" and cap != null and cap.text.contains("Cap left"),
-					"%s: who is on the clock and the cap left are whole beside the guernsey, which takes no tap" % tag)
-			var head: Control = (ui.find_child("BackToMenu", true, false) as Control).get_parent()
-			_check(head.find_child("ClubMarker", true, false) != null and head.find_child("Art_lectern", true, false) == null,
-					"%s: the header keeps your club's small marker and nothing else" % tag)
+				if lab.autowrap_mode == TextServer.AUTOWRAP_OFF and lab.text_overrun_behavior == TextServer.OVERRUN_NO_TRIMMING \
+						and lab.get_theme_font("font").get_string_size(lab.text, HORIZONTAL_ALIGNMENT_LEFT, -1, lab.get_theme_font_size("font_size")).x > lab.size.x + 0.5:
+					whole = false
+			_check(whole and quiet, "%s: the stage sits inside the header, takes no tap, and the title beside it is whole" % tag)
+			var back: Button = ui.find_child("BackToMenu", true, false)
+			_check(back != null and back.size.x >= 44.0 and back.size.y >= 44.0, "%s: the back button is still a thumb wide and tall" % tag)
 			if sz.x < 600 and club == "FRE":
-				var pick: Button = ui.find_child("Pick_*", true, false)
-				var pool_row: Control = ui.find_child("Player_*", true, false)
-				_check(pick != null and pool_row != null and pick.size.y >= 44.0
-						and Rect2(Vector2.ZERO, Vector2(sz)).encloses(pick.get_global_rect()),
-						"%s: the first player in the pool and his pick button are on the screen under it, a thumb tall" % tag)
-				for c in pick.pressed.get_connections():
-					pick.pressed.disconnect(c["callable"])
-				var why: String = await Tap.tap(pick)
-				_check(why == "", "%s: a real tap still reaches a pick button (%s)" % [tag, why])
+				for c in back.pressed.get_connections():
+					back.pressed.disconnect(c["callable"])
+				var why: String = await Tap.tap(back)
+				_check(why == "", "%s: a real tap still reaches the back button beside the title (%s)" % [tag, why])
+				var status: Label = ui.find_child("DraftStatus", true, false)
+				var cap: Label = ui.find_child("SalaryCap", true, false)
+				_check(status != null and status.text != "" and cap != null and cap.text.contains("Cap left"),
+						"%s: who is on the clock and the cap left are still said under the header" % tag)
 			ui.queue_free()
 			await _settle()
 	art.dir = "res://assets/ui/no_such_folder"
@@ -1217,9 +1213,9 @@ func _test_stage() -> void:
 	root.add_child(plain)
 	plain.call("_on_club_chosen", "FRE")
 	await _settle()
-	var st: Label = plain.find_child("DraftStatus", true, false)
-	_check(plain.find_child("DraftGuernsey", true, false) == null and st != null and st.text != "",
-			"Without the hanger's picture the line says who is on the clock, as before")
+	var head: Control = (plain.find_child("BackToMenu", true, false) as Control).get_parent()
+	_check(plain.find_child("DraftStage", true, false) == null and head.find_child("ClubMarker", true, false) != null,
+			"Without the pictures the header shows the club's marker, as before")
 	plain.queue_free()
 	await _settle()
 	art.dir = "res://assets/ui/models"

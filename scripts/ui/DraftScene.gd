@@ -300,17 +300,19 @@ func _header(title_text: String, sub: String) -> Control:
 	if not _short:
 		v.add_child(UiKit.ellipsis(sub, UiKit.SMALL, UiKit.MUTED))
 	if not _club.is_empty():
-		h.add_child(UiKit.club_badge(_club, 14, true))
+		# Draft night's stage where the club's small marker was; without the
+		# pictures, the marker as before.
+		var stage := _stage()
+		h.add_child(stage if stage != null else UiKit.club_badge(_club, 14, true))
 	return h
 
 
-## Draft night's hero (director, 2026-10-14: "Bigger, in real colours"): the
-## guernsey of the club on the clock on a wooden hanger, big, beside who is on
-## the clock - the club's own guernsey, as everywhere else in the game, on the
-## rendered hanger. Decoration: it takes no tap. This tall on a phone and on a
-## wide screen.
-const STAGE_NARROW := 84.0
-const STAGE_WIDE := 96.0
+## Draft night's hero (director, 2026-10-14): the guernsey of the club on the
+## clock on a wooden hanger - the club's own guernsey, as everywhere else in
+## the game, on the rendered hanger. One object: the lectern that stood beside
+## it is gone. Decoration: it takes no tap.
+const STAGE_NARROW := 60.0
+const STAGE_WIDE := 72.0
 ## The hanger is this wide against the guernsey's square (the guernsey fills
 ## 64% of it, so the hanger's tips show at the shoulders).
 const HANGER_SPAN := 0.78
@@ -322,19 +324,22 @@ func _stage_h() -> float:
 	return STAGE_WIDE if _wide else STAGE_NARROW
 
 
-## The hung guernsey, or null without the hanger's picture.
 func _stage() -> Control:
 	var wood := UiArt.texture("hanger")
 	if wood == null:
 		return null
+	var h := UiKit.hbox(8)
+	h.name = "DraftStage"
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_hung = Control.new()
 	_hung.name = "DraftGuernsey"
 	_hung.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hung.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_hung.custom_minimum_size = Vector2(round(_crest_size(wood) * (HANGER_SPAN + 0.02)), _stage_h())
+	_hung.custom_minimum_size = Vector2(round(_crest_size(wood) * (HANGER_SPAN + 0.04)), _stage_h())
+	h.add_child(_hung)
 	_hung_code = ""
 	_hang(_club)
-	return _hung
+	return h
 
 
 ## The hanger's height for a guernsey square of 1.
@@ -348,7 +353,7 @@ func _crest_size(wood: Texture2D) -> float:
 	return floor(_stage_h() / (1.0 + 0.42 * _hanger_rise(wood)))
 
 
-## Hang `code`'s guernsey on the hanger.
+## Hang `code`'s guernsey on the stage's hanger.
 func _hang(code: String) -> void:
 	if not is_instance_valid(_hung) or code == "" or code == _hung_code:
 		return
@@ -449,17 +454,10 @@ func _compact_header() -> Control:
 
 func _summary() -> Control:
 	var p := UiKit.panel(UiKit.PANEL, 9, 7)
-	p.name = "DraftSummary"
 	var h := UiKit.hbox(12)
 	p.add_child(h)
-	# The club on the clock's guernsey leads the line that says who is on the
-	# clock; without the hanger's picture the line is as it was.
-	var stage := _stage()
-	if stage != null:
-		h.add_child(stage)
 	var v := UiKit.vbox(0)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(v)
 	_status = UiKit.lbl("", UiKit.NAME, UiKit.EMPH, true)
 	_status.name = "DraftStatus"
