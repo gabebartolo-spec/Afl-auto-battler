@@ -168,6 +168,12 @@ func _run() -> void:
 		print("DEBUG ", id, " node ", node != null, " rect ", node.get_global_rect() if node != null else "-", " visible ", node.is_visible_in_tree() if node != null else "-",
 				" modulate ", node.modulate if node != null else "-", " children ", node.get_child_count() if node != null else 0, " chain ", chain,
 				" sc ", (sc as Control).get_global_rect() if sc != null else "-", " scroll ", (sc as ScrollContainer).scroll_vertical if sc != null else "-")
+		var texts := []
+		if node != null:
+			for l in node.find_children("*", "Label", true, false):
+				texts.append(str((l as Label).text).left(40) + "|" + str((l as Label).size))
+		print("DEBUG2 card resolved ", card.get("resolved", "-"), " title ", str(card.get("title", "")).left(40), " events ", state.week_events.size(),
+				" first ", str((state.week_events[0] as Dictionary).get("title", "")).left(40) if state.week_events.size() > 0 else "-", " labels ", texts)
 		if sc != null and node != null:
 			(sc as ScrollContainer).ensure_control_visible(node)
 			for i in range(6):
