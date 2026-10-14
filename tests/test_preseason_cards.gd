@@ -16,6 +16,7 @@ const IDS := ["pre_recruit_behind", "pre_contract_talk", "pre_bulking_up", "pre_
 
 func run(suite) -> void:
 	s = suite
+	var before: int = s.checks
 	Features.set_on("preseason", true)
 	PreSeason.reload()
 	_test_deck()
@@ -23,6 +24,7 @@ func run(suite) -> void:
 	_test_effects()
 	_test_facts()
 	_test_hands_off_and_save()
+	print("Pre-season cards: %d of the story suite's checks" % (s.checks - before))
 	Features.clear("preseason")
 	PreSeason.reload()
 
