@@ -826,4 +826,6 @@ func _pre_match_scene() -> void:
 func _plain(c: Control) -> String:
 	if c.has_meta("plain"):
 		return str(c.get_meta("plain"))
-	return (c as Label).text if c is Label else ""
+	if c is Label:
+		return (c as Label).text
+	return (c as RichTextLabel).get_parsed_text() if c is RichTextLabel else ""

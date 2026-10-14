@@ -774,7 +774,7 @@ func _coach_descriptions(sz: Vector2i) -> void:
 			db.player_display_name_by_id(str(calls["tag_id"]), ""), db.player_display_name_by_id(str(calls["focus_id"]), ""),
 			str(jobs[focus_role]), db.player_display_name_by_id(str(calls["interceptor_id"]), "")]
 	_check(line != null and line.visible and _plain(line) == full, "The plan line names every call (%s)" % tag)
-	_check(line.autowrap_mode != TextServer.AUTOWRAP_OFF and line.text_overrun_behavior == TextServer.OVERRUN_NO_TRIMMING,
+	_check(line.autowrap_mode != TextServer.AUTOWRAP_OFF and (line is RichTextLabel or line.text_overrun_behavior == TextServer.OVERRUN_NO_TRIMMING),
 			"The plan line wraps, it does not trim (%s)" % tag)
 	_check(line.size.y >= line.get_minimum_size().y - 0.5 and line.get_line_count() >= 1 and line.get_visible_line_count() == line.get_line_count(),
 			"Every line of the plan is drawn (%s: %d lines)" % [tag, line.get_line_count()])
@@ -1799,8 +1799,9 @@ func _text(node: Node) -> String:
 	if node == null:
 		return ""
 	var out := ""
-	for n in node.find_children("*", "Label", true, false):
-		out += str(n.text) + "\n"
+	for n in node.find_children("*", "Control", true, false):
+		if n is Label or n is RichTextLabel:
+			out += _plain(n) + "\n"
 	return out
 
 
@@ -2913,4 +2914,6 @@ func _check(condition: bool, message: String) -> void:
 func _plain(c: Control) -> String:
 	if c.has_meta("plain"):
 		return str(c.get_meta("plain"))
-	return (c as Label).text if c is Label else ""
+	if c is Label:
+		return (c as Label).text
+	return (c as RichTextLabel).get_parsed_text() if c is RichTextLabel else ""
