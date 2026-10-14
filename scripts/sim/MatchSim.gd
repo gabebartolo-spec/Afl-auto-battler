@@ -352,6 +352,8 @@ static func _start_energy(p: Dictionary) -> float:
 		e = 88.0
 	if bool(p.get("sore", false)):
 		e = minf(e, ClubLife.SORE_LEGS)
+	if bool(p.get("slow_start", false)):
+		e = minf(e, ClubLife.SLOW_LEGS)
 	return minf(e, Workload.energy_cap(p))
 
 
@@ -807,6 +809,10 @@ func _pv(side: int, key: String, fallback := 1.0) -> float:
 		scale = float((squads[side] as Squad).tactics_exec) \
 				* float((plan_fit[side] as Dictionary).get(plan, 1.0)) \
 				* float((WEATHER_PLAN.get(weather, {}) as Dictionary).get(plan, 1.0))
+		# A plan the side knows less than well gives less of its upside.
+		var know: Dictionary = (squads[side] as Squad).plan_know
+		if not know.is_empty():
+			scale *= float(know.get(plan, 1.0))
 	return fallback + (v - fallback) * scale
 
 
