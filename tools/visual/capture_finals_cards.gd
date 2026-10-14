@@ -54,7 +54,7 @@ func _card(state, id: String, p: Dictionary, over: Dictionary, subj_over: Dictio
 	var ctx: Dictionary = CS.context(state)
 	var club: Dictionary = (ctx["club"] as Dictionary).duplicate()
 	club.merge(over, true)
-	var t := SD.by_id(SD.all(), id)
+	var t: Dictionary = SD.by_id(SD.all(), id)
 	var subj := {"kind": "club"}
 	if str((t["subject"] as Dictionary).get("kind", "")) == "player":
 		subj = {}
