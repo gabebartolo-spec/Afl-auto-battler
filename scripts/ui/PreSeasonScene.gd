@@ -104,8 +104,21 @@ func _build() -> void:
 ## Whose pre-season it is and where it stands: the club's marker and colour,
 ## then the one big line.
 func _header(stop: String) -> Control:
+	var outer := UiKit.vbox(4)
+	outer.name = "PreSeasonHeader"
 	var v := UiKit.vbox(4)
-	v.name = "PreSeasonHeader"
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var top := UiKit.hbox(12)
+	top.add_child(v)
+	outer.add_child(top)
+	if stop == "trial":
+		# In its own steel and white, never tinted; it takes no tap, and
+		# without the picture the header is as it was.
+		var watch := UiArt.view("stopwatch", WATCH_WIDE if _wide() else WATCH)
+		if watch != null:
+			watch.name = "TrialStopwatch"
+			top.add_child(watch)
 	var who := UiKit.hbox(10)
 	who.add_child(UiKit.club_marker(GameState.my_club, 32.0))
 	var names := UiKit.vbox(0)
@@ -136,31 +149,15 @@ func _header(stop: String) -> Control:
 	else:
 		v.add_child(hero)
 		v.add_child(sub)
-	if stop == "trial":
-		# The stopwatch at the time trial (director, 2026-10-14), at the end of
-		# the club's row, where it takes no room from the words. Decoration: it
-		# takes no tap, and without the picture the header is as it was.
-		var watch := UiArt.view("stopwatch", WATCH_WIDE if _wide() else WATCH, CultureSheet.emblem_tint(GameState.my_club))
-		if watch != null:
-			watch.name = "TrialStopwatch"
-			# It hangs from the top of the club's row in a holder with no
-			# height of its own, so the header is exactly as tall as before.
-			var holder := Control.new()
-			holder.name = "TrialStopwatchSlot"
-			holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			holder.custom_minimum_size = Vector2(watch.custom_minimum_size.x, 0)
-			holder.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-			watch.size = watch.custom_minimum_size
-			holder.add_child(watch)
-			who.add_child(holder)
-	v.add_child(_club_rule())
-	return v
+	outer.add_child(_club_rule())
+	return outer
 
 
-## The stopwatch at the time trial stop is this tall; on a wide screen, where
-## the club's rule runs right under the row, a little less, to stand clear of it.
-const WATCH := 44.0
-const WATCH_WIDE := 38.0
+## The stopwatch at the time trial stop (director, 2026-10-14: "Bigger, in
+## real colours"): the stop's one hero object, steel with a white dial, beside
+## the words on a phone and at the end of the header on a wide screen.
+const WATCH := 96.0
+const WATCH_WIDE := 80.0
 
 
 func _hero(stop: String) -> String:

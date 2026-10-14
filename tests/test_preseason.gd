@@ -1033,33 +1033,39 @@ func _test_screens() -> void:
 	_check(scene != null and scene.name == "PreSeasonScene" and GameState.preseason_stop() == "trial"
 			and _label(scene, "PreSeasonHero") == "The time trial",
 			"Weeks 1 to 3 are trained and the game stops at the time trial")
-	# The stopwatch at the time trial: the real picture in the club's wash,
-	# never red, inside the header, clear of every word, and it takes no tap.
+	# The stopwatch at the time trial: the real picture in its own steel and
+	# white, big enough to read, inside the header, clear of every word, taking
+	# no tap; the names and the way on are still on a phone's screen.
 	var watch := scene.find_child("TrialStopwatch", true, false) as TextureRect
 	var watch_tex: Texture2D = watch.texture if watch != null else null
 	_check(watch_tex != null and watch_tex.resource_path == "res://assets/ui/models/stopwatch.png"
-			and float(watch_tex.get_height()) >= 2.0 * watch.size.y and watch.size.y >= 36.0,
-			"The time trial stop shows the stopwatch's own picture, sharp at this size (%s)" % (watch_tex.resource_path if watch_tex != null else "missing"))
-	var watch_ok := watch != null and watch.mouse_filter == Control.MOUSE_FILTER_IGNORE \
-			and watch.modulate.is_equal_approx(CultureSheet.emblem_tint(CLUB)) \
-			and (watch.modulate.s < 0.08 or (watch.modulate.h > 0.08 and watch.modulate.h < 0.92))
+			and float(watch_tex.get_height()) >= 2.0 * watch.size.y and watch.size.y >= 80.0,
+			"The time trial stop shows the stopwatch's own picture, big and sharp (%s)" % (watch_tex.resource_path if watch_tex != null else "missing"))
+	var dial := Color.BLACK
+	if watch_tex != null:
+		var wimg := watch_tex.get_image()
+		dial = wimg.get_pixel(int(wimg.get_width() * 0.36), int(wimg.get_height() * 0.72))
+	var watch_ok := watch != null and watch.mouse_filter == Control.MOUSE_FILTER_IGNORE and watch.modulate == Color.WHITE \
+			and dial.a > 0.9 and dial.v > 0.8 and dial.s < 0.15
 	var head := scene.find_child("PreSeasonHeader", true, false) as Control
 	if watch != null and head != null:
 		watch_ok = watch_ok and head.get_global_rect().grow(0.5).encloses(watch.get_global_rect())
 		for l in head.find_children("*", "Label", true, false):
 			var lab := l as Label
-			var need := lab.get_theme_font("font").get_string_size(lab.text, HORIZONTAL_ALIGNMENT_LEFT, -1, lab.get_theme_font_size("font_size")).x
-			var drawn := Rect2(lab.global_position, Vector2(minf(need, lab.size.x), lab.size.y))
-			if lab.text != "" and drawn.intersects(watch.get_global_rect()):
+			if lab.text != "" and (lab.get_global_rect().intersects(watch.get_global_rect()) or lab.size.y + 1.0 < lab.get_combined_minimum_size().y):
 				watch_ok = false
-	_check(watch_ok, "The stopwatch carries the club's wash, takes no tap and covers no word in the header")
-	var head_h := head.size.y if head != null else 0.0
+	_check(watch_ok, "The stopwatch is steel with a white dial, in no club's colour, takes no tap, and no word in the header is covered or cut short")
+	var screen := Rect2(Vector2.ZERO, Vector2(scene.get_viewport_rect().size)).grow(0.5)
+	var first_home := scene.find_child("TrialBest_0", true, false) as Control
+	var go_on := scene.find_child("PreSeasonGo", true, false) as Control
+	_check(first_home != null and go_on != null and screen.encloses(first_home.get_global_rect()) and screen.encloses(go_on.get_global_rect())
+			and go_on.size.y >= 44.0,
+			"With the stopwatch there, the first man home and Back to training are still on the screen, the button a thumb tall")
 	UiArt.dir = "res://assets/ui/no_such_folder"
 	scene.call("_build")
 	await _frames(tree, 4)
-	var plain_head := scene.find_child("PreSeasonHeader", true, false) as Control
-	_check(scene.find_child("TrialStopwatch", true, false) == null and plain_head != null and is_equal_approx(plain_head.size.y, head_h),
-			"Without the picture the header is the same height: the stopwatch moves nothing (%.0f, %.0f)" % [head_h, plain_head.size.y if plain_head != null else -1.0])
+	_check(scene.find_child("TrialStopwatch", true, false) == null and _label(scene, "PreSeasonHero") == "The time trial",
+			"Without the picture the time trial stop reads as it did")
 	UiArt.dir = "res://assets/ui/models"
 	scene.call("_build")
 	await _frames(tree, 4)
