@@ -1852,12 +1852,13 @@ func _test_sides() -> void:
 			"A side is in no competition and holds no list: it is only a name and a kit")
 	var kits: Array = PitchView.kits_for(home, clash)
 	var as_away: Array = PitchView.kits_for("FRE", "FRE")
-	_check(kits[0] == GameDB.club_guernsey("FRE") and kits[1] == as_away[1]
+	_check((kits[0]["base"] as Color).is_equal_approx(GameDB.club_guernsey("FRE")["base"])
+			and (kits[1]["base"] as Color).is_equal_approx(as_away[1]["base"])
 			and (kits[1]["base"] as Color).is_equal_approx(GameDB.club_guernsey("FRE")["pattern"])
-			and (kits[1]["pattern"] as Color).is_equal_approx(GameDB.club_guernsey("FRE")["base"])
-			and UiKit.colour_distance(kits[0]["base"], kits[1]["base"]) >= PitchView.DISC_CLASH
-			and UiKit.colour_distance(kits[1]["base"], kits[1]["pattern"]) >= PitchView.DISC_CLASH,
-			"The second side wears the oval's own clash strip for that club, its kit's two colours changed over (no invented colour), and the two read apart")
+			and UiKit.colour_distance(kits[0]["base"], kits[1]["base"]) >= PitchView.DISC_CLASH,
+			"The first side wears the club's kit colour and the second the oval's own clash colour for that club, its kit's other colour (no invented colour), and the two read apart")
+	_check((kits[0]["pattern"] as Color).is_equal_approx(kits[0]["base"]) and (kits[1]["pattern"] as Color).is_equal_approx(kits[1]["base"]),
+			"Each side wears its colour plain, so two sides of a half-and-half kit are never mirror images of each other")
 	_check(GameDB.club_guernsey(clash) == kits[1] and GameDB.club_guernsey(home) == kits[0],
 			"Each side's kit is its own wherever a kit is asked for (crests, the close-ups)")
 	var inks: Array = UiKit.club_ink_pair(home, clash)

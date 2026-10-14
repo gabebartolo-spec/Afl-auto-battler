@@ -483,10 +483,11 @@ static func kits_for(home: String, away: String) -> Array:
 	return [h, a]
 
 
-## An intra-club match: the side in the clash strip wears exactly what the
-## oval gives that club as an away side against a home side in its own colours
-## (kits_for of the club against itself), so no colour is invented here. The
-## side in the home strip wears the club's kit. Harmless to call again.
+## An intra-club match: the side in the home strip wears the club's kit colour,
+## and the side in the clash strip the colour the oval gives that club as an
+## away side against a home side in its own colours (kits_for of the club
+## against itself: its kit's two colours changed over), so no colour is
+## invented here. Harmless to call again.
 static func dress_sides(base: String) -> void:
 	var codes: Array = GameDB.side_codes(base)
 	if not GameDB.is_side(str(codes[1])) or (GameDB.clubs[codes[1]] as Dictionary).has("kit"):
@@ -506,6 +507,13 @@ static func dress_sides(base: String) -> void:
 		second["base"] = far
 		second["pattern"] = hb
 		second["clash"] = true
+	# Each side wears its strip's colour plain, like training bibs: with the
+	# design kept, a kit that is half one colour and half the other (Melbourne's
+	# yoke) gives two sides that are mirror images of each other on a disc and
+	# cannot be told apart at match size. The colours are still the club's own.
+	for kit in [home, second]:
+		kit["pattern"] = kit.get("base", Color.WHITE)
+		kit["pattern2"] = kit.get("base", Color.WHITE)
 	GameDB.set_side_kit(str(codes[0]), home)
 	GameDB.set_side_kit(str(codes[1]), second)
 

@@ -1429,7 +1429,7 @@ func _test_screens() -> void:
 			"The match opens in the match view as Fremantle Purple v Fremantle White, the coach in charge of Purple")
 	var pitch := m.get("_pitch") as PitchView
 	_check(pitch != null and UiKit.colour_distance(pitch._kits[0]["base"], pitch._kits[1]["base"]) >= PitchView.DISC_CLASH
-			and pitch._kits[0] == GameDB.club_guernsey("FRE"),
+			and (pitch._kits[0]["base"] as Color).is_equal_approx(GameDB.club_guernsey("FRE")["base"]),
 			"On the oval the two sides wear the home strip and the clash strip")
 	var ladder_before := str(GameState.season.ladder)
 	var board_before := GameState.board_confidence()
