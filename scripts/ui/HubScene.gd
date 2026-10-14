@@ -1387,6 +1387,7 @@ func _show_media_conference() -> void:
 			stage.name = "MediaConferenceStage"
 			stage.custom_minimum_size = Vector2(stage_w, stage_w / 1.6)
 			stage.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			stage.clip_contents = true
 			row.add_child(stage)
 			scene = MediaConferenceVignette.open(stage, GameState.my_club)
 		row.add_child(answers)
@@ -1437,7 +1438,7 @@ func _show_media_conference() -> void:
 		group.add_child(b)
 		# What the answer does, under it: the board, the players, no numbers. In
 		# the page's own ink, not faint grey: the coach is deciding on it.
-		var effect := UiKit.lbl(MediaConference.effect_line(opts[i]), UiKit.SECONDARY if wide else UiKit.SMALL, UiKit.TEXT)
+		var effect := UiKit.lbl(MediaConference.effect_line(opts[i]), UiKit.BODY if wide else UiKit.SMALL, UiKit.TEXT)
 		effect.name = "MediaAnswerLine_%d" % i
 		effect.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		group.add_child(effect)

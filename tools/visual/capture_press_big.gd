@@ -36,8 +36,22 @@ func _run() -> void:
 	state.settings_path = "user://capture_press_big.cfg"
 	state.reset()
 	state.start_season(club, db.club_list(club))
-	root.size = Vector2i(w, h)
-	DisplayServer.window_set_size(Vector2i(w, h))
+	# --size is the LOGICAL canvas (what the game lays out in): the window is that times the
+	# OS scaling, so 1280x720 is what a 4K screen at 300% shows.
+	var headless := DisplayServer.get_name() == "headless"
+	var dens := 1.0 if headless else maxf(1.0, float(DisplayServer.screen_get_dpi()) / 96.0)
+	var px := Vector2i(roundi(w * dens), roundi(h * dens))
+	root.size = px
+	DisplayServer.window_set_size(px)
+	await _frames(4)
+	var got: Vector2i = root.content_scale_size
+	if got != Vector2i(w, h) and got.x > 0:
+		var k: float = float(px.x) / float(got.x)
+		px = Vector2i(roundi(w * k), roundi(h * k))
+		root.size = px
+		DisplayServer.window_set_size(px)
+		await _frames(4)
+	print("logical ", root.content_scale_size, " window ", root.size)
 	router.stack = []
 	router.go("main")
 	await _frames(8)
@@ -47,7 +61,7 @@ func _run() -> void:
 		if (b as Button).text == "Got it" and (b as Button).is_visible_in_tree():
 			(b as Button).emit_signal("pressed")
 	await _frames(10)
-	state.media_conference = MediaConference.pick({"club": club, "opponent_name": "Carlton", "round": 8,
+	state.media_conference = load("res://scripts/sim/MediaConference.gd").pick({"club": club, "opponent_name": "Carlton", "round": 8,
 			"result": {"home": club, "away": "CAR", "score": [55, 101]}}, {})
 	var hub = root.find_child("HubScene", true, false)
 	if hub == null:
@@ -68,8 +82,12 @@ func _run() -> void:
 		print("%s %s %s" % ["PASS" if inside else "FAIL", n, "" if c == null else str(c.get_global_rect())])
 		ok = ok and inside
 	var shell = v.find_child("*", true, false) if v != null else null
-	var img := root.get_viewport().get_texture().get_image()
-	img.save_png("%s_%dx%d.png" % [out, w, h])
+	if not headless:
+		var img := root.get_viewport().get_texture().get_image()
+		img.save_png("%s_%dx%d.png" % [out, w, h])
+		print("RESULT ", "PASS" if ok else "FAIL", " (on-screen check; the real tap runs headless)")
+		quit()
+		return
 	var answer: Button = root.find_child("MediaAnswer_0", true, false)
 	var why: String = await Tap.tap(answer) if answer != null else "missing"
 	await _frames(6)
