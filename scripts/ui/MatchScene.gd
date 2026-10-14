@@ -1910,7 +1910,9 @@ func _fill_note_lines(into: VBoxContainer, text: String) -> void:
 		c.queue_free()
 	var bits := text.replace(": ", "|").replace("; ", "|").split("|", false)
 	for i in range(bits.size()):
-		var l := UiKit.lbl(str(bits[i]).strip_edges(), UiKit.BODY if i == 0 else UiKit.SECONDARY, UiKit.TEXT, i == 0)
+		var piece := str(bits[i]).strip_edges()
+		piece = piece.substr(0, 1).to_upper() + piece.substr(1)
+		var l := UiKit.lbl(piece, UiKit.BODY if i == 0 else UiKit.SECONDARY, UiKit.TEXT, i == 0)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		into.add_child(l)
 
@@ -1980,6 +1982,7 @@ func _synergy_block() -> Control:
 	var syn: Array = GameState.pending_sim.synergies
 	var v := UiKit.vbox(3)
 	v.name = "SynergyBlock"
+	v.add_child(UiKit.spacer(6))
 	v.add_child(UiKit.lbl("Synergies", UiKit.SECONDARY, UiKit.TEXT, true))
 	v.add_child(_plan_row("Yours:", _synergy_names(syn[_my_side]), "SynYours"))
 	v.add_child(_plan_row("Theirs:", _synergy_names(syn[1 - _my_side]), "SynTheirs"))
