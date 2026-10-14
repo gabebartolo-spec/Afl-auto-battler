@@ -14,6 +14,7 @@ extends SceneTree
 ##   --figures           the mini-figure prototype on (Settings > Match view)
 ##   --maxsecs S         give up after S seconds of real time (default 1500)
 ##   --fullnudge         every disc drawn fully apart (PitchView.nudge_full), for the comparison
+##   --strip N           a frame at each of the eight events from event N (the same events in any window)
 ##   --maxevents N       stop after N events (a short look at the kits, say)
 ## Writes <out>_NNN_<what>.png, <out>_log.jsonl (one line per frame: the last event
 ## the engine released, the ball, every token in metres and in pixels, the words on
@@ -47,6 +48,7 @@ var _after_behind := -1
 var _moment_shots := 0
 var _every := 40
 var _pending_now := ""
+var _strip_from := -1
 
 
 func _initialize() -> void:
@@ -147,6 +149,7 @@ func _run() -> void:
 	if args.has("fullnudge"):
 		load("res://scripts/ui/PitchView.gd").set("nudge_full", true)
 	var maxevents := int(args.get("maxevents", "0"))
+	_strip_from = int(args.get("strip", "-1"))
 	_pitch.event_played.connect(_released)
 	_log = FileAccess.open(_out + "_log.jsonl", FileAccess.WRITE)
 	_trace = FileAccess.open(_out + "_trace.jsonl", FileAccess.WRITE)
@@ -373,6 +376,8 @@ func _drain() -> void:
 		elif kind == "behind" and side >= 0:
 			_tally[side][1] += 1
 		_on_event(ev)
+		if _strip_from >= 0 and _emitted_events.size() > _strip_from and _emitted_events.size() <= _strip_from + 8:
+			_want("strip", 0, 99)
 		_since_even += 1
 		if _since_even >= _every:
 			_since_even = 0

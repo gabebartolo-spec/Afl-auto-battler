@@ -140,8 +140,9 @@ func _ground_fit() -> void:
 		await _settle()
 		var pitch = m.get("_pitch")
 		var wide: bool = sz.x > sz.y
-		_check(pitch.camera_enabled == not wide,
-				"The close-up camera is for the narrow window only, web or not (%dx%d: %s)" % [sz.x, sz.y, str(pitch.camera_enabled)])
+		_check(not pitch.camera_enabled and pitch.upright == not wide,
+				"The whole ground shows, left to right in a wide window and top to bottom on a phone held upright, web or not (%dx%d: camera %s, upright %s)" % [
+				sz.x, sz.y, str(pitch.camera_enabled), str(pitch.upright)])
 		if wide:
 			var panel: Control = m.get("_side_panel")
 			var ground: Rect2 = pitch.call("pitch_rect")
@@ -164,7 +165,8 @@ func _ground_fit() -> void:
 	var side: Control = load("res://scenes/MatchScene.tscn").instantiate()
 	root.add_child(side)
 	await _settle()
-	_check(side.get("_pitch").camera_enabled, "A phone sideways keeps the close-up camera")
+	_check(side.get("_pitch").camera_enabled and not side.get("_pitch").upright,
+			"A phone sideways keeps the close-up camera, the ground left to right")
 	side.queue_free()
 	await _settle()
 	sl.force_web_phone = false
