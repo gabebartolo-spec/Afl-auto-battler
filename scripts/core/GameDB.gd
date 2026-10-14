@@ -177,17 +177,15 @@ func reload() -> void:
 	for p in players:
 		Ratings.rate_on_record(p)
 	override_hits = {}
-	_apply_ovr_overrides(players)
 	for p in players:
 		Potential.assign(p)
-	_apply_relative_pot(players)
+	_apply_ovr_overrides(players)
 	_apply_potential_overrides(players)
 	draftees = _load_draftees()
 	list_additions = _load_list_additions()
 	# List additions become real players here, so the hand-set numbers reach
 	# them too; a row that matched nobody in either list is reported.
 	_apply_ovr_overrides(list_additions)
-	_apply_relative_pot(list_additions)
 	_apply_potential_overrides(list_additions)
 	override_unmatched = _report_unmatched_overrides()
 	departures = _load_departures()
@@ -1144,28 +1142,26 @@ func _apply_history_rows(list: Array) -> void:
 
 
 ## Hand-set OVR (data/ovr_overrides.csv), matched on club + first + last name.
-## Every attribute is scaled by one factor (capped 1-99) until the rating in his
-## own position lands on the target, so his strengths stay his strengths. Runs
-## before POT is assigned. An unmatched row is reported.
+## Every attribute is shifted by the same amount (capped 1-99) until the rating
+## in his own position lands on the target, so his profile keeps its gaps. POT
+## is the one he had before, raised to the new OVR. An unmatched row is reported.
 func _apply_ovr_overrides(list: Array) -> void:
 	_each_override_row(OVR_CSV, "ovr", list, func(p, cell):
 		var text: String = str(cell).strip_edges()
+		var before_pot := int(p.get("potential", p["overall"]))
+		var mult := 1.0
+		var target := 0
 		if text.begins_with("+") and text.ends_with("%"):
-			# A relative row: his computed OVR and his assigned POT both scale.
-			var mult: float = 1.0 + float(text.substr(1, text.length() - 2)) / 100.0
-			p["_pot_mult"] = mult
-			set_player_ovr(p, int(round(float(p["overall"]) * mult)))
+			# A relative row: his computed OVR and the POT he had both scale.
+			mult = 1.0 + float(text.substr(1, text.length() - 2)) / 100.0
+			target = int(round(float(p["overall"]) * mult))
 		else:
-			set_player_ovr(p, int(text)))
-
-
-## A relative row raises POT by the same share, after POT is assigned.
-func _apply_relative_pot(list: Array) -> void:
-	for p in list:
-		if p.has("_pot_mult"):
-			var pot := int(round(float(p.get("potential", p["overall"])) * float(p["_pot_mult"])))
-			p["potential"] = clampi(maxi(pot, int(p["overall"])), 1, Potential.MAX_POT)
-			p.erase("_pot_mult")
+			target = int(text)
+		if set_player_ovr(p, target):
+			# His POT is the one he had before, raised to his new OVR (a veteran
+			# is not a rehab case because his rating moved).
+			var pot := int(round(float(before_pot) * mult))
+			p["potential"] = clampi(maxi(pot, target), 1, Potential.MAX_POT))
 
 
 ## Walks a hand-set csv (club, first, last + one value column), matching on
@@ -1229,18 +1225,36 @@ static func set_player_ovr(p: Dictionary, target: int) -> bool:
 		games = 14.0     # a prospect with no senior game is rated on 14
 	var base: Dictionary = p["attr"]
 	var best: Dictionary = {}
-	var best_gap := 1000.0
-	for step in range(0, 600):
-		var m := 0.2 + float(step) * 0.005
+	var best_miss := 1000
+	var best_shift := 1000
+	# The same shift on every attribute (clamped 1-99): the one that lands
+	# nearest the target, the smaller shift on a tie. His profile keeps its gaps.
+	for shift in range(-98, 99):
 		var a := {}
 		for k in base:
-			a[k] = clampi(int(round(float(base[k]) * m)), 1, 99)
-		if Ratings.rate_overall(a, role, games) == target:
-			var gap := absf(m - 1.0)
-			if gap < best_gap:
-				best_gap = gap
-				best = a
-	if best.is_empty():
+			a[k] = clampi(int(base[k]) + shift, 1, 99)
+		var miss := absi(Ratings.rate_overall(a, role, games) - target)
+		if miss < best_miss or (miss == best_miss and absi(shift) < best_shift):
+			best_miss = miss
+			best_shift = absi(shift)
+			best = a
+	# One shift step can move the rating by two (the position scale is steeper
+	# than one for a forward); close the last point one attribute at a time.
+	var guard := 0
+	while best_miss > 0 and guard < 60:
+		guard += 1
+		var dir := 1 if Ratings.rate_overall(best, role, games) < target else -1
+		for k in best:
+			var v := int(best[k]) + dir
+			if v < 1 or v > 99:
+				continue
+			best[k] = v
+			best_miss = absi(Ratings.rate_overall(best, role, games) - target)
+			if best_miss == 0:
+				break
+		if best_miss == 0:
+			break
+	if best_miss > 0:
 		push_warning("GameDB: ovr override cannot reach %d for %s %s" % [target, p["first"], p["last"]])
 		return false
 	p["attr"] = best
