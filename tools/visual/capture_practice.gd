@@ -109,7 +109,10 @@ func _run() -> void:
 		await process_frame
 	await _shot(out + "_match_play.png")
 	current_scene.call("_on_skip")
-	await _frames(40)
+	for i in range(600):
+		await process_frame
+		if current_scene.find_child("FullTimeContinue", true, false) != null and i > 30:
+			break
 	await _shot(out + "_match_fulltime.png")
 	await _press("FullTimeContinue")
 	await _frames(14)

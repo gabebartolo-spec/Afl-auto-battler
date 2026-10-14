@@ -345,14 +345,14 @@ func _match_report(rep: Dictionary, prefix: String, pool: Array) -> Control:
 		var ids: Array = rep.get(str(part[1]), [])
 		if ids.is_empty():
 			continue
-		v.add_child(UiKit.spacer(4))
-		v.add_child(_section_head(str(part[0])))
+		v.add_child(UiKit.spacer(8))
+		v.add_child(_report_head(str(part[0])))
 		for i in range(ids.size()):
 			v.add_child(_runner(str(ids[i]), "", "%s_%d" % [str(part[2]), i]))
 	var hurt: Array = rep.get("hurt", [])
 	if not hurt.is_empty():
-		v.add_child(UiKit.spacer(4))
-		v.add_child(_section_head("Hurt in the match"))
+		v.add_child(UiKit.spacer(8))
+		v.add_child(_report_head("Hurt in the match"))
 		for i in range(hurt.size()):
 			var l := UiKit.lbl(str(hurt[i]), UiKit.BODY, UiKit.BAD)
 			l.name = prefix + "Hurt_%d" % i
@@ -363,8 +363,8 @@ func _match_report(rep: Dictionary, prefix: String, pool: Array) -> Control:
 		var names_by_id := {}
 		for p in pool:
 			names_by_id[str(p["id"])] = GameDB.player_display_name(p)
-		v.add_child(UiKit.spacer(4))
-		v.add_child(_section_head("Prospects seen"))
+		v.add_child(UiKit.spacer(8))
+		v.add_child(_report_head("Prospects seen"))
 		var note := UiKit.lbl("Each line is on his draft card from now on.", UiKit.SECONDARY, UiKit.TEXT)
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(note)
@@ -491,6 +491,15 @@ func _club_rule() -> Control:
 	r.custom_minimum_size = Vector2(0, 2)
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return r
+
+
+## A report section's head: a rule in the club's colour over its name in bold,
+## so Stood out, Struggled and Prospects seen read as separate sections.
+func _report_head(text: String) -> Control:
+	var v := UiKit.vbox(4)
+	v.add_child(_club_rule())
+	v.add_child(UiKit.lbl(text, UiKit.HEADING, UiKit.club_name_colour(UiKit.club_ink(GameState.my_club)), true))
+	return v
 
 
 func _section_head(text: String) -> Label:
@@ -795,10 +804,13 @@ func _runner(id: String, place: String, node_name: String) -> Control:
 		fig.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		fig.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(fig)
-	var n := UiKit.name_label(GameDB.player_display_name(p) if not p.is_empty() else "A player who has left")
+	# His name wears his club's colour, and where he plays sits beside it.
+	var n := UiKit.lbl(GameDB.player_display_name(p) if not p.is_empty() else "A player who has left",
+			UiKit.NAME, UiKit.club_name_colour(UiKit.club_ink(GameState.my_club)), true)
 	n.name = node_name
-	n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	n.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	n.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	n.autowrap_mode = TextServer.AUTOWRAP_OFF
 	h.add_child(n)
 	if not p.is_empty():
 		var role := UiKit.lbl(str(UiKit.ROLE_LABEL.get(str(p.get("role", "")), str(p.get("role", "")))),
@@ -806,6 +818,10 @@ func _runner(id: String, place: String, node_name: String) -> Control:
 		role.autowrap_mode = TextServer.AUTOWRAP_OFF
 		role.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(role)
+	var rest := Control.new()
+	rest.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rest.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(rest)
 	box.add_child(h)
 	box.add_child(UiKit.rule())
 	return box
