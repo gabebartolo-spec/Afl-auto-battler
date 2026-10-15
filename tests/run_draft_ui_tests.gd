@@ -4,6 +4,7 @@ extends SceneTree
 ## smoke tests are documented separately in tests/README.md.
 ## Seeded by design: the Draft is built with an explicit seed (12345).
 
+const Tap := preload("res://tests/tap.gd")
 const VIEWPORTS := [
 	Vector2i(390, 844), Vector2i(844, 390), Vector2i(320, 568),
 	Vector2i(360, 800), Vector2i(430, 932), Vector2i(420, 860), Vector2i(360, 740), Vector2i(768, 1024),
@@ -111,9 +112,260 @@ func _run() -> void:
 	_check(_state.draft.count() == roster_before, "Reopening preserves the user's roster")
 	ui.queue_free()
 	await _settle()
+	await _test_start_season_footer()
 	await _test_intake_combine()
+	await _test_search_keyboard()
+	await _test_rotation()
+	await _test_phone_browser_never_wide()
+	await _test_stage()
 	print("Draft UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
+
+## The draft's footer tells the truth about the finished list, and Start season
+## does what the footer says: a list short at a position starts and says who
+## fills in; a list the rules refuse stays on the draft and says why; a list
+## with every position covered says it is ready. All by a real tap.
+func _test_start_season_footer() -> void:
+	var old_size := root.size
+	root.size = Vector2i(390, 844)
+	# Short at defence: cheapest players first, never a defender.
+	var ui: Control = await _finished_draft(false)
+	var d = _state.draft
+	var footer: Label = ui.find_child("UpcomingPicks", true, false)
+	var fin: Button = ui.find_child("StartSeason", true, false)
+	var short_def := int((d.position_status()["DEF"] as Dictionary)["short"])
+	_check(d.is_finished() and d.is_valid() and short_def > 0,
+			"Setup: a full list within the cap with no defenders (short %d)" % short_def)
+	_check(footer.text.begins_with("Short %d defenders" % short_def),
+			"A list short at defence says so: " + footer.text.replace("
+", " / "))
+	_check(not footer.text.contains("ready"), "...and does not say the list is ready")
+	_check(not fin.disabled, "The rules let a full list start short, so Start season is live")
+	var why: String = await Tap.tap(fin)
+	_check(why == "" and _state.season != null and _state.my_club == "COL",
+			"A finger's tap on Start season starts the season (%s)" % why)
+	ui.queue_free()
+	_state.reset()
+	await _settle()
+
+	# A list the rules refuse: over the cap. Start season is off, the footer says why.
+	ui = await _finished_draft(false)
+	d = _state.draft
+	d.budget = d.spent() - 1000
+	ui.call("_refresh")
+	await _settle()
+	footer = ui.find_child("UpcomingPicks", true, false)
+	fin = ui.find_child("StartSeason", true, false)
+	_check(not d.is_valid() and fin.disabled, "Setup: over the cap, Start season is off")
+	_check(footer.text.contains("over the salary cap") and not footer.text.contains("ready"),
+			"An invalid list says why: " + footer.text.replace("
+", " / "))
+	await Tap.tap(fin)
+	await _settle()
+	_check(_state.season == null and ui.is_inside_tree() and ui.get("_phase") == "board",
+			"A tap on Start season with an invalid list leaves you on the draft")
+	# ...and the coach can fix it here: My list offers Release, a real tap
+	# frees the player and reopens the draft for another pick.
+	_check(footer.text.contains("Release a player") and d.finished_list_refused(),
+			"The footer says how to fix it: " + footer.text.replace("
+", " / "))
+	ui.call("_select_tab", "squad")
+	await _settle()
+	var rel: Button = null
+	for n in ui.find_children("Release_*", "Button", true, false):
+		rel = n
+		break
+	_check(rel != null, "A refused list offers Release on My list")
+	var count_before: int = d.count()
+	var rel_why: String = await Tap.tap(rel)
+	await _settle()
+	_check(rel_why == "" and d.count() == count_before - 1 and not d.is_finished() and d.is_user_turn() and d.spent() <= d.budget,
+			"A tap on Release returns him to the pool and reopens your pick, under the cap (%s)" % rel_why)
+	_check(fin.disabled and not ui.find_child("UpcomingPicks", true, false).text.contains("over the salary cap"),
+			"Start season stays off until the list is whole, and the cap reason is gone")
+	d.budget += 1000
+	_check(d.invalid_reason() == "You have %d of %d players." % [d.target_size - 1, d.target_size],
+			"A short list says how many players it has: " + d.invalid_reason())
+	ui.queue_free()
+	_state.reset()
+	await _settle()
+
+	# Every position covered: ready, and it starts.
+	ui = await _finished_draft(true)
+	d = _state.draft
+	footer = ui.find_child("UpcomingPicks", true, false)
+	fin = ui.find_child("StartSeason", true, false)
+	_check(d.short_positions() == "" and d.is_valid(), "Setup: a list with every position covered")
+	_check(footer.text.begins_with("Your list is ready."), "A covered list says it is ready: " + footer.text.replace("
+", " / "))
+	why = await Tap.tap(fin)
+	_check(why == "" and _state.season != null, "A finger's tap on Start season starts the season (%s)" % why)
+	ui.queue_free()
+	_state.reset()
+	await _settle()
+	var draft_class = load("res://scripts/sim/Draft.gd")
+	_check(draft_class.role_noun("DEF", 1) == "defender" and draft_class.role_noun("FWD", 2) == "forwards",
+			"Positions are named in the singular for one and the plural for more")
+	root.size = old_size
+
+
+## A phone's keyboard shrinks the window's height while "Search players" has
+## focus. The draft must not rebuild, flip to its short layout, or lose the
+## field: that loop (rebuild frees the field, keyboard hides, window grows,
+## rebuild again) shifted the screen for a tester. Tap elsewhere = focus gone.
+func _test_search_keyboard() -> void:
+	var old_size := root.size
+	root.size = Vector2i(390, 844)
+	_state.reset()
+	_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(),
+			_db.active_clubs(2026).duplicate(), 12345)
+	var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
+	root.add_child(ui)
+	ui.call("_on_club_chosen", "COL")
+	await _settle()
+	ui.call("_select_tab", "pool")
+	await _settle()
+	var field: LineEdit = ui.find_child("PlayerSearch", true, false)
+	_check(field != null and field.is_visible_in_tree(), "Search players is on the pool")
+	if field == null:
+		return
+	await Tap.tap(field)
+	_check(field.has_focus(), "A real tap on Search players gives it focus")
+	for ch in "van":
+		for down in [true, false]:
+			var ev := InputEventKey.new()
+			ev.unicode = ch.unicode_at(0)
+			ev.keycode = ch.unicode_at(0) - 32
+			ev.pressed = down
+			Input.parse_input_event(ev)
+			Input.flush_buffered_events()
+			await process_frame
+	await _settle()
+	# The list follows the typing after a short pause (the search timer).
+	await create_timer(0.4).timeout
+	await _settle()
+	_check(field.text == "van", "Typing van fills the field (%s)" % field.text)
+	var all_n: int = _state.draft.board("", "", "", "overall", true).size()
+	var want: int = _state.draft.board("", "", "van", "overall", true).size()
+	_check(want < all_n and str(ui.get("_board_info").text).contains(str(want)),
+			"Typing van filters the pool (%s)" % ui.get("_board_info").text)
+	var key_before: String = ui.get("_layout_key")
+	var short_before: bool = ui.get("_short")
+	for cycle in range(3):
+		root.size = Vector2i(390, 464)
+		await _settle()
+		_check(ui.find_child("PlayerSearch", true, false) == field and is_instance_valid(field),
+				"Keyboard up %d: the search field is the same node" % cycle)
+		_check(is_instance_valid(field) and field.has_focus() and field.text == "van",
+				"Keyboard up %d: focus and text kept" % cycle)
+		_check(ui.get("_layout_key") == key_before and ui.get("_short") == short_before,
+				"Keyboard up %d: layout mode did not flip" % cycle)
+		root.size = Vector2i(390, 844)
+		await _settle()
+		_check(is_instance_valid(field) and ui.find_child("PlayerSearch", true, false) == field and field.has_focus(),
+				"Keyboard down %d: same field, still focused" % cycle)
+	# Tap elsewhere: focus leaves, and the screen then follows the window.
+	field = ui.find_child("PlayerSearch", true, false)
+	field.release_focus()
+	await _settle()
+	_check(not field.has_focus(), "Focus leaves the field")
+	root.size = Vector2i(390, 464)
+	await _settle()
+	_check(ui.get("_short") == true, "With no field focused, a short window still gets the short layout")
+	root.size = old_size
+	ui.queue_free()
+	await _settle()
+
+
+## Turning the phone swaps width and height: the draft follows the window each
+## time (wide on its side, stacked upright) and rebuilds once per turn, with a
+## search field focused or not. Height alone shrinking is a keyboard, not this.
+func _test_rotation() -> void:
+	var old_size := root.size
+	root.size = Vector2i(390, 844)
+	_state.reset()
+	_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(),
+			_db.active_clubs(2026).duplicate(), 12345)
+	var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
+	root.add_child(ui)
+	ui.call("_on_club_chosen", "COL")
+	await _settle()
+	var sizes := [Vector2i(844, 390), Vector2i(390, 844), Vector2i(844, 390), Vector2i(390, 844)]
+	var last_key: String = ui.get("_layout_key")
+	for i in range(sizes.size()):
+		var margin_before = ui.get("_margin")
+		root.size = sizes[i]
+		await _settle()
+		var key: String = ui.get("_layout_key")
+		var landscape: bool = sizes[i].x > sizes[i].y
+		_check(key != last_key and ui.get("_short") == landscape,
+				"Turn %d to %s: the layout follows (%s)" % [i, "landscape" if landscape else "portrait", key])
+		_check(is_instance_valid(ui.get("_search_field")) or ui.get("_phase") == "board",
+				"Turn %d: the board is still built" % i)
+		last_key = key
+	root.size = old_size
+	ui.queue_free()
+	await _settle()
+
+
+## A phone's browser in a wide frame (itch's 1280x720 shown on a phone, seen
+## at 900x700 or 1280x720 units) must keep the phone layout, not the PC one.
+func _test_phone_browser_never_wide() -> void:
+	var old_size := root.size
+	var layout = load("res://scripts/core/ScreenLayout.gd")
+	for sz in [Vector2i(900, 700), Vector2i(1280, 720)]:
+		for phone in [true, false]:
+			layout.force_web_phone = phone
+			root.size = sz
+			_state.reset()
+			_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(),
+					_db.active_clubs(2026).duplicate(), 12345)
+			var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
+			root.add_child(ui)
+			ui.call("_on_club_chosen", "COL")
+			await _settle()
+			_check(bool(ui.get("_wide")) == (not phone),
+					"%dx%d %s: the draft is %s" % [sz.x, sz.y, "phone browser" if phone else "PC browser",
+					"the phone layout" if phone else "the wide layout"])
+			ui.queue_free()
+			await _settle()
+	layout.force_web_phone = false
+	root.size = old_size
+
+
+## A League Draft for COL played to the end, cheapest players first. With
+## `cover`, a position that is still short is filled before any other.
+func _finished_draft(cover: bool) -> Control:
+	_state.reset()
+	_state.replay_seed = 4242
+	_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(),
+			_db.active_clubs(2026).duplicate(), 12345)
+	var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
+	root.add_child(ui)
+	ui.call("_on_club_chosen", "COL")
+	await _settle()
+	var d = _state.draft
+	var guard := 0
+	while not d.is_finished() and guard < 80:
+		guard += 1
+		var want := ""
+		if cover:
+			var status: Dictionary = d.position_status()
+			for role in ["RUCK", "DEF", "MID", "FWD"]:
+				if int((status[role] as Dictionary)["short"]) > 0:
+					want = role
+					break
+		var board: Array = d.board(want, "", "", "overall", true)
+		board = board.filter(func(p): return d.can_pick_player(p))
+		if not cover:
+			board = board.filter(func(p): return str(p["role"]) != "DEF" and str(p.get("role2", "")) != "DEF")
+		if board.is_empty():
+			break
+		board.sort_custom(func(a, b): return int(a["value"]) < int(b["value"]))
+		ui.call("_on_pick", board[0])
+	ui.call("_refresh")
+	await _settle()
+	return ui
 
 
 ## National Draft prospects show a compact Combine and scouting ranges on a
@@ -880,6 +1132,93 @@ func _mouse_move(at: Vector2) -> void:
 	Input.flush_buffered_events()
 	await process_frame
 	await process_frame
+
+
+## Draft night's hero (director, 2026-10-14): the guernsey of the club on the
+## clock in the header, in that club's own kit, on its own (no hanger, no
+## lectern), nothing in the header cut short, the back button still a real tap
+## away. It needs no picture file.
+func _test_stage() -> void:
+	var art = load("res://scripts/ui/UiArt.gd")
+	for club in ["FRE", "MEL"]:
+		for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+			var tag := "%s %dx%d" % [club, sz.x, sz.y]
+			root.size = sz
+			_state.reset()
+			_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(),
+					_db.active_clubs(2026).duplicate(), 12345)
+			var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
+			root.add_child(ui)
+			ui.call("_on_club_chosen", club)
+			await _settle()
+			var stage: Control = ui.find_child("DraftStage", true, false)
+			var hung: Control = stage.find_child("DraftGuernsey", true, false) if stage != null else null
+			var marker: Control = hung.find_child("ClubMarker", true, false) if hung != null else null
+			_check(marker != null and marker.size.x >= (64.0 if sz.x >= 760 else 53.0) and is_equal_approx(marker.size.x, marker.size.y),
+					"%s: the draft's header shows a guernsey, as big as it was under the hanger (%d)" % [tag, int(marker.size.x) if marker != null else 0])
+			if stage == null or marker == null:
+				ui.queue_free()
+				await _settle()
+				continue
+			_check(stage.find_children("*", "TextureRect", true, false).is_empty() and hung.get_child_count() == 1,
+					"%s: the guernsey is on its own: no hanger and no lectern" % tag)
+			var crest = hung.find_child("ClubMarker", true, false)
+			var on_clock := str(_state.draft.current_club())
+			var kit_cols: Dictionary = _db.club_guernsey(on_clock)
+			_check(crest != null and str(crest.code) == on_clock and (crest.primary as Color).is_equal_approx(kit_cols["base"])
+					and str(crest.design) == str(kit_cols["design"]),
+					"%s: the guernsey is the club on the clock's own (%s)" % [tag, on_clock])
+			var cr: Rect2 = (crest as Control).get_global_rect() if crest != null else Rect2()
+			var sr := hung.get_global_rect()
+			_check(crest != null and absf(cr.end.y - sr.end.y) <= 0.5 and absf(cr.get_center().x - sr.get_center().x) <= 1.0
+					and cr.position.y >= sr.position.y,
+					"%s: the guernsey stands on the stage's foot, on its centre line, where it hung" % tag)
+			var header: Control = stage.get_parent()
+			var whole := header.get_global_rect().grow(0.5).encloses(stage.get_global_rect()) \
+					and Rect2(Vector2.ZERO, Vector2(sz)).encloses(stage.get_global_rect())
+			var quiet := stage.mouse_filter == Control.MOUSE_FILTER_IGNORE
+			for n in stage.find_children("*", "Control", true, false):
+				quiet = quiet and (n as Control).mouse_filter == Control.MOUSE_FILTER_IGNORE
+			for l in header.find_children("*", "Label", true, false):
+				var lab := l as Label
+				if lab.get_parent() is Button or not lab.is_visible_in_tree() or lab.text == "":
+					continue
+				if lab.size.y + 1.0 < lab.get_combined_minimum_size().y or lab.get_global_rect().intersects(stage.get_global_rect()):
+					whole = false
+				if lab.autowrap_mode == TextServer.AUTOWRAP_OFF and lab.text_overrun_behavior == TextServer.OVERRUN_NO_TRIMMING \
+						and lab.get_theme_font("font").get_string_size(lab.text, HORIZONTAL_ALIGNMENT_LEFT, -1, lab.get_theme_font_size("font_size")).x > lab.size.x + 0.5:
+					whole = false
+			_check(whole and quiet, "%s: the stage sits inside the header, takes no tap, and the title beside it is whole" % tag)
+			var back: Button = ui.find_child("BackToMenu", true, false)
+			_check(back != null and back.size.x >= 44.0 and back.size.y >= 44.0, "%s: the back button is still a thumb wide and tall" % tag)
+			if sz.x < 600 and club == "FRE":
+				for c in back.pressed.get_connections():
+					back.pressed.disconnect(c["callable"])
+				var why: String = await Tap.tap(back)
+				_check(why == "", "%s: a real tap still reaches the back button beside the title (%s)" % [tag, why])
+				var status: Label = ui.find_child("DraftStatus", true, false)
+				var cap: Label = ui.find_child("SalaryCap", true, false)
+				_check(status != null and status.text != "" and cap != null and cap.text.contains("Cap left"),
+						"%s: who is on the clock and the cap left are still said under the header" % tag)
+			ui.queue_free()
+			await _settle()
+	# No picture file is needed: with the art folder pointed nowhere the guernsey is still there.
+	art.dir = "res://assets/ui/no_such_folder"
+	root.size = Vector2i(390, 844)
+	_state.reset()
+	_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(), _db.active_clubs(2026).duplicate(), 12345)
+	var plain: Control = load("res://scenes/DraftScene.tscn").instantiate()
+	root.add_child(plain)
+	plain.call("_on_club_chosen", "FRE")
+	await _settle()
+	var plain_stage: Control = plain.find_child("DraftStage", true, false)
+	_check(plain_stage != null and plain_stage.find_child("ClubMarker", true, false) != null
+			and not ResourceLoader.exists("res://assets/ui/models/hanger.png"),
+			"The guernsey needs no picture file, and the hanger's picture is gone from the game")
+	plain.queue_free()
+	await _settle()
+	art.dir = "res://assets/ui/models"
+	_state.reset()
 
 
 func _settle() -> void:

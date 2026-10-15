@@ -23,8 +23,17 @@ func _ready() -> void:
 	add_child(margin)
 	_root = UiKit.vbox(10)
 	margin.add_child(_root)
-	get_viewport().size_changed.connect(_build)
+	get_viewport().size_changed.connect(_on_resize)
 	_build()
+
+
+func _on_resize() -> void:
+	if UiKit.keyboard_resize(self):
+		return
+	# A resize rebuilds the page: the player keeps their place on it.
+	var places := UiKit.scroll_places(_root)
+	_build()
+	UiKit.restore_places(_root, places)
 
 
 func _build() -> void:
@@ -67,7 +76,25 @@ func _narrow() -> bool:
 
 func _wide() -> bool:
 	var w := UiKit.view_width(self)
-	return ScreenLayout.is_desktop() and w >= 760.0 and w > UiKit.view_height(self) * 1.2
+	return ScreenLayout.roomy(w, UiKit.view_height(self))
+
+
+## A section's heading with a 2 px rule of the club's colour above it, so the
+## sections of this screen are told apart (director, 2026-10-13, readability).
+## A black-and-white club (team_colour is the red accent) or a red or orange
+## one (it would read as BAD or the primary action) gets a quiet TEXT rule.
+func _head(text: String) -> Control:
+	var v := UiKit.vbox(5)
+	var rule := ColorRect.new()
+	rule.name = "SectionRule"
+	rule.custom_minimum_size = Vector2(0, 2)
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var col := UiKit.team_colour()
+	var warm := col == UiKit.ACCENT or col.h < 0.09 or col.h > 0.96
+	rule.color = Color(UiKit.TEXT, 0.6) if warm else col
+	v.add_child(rule)
+	v.add_child(UiKit.section(text))
+	return v
 
 
 func _wrapped(text: String, fs := UiKit.BODY, col := UiKit.AUTO_COLOUR) -> Label:
@@ -131,25 +158,30 @@ func _profile_row(row: Dictionary, ground: Array) -> Control:
 func _how_we_play() -> Control:
 	var v := UiKit.vbox(6)
 	v.name = "HowWePlay"
-	v.add_child(UiKit.section("How we play"))
+	v.add_child(_head("How we play"))
 	v.add_child(_wrapped("Each plan runs on one of your list's strengths: your side as picked, against every list in the league.",
 			UiKit.SMALL, UiKit.MUTED))
 	var ground: Array = GameState.my_squad().ground
 	var profile := GameState.list_profile()
-	var note := _wrapped(CoachReport.plan_summary(GameState.club_plan), UiKit.SMALL, UiKit.MUTED)
+	var note := _wrapped(CoachReport.plan_summary(GameState.club_plan), UiKit.SMALL, UiKit.TEXT)
 	note.name = "PlanNote"
-	var fit := _wrapped(GameState.plan_fit_line(ground, GameState.club_plan), UiKit.SMALL, UiKit.TEXT)
+	# His own players, so each name wears the club's ink (NameInk).
+	var mine := NameInk.from_squads([GameState.my_list], [GameState.my_club])
+	var fit := NameInk.rich(UiKit.SMALL, UiKit.TEXT)
 	fit.name = "PlanFit"
-	fit.visible = fit.text != ""
+	var fit_text := GameState.plan_fit_line(ground, GameState.club_plan)
+	NameInk.set_line(fit, fit_text, mine)
+	fit.visible = fit_text != ""
 	v.add_child(PlanTiles.grid(2 if _narrow() else 3, ground, profile, func(k: String):
 		note.text = CoachReport.plan_summary(k)
-		fit.text = GameState.plan_fit_line(ground, k)
-		fit.visible = fit.text != ""))
+		var t := GameState.plan_fit_line(ground, k)
+		NameInk.set_line(fit, t, mine)
+		fit.visible = t != ""))
 	# The strengths no plan runs on, as before: a word each, a tap for who leads it.
 	var rest := UiKit.vbox(0)
 	rest.name = "ListProfile"
 	rest.add_child(UiKit.spacer(4))
-	rest.add_child(UiKit.lbl("Also on your list", UiKit.SMALL, UiKit.MUTED))
+	rest.add_child(UiKit.lbl("Also on your list", UiKit.SMALL, UiKit.TEXT, true))
 	for row in profile:
 		if not PlanTiles.PLAN_STRENGTH.values().has(str(row["dim"])):
 			rest.add_child(_profile_row(row, ground))
@@ -186,7 +218,7 @@ func _how_we_play() -> Control:
 func _form() -> Control:
 	var v := UiKit.vbox(4)
 	v.name = "Form"
-	v.add_child(UiKit.section("Recent games"))
+	v.add_child(_head("Recent games"))
 	var form := GameState.player_form()
 	if (form["hot"] as Array).is_empty() and (form["cold"] as Array).is_empty():
 		v.add_child(_wrapped("Nobody is playing well above or below their usual level.",
@@ -198,7 +230,7 @@ func _form() -> Control:
 		var rows: Array = form[part[1]]
 		if rows.is_empty():
 			continue
-		var head := UiKit.lbl(str(part[0]), UiKit.BODY, UiKit.TEXT, true)
+		var head := UiKit.lbl(str(part[0]), UiKit.BODY, UiKit.GOOD if part[1] == "hot" else UiKit.BAD, true)
 		head.name = "FormHead_%s" % part[1]
 		v.add_child(head)
 		for row in rows:
@@ -217,7 +249,7 @@ func _form_row(row: Dictionary, kind: String) -> Control:
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
 		b.add_theme_stylebox_override(state, StyleBoxEmpty.new())
-	var name_l := UiKit.ellipsis(GameDB.player_display_name(p), UiKit.BODY, UiKit.TEXT)
+	var name_l := UiKit.ellipsis(GameDB.player_display_name(p), UiKit.BODY, UiKit.TEXT, true)
 	name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	name_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	b.add_child(name_l)
@@ -245,7 +277,7 @@ const SETTLED_GAMES := 10
 func _list_and_cap() -> Control:
 	var v := UiKit.vbox(4)
 	v.name = "ListAndCap"
-	v.add_child(UiKit.section("List and cap"))
+	v.add_child(_head("List and cap"))
 	var line := "%d players on the list" % GameState.my_list.size()
 	if GameState.salary_cap > 0:
 		var room := GameState.cap_room()
@@ -273,7 +305,7 @@ func _board() -> Control:
 		return null
 	var v := UiKit.vbox(4)
 	v.name = "Board"
-	v.add_child(UiKit.section("The board"))
+	v.add_child(_head("The board"))
 	var state := GameState.board_state()
 	var col := UiKit.GOOD if state in ["Very secure", "Secure"] \
 			else (UiKit.TEXT if state == "Stable" else UiKit.BAD)
@@ -296,7 +328,7 @@ func _board() -> Control:
 func _staff() -> Control:
 	var v := UiKit.vbox(0)
 	v.name = "Staff"
-	v.add_child(UiKit.section("Staff"))
+	v.add_child(_head("Staff"))
 	v.add_child(UiKit.spacer(4))
 	var staff := GameState.club_staff(GameState.my_club)
 	var open := {}
@@ -329,18 +361,28 @@ func _staff_row(job: String, c: Dictionary) -> Control:
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.custom_minimum_size.y = 44
 	b.focus_mode = Control.FOCUS_NONE
-	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	b.add_theme_font_size_override("font_size", UiKit.BODY)
 	for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
 		b.add_theme_stylebox_override(state, StyleBoxEmpty.new())
 	var label := str(Coaches.JOB_LABEL[job])
+	# The job in bold, the man in regular: a vacancy is quiet.
+	var h := UiKit.hbox(8)
+	b.add_child(h)
+	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var role := UiKit.line(label, UiKit.BODY, UiKit.MUTED if c.is_empty() else UiKit.TEXT, true)
+	role.name = "Role"
+	role.custom_minimum_size.x = 150 if not _narrow() else 118
+	role.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	h.add_child(role)
+	var who := UiKit.ellipsis("vacant" if c.is_empty() else GameDB.player_display_name(c), UiKit.BODY,
+			UiKit.MUTED if c.is_empty() else UiKit.TEXT)
+	who.name = "Holder"
+	who.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	h.add_child(who)
+	for n in h.find_children("*", "Control", true, false) + [h]:
+		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if c.is_empty():
-		b.text = "%s  ·  vacant" % label
-		b.add_theme_color_override("font_color", UiKit.MUTED)
 		b.pressed.connect(func(): Router.go("staff"))
 	else:
-		b.text = "%s  ·  %s" % [label, GameDB.player_display_name(c)]
-		b.add_theme_color_override("font_color", UiKit.TEXT)
 		b.pressed.connect(func(): _sheet = CoachSheet.open(self, c, func(): _sheet = null))
 	return b
 

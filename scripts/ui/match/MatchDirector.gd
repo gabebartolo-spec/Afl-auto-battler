@@ -74,6 +74,11 @@ const ZONE := {
 var events: Array = []
 var tokens: Array = []          # every token; ids index this array
 var ball := {}
+## Who is off the ground now, per side: [{num, pid, name}], from the result's
+## opening bench (MatchSim.result "bench") and every interchange since. A player
+## coming on leaves his place on the bench to the man he replaces. Empty for a
+## result that does not say who was on the bench.
+var bench: Array = [[], []]
 var cursor := 0                 # next event to stage
 var emitted := 0                # events released so far
 var time := 0.0
@@ -131,6 +136,12 @@ func setup(result: Dictionary, p_events: Array) -> void:
 	_rng.seed = hash("%s|%s|%s|view" % [result.get("home", ""), result.get("away", ""),
 			result.get("label", "")])
 	_build_tokens(_starting_roster(result.get("roster", []), events))
+	bench = [[], []]
+	var opening: Array = result.get("bench", [])
+	for side in range(mini(2, opening.size())):
+		for p in (opening[side] as Array):
+			(bench[side] as Array).append({"num": int(p.get("num", 0)), "pid": str(p.get("id", "")),
+					"name": str(p.get("name", ""))})
 	ball = {"pos": Vector2.ZERO, "h": 0.0, "mode": "dead", "holder": -1,
 			"from": Vector2.ZERO, "to": Vector2.ZERO, "h0": 0.0, "h1": 0.0,
 			"apex": 0.0, "dur": 1.0, "t": 0.0, "vel": Vector2.ZERO, "kind": ""}
@@ -1486,6 +1497,12 @@ func _sub(ev: Dictionary) -> void:
 	var id: int = ids[off]
 	ids.erase(off)
 	var t: Dictionary = tokens[id]
+	# The man coming off takes the bench place of the man coming on.
+	var sitting: Array = bench[side]
+	for b in range(sitting.size()):
+		if int(sitting[b]["num"]) == int(ev.get("num", -1)):
+			sitting[b] = {"num": int(t["num"]), "pid": str(t.get("pid", "")), "name": str(t.get("name", ""))}
+			break
 	t["num"] = int(ev.get("num", t["num"]))
 	t["name"] = str(ev.get("name", t["name"]))
 	# The player on takes the ring and the name with the slot.
@@ -1692,9 +1709,32 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 			x += (0.7 if slot.begins_with("W") else 0.78) * bx
 	var width := 1.08 if has else 0.86
 	var pull := 0.12 if slot.begins_with("W") else (0.3 if role == "MID" or role == "RUCK" else 0.2)
+	if not has and _pressing(side, bx):
+		width *= PRESS_NARROW
 	var y := lerpf(base.y * width, ball_p.y, pull)
 	if not has:
 		x -= 3.0
+	var press_up := not has and _pressing(side, bx)
+	if press_up:
+		# Defensive press: while the ball is in their opponents' back half or the
+		# middle, the whole side compresses into one band around the ball
+		# (V1, press pilot): the forwards on the opponents' last line just
+		# ahead of it, the midfield within 25 m of it, the backs pushed up to
+		# the wing line, front to back inside 70 m, and all of them narrower.
+		# Honest: it is where the sim's zone-weighted pressure happens.
+		match role:
+			"FWD":
+				# On the opponents' last line, but never more than the band's
+				# length from the backs: a press with the ball at its own end
+				# draws its forwards back toward the ball.
+				var deep := slot == "FF" or slot == "FPL" or slot == "FPR"
+				var line := PRESS_LAST_LINE + (PRESS_DEEP_EXTRA if deep else 0.0)
+				x = minf(minf(line, bx - PRESS_BACK_BEHIND - 8.0 + PRESS_SPAN), MatchMotion.GOAL_X - 12.0)
+			"DEF":
+				var half_back := slot == "CHB" or slot == "HBL" or slot == "HBR"
+				x = bx - (PRESS_BACK_BEHIND if half_back else PRESS_BACK_BEHIND + 8.0)
+			_:
+				x = bx + clampf(x - bx, -PRESS_MID_BAND, PRESS_MID_BAND * 0.4)
 	var drift := Vector2(sin(time * 0.31 + float(t["phase"])), cos(time * 0.23 + float(t["phase"]) * 1.7)) * 2.0
 	var world := Vector2(x * dir, y) + (t["jitter"] as Vector2) + drift
 	var own_goal := Vector2(-MatchMotion.GOAL_X * dir, 0.0)
@@ -1707,7 +1747,7 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 		var o := int(t["match"])
 		if _is_loose(t, ball_p):
 			# The spare defender sits in the hole between the ball and goal.
-			world = ball_p.lerp(own_goal, 0.5)
+			world = ball_p.lerp(own_goal, 0.25 if press_up else 0.5)   # a press keeps even him inside the band
 			world.y *= 0.6
 		elif flooding and (role == "MID" or role == "RUCK") and not bool(t.get("tagging", false)):
 			# Flood behind the ball (the match's call, from the timeline): the
@@ -1721,6 +1761,8 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 			if og.distance_to(world) < 35.0:
 				var mark := og + (own_goal - og).normalized() * 2.5
 				var w := 0.65 if role == "DEF" else (0.45 if role == "MID" else 0.3)
+				if press_up:
+					w *= 0.1   # the press holds its band; it does not follow men back
 				if bool(t.get("tagging", false)):
 					w = 0.85   # a tagger plays the man
 				world = world.lerp(mark, w)
@@ -1730,6 +1772,64 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 			var half := slot == "CHF" or slot == "HFL" or slot == "HFR"
 			world.x = lerpf(world.x, ball_p.x, FLOOD_PUSH if half else FLOOD_PUSH * 0.25)
 	return MatchMotion.clamp_to_oval(world, 3.0)
+
+
+## The Defensive press, drawn (V1, press pilot). `bx` is the ball's distance
+## up the ground from `side`'s own goal end (positive: in its opponents'
+## back half). The shape is high while the ball is in the opponents' back half
+## or the middle, and only for a side whose recorded plan is the press.
+const PRESS_LAST_LINE := 46.0     # the opponents' last line, from the centre
+const PRESS_DEEP_EXTRA := 12.0    # the full-forward line stands this much deeper
+const PRESS_SPAN := 52.0          # front to back, at most
+const PRESS_BACK_BEHIND := 20.0   # metres behind it
+const PRESS_MID_BAND := 24.0      # midfield stays within this of the ball
+const PRESS_NARROW := 0.62
+const PRESS_FRAME_ZOOM := 1.1     # the camera widens a little while a press is on
+const PRESS_FRAME_SHIFT := 9.0    # ...and looks toward its high line
+const PRESS_FROM := -10.0
+
+
+## The press zone, drawn: whether `side` is pressing right now (without the
+## ball, its plan the press, the ball in its opponents' back half or the
+## middle). The view fades the wash in and out in real time.
+func press_zone_on(side: int) -> bool:
+	if _tac.size() < 2 or tokens.is_empty():
+		return false
+	return side != _poss and _pressing(side, (ball["pos"] as Vector2).x * _dir(side))
+
+
+## How strongly the press side is hunting at `x_side` metres up the ground
+## from its own goal end (positive: toward the opponents' goal), 0..1: the
+## sim's PRESS_PLAN_ZONE for the carrier's zone, read as the part above
+## "normal", relative to its heaviest zone. The opponents' back third is the
+## full tint, the middle a quarter of it, their forward third none.
+static func press_zone_strength(x_side: float) -> float:
+	var table: Array = MatchSim.PRESS_PLAN_ZONE
+	var zone := 0 if x_side > MatchSim.PRESS_ZONE_EDGE else (2 if x_side < -MatchSim.PRESS_ZONE_EDGE else 1)
+	var heavy := float(table[0]) - 1.0
+	return clampf((float(table[zone]) - 1.0) / heavy, 0.0, 1.0)
+
+
+## The same field with soft edges: between two zones the strength eases across
+## PRESS_ZONE_FEATHER metres either side of the edge, never a step.
+const PRESS_ZONE_FEATHER := 14.0
+static func press_zone_field(x_side: float) -> float:
+	var e := MatchSim.PRESS_ZONE_EDGE
+	var back := smoothstep(e - PRESS_ZONE_FEATHER, e + PRESS_ZONE_FEATHER, x_side)
+	var fwd := smoothstep(-e - PRESS_ZONE_FEATHER, -e + PRESS_ZONE_FEATHER, x_side)
+	var mid := press_zone_strength(0.0)
+	return lerpf(lerpf(press_zone_strength(-e - 1.0), mid, fwd), press_zone_strength(e + 1.0), back)
+
+
+## Debug only (capture_match --noshape): draw the plan without its shape, the
+## sim untouched, so a clip pair differs in the formation alone.
+static var debug_no_press_shape := false
+
+
+func _pressing(side: int, bx: float) -> bool:
+	if debug_no_press_shape:
+		return false
+	return str((_tac[side] as Dictionary).get("plan", "")) == "defensive" and bx > PRESS_FROM
 
 
 ## How far back from the ball a flooding midfield sits (share of the way to
@@ -1915,10 +2015,32 @@ func focus() -> Vector2:
 	var p: Vector2 = ball["pos"]
 	if str(ball["mode"]) == "flight":
 		p = p.lerp(ball["to"], 0.45)
+	# A press on: frame a little toward its high line, so the men up the ground
+	# are not cut off (press pilot).
+	var pd := press_view()
+	if pd != 0.0:
+		p.x += pd * PRESS_FRAME_SHIFT
 	return p
 
 
+## While a side presses without the ball and the ball is in its attacking
+## half: the direction (+1 / -1 along x) that side is pressing toward, else 0.
+func press_view() -> float:
+	if debug_no_press_shape or tokens.is_empty() or _tac.size() < 2:
+		return 0.0
+	for side in [0, 1]:
+		if side != _poss and _pressing(side, (ball["pos"] as Vector2).x * _dir(side)):
+			return float(_dir(side))
+	return 0.0
+
+
 func zoom_hint() -> float:
+	if press_view() != 0.0 and mode != "break":
+		return minf(_zoom_for_mode(), PRESS_FRAME_ZOOM)
+	return _zoom_for_mode()
+
+
+func _zoom_for_mode() -> float:
 	match mode:
 		"centre":
 			return 1.5

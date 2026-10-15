@@ -30,6 +30,18 @@ for csv in data/*.csv; do
 done
 [ "$fail" = 0 ] && echo "all data CSVs use the keep importer"
 
+echo "-- web export: phone keyboard"
+# The web build must have the engine's phone keyboard on. With it off a
+# phone's browser has no keyboard support: the one that shows opens and closes
+# by itself and drops what is typed (godotengine/godot#99602; the director's
+# clips of 2026-10-14).
+if grep -q '^html/experimental_virtual_keyboard=true' "$ROOT/export_presets.cfg"; then
+	echo "the Web preset has html/experimental_virtual_keyboard=true"
+else
+	echo "FAIL: export_presets.cfg must set html/experimental_virtual_keyboard=true (the phone keyboard in a browser)"
+	fail=1
+fi
+
 echo "-- exported pack data load"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT

@@ -5,10 +5,13 @@ extends SceneTree
 ##       -f args="--size 390x844"
 ## Writes <out>_focus.png (a forward picked for Play through), <out>_pep.png (Pep talk and Rotations, the neutral choices picked, so
 ## their descriptions show), <out>_tag.png (Tag with no tag picked) and
-## <out>_plan.png (the match screen with a long plan line: every call in full).
+## <out>_plan.png (the match screen with a long plan line: every call in full),
+## <out>_tagger.png (a tag picked: the Who tags cards).
 ##   --size WxH   window size (default 390x844)    --light   light appearance
 ##   --club CODE  your club (default MEL)    --their-loose  they run a loose
 ##                defender at quarter time (the fullest break)
+##   --plain      nobody plays loose on either side (the ordinary break)
+##   --rounds N   play N rounds first (a season's numbers on the cards)
 ## A fresh Melbourne career's first match at quarter time. Never touches a
 ## real save.
 
@@ -25,7 +28,9 @@ func _run() -> void:
 	var mode := "dark"
 	var club := "MEL"
 	var their_loose := false
+	var plain := false
 	var ruck_mode := false
+	var rounds := 0
 	var a := OS.get_cmdline_user_args()
 	for i in range(a.size()):
 		match str(a[i]):
@@ -41,8 +46,12 @@ func _run() -> void:
 				club = str(a[i + 1])
 			"--their-loose":
 				their_loose = true
+			"--plain":
+				plain = true
 			"--ruck":
 				ruck_mode = true
+			"--rounds":
+				rounds = int(a[i + 1])
 	await process_frame
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
@@ -71,6 +80,8 @@ func _run() -> void:
 				break
 		print("ruck club ", club)
 	state.start_season(club, db.club_list(club))
+	for _r in range(rounds):
+		state.advance()
 	if not state.prepare_interactive_match():
 		push_error("no match to prepare")
 		quit(1)
@@ -84,9 +95,25 @@ func _run() -> void:
 		state.pending_sim.run_quarter()
 	if their_loose:
 		state.pending_sim.set_interceptor(1 - int(state.pending_sim.moment_side), str(spare.get("id", "")), true)
+	if plain:
+		for sd in [0, 1]:
+			state.pending_sim.set_interceptor(sd, "", false)
 	UK.apply_appearance(mode)
-	root.size = Vector2i(_w, _h)
-	DisplayServer.window_set_size(Vector2i(_w, _h))
+	if _w >= 760:
+		# A PC window on the 1280x720 desktop canvas, as the game lays it out.
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(_w, _h))
+		for i in range(10):
+			await process_frame
+		var factor := float(_w) / maxf(1.0, root.get_visible_rect().size.x)
+		if factor > 1.05:
+			DisplayServer.window_set_size(Vector2i(int(_w * factor), int(_h * factor)))
+			for i in range(10):
+				await process_frame
+		print("visible ", root.get_visible_rect().size)
+	else:
+		root.size = Vector2i(_w, _h)
+		DisplayServer.window_set_size(Vector2i(_w, _h))
 	var scene = load("res://scenes/MatchScene.tscn").instantiate()
 	root.add_child(scene)
 	await _frames(10)
@@ -125,6 +152,21 @@ func _run() -> void:
 	await _frames(8)
 	await _shoot(scene.find_child("TagPicker", true, false), out + "_tag.png")
 	await _frames(8)
+	# A tag picked: the Who tags cards, each with what he gives up of his game.
+	var tagged: Button = null
+	var tp: Node = scene.find_child("TagPicker", true, false)
+	if tp != null:
+		for b in tp.find_children("TagPickerGrid_*", "Button", true, false):
+			if str(b.name) != "TagPickerGrid_":
+				tagged = b
+				break
+	if tagged != null:
+		tagged.emit_signal("pressed")
+		await _frames(8)
+		await _shoot(scene.find_child("TaggerPicker", true, false), out + "_tagger.png")
+		await _frames(8)
+		scene.find_child("TagPickerGrid_", true, false).emit_signal("pressed")
+		await _frames(6)
 	# The loose interceptor call: question, cards, his intercepts so far.
 	await _shoot(scene.find_child("LooseBlock", true, false), out + "_loose.png")
 	await _frames(8)

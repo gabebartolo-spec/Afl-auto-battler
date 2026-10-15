@@ -31,16 +31,31 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 	var name_l := UiKit.lbl(GameDB.player_display_name(p), 22, UiKit.TEXT, true)
 	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(name_l)
-	_identity(v, p)
+	var nickname_row := _identity(v, p)
 	var type_l := UiKit.lbl(Roles.label(p), UiKit.H2, UiKit.TEXT, true)
 	type_l.name = "ProfileType"
 	v.add_child(type_l)
-	var who := PackedStringArray(["#%d" % int(p["num"]), UiKit.ROLE_LABEL.get(str(p["role"]), str(p["role"]))])
+	# The line under the type names the line he plays in, unless the type
+	# above already says it ("Forward", "Key forward").
+	var who := PackedStringArray(["#%d" % int(p["num"])])
+	var line_name := str(UiKit.ROLE_LABEL.get(str(p["role"]), str(p["role"])))
+	if type_l.text == "" or not type_l.text.to_lower().contains(line_name.to_lower()):
+		who.append(line_name)
 	if float(p.get("age", 0.0)) > 0.0:
 		who.append("%d years old" % int(p["age"]))
 	if float(p.get("height_cm", 0.0)) > 0.0:
 		who.append("%d cm" % int(p["height_cm"]))
+	# His armband now (every club's record); a leader traded away since the
+	# 2026 record still reads with the club that named him, in the first season.
+	var role := GameState.captaincy_word(p)
+	if role == "" and Leadership.role_club(p) != "" and Leadership.role_club(p) != str(p.get("club", "")):
+		role = Leadership.role_line(p, GameState.season_year, func(code): return GameDB.club_short(code))
+	if role != "":
+		who.append(role)
 	v.add_child(UiKit.lbl("  ·  ".join(who), UiKit.SMALL, UiKit.MUTED))
+	var family := FamilyLine.make(p, host)
+	if family != null:
+		v.add_child(family)
 
 	# Now: available or not, and how he is feeling.
 	var state := PackedStringArray()
@@ -133,8 +148,17 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 
 	# His senior career (Career.gd): games and goals, and the clubs when he
 	# has played for more than one.
-	var tot := Career.totals_text(p)
-	if tot != "":
+	# Career through the last finished season plus this one so far, so it never
+	# trails the "With us" line (which counts this season). Shown only when he
+	# has played for someone else too; at one club the "With us" line is the
+	# same fact once.
+	var tally: Dictionary = GameState.season_tally.get(str(p.get("id", "")), {})
+	var live: bool = int(Career.of(p).get("through", 0)) < GameState.season_year
+	var tot := Career.totals_text(p, int(tally.get("games", 0)) if live else 0,
+			int(tally.get("goals", 0)) if live else 0)
+	var mine := not GameState.list_player(str(p.get("id", ""))).is_empty()
+	var only_us := mine and GameState.with_us_text(p) != "" and _only_club(p, GameState.my_club)
+	if tot != "" and not only_us:
 		v.add_child(UiKit.spacer(4))
 		v.add_child(UiKit.lbl("Career", UiKit.SMALL, UiKit.MUTED))
 		var cl := UiKit.lbl(tot, UiKit.BODY, UiKit.TEXT)
@@ -144,6 +168,19 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 		if clubs.size() > 1:
 			for line in clubs:
 				v.add_child(UiKit.lbl(str(line), UiKit.SMALL, UiKit.MUTED))
+
+	# His honours, kept for good in the honour roll.
+	var medal_years := GameState.norm_smith_years(str(p.get("id", "")))
+	if not medal_years.is_empty():
+		v.add_child(UiKit.spacer(4))
+		v.add_child(UiKit.lbl("Honours", UiKit.SMALL, UiKit.MUTED))
+		var years: PackedStringArray = []
+		for y in medal_years:
+			years.append(str(y))
+		var hl := UiKit.lbl("Norm Smith Medal %s" % ", ".join(years), UiKit.BODY, UiKit.TEXT, true)
+		hl.name = "ProfileHonours"
+		hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(hl)
 
 	# What he has done for your club: games, goals, best and fairests, flags.
 	if not GameState.list_player(str(p.get("id", ""))).is_empty():
@@ -167,6 +204,18 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 	var attr: Dictionary = p["attr"]
 	for r in ATTR_ROWS:
 		grid.add_child(attr_bar(str(r[0]), str(r[1]), float(attr.get(r[0], 0.0))))
+	var lead := attr_bar("leadership", "Leadership", float(Leadership.of(p)))
+	lead.name = "ProfileLeadership"
+	grid.add_child(lead)
+	v.add_child(UiKit.spacer(4))
+	var lead_note := UiKit.lbl(Leadership.basis_text(), UiKit.SMALL, UiKit.MUTED)
+	lead_note.name = "ProfileLeadershipNote"
+	lead_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(lead_note)
+	if nickname_row != null:
+		v.add_child(UiKit.spacer(10))
+		v.add_child(nickname_row)
+		v.add_child(UiKit.spacer(14))   # clear of Close
 
 	for a in actions:
 		var action: Dictionary = a
@@ -187,6 +236,17 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 			on_close.call())
 	box["footer"].add_child(close)
 	return overlay
+
+
+## True when every season on his record was at this club.
+static func _only_club(p: Dictionary, code: String) -> bool:
+	var stints: Array = Career.of(p).get("stints", [])
+	if stints.is_empty():
+		return false
+	for st in stints:
+		if str(st[0]) != code:
+			return false
+	return true
 
 
 static func attr_bar(key: String, label: String, value: float) -> Control:
@@ -272,24 +332,49 @@ static func _trust(v: VBoxContainer, p: Dictionary) -> void:
 ## FL-005: his nickname beside the full name, and one thing he does outside
 ## footy - quiet text, never a rating, never read by the game. Your own player's
 ## nickname can be changed or removed here.
-static func _identity(v: VBoxContainer, p: Dictionary) -> void:
+## Nickname and the club he followed. Returns the row to add a first nickname
+## when he has none (it goes at the foot of the profile, not at the top as an
+## empty button), else null.
+static func _identity(v: VBoxContainer, p: Dictionary) -> Control:
 	var nick := FictionalIdentity.nickname(p)
-	var row := UiKit.hbox(8)
+	var row: Control = UiKit.hbox(8)
 	row.name = "ProfileNickname"
 	var nl := UiKit.lbl("\"%s\"" % nick if nick != "" else "", UiKit.BODY, UiKit.MUTED)
 	nl.name = "NicknameText"
+	# One line, never a letter per line: the open field must not squeeze it.
+	nl.autowrap_mode = TextServer.AUTOWRAP_OFF
+	nl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(nl)
 	var mine := not GameState.list_player(str(p.get("id", ""))).is_empty()
 	if mine:
-		var edit := UiKit.btn("Nickname" if nick == "" else "Change", UiKit.SMALL)
+		var add_text := "Add a nickname"
+		var edit := UiKit.btn(add_text if nick == "" else "Change", UiKit.SMALL)
 		edit.name = "NicknameEdit"
+		edit.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		if nick == "":
+			# No nickname yet: a full-width outline button at the foot, not a chip.
+			edit.custom_minimum_size = Vector2(0, 48)
+			edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			for st in ["normal", "hover", "pressed", "hover_pressed"]:
+				edit.add_theme_stylebox_override(st, UiKit.style(Color.TRANSPARENT, 8, UiKit.RADIUS, UiKit.MUTED))
 		var field := UiKit.search_field(nick, "Nickname (blank for none)")
 		field.name = "NicknameField"
 		field.max_length = GameState.NICKNAME_MAX
 		field.visible = false
 		field.custom_minimum_size = Vector2(180, 0)
-		row.add_child(field)
-		row.add_child(edit)
+		field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		field.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		if nick == "":
+			# The field opens above the button.
+			var stack := UiKit.vbox(6)
+			stack.name = "ProfileNickname"
+			field.custom_minimum_size = Vector2(0, 44)
+			stack.add_child(field)
+			stack.add_child(edit)
+			row = stack
+		else:
+			row.add_child(field)
+			row.add_child(edit)
 		edit.pressed.connect(func():
 			if not field.visible:
 				field.visible = true
@@ -300,20 +385,24 @@ static func _identity(v: VBoxContainer, p: Dictionary) -> void:
 			var now := GameState.set_player_nickname(str(p["id"]), field.text)
 			nl.text = "\"%s\"" % now if now != "" else ""
 			field.visible = false
-			edit.text = "Nickname" if now == "" else "Change")
+			edit.text = add_text if now == "" else "Change")
 		field.text_submitted.connect(func(_t): edit.emit_signal("pressed"))
-	if nick != "" or mine:
+	var later: Control = null
+	if nick != "":
 		v.add_child(row)
+	elif mine:
+		later = row
 	# The club he followed as a kid (FL-005): a sourced fact for a real player,
 	# else "Not recorded" - never a guess.
 	var fav := FictionalIdentity.favourite_club(p)
-	var fl := UiKit.lbl("Favourite club: %s" % (GameDB.club_short(fav) if fav != "" else "Not recorded"),
-			UiKit.SMALL, UiKit.MUTED)
-	fl.name = "ProfileFavouriteClub"
-	v.add_child(fl)
+	if fav != "":
+		var fl := UiKit.lbl("Favourite club: %s" % GameDB.club_short(fav), UiKit.SMALL, UiKit.MUTED)
+		fl.name = "ProfileFavouriteClub"
+		v.add_child(fl)
 	var what := FictionalIdentity.interest(p)
 	if what != "":
 		var il := UiKit.lbl("Outside footy: %s." % what, UiKit.SMALL, UiKit.MUTED)
 		il.name = "ProfileInterest"
 		il.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(il)
+	return later

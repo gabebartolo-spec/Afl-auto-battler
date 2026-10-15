@@ -178,6 +178,29 @@ static func run_line(club: String, n: int) -> String:
 	return "%s have kicked %s in a row." % [GameDB.club_name(club), count_word(n)]
 
 
+## The Defensive press taking hold (V2, press pilot), said once a side a match.
+static func press_line(club: String) -> String:
+	return "%s push up to press." % GameDB.club_name(club)
+
+
+## Does this event open the line: the side pressed by the plan in force is
+## now defending, the other side having the ball in open play.
+static func press_trigger(timeline: Array, event_index: int, ev: Dictionary, said: Array) -> int:
+	var side := int(ev.get("side", 0))
+	if not ["handball", "kick", "mark"].has(str(ev.get("kind", ""))):
+		return -1
+	var presser := 1 - side
+	if bool(said[presser]):
+		return -1
+	var plan := ""
+	for e in timeline:
+		if int((e as Dictionary).get("at", 0)) > event_index:
+			break
+		if int((e as Dictionary).get("side", -1)) == presser:
+			plan = str((e as Dictionary).get("plan", ""))
+	return presser if plan == "defensive" else -1
+
+
 # ---------------------------------------------------------------------------
 # Quarter-break facts
 # ---------------------------------------------------------------------------
@@ -197,6 +220,11 @@ static func quarter_facts(res: Dictionary, my_side: int, q: int, answers := {}) 
 	var mine := _team_delta(now, was, my_side)
 	var theirs := _team_delta(now, was, opp)
 	var out := []
+	# Three-quarter time leads with where the match stands and why (ComebackTelling).
+	if q == 3:
+		var story := ComebackTelling.break_line(res, my_side)
+		if story != "":
+			out.append(story)
 
 	var clr_m := int(mine.get("clearances", 0.0))
 	var clr_t := int(theirs.get("clearances", 0.0))
@@ -525,9 +553,14 @@ static func match_factors(res: Dictionary, my_side: int) -> Array:
 	var t_me: Dictionary = team[my_side] if team.size() > my_side else {}
 	var t_op: Dictionary = team[opp] if team.size() > opp else {}
 
-	# The turning points first: the score that put the winners in front for
-	# good, a star lost to injury, a late miss in a close loss.
-	out.append_array(turning_points(res, my_side))
+	# The comeback first, when the break scores show one (ComebackTelling), then the
+	# turning points: the score that put the winners in front for good (not said again
+	# when the comeback sentence already names its kicker), a star lost to injury, a
+	# late miss in a close loss.
+	var turn := ComebackTelling.turn_facts(res, my_side)
+	if not turn.is_empty():
+		out.append(str(turn["text"]))
+	out.append_array(turning_points(res, my_side, str(turn.get("player", ""))))
 
 	# 1. The run that decided it: four or more goals in a row.
 	var run := _longest_run(res.get("events", []))
@@ -546,7 +579,9 @@ static func match_factors(res: Dictionary, my_side: int) -> Array:
 		if absi(m) > absi(best_m):
 			best_m = m
 			best_q = i
-	if best_q >= 0 and absi(best_m) >= 24 and (out.is_empty() or int(run["q"]) != best_q + 1):
+	var told_q: Array = turn.get("quarters", [])
+	if best_q >= 0 and absi(best_m) >= 24 and (out.is_empty() or int(run["q"]) != best_q + 1) \
+			and not told_q.has(best_q + 1):
 		var s := 0 if best_m > 0 else 1
 		out.append("%s won the %s quarter %d.%d to %d.%d." % [GameDB.club_name(codes[s]),
 				QUARTER_NAMES[best_q], int(qg[best_q][s]), int(qb[best_q][s]),
@@ -732,6 +767,43 @@ static func card_detail(p: Dictionary, trait_name: String, ratings: PackedString
 	return where + dot + dot.join(ratings) if wide else where + "\n" + dot.join(ratings)
 
 
+## A "Who tags" card (director, 2026-10-11, reworked 2026-10-13): the facts
+## the tag rule reads, nothing else, as parts so the card can set each in its
+## own place. His position ("Tagger" with the trait), his Pressure, his legs
+## in the game's words (legs_word, no number; `legs_bad` only when he is
+## running on empty) and what going to the tag gives up of his own game: his
+## Player rating for the season so far, the figure the Ratings screen shows
+## (a game's average; `rating` is -1 before he has played).
+static func tagger_card(p: Dictionary, legs: float, rating := -1.0) -> Dictionary:
+	var places := PackedStringArray()
+	for r in Ratings.positions(p):
+		places.append(str(UiKit.ROLE_LABEL.get(str(r), str(r))))
+	var where := "/".join(places)
+	if Roles.is_tagger(p):
+		where += " · Tagger"
+	var a: Dictionary = p.get("attr", {})
+	var lw := legs_word(legs)
+	var gives := "his own game (yet to play this season)"
+	if rating >= 0.0:
+		gives = "his own game (season rating %.1f)" % rating
+	return {"where": where, "pressure": str(roundi(float(a.get("pressure", 0)))),
+			"legs": lw.left(1).to_upper() + lw.substr(1), "legs_bad": legs < TIRING,
+			"gives_label": "Gives up", "gives": gives}
+
+
+## The same card in one run of words, for the long list ("Other player...")
+## where each man is one tap row: wide puts it on one line.
+static func tagger_card_detail(p: Dictionary, legs: float, wide: bool, rating := -1.0) -> String:
+	var c := tagger_card(p, legs, rating)
+	# No-break spaces hold each "·" to the words either side, so a line
+	# never ends on one.
+	var dot := " · "
+	var first := "%s%sPressure %s" % [c["where"], dot, c["pressure"]]
+	var second := "%s%sGives up %s" % [c["legs"], dot, c["gives"]]
+	return (first + dot + second) if wide else (first + "
+" + second)
+
+
 ## The best few players of a side by influence: [{"id", "name", "line"}].
 static func standouts(res: Dictionary, side: int, n: int) -> Array:
 	var ranked := rated_players(res, side)
@@ -781,6 +853,49 @@ static func rating(st: Dictionary) -> int:
 
 static func rating_text(r) -> String:
 	return str(int(r))
+
+
+## One player's match rating so far. The single place the Defensive forward
+## block reads a rating from, so when Best players becomes coaches' votes
+## this is the one line to swap.
+static func match_rating(res: Dictionary, id: String) -> int:
+	return rating((res.get("players", {}) as Dictionary).get(id, {}))
+
+
+## How a Defensive forward is going against their loose defender, from the
+## sim's own records: the contests between the two (MatchSim.roam_pairs), the
+## roamer's intercepts and both match ratings. df_id "" is no Defensive
+## forward: then the roamer's roaming contests against anyone stand in.
+static func df_duel(res: Dictionary, df_id: String, roamer_id: String) -> Dictionary:
+	var players: Dictionary = res.get("players", {})
+	var pairs: Dictionary = res.get("roam_pairs", {})
+	var out := {"df_id": df_id, "roamer_id": roamer_id,
+			"roamer_intercepts": int(float((players.get(roamer_id, {}) as Dictionary).get("intercepts", 0.0))),
+			"roamer_rating": match_rating(res, roamer_id),
+			"df_rating": match_rating(res, df_id) if df_id != "" else -1,
+			"contests": 0, "df_won": 0, "roamer_won": 0}
+	if df_id != "":
+		var rec: Array = pairs.get("%s|%s" % [roamer_id, df_id], [0, 0])
+		out["contests"] = int(rec[0])
+		out["roamer_won"] = int(rec[1])
+		out["df_won"] = int(rec[0]) - int(rec[1])
+	else:
+		var st: Dictionary = players.get(roamer_id, {})
+		out["contests"] = int(float(st.get("roam_wins", 0.0)) + float(st.get("roam_losses", 0.0)))
+		out["roamer_won"] = int(float(st.get("roam_wins", 0.0)))
+	return out
+
+
+## The two lines under the ratings: [contests, intercepts]. Surnames given.
+static func df_duel_lines(d: Dictionary, df_name: String, roamer_name: String) -> Array:
+	var n := int(d["contests"])
+	var contests: String
+	if str(d["df_id"]) != "":
+		contests = "No contests between them yet" if n == 0 else "%s won %d of their %d contests" % [df_name, int(d["df_won"]), n]
+	else:
+		contests = "" if n == 0 else "%s won %d of his %d roaming contests" % [roamer_name, int(d["roamer_won"]), n]
+	var ic := int(d["roamer_intercepts"])
+	return [contests, "%s: %d intercept%s" % [roamer_name, ic, "" if ic == 1 else "s"]]
 
 
 ## Every player of a side who took the field, best rated first:
@@ -1164,7 +1279,7 @@ static func story_feed_line(mem: Dictionary, ev: Dictionary) -> String:
 ## level after the first quarter), a star who went off hurt before the last
 ## quarter, and your missed set shot late in a close loss. [] for a match
 ## that never turned.
-static func turning_points(res: Dictionary, my_side: int) -> Array:
+static func turning_points(res: Dictionary, my_side: int, skip_kicker := "") -> Array:
 	var out := []
 	var events: Array = res.get("events", [])
 	var codes := [str(res.get("home", "")), str(res.get("away", ""))]
@@ -1183,7 +1298,7 @@ static func turning_points(res: Dictionary, my_side: int) -> Array:
 				took = ev
 			was_ahead = ahead
 		if not took.is_empty() and int(took.get("q", 1)) >= 2 and int(took.get("q", 1)) <= 4 \
-				and str(took.get("name", "")) != "":
+				and str(took.get("name", "")) != "" and (skip_kicker == "" or str(took.get("player_id", "")) != skip_kicker):
 			out.append("%s's %s %s put %s in front for good." % [str(took["name"]), str(took["kind"]),
 					_when(took), GameDB.club_name(codes[winner])])
 	var overall := {}
@@ -1243,4 +1358,27 @@ static func synergy_lines(res: Dictionary, my_side: int) -> Array:
 				fact = "%d inside 50s to %d." % [int(me.get("inside50", 0)), int(them.get("inside50", 0))]
 		if fact != "":
 			out.append("%s: %s" % [Traits.label(str(key)), fact])
+	return out
+
+
+## The standing calls the quarter just played broke, for the break's
+## attention pulse (director, 2026-10-11: only what genuinely needs the
+## coach): the tag the match ended, or your play-through player, loose
+## defender or defensive forward gone off hurt. Picker node names. `injuries`
+## is the match's injury log, `last` the calls made at the last break.
+static func broken_calls(res: Dictionary, injuries: Array, my_side: int, q: int, last: Dictionary) -> Array:
+	var out := []
+	if q <= 1:
+		return out
+	if not tag_drop_lines(res, my_side, q - 1).is_empty():
+		out.append("TagPicker")
+	var hurt := {}
+	for inj in injuries:
+		if int(inj.get("side", -1)) == my_side and int(inj.get("q", 0)) == q - 1:
+			hurt[str(inj.get("id", ""))] = true
+	for pair in [["focus_id", "FocusPicker"], ["interceptor_id", "InterceptorPicker"],
+			["spare_minder_id", "SpareMinderPicker"]]:
+		var id := str(last.get(pair[0], ""))
+		if id != "" and hurt.has(id):
+			out.append(pair[1])
 	return out

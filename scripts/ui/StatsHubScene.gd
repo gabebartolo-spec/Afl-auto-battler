@@ -41,8 +41,10 @@ func _ready() -> void:
 
 
 func _on_resize() -> void:
-	if is_inside_tree() and GameState.season != null:
+	if is_inside_tree() and GameState.season != null and not UiKit.keyboard_resize(self):
+		var places := UiKit.scroll_places(_root)
 		_build()
+		UiKit.restore_places(_root, places)
 
 
 ## On a wide screen each section sits centred in a column about as wide as
@@ -67,7 +69,7 @@ func content_width() -> float:
 
 ## A wide screen (a PC), whatever the section's column.
 func wide() -> bool:
-	return _full_width() >= 900.0
+	return ScreenLayout.wide_view(_full_width(), 0.0, 900.0, false)
 
 
 func _build() -> void:

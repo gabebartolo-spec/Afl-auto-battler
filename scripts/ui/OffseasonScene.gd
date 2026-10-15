@@ -2,6 +2,7 @@ extends Control
 ## The off-season between the Grand Final and the national draft: contracts,
 ## free agency, trades and the club's annual department allocation.
 
+var _name_index := {}
 var _root: VBoxContainer
 var _tab := "contracts"
 var _notice := ""
@@ -46,14 +47,15 @@ func _ready() -> void:
 			_trade_club = code
 			break
 	get_viewport().size_changed.connect(func():
-		if is_inside_tree():
+		if is_inside_tree() and not UiKit.keyboard_resize(self):
 			_build())
 	_build()
 
 
 func _build() -> void:
+	_name_index = {}
 	if is_instance_valid(_scroll_box):
-		_scroll_positions[_scroll_tab] = _scroll_box.scroll_vertical
+		_scroll_positions[_scroll_tab] = UiKit.scroll_place(_scroll_box)
 	UiKit.clear(_root)
 	_root.add_child(UiKit.top_bar("Off-season", true))
 	var head := UiKit.panel(UiKit.PANEL, 10, 8)
@@ -95,13 +97,7 @@ func _build() -> void:
 			_trade(body)
 		"budget":
 			_budget(body)
-	_restore_scroll(_scroll_box, int(_scroll_positions.get(_tab, 0)))
-
-
-func _restore_scroll(scroll: ScrollContainer, offset: int) -> void:
-	await get_tree().process_frame
-	if is_instance_valid(scroll):
-		scroll.scroll_vertical = offset
+	UiKit.restore_scroll(_scroll_box, int(_scroll_positions.get(_tab, 0)))
 
 
 func _budget(body: VBoxContainer) -> void:
@@ -861,7 +857,7 @@ func _pick_label(pk: Dictionary) -> String:
 ## not as bars across the screen (director, 2026-10-10).
 func _wide() -> bool:
 	var w := UiKit.view_width(self)
-	return ScreenLayout.is_desktop() and w >= 760.0 and w > UiKit.view_height(self) * 1.2
+	return ScreenLayout.roomy(w, UiKit.view_height(self))
 
 
 func _compact_actions(row: HBoxContainer, main: Button) -> void:
@@ -915,7 +911,15 @@ func _action_slot(card: PanelContainer) -> Container:
 	return card.get_child(0) as VBoxContainer
 
 
-func _para(text: String, size: int, colour: Color) -> Label:
-	var l := UiKit.lbl(text, size, colour)
+## Every club's players by name from the season's lists (they follow trades), so
+## a name in a sentence wears his club's colour (NameInk); made again on each build.
+func _names() -> Dictionary:
+	if _name_index.is_empty() and GameState.season != null:
+		_name_index = NameInk.from_lists(GameState.season.lists)
+	return _name_index
+
+
+func _para(text: String, size: int, colour: Color) -> Control:
+	var l := NameInk.label(text, _names(), size, colour)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l

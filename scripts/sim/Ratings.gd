@@ -260,10 +260,13 @@ static func player_league_rates(players: Array) -> Dictionary:
 # ---------------------------------------------------------------------------
 ## Mutates each player dict, adding: rates, norm, attr, role, role_scores,
 ## overall, value. Call once at boot on the full player pool.
-static func derive_all(players: Array) -> Array:
+## `reference` is an already-rated pool whose league rates and normalisation
+## the new players are scaled against without changing it (list additions
+## rated on their record, GameDB._rate_established_additions).
+static func derive_all(players: Array, reference: Array = []) -> Array:
 	if players.is_empty():
 		return players
-	var league := player_league_rates(players)
+	var league := player_league_rates(reference + players)
 	var k_games: float = T["shrink_games"]
 	var k_acc: float = T["shrink_accuracy"]
 
@@ -287,7 +290,7 @@ static func derive_all(players: Array) -> Array:
 
 	# ---- normalisation params over the whole pool --------------------------
 	var keys: Array = players[0]["rates"].keys()
-	var params := build_norm_params(players, keys)
+	var params := build_norm_params(reference + players, keys)
 
 	for p in players:
 		var q := {}
@@ -768,7 +771,16 @@ static func select_side(list_players: Array, selection: Dictionary = {}) -> Dict
 		dual = 1 if bool(selection["DUAL_RUCK"]) else 0
 		selection = selection.duplicate()
 		selection.erase("DUAL_RUCK")
+	# A role trial rides with the selection like the dual-ruck call: under the
+	# auto-pick he plays his trial position (his own becomes his second).
+	var trial: Dictionary = {}
+	if selection.has("TRIAL"):
+		trial = selection["TRIAL"]
+		selection = selection.duplicate()
+		selection.erase("TRIAL")
 	if selection.is_empty():
+		if not trial.is_empty():
+			pool = _with_trial(pool, trial)
 		return select_22(pool, dual)
 	pool.sort_custom(func(a, b):
 		return float(a["overall"]) * Workload.selection_factor(a) > float(b["overall"]) * Workload.selection_factor(b))
@@ -930,6 +942,24 @@ static func by_ruck(players: Array) -> Array:
 		if ra != rb:
 			return ra > rb
 		return int(a["overall"]) > int(b["overall"]))
+	return out
+
+
+## The pool with each trial player listed in his trial position: his own
+## position becomes his second, so every pick path treats him as a player of
+## the new role. {id: role}.
+static func _with_trial(pool: Array, trial: Dictionary) -> Array:
+	var out := []
+	for p in pool:
+		var role := str(trial.get(str(p["id"]), ""))
+		if role == "" or role == str(p.get("role", "")):
+			out.append(p)
+			continue
+		var c: Dictionary = p.duplicate()
+		c["own_role"] = str(p.get("own_role", p.get("role", "")))
+		c["role2"] = str(p.get("role", ""))
+		c["role"] = role
+		out.append(c)
 	return out
 
 

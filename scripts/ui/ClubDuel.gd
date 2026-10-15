@@ -8,6 +8,7 @@ extends Control
 
 var _cols := [Color.BLACK, Color.BLACK]
 var _fade := 0.55
+var _settle := 1.0   # 0 arriving -> 1 at rest (live())
 
 static var _glow: GradientTexture2D
 
@@ -23,41 +24,34 @@ func setup(left: String, right: String, fade := 0.55) -> ClubDuel:
 	return self
 
 
-## The two colours a pairing shows: each club's main colour, or its most
-## vivid one when the main is near black; if the two still look alike (both
-## red, say), the right-hand club takes whichever of its colours differs most.
-## A colour too dark to show is lifted.
+## Living, on match day (director, 2026-10-11): on arrival the light slides
+## in to where the two clubs meet and the turf rolls across, over a few
+## seconds; then it holds still and draws nothing more (UiKit.drift).
+func live() -> ClubDuel:
+	UiKit.drift(self, func(t: float) -> void:
+		_settle = t
+		queue_redraw())
+	return self
+
+
+## The two colours a pairing shows: the same two inks the screens' names and
+## bars use (UiKit.club_ink_pair: the away side takes its second when the two
+## are alike), deepened until the white type on the band reads. One source of
+## club colour for the banner and the blocks under it (director, 2026-10-13).
 static func duel_colours(left: String, right: String) -> Array:
-	var a := _pick(left)
-	var b := _pick(right)
-	if _diff(a, b) < 0.45:
-		var best := b
-		var best_d := _diff(a, b)
-		for c in GameDB.club_colours(right):
-			var cc := _show(c)
-			if cc.get_luminance() > 0.75:
-				continue  # never white: the type on it is white
-			var d := _diff(a, cc)
-			if d > best_d:
-				best_d = d
-				best = cc
-		b = best
-	return [a, b]
+	var inks := UiKit.club_ink_pair(left, right)
+	return [_banner(inks[0]), _banner(inks[1])]
 
 
-## A club's colour for its side: its main colour, shown; a grey or black main
-## hands over to its most vivid colour (Essendon's red, not its black).
-static func _pick(code: String) -> Color:
-	var cols: Array = GameDB.club_colours(code)
-	var main: Color = cols[0]
-	if main.s < 0.2 and main.get_luminance() < 0.3:
-		var vivid := main
-		for c in cols:
-			var cc: Color = c
-			if cc.s > vivid.s + 0.2 and cc.get_luminance() < 0.75:
-				vivid = cc
-		return _show(vivid)
-	return _show(main)
+## An ink deepened until white type over this band colour (darkened a quarter
+## at the top, as _half does) has 3.5:1 or better.
+static func _banner(ink: Color) -> Color:
+	var out := ink
+	var guard := 0
+	while guard < 12 and UiKit.contrast(out.darkened(0.25), Color.WHITE) < 3.5:
+		out = out.darkened(0.1)
+		guard += 1
+	return out
 
 
 static func _diff(a: Color, b: Color) -> float:
@@ -83,16 +77,18 @@ func _draw() -> void:
 	_half([Vector2(cut + slant, 0), Vector2(w, 0), Vector2(w, h), Vector2(cut - slant, h)], _cols[1])
 	# Mown turf: broad diagonal bands, barely there.
 	var band := 34.0
-	var i := -int(h / band) - 2
+	var roll := (1.0 - _settle) * band * 4.0
+	var i := -int(h / band) - 2 - 8
 	while float(i) * band < w + h:
 		if i % 2 == 0:
-			var x := float(i) * band
+			var x := float(i) * band + roll
 			draw_colored_polygon(PackedVector2Array([Vector2(x, 0), Vector2(x + band, 0),
 					Vector2(x + band - h * 0.6, h), Vector2(x - h * 0.6, h)]), Color(0, 0, 0, 0.07))
 		i += 1
 	draw_line(Vector2(cut + slant, 0), Vector2(cut - slant, h), Color(1, 1, 1, 0.55), 2.0, true)
 	var gs := h * 1.6
-	draw_texture_rect(_glow_tex(), Rect2(Vector2(cut - gs / 2.0, -gs * 0.45), Vector2(gs, gs)), false)
+	var gx := cut - (1.0 - _settle) * w * 0.32
+	draw_texture_rect(_glow_tex(), Rect2(Vector2(gx - gs / 2.0, -gs * 0.45), Vector2(gs, gs)), false)
 	if _fade > 0.0:
 		var a := Color(0, 0, 0, 0.0)
 		var b := Color(0, 0, 0, _fade)

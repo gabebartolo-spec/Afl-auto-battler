@@ -56,6 +56,8 @@ var _scene_then: Node = null
 var _auto := -1.0          # play_through: seconds until the run (-1: off)
 var _mine := 0             # how many of the tokens are yours (they come first)
 var _cross_cache := []     # where and when each of yours goes through the banner
+var _cross_key := -1.0     # the _since the crossings were worked out for (they don't move after it)
+var _tear_cache := PackedFloat64Array()   # when each banner piece rips (column-major), for those crossings
 
 
 ## The scene on its own layer over whatever is showing, so it stays up while
@@ -73,6 +75,13 @@ static func open(host: Node, my_code: String, opp_code: String, my_ground: Array
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.setup_prematch(my_code, opp_code, my_ground, opp_ground, heading, final, banner_ctx)
 	return v
+
+
+## The first frame's one-off work, done early (HubScene calls it while the hub is idle):
+## the crowd painted for these two clubs' colours, as the scene's ground will ask for it.
+static func warm(my_code: String, opp_code: String) -> void:
+	var seat := VignetteGround.MCG_SEAT if VignetteGround.venue == "MCG" else Color(0.07, 0.07, 0.085)
+	VignetteCrowd.seats([GameDB.club_colours(my_code), GameDB.club_colours(opp_code)], 7, seat)
 
 
 ## Finals footy: the fixture is a final. Every final's label says so ("Semi
@@ -455,7 +464,15 @@ func _ground_to_scene() -> Transform2D:
 
 
 func _draw() -> void:
-	_cross_cache = _crossings() if _phase == RUN else []
+	if _phase != RUN:
+		_cross_cache = []
+		_tear_cache = PackedFloat64Array()
+		_cross_key = -1.0
+	elif _cross_key != _since:
+		# Once per run: the paths and the tear times don't change after it begins.
+		_cross_cache = _crossings()
+		_tear_cache = _tear_times(_cross_cache)
+		_cross_key = _since
 	_set_camera()
 	var fade := clampf(_t / CUT_IN, 0.0, 1.0)
 	_draw_ground()
@@ -589,7 +606,7 @@ func _draw_banner() -> void:
 			var x := -BANNER_W + (c + 0.5) * cw
 			var h := BANNER_LOW + (r + 0.5) * ch
 			var uv := Rect2(float(c) / BANNER_COLS, 1.0 - float(r + 1) / BANNER_ROWS, 1.0 / BANNER_COLS, 1.0 / BANNER_ROWS)
-			var torn := _tear_time(x, h, c * 31 + r * 7, crossings)
+			var torn := INF if _tear_cache.is_empty() else _tear_cache[c * BANNER_ROWS + r]
 			var corners := []
 			if _t < torn:
 				# Still hanging: the paper bellies a touch between the poles.
@@ -631,6 +648,17 @@ func _crossings() -> Array:
 			else:
 				hi = mid
 		out.append([_bezier(path[0], path[1], path[2], hi).x, _since + float(path[3]) + hi * RUN_SPAN])
+	return out
+
+
+## Every piece's tear time for these crossings, column by column (_tear_time for each).
+func _tear_times(crossings: Array) -> PackedFloat64Array:
+	var out := PackedFloat64Array()
+	var cw := 2.0 * BANNER_W / BANNER_COLS
+	var ch := (BANNER_TOP - BANNER_LOW) / BANNER_ROWS
+	for c in range(BANNER_COLS):
+		for r in range(BANNER_ROWS):
+			out.append(_tear_time(-BANNER_W + (c + 0.5) * cw, BANNER_LOW + (r + 0.5) * ch, c * 31 + r * 7, crossings))
 	return out
 
 

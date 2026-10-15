@@ -39,6 +39,14 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 	_row(v, "Crowd", "SettingsCrowd", AudioLevels.LEVELS, GameState.crowd_level(),
 			"The crowd at a match you watch. The match tells you the same either way.",
 			func(k): GameState.set_crowd_level(k))
+	_row(v, "Button sounds", "SettingsButtonSounds", AudioLevels.LEVELS, GameState.button_sounds(),
+			"A boot through the ball when you press a button, a stud tap on a choice, the siren at the end of a match or a draft, and the crowd when a result lands.",
+			func(k): GameState.set_button_sounds(k))
+	if Feel.phone():
+		_row(v, "Vibration", "SettingsVibration", [["on", "On"], ["off", "Off"]],
+				"on" if GameState.haptics_on() else "off",
+				"A light buzz when you press a button, and a firmer one when a result lands.",
+				func(k): GameState.set_haptics_on(k == "on"))
 	_row(v, "Ask before simming the week for me", "SettingsSimConfirm", [["on", "On"], ["off", "Off"]],
 			"on" if GameState.confirm_sim_round() else "off",
 			"Sim the week plays out your own match without you. With this on, it asks first.",
@@ -53,9 +61,14 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 		_row(v, "Screen size", "SettingsScreenSize", sizes, GameState.screen_size(),
 				"Everything bigger, for a big screen across the room. TV suits a television from the couch.",
 				func(k): GameState.set_screen_size(k))
-		_row(v, "Full screen", "SettingsFullscreen", [["off", "Off"], ["on", "On"]],
-				"on" if GameState.fullscreen() else "off", "Fill the screen, with no window border.",
+		_row(v, "Display", "SettingsFullscreen", [["on", "Fullscreen"], ["off", "Window"]],
+				"on" if GameState.fullscreen() else "off",
+				"Fullscreen fills the screen with no border; Window opens maximised. Alt+Enter switches.",
 				func(k): GameState.set_fullscreen(k == "on"))
+	if not ScreenLayout.is_desktop():
+		_row(v, "Screen", "SettingsOrientation", ScreenLayout.ORIENTATIONS, GameState.screen_orientation(),
+				"Follow the phone turns with it. Portrait or Landscape holds that way; in a browser that goes fullscreen, and an iPhone's Safari cannot hold it.",
+				func(k): GameState.set_screen_orientation(k, true))
 	_row(v, "Tutorials", "SettingsTutorials", [["on", "On"], ["off", "Off"]],
 			"on" if GameState.tutorials_on() else "off",
 			"A short note the first time you open each screen. Off stops them opening by themselves; notes you've already read don't come back.",
@@ -66,8 +79,12 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 			func(k): GameState.set_battery_saver(k == "on"))
 	_row(v, "Screen shake", "SettingsScreenShake", [["on", "On"], ["off", "Off"]],
 			"on" if GameState.screen_shake_on() else "off",
-			"A small shake of the oval when the ball is turned over. Off keeps the screen still; the Turnover label still shows.",
+			"A small, short shake of the oval when a goal is scored. Off keeps the screen still.",
 			func(k): GameState.set_screen_shake_on(k == "on"))
+	_row(v, "Reduced motion", "SettingsReducedMotion", [["off", "Off"], ["on", "On"]],
+			"on" if GameState.reduced_motion() else "off",
+			"On keeps the screen still: no fades, counting numbers, pulses, moving backgrounds or shake. Everything shows the same.",
+			func(k): GameState.set_reduced_motion(k == "on"))
 	_row(v, "Vignettes", "SettingsVignettes", [["on", "On"], ["off", "Off"]],
 			"on" if GameState.vignettes_on() else "off",
 			"The match-day scenes: the banner, the centre ball-up, replays, the press conference and the awards. Off skips the scenes; every call and result stays the same.",
@@ -136,7 +153,7 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 		v.add_child(confirm)
 
 	v.add_child(UiKit.spacer(UiKit.GAP))
-	var ver := UiKit.lbl("Version %s" % str(ProjectSettings.get_setting("application/config/version", "")),
+	var ver := UiKit.lbl("Version %s" % BuildInfo.label(),
 			UiKit.SMALL, UiKit.MUTED)
 	ver.name = "OptionsVersion"
 	v.add_child(ver)

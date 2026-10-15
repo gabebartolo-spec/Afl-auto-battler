@@ -15,6 +15,7 @@ const ROOKIE_MAX_AGE := 24.0
 const PRIME_MAX_AGE := 29.0
 
 var _draft: Draft
+var _meeting: Control = null    # the recruiting meeting, while it is open
 var _club := ""
 var _phase := "club"
 var _role := ""
@@ -41,6 +42,7 @@ var _wide := false
 var _short := false
 var _layout_key := ""
 var _resize_queued := false
+var _built_width := 0.0
 var _last_batch_start := 0
 
 var _margin: MarginContainer
@@ -76,6 +78,8 @@ var _order_scroll: ScrollContainer
 var _ticker: Button
 var _next_picks: Label
 var _finish_btn: Button
+var _pass_btn: Button
+var _pick_me_btn: Button
 ## The player being inspected ("" when none) and his detail overlay.
 var _detail_id := ""
 var _detail: Control
@@ -124,12 +128,16 @@ func _reflow() -> void:
 	if not is_inside_tree():
 		return
 	_apply_margins()
+	# The phone keyboard shrinks the window's height only: leave the screen
+	# (and the focused search field) alone until it goes away.
+	if UiKit.keyboard_resize(self, _built_width):
+		return
 	if _layout_signature() != _layout_key:
 		var scrolls := _scroll_positions()
 		var search_focus := is_instance_valid(_search_field) and _search_field.has_focus()
 		var caret := _search_field.caret_column if search_focus else 0
 		_build_layout()
-		_restore_scrolls.call_deferred(scrolls)
+		_restore_scrolls(scrolls)
 		if search_focus and is_instance_valid(_search_field):
 			_search_field.grab_focus()
 			_search_field.caret_column = caret
@@ -143,16 +151,17 @@ func _usable_size() -> Vector2:
 
 func _layout_signature() -> String:
 	var area := _usable_size()
-	return "%s/%s/%d" % [area.x >= 760.0 and area.x > area.y,
+	return "%s/%s/%d" % [ScreenLayout.wide_view(area.x, area.y, 760.0),
 			area.y < 680.0, _grid_columns()]
 
 
 func _build_layout() -> void:
 	_club_backdrop()
 	var area := _usable_size()
-	_wide = area.x >= 760.0 and area.x > area.y
+	_wide = ScreenLayout.wide_view(area.x, area.y, 760.0)
 	_short = area.y < 680.0
 	_layout_key = _layout_signature()
+	_built_width = UiKit.view_width(self)
 	_apply_margins()
 	_root.add_theme_constant_override("separation", 6 if _short else 10)
 	if _phase == "club":
@@ -173,7 +182,7 @@ func _apply_margins() -> void:
 func _scroll_positions() -> Array:
 	var values := []
 	for sc in [_board_scroll, _history_scroll, _mine_scroll, _order_scroll]:
-		values.append(sc.scroll_vertical if is_instance_valid(sc) else 0)
+		values.append(UiKit.scroll_place(sc) if is_instance_valid(sc) else 0)
 	return values
 
 
@@ -181,7 +190,7 @@ func _restore_scrolls(values: Array) -> void:
 	var scrolls := [_board_scroll, _history_scroll, _mine_scroll, _order_scroll]
 	for i in range(scrolls.size()):
 		if is_instance_valid(scrolls[i]):
-			scrolls[i].scroll_vertical = int(values[i])
+			UiKit.restore_scroll(scrolls[i], int(values[i]))
 
 
 # ---------------------------------------------------------------------------
@@ -194,13 +203,13 @@ func _show_club_select() -> void:
 	var real := GameState.opening_draft
 	var active := GameDB.active_clubs(GameDB.START_YEAR if real else GameState.season_year)
 	if real:
-		_root.add_child(_header("CHOOSE YOUR CLUB",
+		_root.add_child(_header("Choose your club",
 				"Real 2026 lists  /  the 2026 National Draft, then 2027"))
 		_root.add_child(UiKit.lbl(
 				"Every club starts with its real list, less the players who retired or were delisted after 2026; the delisted are free agents. The 2026 National Draft comes first, worst club on the ladder picking first; then the 2027 season.",
 				16, UiKit.MUTED))
 	else:
-		_root.add_child(_header("CHOOSE YOUR CLUB",
+		_root.add_child(_header("Choose your club",
 				"%d  /  A fresh start for all %d clubs" % [GameState.season_year, active.size()]))
 		_root.add_child(UiKit.lbl(
 				"One player pool. One salary cap. The whole league re-drafts in a random snake order.",
@@ -284,7 +293,7 @@ func _header(title_text: String, sub: String) -> Control:
 	back.name = "BackToMenu"
 	back.custom_minimum_size = Vector2(44, 44)
 	back.tooltip_text = "Back to menu. Your draft stays available to resume."
-	back.pressed.connect(func(): Router.replace("main"))
+	back.pressed.connect(back_to_menu)
 	h.add_child(back)
 	var v := UiKit.vbox(0)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -293,8 +302,59 @@ func _header(title_text: String, sub: String) -> Control:
 	if not _short:
 		v.add_child(UiKit.ellipsis(sub, UiKit.SMALL, UiKit.MUTED))
 	if not _club.is_empty():
-		h.add_child(UiKit.club_badge(_club, 14, true))
+		# The guernsey of the club on the clock, where the club's small marker was.
+		h.add_child(_stage())
 	return h
+
+
+## Draft night's hero (director, 2026-10-14): the guernsey of the club on the
+## clock, on its own - the club's own guernsey, as everywhere else in the
+## game. No hanger ("remove the coat hanger from the guernsey") and no lectern.
+## Decoration: it takes no tap.
+const STAGE_NARROW := 60.0
+const STAGE_WIDE := 72.0
+## The guernsey's square against the stage's height: the size and the place it
+## had under the hanger, standing on the stage's foot.
+const GUERNSEY_SHARE := 0.89
+var _hung: Control
+var _hung_code := ""
+
+
+func _stage_h() -> float:
+	return STAGE_WIDE if _wide else STAGE_NARROW
+
+
+func _crest_size() -> float:
+	return floor(_stage_h() * GUERNSEY_SHARE)
+
+
+func _stage() -> Control:
+	var h := UiKit.hbox(8)
+	h.name = "DraftStage"
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_hung = Control.new()
+	_hung.name = "DraftGuernsey"
+	_hung.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hung.custom_minimum_size = Vector2(round(_crest_size() * 0.82), _stage_h())
+	h.add_child(_hung)
+	_hung_code = ""
+	_hang(_club)
+	return h
+
+
+## Show `code`'s guernsey on the stage.
+func _hang(code: String) -> void:
+	if not is_instance_valid(_hung) or code == "" or code == _hung_code:
+		return
+	_hung_code = code
+	UiKit.clear(_hung)
+	var s := _crest_size()
+	var w := _hung.custom_minimum_size.x
+	var crest := UiKit.club_marker(code, s + 2.0)
+	crest.size = Vector2(s, s)
+	crest.position = Vector2(round((w - s) / 2.0), _stage_h() - s)
+	_hung.add_child(crest)
 
 
 # ---------------------------------------------------------------------------
@@ -310,8 +370,8 @@ func _show_board() -> void:
 		_root.add_child(_compact_header())
 	else:
 		if _draft.intake_mode:
-			_root.add_child(_header("%d NATIONAL DRAFT" % GameState.season_year,
-					"%d prospects  /  keep your list  /  reversed ladder" % _draft.pool.size()))
+			_root.add_child(_header("%d National Draft" % GameState.season_year,
+					"%d prospects  /  keep your list  /  worst club picks first" % _draft.pool.size()))
 		else:
 			var sub := "%d  /  %d clubs  /  Snake draft" % [
 					GameState.season_year, _draft.clubs.size()]
@@ -358,7 +418,7 @@ func _compact_header() -> Control:
 	var h := UiKit.hbox(10)
 	var back := UiKit.btn("‹", UiKit.GLYPH)
 	back.custom_minimum_size.x = 44
-	back.pressed.connect(func(): Router.replace("main"))
+	back.pressed.connect(back_to_menu)
 	h.add_child(back)
 	var v := UiKit.vbox(0)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -439,8 +499,10 @@ func _position_filters() -> Control:
 
 func _footer() -> Control:
 	var p := UiKit.panel(UiKit.INK, 8, 6)
+	var col := UiKit.vbox(6)
+	p.add_child(col)
 	var h := UiKit.hbox(10)
-	p.add_child(h)
+	col.add_child(h)
 	_next_picks = UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	_next_picks.name = "UpcomingPicks"
 	_next_picks.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -448,8 +510,36 @@ func _footer() -> Control:
 	_finish_btn = UiKit.btn("Finish draft" if _draft.intake_mode else "Start season", 14, true)
 	_finish_btn.name = "StartSeason"
 	_finish_btn.pressed.connect(_on_finish)
+	UiKit.feel(_finish_btn, "end")     # the end of the draft: the siren
 	h.add_child(_finish_btn)
+	# Two plain buttons for your own pick; neither is the recommended one.
+	var acts := UiKit.hbox(8)
+	acts.name = "PickActions"
+	col.add_child(acts)
+	_pick_me_btn = UiKit.btn("Pick for me", UiKit.SECONDARY)
+	_pick_me_btn.name = "PickForMe"
+	_pick_me_btn.custom_minimum_size = Vector2(0, 44)
+	_pick_me_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_pick_me_btn.pressed.connect(_on_pick_for_me)
+	acts.add_child(_pick_me_btn)
+	if _draft.intake_mode:
+		_pass_btn = UiKit.btn("Pass", UiKit.SECONDARY)
+		_pass_btn.name = "PassPick"
+		_pass_btn.custom_minimum_size = Vector2(0, 44)
+		_pass_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_pass_btn.pressed.connect(_on_pass)
+		acts.add_child(_pass_btn)
 	return p
+
+
+func _on_pick_for_me() -> void:
+	if _draft.pick_for_me():
+		_refresh()
+
+
+func _on_pass() -> void:
+	if _draft.user_pass():
+		_refresh()
 
 
 func _select_tab(key: String) -> void:
@@ -912,7 +1002,7 @@ func _player_row(p: Dictionary) -> Control:
 		reason = "The draft is complete." if _draft.is_finished() else "Waiting for your next turn."
 	elif not can_pick:
 		reason = _draft.pick_block_reason(p)
-		text = "Rucks" if reason.contains("rucks") else ("Full" if reason.contains("full") else "Cap")
+		text = "Rucks" if reason.contains("rucks") else ("Full" if reason.contains("full") else ("Cap" if reason.contains("cap") else "No"))
 	var b := UiKit.btn(text, UiKit.SECONDARY)
 	b.name = "Pick_" + str(p["id"])
 	b.custom_minimum_size = Vector2(66, 44)
@@ -942,6 +1032,20 @@ func _on_pick(player: Dictionary) -> void:
 	if _draft.pick(player):
 		GameState.mark_dirty()
 		_refresh()
+		_land_my_pick()
+
+
+## Your pick lands with weight (director, 2026-10-11): the status line, and
+## the pick's row when the picks are in view. Once, then still.
+func _land_my_pick() -> void:
+	UiKit.land(_status)
+	for i in range(_draft.pick_history.size() - 1, _last_batch_start - 1, -1):
+		var entry: Dictionary = _draft.pick_history[i]
+		if str(entry["club"]) == _club:
+			var row := _history_box.get_node_or_null("HistoryPick_%d" % int(entry["pick"])) as Control
+			if row != null and row.is_visible_in_tree():
+				UiKit.land(row, 0.0, false)
+			return
 
 
 # ---------------------------------------------------------------------------
@@ -949,10 +1053,24 @@ func _on_pick(player: Dictionary) -> void:
 # ---------------------------------------------------------------------------
 ## Android Back and the top-bar back close the player first.
 func handle_back() -> bool:
+	# The recruiting meeting closes before the draft is left.
+	if is_instance_valid(_meeting):
+		_meeting.queue_free()
+		_meeting = null
+		return true
 	if is_instance_valid(_detail):
 		_close_player()
 		return true
 	return false
+
+
+## Back from the draft: from Choose your club, one step back is the New career
+## options it came from; once a club is chosen it is the title, where the draft
+## waits to be resumed.
+func back_to_menu() -> void:
+	if _phase == "club":
+		GameState.new_career_setup_requested = true
+	Router.replace("main")
 
 
 func _player_by_id(id: String) -> Dictionary:
@@ -971,6 +1089,7 @@ func _show_meeting() -> void:
 	var box := UiKit.modal_box(self, 520.0, 0.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = "DraftMeeting"
+	_meeting = overlay
 	var v: VBoxContainer = box["body"]
 	v.add_child(UiKit.lbl("Before the draft", 20, UiKit.TEXT, true))
 	if not (notes["list"] as Array).is_empty():
@@ -1045,6 +1164,9 @@ func _open_player(id: String) -> void:
 		var pl := UiKit.lbl(ped, UiKit.SECONDARY, UiKit.MUTED)
 		pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(pl)
+	var family := FamilyLine.make(p, self)
+	if family != null:
+		v.add_child(family)
 	var status := _draft_status(p)
 	var st := UiKit.lbl(status[0], 14, status[1])
 	st.name = "DetailStatus"
@@ -1124,6 +1246,14 @@ func _open_player(id: String) -> void:
 				tr.add_child(UiKit.line(stand, 13, UiKit.MUTED))
 			tr.add_child(UiKit.line(Combine.text(key, r), 14, UiKit.TEXT if r >= 0.0 else UiKit.MUTED, r >= 0.0))
 			v.add_child(tr)
+	# Seen in your intra-club match (the pre-season): what he did that day.
+	var seen_line := PreSeason.seen_line(p, _club) if Features.on("preseason") else ""
+	if seen_line != "":
+		v.add_child(UiKit.spacer(4))
+		var seen_lbl := UiKit.lbl(seen_line, UiKit.SECONDARY, UiKit.TEXT, true)
+		seen_lbl.name = "SeenIntraClub"
+		seen_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(seen_lbl)
 	if scouted:
 		v.add_child(UiKit.spacer(4))
 		var combine_head := UiKit.lbl("What the scouts saw", UiKit.SECONDARY, UiKit.MUTED, true)
@@ -1327,7 +1457,7 @@ func _refresh_history() -> void:
 		var entry: Dictionary = _draft.pick_history[i]
 		if _history_club.is_empty() or str(entry["club"]) == _history_club:
 			entries.append(entry)
-	_history_info.text = "%d %s" % [entries.size(), "PICK" if entries.size() == 1 else "PICKS"]
+	_history_info.text = "%d %s" % [entries.size(), "pick" if entries.size() == 1 else "picks"]
 	if entries.is_empty():
 		_history_box.add_child(UiKit.lbl("No picks yet" if _history_club.is_empty() else "No picks for this club yet", UiKit.HEADING, UiKit.TEXT, true))
 		_history_box.add_child(UiKit.lbl(
@@ -1374,7 +1504,7 @@ func _history_row(entry: Dictionary) -> Control:
 	var club_row := UiKit.hbox(6)
 	info.add_child(club_row)
 	club_row.add_child(UiKit.club_badge(str(entry["club"]), 12, true))
-	var tag := "YOUR PICK" if mine else "selected"
+	var tag := "Your pick" if mine else "selected"
 	if bool(entry.get("released", false)):
 		tag = "released"
 	club_row.add_child(UiKit.ellipsis(tag, UiKit.FINE, UiKit.EMPH if mine else UiKit.MUTED))
@@ -1403,12 +1533,12 @@ func _history_row(entry: Dictionary) -> Control:
 func _refresh_mine() -> void:
 	UiKit.clear(_mine_box)
 	if _draft.intake_mode:
-		_mine_box.add_child(UiKit.lbl("%d / %d rookies signed · list %d / %d" % [
-			_draft.count(), _draft.target_size,
+		_mine_box.add_child(UiKit.lbl("%d rookies signed · list %d / %d" % [
+			_draft.count(),
 			int(GameState.league_lists.get(_club, []).size()), Ratings.LIST_SIZE],
 			15, UiKit.EMPH, true))
 		_mine_box.add_child(UiKit.lbl(
-			"Rookies join the list you kept. No cap at the intake draft - list space is the limit.",
+			"Rookies join the list you kept. There is no cap here; the draft runs until every list is full or the prospects run out.",
 			13, UiKit.MUTED))
 	else:
 		_mine_box.add_child(UiKit.lbl("%d / %d signed · %s of %s spent" % [
@@ -1416,8 +1546,15 @@ func _refresh_mine() -> void:
 		_mine_box.add_child(UiKit.lbl(
 			"Cover 6 DEF, 6 MID and 6 FWD for the ground. Carry at least 2 RUCK. The bench is flexible; other needs are guidance, not limits.",
 			13, UiKit.MUTED))
-	var stuck := _draft.user_stuck()
-	if stuck:
+	var stuck := _draft.can_release()
+	if _draft.finished_list_refused():
+		var fix := UiKit.lbl("%s Release a player: he goes back into the pool and you pick another." % _draft.invalid_reason(),
+				14, UiKit.BAD)
+		fix.name = "DraftFix"
+		fix.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_mine_box.add_child(UiKit.spacer(6))
+		_mine_box.add_child(fix)
+	elif _draft.user_stuck():
 		# Only an older save can get here: say so plainly and offer the one
 		# legal way on - never a cap breach.
 		var why := UiKit.lbl("No player left fits your cap and your list's needs. Release one of your picks to make room: he goes back into the pool and you get an extra pick at the end of the draft.",
@@ -1500,14 +1637,16 @@ func _refresh_order() -> void:
 	var by_pick := {}
 	for e in _draft.pick_history:
 		by_pick[int(e["pick"])] = e
-	var round_no := mini(_draft.current_round(), _draft.target_size)
-	var going_back := round_no % 2 == 0
-	_order_box.add_child(UiKit.lbl("ROUND %d / %d" % [round_no, _draft.target_size], UiKit.SMALL, UiKit.MUTED, true))
+	var round_no := _draft.current_round() if _draft.intake_mode else mini(_draft.current_round(), _draft.target_size)
+	var going_back := round_no % 2 == 0 and not _draft.intake_mode
+	_order_box.add_child(UiKit.lbl(("Round %d" % round_no) if _draft.intake_mode
+			else ("Round %d of %d" % [round_no, _draft.target_size]), UiKit.SMALL, UiKit.MUTED, true))
 	var direction := UiKit.heading("‹ Order" if going_back else "Order ›", UiKit.H1)
 	direction.add_theme_color_override("font_color", UiKit.EMPH)
 	_order_box.add_child(direction)
 	_order_box.add_child(UiKit.lbl(
-			"The arrow is the way this round's order runs. It flips every round. Highlighted club = you.",
+			("Every round runs in the same order, worst club first. Highlighted club = you." if _draft.intake_mode
+			else "The arrow is the way this round's order runs. It flips every round. Highlighted club = you."),
 			13, UiKit.MUTED))
 	var start := (round_no - 1) * _draft.clubs.size()
 	var end := mini(start + _draft.clubs.size(), _draft.pick_sequence.size())
@@ -1538,11 +1677,11 @@ func _refresh_order() -> void:
 		v.add_child(badge)
 		var description := "Up next"
 		if index == _draft.pick_index and not _draft.is_finished():
-			description = "ON THE CLOCK"
+			description = "On the clock"
 		elif index < _draft.pick_index:
 			var entry: Dictionary = by_pick.get(index + 1, {})
 			description = _entry_player_name(entry) if not entry.is_empty() \
-					else "passed - list full"
+					else "passed"
 		v.add_child(UiKit.ellipsis(description, UiKit.SMALL, UiKit.MUTED))
 		# Where the club is in its cycle and its list today (TeamRating).
 		var outlook := GameState.team_outlook(code)
@@ -1559,7 +1698,9 @@ func _refresh_order() -> void:
 			var via := UiKit.ellipsis("Via %s" % GameDB.club_name(str(_draft.pick_origin[index])), UiKit.SMALL, UiKit.TEXT)
 			via.name = "ViaPick"
 			v.add_child(via)
-		h.add_child(UiKit.line("%d/%d" % [_draft.count_for(code), _draft.pick_limit(code)], 12, UiKit.EMPH if mine else UiKit.MUTED))
+		var made_text := ("%d signed" % _draft.count_for(code)) if _draft.intake_mode \
+				else ("%d/%d" % [_draft.count_for(code), _draft.pick_limit(code)])
+		h.add_child(UiKit.line(made_text, 12, UiKit.EMPH if mine else UiKit.MUTED))
 		_order_box.add_child(p)
 
 
@@ -1577,7 +1718,8 @@ func _refresh() -> void:
 
 func _refresh_status() -> void:
 	var done := _draft.is_finished()
-	_status.text = "DRAFT COMPLETE" if done else "YOUR PICK #%d" % (_draft.pick_index + 1)
+	_hang(_club if done else str(_draft.current_club()))
+	_status.text = "Draft complete" if done else "Your pick #%d" % (_draft.pick_index + 1)
 	if not done and not _draft.is_user_turn():
 		_status.text = "%s on the clock" % GameDB.club_short(_draft.current_club())
 	_round_info.text = "%d / %d signed · Round %d of %d" % [_draft.count(), _draft.target_size,
@@ -1586,7 +1728,11 @@ func _refresh_status() -> void:
 		_round_info.text = "%s · %d/%d signed · R%d/%d" % [_club, _draft.count(),
 				_draft.target_size, mini(_draft.current_round(), _draft.target_size), _draft.target_size]
 	if _draft.intake_mode:
-		_cap.text = "ROUNDS %d\n%d prospects left" % [_draft.target_size, _draft.remaining_pool()]
+		# Rounds run until lists are full, so there is no fixed total to show.
+		_round_info.text = "%d signed · Round %d" % [_draft.count(), _draft.current_round()]
+		if _short:
+			_round_info.text = "%s · %d signed · R%d" % [_club, _draft.count(), _draft.current_round()]
+		_cap.text = "%d prospects left\nRuns until lists are full" % _draft.remaining_pool()
 	else:
 		# The cap you have, and what you can actually spend on this pick once
 		# enough is kept to fill the rest of your list.
@@ -1608,7 +1754,20 @@ func _refresh_status() -> void:
 	var pick_labels := []
 	for number in upcoming:
 		pick_labels.append("#%d" % int(number))
-	_next_picks.text = "%d left to sign\nYour picks: %s" % [_draft.target_size - _draft.count(), ", ".join(pick_labels)]
+	if _draft.intake_mode:
+		_next_picks.text = "%d signed\n%s" % [_draft.count(),
+				("Your next picks: " + ", ".join(pick_labels)) if not pick_labels.is_empty() else "No pick queued"]
+	else:
+		_next_picks.text = "%d left to sign\nYour picks: %s" % [_draft.target_size - _draft.count(), ", ".join(pick_labels)]
+	var my_turn := _draft.is_user_turn()
+	_pick_me_btn.disabled = not my_turn
+	_pick_me_btn.tooltip_text = "The assistant takes the best available player for this one pick." if my_turn else "Waiting for your turn."
+	if _pass_btn != null:
+		var pass_why := _draft.pass_block_reason()
+		_pass_btn.disabled = pass_why != ""
+		_pass_btn.tooltip_text = "You take no more players in this draft." if pass_why == "" else pass_why
+		if my_turn and pass_why != "":
+			_next_picks.text += "\n" + pass_why
 	_finish_btn.disabled = not (done and _draft.is_valid())
 	if _draft.intake_mode:
 		_finish_btn.tooltip_text = \
@@ -1618,8 +1777,18 @@ func _refresh_status() -> void:
 	if _draft.user_stuck():
 		_next_picks.text = "No player fits your cap and list.\nRelease a pick on My list."
 	if done:
-		_next_picks.text = "Your list is ready.\nTime for round one." if _draft.is_valid() \
-				else "List incomplete: at least 2 rucks\nand a full list within the cap required."
+		# The footer says what is true of this list. The rules let a full list
+		# within the cap start even when a position is short, so the button is
+		# live then and the footer says who will have to fill in.
+		var invalid := _draft.invalid_reason()
+		var short := _draft.short_positions()
+		if invalid != "":
+			_next_picks.text = invalid + ("\nRelease a player on My list to fix it."
+					if _draft.finished_list_refused() else "\nStart season waits until that is fixed.")
+		elif short != "":
+			_next_picks.text = "Short %s.\nOthers will have to fill in." % short
+		else:
+			_next_picks.text = "Your list is ready.\nTime for round one."
 		_status.add_theme_color_override("font_color", UiKit.GOOD if _draft.is_valid() else UiKit.BAD)
 
 	var latest := {}
@@ -1634,11 +1803,11 @@ func _refresh_status() -> void:
 	if done:
 		_ticker.text = "League draft complete · View all %d picks ›" % _draft.pick_history.size()
 	elif new_rivals == 0 and not _draft.pick_history.is_empty() and _draft.is_user_turn():
-		_ticker.text = "BACK-TO-BACK PICKS · You're up again. View the pick log ›"
+		_ticker.text = "Back-to-back picks · You're up again. View the pick log ›"
 	elif latest.is_empty():
 		_ticker.text = "League picks  ·  You're first on the clock. View the pick log ›"
 	else:
-		_ticker.text = "RIVAL #%d · %s: %s · +%d picks ›" % [
+		_ticker.text = "Pick #%d · %s: %s · +%d picks ›" % [
 			latest["pick"], str(latest["club"]), _entry_player_name(latest), new_rivals]
 	_ticker.tooltip_text = _ticker.text + "\nTap to see every club's selections."
 
@@ -1651,6 +1820,8 @@ func _on_finish() -> void:
 	if not _draft.is_finished() or not _draft.is_valid():
 		return
 	GameState.start_season(_club, _draft.list())
+	# A new career's first season starts with a pre-season, like every other.
+	GameState.open_preseason()
 	Router.go("hub")
 
 

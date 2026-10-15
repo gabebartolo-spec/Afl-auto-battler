@@ -20,6 +20,8 @@ extends SceneTree
 ##   --loose SIDE    that side plays its best interceptor loose
 ##   --tag SIDE      that side tags the other side's best midfielder
 ##   --flood SIDE    that side floods behind the ball all match (0 home, 1 away)
+##   --press SIDE    that side plays the Defensive press all match (--balanced SIDE: Balanced)
+##   --noshape       with --press: the sim keeps the press, the oval does not draw its shape
 ##   --stack SIDE    that side stacks every centre ball-up
 ##   --kside S       with --kind, only events by side S
 ##   --shake F       the turnover shake's size as a share of the oval's height
@@ -75,6 +77,15 @@ func _run() -> void:
 		if not mids.is_empty():
 			sim.set_tactics(ts, {"gameplan": "balanced", "tag_id": str(mids[0]["id"])})
 
+	if args.has("press") or args.has("balanced"):
+		# --press SIDE / --balanced SIDE: that side plays the Defensive press
+		# (or Balanced) all match, its plan held (no AI re-pick), for the
+		# press pilot's before/after on the same seed.
+		# --press both: both sides press (each side's line shows once).
+		var press_arg := str(args.get("press", args.get("balanced", "0")))
+		for ps in ([0, 1] if press_arg == "both" else [int(press_arg)]):
+			(sim.squads[ps] as RefCounted).set("ai_plans", false)
+			sim.set_tactics(ps, {"gameplan": "defensive" if args.has("press") else "balanced"})
 	if args.has("flood"):
 		# --flood SIDE: that side floods behind the ball all match (the
 		# coach's "Flood behind the ball" call, held on), for the ARD-M8-003
@@ -84,6 +95,7 @@ func _run() -> void:
 		# --stack SIDE: that side stacks every centre ball-up (the attacking
 		# setup, for the second demonstration).
 		(sim.bursts[int(args["stack"])] as Dictionary)["stack"] = 100000
+	load("res://scripts/ui/match/MatchDirector.gd").set("debug_no_press_shape", args.has("noshape"))
 	var res: Dictionary
 	var call := str(args.get("call", ""))
 	if call == "":
