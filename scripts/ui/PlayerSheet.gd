@@ -198,6 +198,7 @@ static func attr_bar(key: String, label: String, value: float) -> Control:
 	h.add_child(l)
 	var holder := Control.new()
 	holder.custom_minimum_size = Vector2(70, 9)
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var bar := ColorRect.new()
 	bar.position = Vector2.ZERO
@@ -209,6 +210,8 @@ static func attr_bar(key: String, label: String, value: float) -> Control:
 	fill.size = Vector2(70.0 * clampf(value / 99.0, 0.0, 1.0), 7)
 	fill.color = attr_colour(value)
 	holder.add_child(fill)
+	for bar_part in [bar, fill]:
+		bar_part.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_child(holder)
 	var n := UiKit.lbl(str(int(round(value))), UiKit.SMALL, UiKit.TEXT)
 	n.custom_minimum_size = Vector2(26, 0)

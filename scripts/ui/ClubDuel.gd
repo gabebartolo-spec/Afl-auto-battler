@@ -132,6 +132,7 @@ static func band(left: String, right: String, content: Control, pad := 12, fade 
 	var p := PanelContainer.new()
 	p.add_theme_stylebox_override("panel", UiKit.style(Color(0, 0, 0, 0), 0, UiKit.RADIUS))
 	p.clip_contents = true
+	p.mouse_filter = Control.MOUSE_FILTER_PASS
 	p.add_child(ClubDuel.new().setup(left, right, fade))
 	var m := MarginContainer.new()
 	for e in ["left", "right", "top", "bottom"]:

@@ -39,9 +39,9 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 	_row(v, "Crowd", "SettingsCrowd", AudioLevels.LEVELS, GameState.crowd_level(),
 			"The crowd at a match you watch. The match tells you the same either way.",
 			func(k): GameState.set_crowd_level(k))
-	_row(v, "Ask before playing a round for me", "SettingsSimConfirm", [["on", "On"], ["off", "Off"]],
+	_row(v, "Ask before simming the week for me", "SettingsSimConfirm", [["on", "On"], ["off", "Off"]],
 			"on" if GameState.confirm_sim_round() else "off",
-			"Play round plays out your own match without you. With this on, it asks first.",
+			"Sim the week plays out your own match without you. With this on, it asks first.",
 			func(k): GameState.set_confirm_sim_round(k == "on"))
 	_row(v, "Match speed", "SettingsSpeed", SPEED_OPTIONS,
 			str(int(GameState.match_speed())), "How fast a match you watch starts. You can change it during the game.",

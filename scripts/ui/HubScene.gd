@@ -74,7 +74,7 @@ func _show_weekly_loop_intro() -> void:
 	v.add_child(UiKit.heading("Your week", UiKit.TITLE))
 	for line in [
 		"This is home base. Check the next opponent, then use Team to pick the side and Coaching if you want to change how you play.",
-		"Play match when you want the live coaching calls. Play round plays the week out for you quickly; the match itself is the same either way.",
+		"Play match when you want the live coaching calls. Sim the week plays the round out for you quickly; the match itself is the same either way.",
 		"After the game, review what happened and change selection or training only when you have a reason. There is no weekly checklist to clear.",
 	]:
 		var l := UiKit.lbl(line, 14, UiKit.TEXT)
@@ -698,7 +698,7 @@ func _footer(season: Season) -> Control:
 		buttons.append(_nav_button("My list", func(): Router.go("list")))
 		buttons.append(_coaching_button())
 		if not _upcoming_match().is_empty():
-			var sim := _nav_button("Play round", _on_sim_round_pressed)
+			var sim := _nav_button("Sim the week", _on_sim_round_pressed)
 			sim.name = "SimRound"
 			_wire_long_press(sim)
 			buttons.append(sim)
@@ -925,11 +925,11 @@ func _on_sim_round_pressed() -> void:
 	_sim_confirm = box["overlay"]
 	_sim_confirm.name = "SimConfirm"
 	var v: VBoxContainer = box["body"]
-	v.add_child(UiKit.heading("Play %s?" % str(m["label"]), UiKit.H1))
+	v.add_child(UiKit.heading("Sim %s?" % str(m["label"]), UiKit.H1))
 	var why := UiKit.lbl("Your match will be played out without you.", UiKit.BODY, UiKit.TEXT)
 	why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(why)
-	var go := UiKit.btn("Play round", UiKit.NAME, true)
+	var go := UiKit.btn("Sim the week", UiKit.NAME, true)
 	go.name = "SimConfirmGo"
 	go.custom_minimum_size = Vector2(0, 48)
 	go.pressed.connect(func():
