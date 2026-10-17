@@ -637,9 +637,9 @@ func _coach_descriptions(sz: Vector2i) -> void:
 	_check(rot_seen.size() == policies.size(), "Each rotation has its own words (%s)" % tag)
 
 	# Tag: "No tag" says so; a name brings the tagger line back.
-	var tn: Label = box.find_child("TagNote", true, false)
+	var tn: Control = box.find_child("TagNote", true, false)
 	var none: Button = box.find_child("TagPickerGrid_", true, false)
-	_check(tn != null and none != null and tn.text.begins_with("No tag"), "With no tag, the tag line says so (%s: %s)" % [tag, tn.text if tn else "-"])
+	_check(tn != null and none != null and _plain(tn).begins_with("No tag"), "With no tag, the tag line says so (%s: %s)" % [tag, _plain(tn) if tn else "-"])
 	var named: Button = null
 	for b in box.find_child("TagPicker", true, false).find_children("TagPickerGrid_*", "Button", true, false):
 		if str(b.name) != "TagPickerGrid_":
@@ -649,10 +649,10 @@ func _coach_descriptions(sz: Vector2i) -> void:
 	if named != null:
 		var tw: String = await Tap.tap(named)
 		await _settle()
-		_check(tw == "" and tn.text.contains(" tags "), "Picking a player brings the tagger line (%s: %s)" % [tag, tn.text])
+		_check(tw == "" and _plain(tn).contains(" tags "), "Picking a player brings the tagger line (%s: %s)" % [tag, _plain(tn)])
 		var tw2: String = await Tap.tap(box.find_child("TagPickerGrid_", true, false))
 		await _settle()
-		_check(tw2 == "" and tn.text.begins_with("No tag"), "Back to no tag, the line says so (%s)" % tag)
+		_check(tw2 == "" and _plain(tn).begins_with("No tag"), "Back to no tag, the line says so (%s)" % tag)
 		await Tap.tap(named)
 		await _settle()
 		# Who tags: your assistant's man first, another midfielder a real tap away.
@@ -701,10 +701,10 @@ func _coach_descriptions(sz: Vector2i) -> void:
 			var mine_name: String = words.call(mine_btn).split("\n")[0].strip_edges()
 			var ww: String = await Tap.tap(mine_btn)
 			await _settle()
-			_check(ww == "" and tn.text.begins_with(mine_name), "The midfielder you tap is the one who goes (%s: %s; tapped %s)" % [tag, tn.text, mine_name])
+			_check(ww == "" and _plain(tn).begins_with(mine_name), "The midfielder you tap is the one who goes (%s: %s; tapped %s)" % [tag, _plain(tn), mine_name])
 			var wd: String = await Tap.tap(who_box.find_child("TaggerPickerGrid_", true, false))
 			await _settle()
-			_check(wd == "" and not tn.text.begins_with(mine_name), "Back to your assistant's man (%s: %s; was %s)" % [tag, tn.text, mine_name])
+			_check(wd == "" and not _plain(tn).begins_with(mine_name), "Back to your assistant's man (%s: %s; was %s)" % [tag, _plain(tn), mine_name])
 
 	# Play through, three calls: each offers only the men who fill its job, and
 	# its note says his job and what it does; with nobody, what that means. Real taps.
@@ -1160,10 +1160,10 @@ func _one_line_break(sz: Vector2i) -> void:
 	for g in ((m.get_script() as Script).get_script_constant_map()["GAMEPLANS"] as Array):
 		if str(g[0]) == str(m.call("_current_plan", sim)):
 			plan_label = str(g[1])
-	_check(plan_row != null and (plan_row.get_meta("answer") as Label).text == plan_label and plan_label != "",
+	_check(plan_row != null and _plain(plan_row.get_meta("answer")) == plan_label and plan_label != "",
 			"The Game plan row says the plan in force (%s: %s)" % [tag, plan_label])
 	var tag_row: Button = box.find_child("CallRow_tag", true, false)
-	_check(tag_row != null and (tag_row.get_meta("answer") as Label).text == "No tag"
+	_check(tag_row != null and _plain(tag_row.get_meta("answer")) == "No tag"
 			and not (tag_row.get_meta("changed") as Label).visible, "The Tag row says No tag, and is not marked changed (%s)" % tag)
 	# The break fits the screen: nothing to scroll for.
 	var fit := _break_fit(box)
@@ -1320,7 +1320,7 @@ func _one_line_break(sz: Vector2i) -> void:
 			var w_done: String = await Tap.tap(m.find_child("CallSheet_tag", true, false).find_child("CallDone", true, false))
 			await _settle()
 			_check(w_done == "" and m.find_child("CallSheet_tag", true, false) == null, "Done closes the Tag sheet (%s%s)" % [tag, (": " + w_done) if w_done != "" else ""])
-		var said := (tag_row.get_meta("answer") as Label).text
+		var said := _plain(tag_row.get_meta("answer"))
 		var surname: String = db.player_display_name_by_id(picked_id, "?").get_slice(" ", 1)
 		_check(w_card == "" and said.contains(surname) and said.contains(", by ") and (tag_row.get_meta("changed") as Label).visible,
 				"The Tag row says who is tagged and by whom, marked changed this break (%s: %s)" % [tag, said])
@@ -1424,14 +1424,14 @@ func _club_ink_all() -> void:
 			if d2 < 25.0:
 				alike.append("%s v %s %.1f" % [h, a, d2])
 	_check(pairs >= 18 * 17 and alike.is_empty(), "Every pairing (%d, home and away) shows two inks 25 or more apart (%s)" % [pairs, str(alike)])
-	var reds := ["ADE", "ESS", "GCS", "MEL", "STK", "SYD"]
+	var reds := ["ESS", "GCS", "MEL", "STK", "SYD"]
 	var red_bad := []
 	for code in codes:
 		var c := str(code)
 		var nm: Color = uk.club_name_colour(uk.club_ink(c))
 		if reds.has(c) != (nm == uk.TEXT) and c != "COL":
 			red_bad.append("%s name %s" % [c, nm.to_html(false)])
-	_check(red_bad.is_empty(), "A red-ink club's name is plain TEXT, every other club's name is its ink (%s)" % str(red_bad))
+	_check(red_bad.is_empty(), "A red-ink club's name is plain TEXT, every other club's name is its ink (Adelaide's is gold since 2026-10-14) (%s)" % str(red_bad))
 
 
 func _pc_break_worst_case(club := "COL") -> void:

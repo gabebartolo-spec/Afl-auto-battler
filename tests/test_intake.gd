@@ -870,10 +870,12 @@ func _test_real_lists_start() -> void:
 	var untried: Array = GameDB.club_additions("GEE")
 	var all_ok := untried.size() == 12
 	for q in untried:
-		if int(q.get("gm", 0)) != 0 or not q.has("potential") or not ["RUCK", "MID", "DEF", "FWD"].has(str(q["role"])):
+		# Listed players who have played AFL before are rated on that record
+		# (stats_year); the rest have no game and are prospects.
+		if (int(q.get("gm", 0)) != 0) != q.has("stats_year") or not q.has("potential") or not ["RUCK", "MID", "DEF", "FWD"].has(str(q["role"])):
 			all_ok = false
 	_check(all_ok,
-			"A club's listed players without a 2026 game are there, rated as prospects, each with a position")
+			"A club's listed players without a 2026 game are there, rated as prospects or on their last record, each with a position")
 	var kept := 0
 	for code in active:
 		kept += (GameState.league_lists[code] as Array).size()

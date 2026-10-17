@@ -79,6 +79,27 @@ func _helper() -> void:
 	_check(rich.fit_content and rich.mouse_filter == Control.MOUSE_FILTER_IGNORE and not rich.scroll_active,
 			"A tinted line takes up its own height and lets swipes through")
 	lbl.free()
+	var btn := Button.new()
+	btn.text = "%s on %s" % [fre_name, gws_name]
+	root.add_child(btn)
+	NI.dress_button(btn, idx)
+	var found := btn.find_children("*", "RichTextLabel", true, false)
+	var over: RichTextLabel = found[0] as RichTextLabel if not found.is_empty() else null
+	_check(btn.text == "%s on %s" % [fre_name, gws_name] and over != null
+			and over.text.contains("[color=#%s]%s[/color]" % [_html("GWS"), gws_name]),
+			"A button naming two players keeps its words and draws each in his club's ink")
+	_check(btn.get_theme_color("font_color").a == 0.0, "The button's own text is made clear under the tinted copy")
+	var plain_btn := Button.new()
+	plain_btn.text = "Close"
+	NI.dress_button(plain_btn, idx)
+	_check(plain_btn.get_child_count() == 0, "A button naming no one is left alone")
+	btn.free()
+	plain_btn.free()
+	var live: RichTextLabel = NI.rich(UK.BODY, UK.TEXT, true, false)
+	NI.set_line(live, "%s on %s" % [fre_name, gws_name], idx)
+	_check(live.text.contains(_html("FRE")) and NI.plain(live) == "%s on %s" % [fre_name, gws_name],
+			"A line whose words change is set again with each name in its club's ink")
+	live.free()
 	# Every club's ink reads on the dark page, so no name is lost on it.
 	var worst := 99.0
 	var worst_club := ""
@@ -88,6 +109,8 @@ func _helper() -> void:
 			worst = ratio
 			worst_club = str(c)
 	_check(worst >= 4.5, "Every club's ink reads on the dark page (lowest %.1f, %s)" % [worst, worst_club])
+	_check(UK.club_ink("ADE").to_html(false).to_upper() == "FFC83A",
+			"Adelaide's name ink is the Crows' gold, not a red that reads as Melbourne or Essendon (director, 2026-10-14)")
 
 
 func _match_screen() -> void:

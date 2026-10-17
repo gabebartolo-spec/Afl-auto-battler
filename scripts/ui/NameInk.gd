@@ -155,7 +155,7 @@ static func label(text: String, index: Dictionary, fs := UiKit.BODY, color := Ui
 
 ## An empty RichTextLabel set up like UiKit.lbl, for a line whose words change
 ## (set them with `set_line`).
-static func rich(fs := UiKit.BODY, color := UiKit.AUTO_COLOUR, bold := false) -> RichTextLabel:
+static func rich(fs := UiKit.BODY, color := UiKit.AUTO_COLOUR, bold := false, wrap := true) -> RichTextLabel:
 	if color == UiKit.AUTO_COLOUR:
 		color = UiKit.TEXT
 	var r := RichTextLabel.new()
@@ -177,6 +177,36 @@ static func set_line(r: RichTextLabel, text: String, index: Dictionary) -> void:
 	var bb := markup(text, index)
 	r.text = bb if bb != "" else _escape(text)
 	r.set_meta("plain", text)
+
+
+## A button whose words name players: the names drawn in their clubs' ink over
+## the button's own text, which stays as it is (its size, its `text`, what a
+## screen reader or a test reads) with its colour made clear. Nothing changes
+## for a button naming no one in the index. Call after the button is styled.
+static func dress_button(b: Button, index: Dictionary) -> void:
+	var bb := markup(b.text, index)
+	if bb == "":
+		return
+	var fs := b.get_theme_font_size("font_size")
+	var r := rich(fs, b.get_theme_color("font_color"), false, b.autowrap_mode != TextServer.AUTOWRAP_OFF)
+	r.add_theme_font_override("normal_font", b.get_theme_font("font"))
+	r.text = bb
+	r.set_meta("plain", b.text)
+	var margin := 0.0
+	var sb := b.get_theme_stylebox("normal")
+	if sb != null:
+		margin = sb.get_content_margin(SIDE_LEFT)
+	var col := VBoxContainer.new()
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(col)
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.offset_left = margin
+	col.offset_right = -margin
+	col.add_child(r)
+	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color",
+			"font_hover_pressed_color", "font_disabled_color"]:
+		b.add_theme_color_override(k, Color(0, 0, 0, 0))
 
 
 ## The words a line shows, whichever kind of label carries it.

@@ -56,7 +56,7 @@ var _callout_box: VBoxContainer
 
 
 func _ready() -> void:
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	mouse_filter = Control.MOUSE_FILTER_PASS
 	custom_minimum_size = Vector2(180, 160)
 	if not GameState.player_names_changed.is_connected(_on_names):
 		GameState.player_names_changed.connect(_on_names)
@@ -238,7 +238,8 @@ func _gui_input(event: InputEvent) -> void:
 			_show_callout(hit)
 		else:
 			_hide_callout()
-		accept_event()
+		# Not accepted: the press goes on to the page's scroll, so a swipe that
+		# starts on the pitch still scrolls.
 
 
 func _hit_index(pos: Vector2) -> int:
