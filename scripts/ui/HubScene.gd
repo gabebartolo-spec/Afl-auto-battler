@@ -908,6 +908,13 @@ func _footer(season: Season, with_sim := true) -> Control:
 					sb.content_margin_left = 4
 					sb.content_margin_right = 4
 					b.add_theme_stylebox_override(state, sb)
+		# Each button is at least as wide as its own label, so the row's spare
+		# width is shared out beyond that and none is cut short ("Sim the we...").
+		var sb_n: StyleBox = b.get_theme_stylebox("normal")
+		var pad := sb_n.get_margin(SIDE_LEFT) + sb_n.get_margin(SIDE_RIGHT) if sb_n != null else 16.0
+		var font: Font = b.get_theme_font("font")
+		var fs: int = b.get_theme_font_size("font_size")
+		b.custom_minimum_size.x = ceilf(font.get_string_size(b.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + pad) + 1.0
 		row.add_child(b)
 	return row
 
