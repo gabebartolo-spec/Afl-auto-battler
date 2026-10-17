@@ -9,10 +9,11 @@ extends Control
 const H_NARROW := 196.0
 const H_WIDE := 220.0
 ## The match ball between the two clubs, where the "v" was (director,
-## 2026-10-14: "Bigger, in real colours"): the poster's one hero object, as
-## tall as the guernseys beside it on a phone and taller on a wide screen.
-const BALL_NARROW := 60.0
-const BALL_WIDE := 92.0
+## 2026-10-14: "Bigger, in real colours", then "footy is too big"): a real
+## footy beside a jumper, about 1.4 times a drawn guernsey's width (the
+## guernsey fills about 0.6 of its box; the ball is wider than tall).
+const BALL_NARROW := 34.0
+const BALL_WIDE := 42.0
 
 var _mine := ""
 var _opp := ""
