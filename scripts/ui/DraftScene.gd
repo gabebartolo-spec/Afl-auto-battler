@@ -81,6 +81,7 @@ var _finish_btn: Button
 var _pass_btn: Button
 var _pick_me_btn: Button
 ## The player being inspected ("" when none) and his detail overlay.
+var _name_index := {}       # player name -> club, for the ink in a pick's story
 var _detail_id := ""
 var _detail: Control
 var _detail_all := false
@@ -1563,6 +1564,7 @@ func _refresh_mine() -> void:
 		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_mine_box.add_child(UiKit.spacer(6))
 		_mine_box.add_child(why)
+	_my_picks()
 	if _draft.count() == 0:
 		_mine_box.add_child(UiKit.spacer(8))
 		_mine_box.add_child(UiKit.lbl("Your list starts here.", 20, UiKit.TEXT, true))
@@ -1694,6 +1696,13 @@ func _refresh_order() -> void:
 			var why := UiKit.ellipsis("Compensation for losing %s" % str(comp.get("name", "a free agent")), UiKit.SMALL, UiKit.TEXT)
 			why.name = "CompPick"
 			v.add_child(why)
+		elif _draft.intake_mode and index < _draft.pick_origin.size():
+			# How the club got this pick, on every row: its own, or from whom and for what.
+			var traded := str(_draft.pick_origin[index]) != code
+			var story := _story_line(GameState.pick_story(GameState.season_year,
+					int(_draft.pick_rounds[index]), str(_draft.pick_origin[index])))
+			story.name = "ViaPick" if traded else "OwnPick"
+			v.add_child(story)
 		elif index < _draft.pick_origin.size() and str(_draft.pick_origin[index]) != code:
 			var via := UiKit.ellipsis("Via %s" % GameDB.club_name(str(_draft.pick_origin[index])), UiKit.SMALL, UiKit.TEXT)
 			via.name = "ViaPick"
@@ -1823,6 +1832,55 @@ func _on_finish() -> void:
 	# A new career's first season starts with a pre-season, like every other.
 	GameState.open_preseason()
 	Router.go("hub")
+
+
+## How a pick was got, in a line that wraps; the players it names wear their
+## club's ink. One ink for every line, own or traded: both are facts to read.
+func _story_line(text: String) -> Control:
+	if _name_index.is_empty() and GameState.season != null:
+		_name_index = NameInk.from_lists(GameState.season.lists)
+	var l := NameInk.label(text, _name_index, UiKit.SMALL, UiKit.TEXT)
+	if l is Label:
+		(l as Label).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return l
+
+
+## Your picks in this draft, each with how you got it and who you took with
+## it. National Draft only.
+func _my_picks() -> void:
+	if not _draft.intake_mode:
+		return
+	var by_pick := {}
+	for e in _draft.pick_history:
+		by_pick[int(e["pick"])] = e
+	var box := UiKit.vbox(3)
+	box.name = "MyPicks"
+	box.add_child(UiKit.lbl("Your picks", 13, UiKit.EMPH, true))
+	var shown := 0
+	for index in range(_draft.pick_sequence.size()):
+		if str(_draft.pick_sequence[index]) != _club:
+			continue
+		var comp := _draft.comp_at(index)
+		var story := ("Compensation for losing %s" % str(comp.get("name", "a free agent"))) if not comp.is_empty() else GameState.pick_story(GameState.season_year, int(_draft.pick_rounds[index]), str(_draft.pick_origin[index]))
+		var taken := ""
+		if index < _draft.pick_index:
+			var entry: Dictionary = by_pick.get(index + 1, {})
+			taken = _entry_player_name(entry) if not entry.is_empty() else "passed"
+		var row := UiKit.vbox(1)
+		row.name = "MyPick_%d" % (index + 1)
+		row.add_child(UiKit.lbl("No. %d  ·  Round %d%s" % [index + 1, int(_draft.pick_rounds[index]),
+				("  ·  " + taken) if taken != "" else ""], UiKit.BODY, UiKit.TEXT, true))
+		var line := _story_line(story)
+		line.name = "MyPickStory_%d" % (index + 1)
+		row.add_child(line)
+		box.add_child(row)
+		shown += 1
+		if shown >= 8:
+			break
+	if shown > 0:
+		_mine_box.add_child(box)
+		_mine_box.add_child(UiKit.spacer(6))
 
 
 func _row_panel(mine: bool) -> PanelContainer:

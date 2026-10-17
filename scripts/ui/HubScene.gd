@@ -345,6 +345,13 @@ func _standing_card() -> Control:
 		var tl := UiKit.lbl(str(outlook["line"]), UiKit.SECONDARY, UiKit.MUTED)
 		tl.name = "MyTeamOutlook"
 		cv.add_child(tl)
+	# The last rounds on: where your first pick falls if the season ended today.
+	var pick_line := GameState.pick_order_line()
+	if pick_line != "":
+		var pl := UiKit.lbl(pick_line, UiKit.SECONDARY, UiKit.TEXT)
+		pl.name = "DraftPickLine"
+		pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		cv.add_child(pl)
 	var form := GameState.club_form_info(GameState.my_club)
 	cv.add_child(_form_row(form))
 	var last := _last_match_button()

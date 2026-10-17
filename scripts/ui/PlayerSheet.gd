@@ -196,33 +196,39 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 			v.add_child(remembered)
 
 	# The attributes behind the rating: the deepest layer, last.
-	v.add_child(UiKit.spacer(6))
-	v.add_child(UiKit.section("Ratings"))
-	var grid := GridContainer.new()
-	grid.name = "ProfileAttributes"
-	grid.columns = 1 if UiKit.view_width(host) < 520.0 else 2
-	grid.add_theme_constant_override("h_separation", 14)
-	grid.add_theme_constant_override("v_separation", 3)
-	v.add_child(grid)
-	var attr: Dictionary = p["attr"]
-	for r in ATTR_ROWS:
-		grid.add_child(attr_bar(str(r[0]), str(r[1]), float(attr.get(r[0], 0.0))))
-	var lead := attr_bar("leadership", "Leadership", float(Leadership.of(p)))
-	lead.name = "ProfileLeadership"
-	grid.add_child(lead)
-	v.add_child(UiKit.spacer(4))
-	var lead_note := UiKit.lbl(Leadership.basis_text(), UiKit.SMALL, UiKit.MUTED)
-	lead_note.name = "ProfileLeadershipNote"
-	lead_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(lead_note)
+	var has_ratings := p.get("attr") is Dictionary and not (p["attr"] as Dictionary).is_empty()
+	if has_ratings:
+		v.add_child(UiKit.spacer(6))
+		v.add_child(UiKit.section("Ratings"))
+		var grid := GridContainer.new()
+		grid.name = "ProfileAttributes"
+		grid.columns = 1 if UiKit.view_width(host) < 520.0 else 2
+		grid.add_theme_constant_override("h_separation", 14)
+		grid.add_theme_constant_override("v_separation", 3)
+		v.add_child(grid)
+		var attr: Dictionary = p["attr"]
+		for r in ATTR_ROWS:
+			grid.add_child(attr_bar(str(r[0]), str(r[1]), float(attr.get(r[0], 0.0))))
+		var lead := attr_bar("leadership", "Leadership", float(Leadership.of(p)))
+		lead.name = "ProfileLeadership"
+		grid.add_child(lead)
+		v.add_child(UiKit.spacer(4))
+		var lead_note := UiKit.lbl(Leadership.basis_text(), UiKit.SMALL, UiKit.MUTED)
+		lead_note.name = "ProfileLeadershipNote"
+		lead_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(lead_note)
 	if nickname_row != null:
 		v.add_child(UiKit.spacer(10))
 		v.add_child(nickname_row)
 		v.add_child(UiKit.spacer(14))   # clear of Close
 
+	# What the host offers sits in its own block under a rule, so a line about the
+	# action is never read as the end of the scrolled sheet above it.
+	if not actions.is_empty():
+		box["footer"].add_child(UiKit.rule())
 	for a in actions:
 		var action: Dictionary = a
-		var detail := UiKit.lbl(str(action.get("detail", "")), UiKit.SMALL, UiKit.MUTED)
+		var detail := UiKit.lbl(str(action.get("detail", "")), UiKit.SMALL, UiKit.TEXT)
 		detail.name = "Detail_" + str(action.get("name", ""))
 		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box["footer"].add_child(detail)
