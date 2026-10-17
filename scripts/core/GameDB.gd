@@ -125,6 +125,11 @@ var draftees := []         # the shipped draft class, projections applied
 ## Not in the League redraft pool.
 var list_additions := []
 const LIST_ADDITIONS_CSV := "res://data/list_additions_2026.csv"
+## Senior numbers for the additions who have played AFL before (built by
+## tools/build_addition_stats.py from AFL Tables, season in the "src" column):
+## they are rated from that record through Ratings.derive_all, like any listed
+## player, not as draft prospects.
+const LIST_ADDITION_STATS_CSV := "res://data/list_additions_stats.csv"
 ## Who left a list at the end of 2026, before the National Draft: the key
 ## "first|last|dob" (lower case) to the kind ("retired", "delisted",
 ## "rookie_delisted", "catb_delisted").
@@ -635,6 +640,8 @@ func _load_list_additions() -> Array:
 	var idx := {}
 	for j in range(header.size()):
 		idx[header[j]] = j
+	var record := _load_addition_stats()
+	var established := []
 	var n := 0
 	for i in range(1, rows.size()):
 		var cells: Array = rows[i]
@@ -667,6 +674,27 @@ func _load_list_additions() -> Array:
 		p["role2"] = ""
 		p["real_pos"] = Ratings.ROLE_SHORT_TO_POS.get(str(p["role"]), "MID")
 		p["role_estimated"] = pos == ""
+		var rec = record.get("%s|%s|%s" % [club, p["first"], p["last"]])
+		if rec != null:
+			# Played AFL before: rated on that season, as any listed player is.
+			for k in STAT_KEYS:
+				p[k] = float(rec.get(k, 0.0))
+			p["real_pos"] = pos if pos != "" else ""
+			p["role_estimated"] = false
+			p["stats_year"] = int(rec.get("src", 0))
+			p["data_src"] = "listed 2026, rated on his %d season" % int(rec.get("src", 0))
+			p["draft_year"] = DATA_SEASON
+			p["draft_rank"] = 0
+			p["draft_team"] = ""
+			p["draft_league"] = ""
+			p["draft_state"] = ""
+			p["tied_club"] = ""
+			p["tied_type"] = ""
+			for k in ["u18_gm", "u18_di", "u18_gl", "u18_mk", "u18_tk", "u18_if50", "u18_ho"]:
+				p[k] = 0.0
+			p["note"] = ""
+			established.append(p)
+			continue
 		# Rated as the prospect he still is: a recent draftee about where a
 		# mid-first-round pick sits, an older or rookie-listed player lower.
 		var h := absi(hash(str(p["id"])))
@@ -689,7 +717,44 @@ func _load_list_additions() -> Array:
 		p["data_src"] = "listed 2026, no senior game"
 		Prospects.project(p)
 		out.append(p)
+	if not established.is_empty():
+		Ratings.derive_all(established, players)
+		for p in established:
+			# A position the list gives him is his first position, whatever
+			# one season's numbers read (Powell-Pepper is a midfielder).
+			var listed := str(p.get("real_pos", ""))
+			if listed in ["RUCK", "MID", "DEF", "FWD"] and listed != str(p["role"]):
+				p["role"] = listed
+				p["role2"] = Ratings.assign_secondary(p)
+				p["overall"] = Ratings.rate_overall(p["attr"], listed, float(p["gm"]))
+				p["value"] = Ratings.salary_value(int(p["overall"]))
+			p["career"] = Career.from_source("?")
+			p["data_club"] = str(p["club"])
+			Potential.assign(p)
+		_apply_potential_overrides(established)
+		out.append_array(established)
 	_assign_fictional_names(out)
+	return out
+
+
+## club|first|last -> the stats row (strings read as numbers) for each
+## addition in LIST_ADDITION_STATS_CSV.
+func _load_addition_stats() -> Dictionary:
+	var out := {}
+	if not FileAccess.file_exists(LIST_ADDITION_STATS_CSV):
+		return out
+	var rows := _read_rows(LIST_ADDITION_STATS_CSV)
+	if rows.size() < 2:
+		return out
+	var header: Array = rows[0]
+	for i in range(1, rows.size()):
+		var cells: Array = rows[i]
+		if cells.size() < header.size():
+			continue
+		var d := {}
+		for j in range(header.size()):
+			d[str(header[j]).strip_edges()] = str(cells[j]).strip_edges()
+		out["%s|%s|%s" % [d["club"], d["first"], d["last"]]] = d
 	return out
 
 
