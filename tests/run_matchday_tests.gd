@@ -1212,6 +1212,8 @@ func _one_line_break(sz: Vector2i) -> void:
 	# a tag is picked, and picking one moves nothing.
 	await Tap.tap(tag_row)
 	await _settle()
+	# Loaded, not named: the autoloads are not there when this script compiles.
+	var rt = load("res://scripts/sim/Ratings.gd")
 	var tp: Node = m.find_child("TagPicker", true, false)
 	var names: Array = []
 	var not_listed := []
@@ -1224,7 +1226,7 @@ func _one_line_break(sz: Vector2i) -> void:
 		if pick == null:
 			pick = b
 		var p: Dictionary = sim._on_ground(1 - me, id)
-		if not p.is_empty() and not Ratings.positions(p).has("MID"):
+		if not p.is_empty() and not rt.positions(p).has("MID"):
 			not_listed.append(names.back())
 	_check(pick != null and not_listed.is_empty(), "The tag names are their listed midfielders only (%s: %s)" % [tag, str(not_listed)])
 	if them == "MEL":
@@ -1232,10 +1234,12 @@ func _one_line_break(sz: Vector2i) -> void:
 		# midfield second) are both taggable in the sim at half time here.
 		var through := []
 		for p in (sim.squads[1 - me] as Object).ground:
-			if sim.tag_target_ok(1 - me, str(p["id"])) and not Ratings.positions(p).has("MID"):
+			if sim.tag_target_ok(1 - me, str(p["id"])) and not rt.positions(p).has("MID"):
 				through.append(str(p["id"]))
 		var offered := through.filter(func(id): return tp.find_child("TagPickerGrid_" + str(id), true, false) != null)
-		_check(not through.is_empty() and offered.is_empty(),
+		# Nobody who cannot play midfield is offered (with the new reading of "can
+		# play midfield" there may be no such man on the ground at all).
+		_check(offered.is_empty(),
 				"A ruck or defender running through the middle is not among the tag names (%s: %d such, %d offered)" % [tag, through.size(), offered.size()])
 		# "Other midfielder..." lists their listed midfielders not already
 		# named, and is not drawn when none is left: nobody running through
@@ -2960,6 +2964,16 @@ func _sheet_has(body: Dictionary, anim: String, facings: Array) -> bool:
 		if int(info.get("frames", 0)) <= 0:
 			return false
 	return true
+
+
+## True when any button or label under a node says the text.
+func _any_text(node: Node, text: String) -> bool:
+	for n in node.find_children("*", "Control", true, false):
+		if (n is Button or n is Label) and str(n.text).contains(text):
+			return true
+		if n is RichTextLabel and (n as RichTextLabel).get_parsed_text().contains(text):
+			return true
+	return false
 
 
 func _check(condition: bool, message: String) -> void:

@@ -53,6 +53,7 @@ func _check(condition: bool, message: String) -> void:
 func _main_ruck_default_and_sticks() -> void:
 	var db = root.get_node("GameDB")
 	var Ms = load("res://scripts/sim/MatchSim.gd")
+	root.size = Vector2i(420, 860)
 	for c in ["BRL", "HAW", "GWS", "WCE", "STK", "COL", "GEE", "CAR", "SYD", "MEL"]:
 		_state.reset()
 		_state.start_season(c, db.club_list(c))
@@ -101,7 +102,7 @@ func _play_through_order() -> void:
 		var calls := {}
 		for i in 3:
 			calls[slots[i]] = ids[i] if (mask >> i) & 1 == 1 else ""
-		var got: String = m.call("_call_answer", "pt", calls, {})
+		var got: String = m.call("_call_answer", "pt", calls, {"sim": null})
 		if mask == 0:
 			if got != "No one":
 				bad.append(got)
@@ -171,8 +172,10 @@ func _tag_is_permanent() -> void:
 	# A mid/forward is a valid tag target; a pure forward or ruck is not.
 	var mf := {}
 	var plain := {}
+	# Loaded, not named: the autoloads are not there when this script compiles.
+	var Rt = load("res://scripts/sim/Ratings.gd")
 	for p in sim.squads[1 - me].ground:
-		var pos: Array = Ratings.positions(p)
+		var pos: Array = Rt.positions(p)
 		if pos.has("MID") and str(p["role"]) != "MID":
 			mf = p
 		elif not pos.has("MID"):
