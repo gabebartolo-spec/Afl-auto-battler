@@ -6,6 +6,13 @@ name: UI review sheets
 # 4K at 300%), tiled into one labelled contact sheet per size. The lead reviews
 # the sheets before anything visual goes to the director.
 #
+# The second job, "sweep" (P-77, director yes 2026-10-18), opens every screen
+# at 390x844 and 1920x1080 and fails when one got worse than the committed
+# baseline tools/visual/screen_sweep_baseline.json: a smaller smallest font,
+# more controls off screen, more clipped text, more targets under 44 px. Its
+# report is docs/research/SCREEN_SWEEP_<date>.md in the artifact. The floor
+# only tightens: when it improves, rerun with the tighten step in the PR.
+#
 # It is information, not a gate: it never blocks a merge, and "test" in
 # tests.yml stays the only required check. A draft PR is skipped until it is
 # marked ready, like the tests. A newer push to the same PR cancels the older
@@ -27,6 +34,9 @@ on:
       - "tools/visual/capture_vignette.gd"
       - "tools/visual/capture_prematch.gd"
       - "scripts/ui/match/**"
+      - "tools/visual/sweep_screens.gd"
+      - "tools/screen_sweep.py"
+      - "tools/visual/screen_sweep_baseline.json"
       - ".github/workflows/ui-review.yml"
 
 permissions:
@@ -166,6 +176,82 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ui-review-sheets
+          path: |
+            out/
+          if-no-files-found: warn
+          retention-days: 14
+
+  # P-77 "One sweep of every screen": the numbers behind the sheets.
+  sweep:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GODOT_VERSION: "4.7.2"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Virtual display and software GL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 fonts-dejavu-core > /dev/null
+
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
+
+      - name: Download Godot ${{ env.GODOT_VERSION }}
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          name="Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          curl -fsSL --retry 3 -o godot.zip             "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${name}.zip"           || curl -fsSL --retry 3 -o godot.zip             "https://downloads.godotengine.org/?version=${GODOT_VERSION}&flavor=stable&slug=linux.x86_64.zip&platform=linux.64"
+          unzip -q godot.zip && rm godot.zip
+          mv "${name}" godot && chmod +x godot
+
+      - name: Import the project
+        run: |
+          timeout 600 "$HOME/godot/godot" --headless --path . --editor --import > import.log 2>&1 || true
+          if grep -qE "SCRIPT ERROR|Parse Error|Compile Error" import.log; then
+            grep -E -A3 "SCRIPT ERROR|Parse Error|Compile Error" import.log | head -40
+            echo "::error::scripts failed to compile during import"
+            exit 1
+          fi
+
+      - name: Sweep every screen, phone and desktop
+        run: |
+          mkdir -p out
+          for size in phone:390x844 pc:1920x1080; do
+            name="${size%%:*}"; wh="${size#*:}"
+            LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 2560x1600x24"               timeout 1200 "$HOME/godot/godot" --path . --rendering-method gl_compatibility               --script tools/visual/sweep_screens.gd -- --size "$wh"               --out "$PWD/out/sweep_$name.json" > "out/sweep_$name.log" 2>&1 || echo "::warning::$name sweep exited non-zero"
+            grep -E "^SWEEP" "out/sweep_$name.log" || tail -n 20 "out/sweep_$name.log"
+          done
+          ls -la out
+
+      - name: Check against the baseline and write the report
+        run: |
+          set +e
+          python3 tools/screen_sweep.py --phone out/sweep_phone.json --pc out/sweep_pc.json             --baseline tools/visual/screen_sweep_baseline.json             --doc out/SCREEN_SWEEP.md --date "$(date -u +%F)" | tee out/sweep_check.txt
+          code=${PIPESTATUS[0]}
+          {
+            echo "## Screen sweep"
+            echo ""
+            echo '```'
+            tail -n 40 out/sweep_check.txt
+            echo '```'
+            echo ""
+            echo "Report (table, worst findings, examples): \`out/SCREEN_SWEEP.md\` in the artifact \`screen-sweep\`: \`gh run download ${GITHUB_RUN_ID} -n screen-sweep\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $code
+
+      - name: Upload the sweep
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screen-sweep
           path: |
             out/
           if-no-files-found: warn

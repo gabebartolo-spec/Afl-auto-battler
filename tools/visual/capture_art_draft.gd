@@ -1,6 +1,6 @@
 extends SceneTree
-## Draft night's stage in the draft's header (the lectern, the guernsey of the
-## club on the clock on a hanger), for the director's look. Needs a real
+## The guernsey of the club on the clock in the draft's header, for the
+## director's look. Needs a real
 ## renderer:
 ##   godot --path . --script tools/visual/capture_art_draft.gd -- --out /tmp/dr [--club FRE] [--size 1280x720] [--art off]
 ## Writes <out>_draft.png. --art off shows the header without the pictures, as

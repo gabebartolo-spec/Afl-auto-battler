@@ -59,7 +59,7 @@ func _run() -> void:
 		var crop := img.get_region(Rect2i(box))
 		crop.resize(crop.get_width() * 2, crop.get_height() * 2, Image.INTERPOLATE_NEAREST)
 		crop.save_png(out + "_exit_crop2x.png")
-	for n in ["NewCareer", "MenuHelp", "MenuSettings", "ExitGame"]:
+	for n in ["NewCareer", "MenuHelp", "MenuSettings", "ExitGame", "OfflinePromise", "StorageNotice", "BuildLabel"]:
 		var c: Control = current_scene.find_child(n, true, false)
 		if c != null:
 			print("EXIT %s text [%s] at y %d x %d" % [n, str(c.get("text")), int(c.get_global_rect().position.y), int(c.get_global_rect().position.x)])

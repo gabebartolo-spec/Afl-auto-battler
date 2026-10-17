@@ -122,6 +122,14 @@ func _build() -> void:
 	lv.add_child(UiKit.lbl("%s   -   %d pts" % [GameState.my_record(),
 			int(GameState.my_ladder_row().get("pts", 0))], 14, UiKit.TEXT))
 	lv.add_child(UiKit.spacer(4))
+	# Each fact beside its figure, not a panel apart (director, 2026-10-14).
+	var facts := GridContainer.new()
+	facts.name = "SeasonFacts"
+	facts.columns = 2
+	facts.add_theme_constant_override("h_separation", 20)
+	facts.add_theme_constant_override("v_separation", 5)
+	facts.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	lv.add_child(facts)
 	for row in [
 			["Points for", str(stats["pf"])],
 			["Points against", str(stats["pa"])],
@@ -131,10 +139,8 @@ func _build() -> void:
 			["Longest win streak", "%d games" % stats["streak"]],
 			["Goals kicked", str(stats["goals"])],
 	]:
-		var h := UiKit.hbox(6)
-		lv.add_child(h)
-		h.add_child(UiKit.ellipsis(row[0], 12, UiKit.MUTED))
-		h.add_child(UiKit.line(row[1], UiKit.SECONDARY, UiKit.TEXT, true))
+		facts.add_child(UiKit.line(row[0], 12, UiKit.MUTED))
+		facts.add_child(UiKit.line(row[1], UiKit.SECONDARY, UiKit.TEXT, true))
 
 	lv.add_child(UiKit.spacer(6))
 	lv.add_child(UiKit.lbl("Game by game", 12, UiKit.MUTED, true))
@@ -206,7 +212,7 @@ func _build() -> void:
 	page.add_child(ctrl)
 
 	# The season ends the way the real AFL year does: with the national draft.
-	var draft_btn := UiKit.btn("%d NATIONAL DRAFT" % GameState.season_year, UiKit.HEADING, true)
+	var draft_btn := UiKit.btn("%d National Draft" % GameState.season_year, UiKit.HEADING, true)
 	draft_btn.name = "NationalDraft"
 	draft_btn.custom_minimum_size = Vector2(0, 48)
 	draft_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -410,7 +416,7 @@ func _awards_panel() -> Control:
 		var bf := []
 		for r in mine:
 			bf.append("%s (%d)" % [GameState.award_name(r), int(r["bf"])])
-		v.add_child(UiKit.lbl("%s best & fairest" % GameDB.club_name(GameState.my_club), UiKit.BODY, StatsSide.mine_ink(), true))
+		v.add_child(UiKit.lbl(BestAndFairest.heading(GameState.my_club, GameDB.club_name(GameState.my_club)), UiKit.BODY, StatsSide.mine_ink(), true))
 		v.add_child(_small(", ".join(bf)))
 	var aa: Array = aw.get("all_australian", [])
 	if not aa.is_empty():
@@ -538,7 +544,7 @@ func _open_awards_program() -> void:
 			body.add_child(_small("%d. %s (%s) — %d votes" % [i + 1, GameState.award_name(r), GameDB.club_short(str(r["club"])), int(r["coaches"])], str(r["club"])))
 	var mine: Array = (aw.get("best_and_fairest", {}) as Dictionary).get(GameState.my_club, [])
 	if not mine.is_empty():
-		body.add_child(StatsSide.heading("%s best & fairest" % GameDB.club_name(GameState.my_club)))
+		body.add_child(StatsSide.heading(BestAndFairest.heading(GameState.my_club, GameDB.club_name(GameState.my_club))))
 		for i in range(mine.size()):
 			var r: Dictionary = mine[i]
 			body.add_child(_small("%d. %s — %d votes" % [i + 1, GameState.award_name(r), int(r["bf"])]))

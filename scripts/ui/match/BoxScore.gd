@@ -23,6 +23,10 @@ const LINE := [
 ]
 const MOST_INVOLVED := 3
 const KICKERS := 6
+## The box score reads in a column about this wide on a big screen; the two clubs'
+## players sit side by side in it (director, 2026-10-14: a figure far from its
+## name "divorces the number from the source").
+const READ_W := 900.0
 
 var _res: Dictionary
 var _live := false
@@ -35,6 +39,10 @@ var _open := ""               # the player whose line is open
 var _worm: Control
 var _says: Label
 var _players: VBoxContainer
+var _col: VBoxContainer
+## A PC page that also holds the team numbers: everything a little tighter, the two
+## clubs' players side by side, so the score and the team numbers fit one screen.
+var compact := false
 
 
 ## `live`: at a break, the quarters played so far. `bars`: the team numbers
@@ -87,39 +95,50 @@ static func scoring(res: Dictionary) -> Array:
 
 func _build() -> void:
 	UiKit.clear(self)
-	add_child(_header())
+	_col = UiKit.vbox(UiKit.GAP)
+	_col.name = "BoxColumn"
+	if compact:
+		add_child(_col)
+	else:
+		add_child(UiKit.reading_column(_col, READ_W))
+	_col.add_child(_header())
 	_worm = Worm.new()
 	_worm.name = "Worm"
 	_worm.call("setup", self)
-	add_child(_worm)
-	add_child(_quarter_strip())
+	_col.add_child(_worm)
+	_col.add_child(_quarter_strip())
 	_says = UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	_says.name = "WormSays"
 	_says.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	add_child(_says)
+	_col.add_child(_says)
 	_say()
 	_players = UiKit.vbox(0)
 	_players.name = "BoxPlayers"
-	add_child(_players)
+	_col.add_child(_players)
 	_fill_players()
 	if _bars:
 		var team: Array = _res.get("team", [])
 		if team.size() == 2 and not (team[0] as Dictionary).is_empty():
-			add_child(UiKit.section("Head to head"))
-			add_child(_head_to_head(team))
+			_col.add_child(UiKit.section("Head to head"))
+			_col.add_child(_head_to_head(team))
+
+
+func _inks() -> Array:
+	# Both clubs on one screen: the second gets its other ink when the two look alike.
+	return UiKit.club_ink_pair(_codes[0], _codes[1])
 
 
 func _header() -> Control:
 	var v := UiKit.vbox(2)
 	v.name = "BoxHeader"
 	for side in [0, 1]:
-		var h := UiKit.hbox(8)
+		var h := UiKit.hbox(14)
 		h.name = "BoxHeader_%d" % side
-		h.add_child(UiKit.club_badge(_codes[side], UiKit.NAME, false, true))
+		h.add_child(UiKit.club_marker(_codes[side]))
+		var nm := UiKit.line(GameDB.club_short(_codes[side]), UiKit.NAME, _inks()[side], true)
+		h.add_child(nm)
 		var fig := UiKit.figure(UiKit.scoreline(int(_res["goals"][side]), int(_res["behinds"][side])),
 				UiKit.SCORE, UiKit.score_colour(_codes[side]))
-		fig.size_flags_horizontal = Control.SIZE_SHRINK_END
-		fig.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		h.add_child(fig)
 		v.add_child(h)
 	return v
@@ -192,7 +211,7 @@ func pick_score(i: int) -> void:
 
 
 func _refresh() -> void:
-	var strip := find_child("QuarterStrip", false, false)
+	var strip := find_child("QuarterStrip", true, false)
 	if strip != null:
 		for b in strip.get_children():
 			if b is Button:
@@ -261,6 +280,9 @@ func _fill_players() -> void:
 	var players: Dictionary = _res.get("players", {})
 	if players.is_empty():
 		return
+	var wide := compact or UiKit.view_width(self) >= 760.0
+	var cols := UiKit.hbox(32)
+	cols.name = "BoxPlayerColumns"
 	for side in [0, 1]:
 		var rows := []
 		for p in (_res.get("roster", [[], []]) as Array)[side]:
@@ -270,32 +292,45 @@ func _fill_players() -> void:
 				continue
 			rows.append({"id": id, "name": GameDB.player_display_name_by_id(id, str(p.get("name", "Player"))),
 					"st": st, "goals": int(st.get("goals", 0.0)), "behinds": int(st.get("behinds", 0.0))})
-		_players.add_child(UiKit.spacer(UiKit.GAP))
-		var head := UiKit.club_badge(_codes[side], UiKit.SMALL, false, false)
-		head.alignment = BoxContainer.ALIGNMENT_BEGIN
-		_players.add_child(head)
+		var col := UiKit.vbox(0)
+		col.name = "BoxPlayers_%d" % side
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.add_child(UiKit.spacer(UiKit.GAP))
+		var head := UiKit.hbox(6)
+		head.add_child(UiKit.club_marker(_codes[side]))
+		head.add_child(UiKit.line(GameDB.club_short(_codes[side]), UiKit.BODY, _inks()[side], true))
+		col.add_child(head)
+		col.add_child(UiKit.lbl("Goals and behinds", UiKit.SMALL, UiKit.MUTED))
 		var kickers := rows.filter(func(r): return int(r["goals"]) > 0)
 		kickers.sort_custom(func(a, b):
 			if int(a["goals"]) != int(b["goals"]):
 				return int(a["goals"]) > int(b["goals"])
 			return int(a["behinds"]) < int(b["behinds"]))
 		var shown := {}
-		for r in kickers.slice(0, KICKERS):
-			_players.add_child(_player_row(r, "%d.%d" % [int(r["goals"]), int(r["behinds"])]))
+		for r in kickers.slice(0, 3 if compact else KICKERS):
+			col.add_child(_player_row(r, "%d.%d" % [int(r["goals"]), int(r["behinds"])]))
 			shown[str(r["id"])] = true
 		if kickers.is_empty():
-			_players.add_child(UiKit.lbl("No goalkickers.", UiKit.SMALL, UiKit.MUTED))
+			col.add_child(UiKit.lbl("No goalkickers.", UiKit.SMALL, UiKit.MUTED))
 		# The best of the rest by match rating (director, 2026-10-08), the
 		# same figure as the player stats' Rating column.
 		var best := 0
+		var best_head := UiKit.lbl("Best by rating", UiKit.SMALL, UiKit.MUTED)
+		col.add_child(best_head)
 		for rp in MatchNotes.rated_players(_res, side):
-			if best >= MOST_INVOLVED:
+			if best >= (2 if compact else MOST_INVOLVED):
 				break
 			if shown.has(str(rp["id"])) or (rp["stats"] as Dictionary).is_empty():
 				continue
-			_players.add_child(_player_row({"id": rp["id"], "name": rp["name"], "st": rp["stats"]},
-					"Rating %s" % MatchNotes.rating_text(rp["rating"])))
+			col.add_child(_player_row({"id": rp["id"], "name": rp["name"], "st": rp["stats"]},
+					MatchNotes.rating_text(rp["rating"])))
 			best += 1
+		if wide:
+			cols.add_child(col)
+		else:
+			_players.add_child(col)
+	if wide:
+		_players.add_child(cols)
 
 
 ## A flat row: his name, and what he did that matters most here. A tap opens
@@ -306,7 +341,7 @@ func _player_row(r: Dictionary, figure: String) -> Control:
 	var b := Button.new()
 	b.name = "BoxPlayer_" + id
 	b.flat = true
-	b.custom_minimum_size.y = 44
+	b.custom_minimum_size.y = 28 if compact else 44
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	b.pressed.connect(func():
 		_open = "" if _open == id else id
@@ -315,9 +350,11 @@ func _player_row(r: Dictionary, figure: String) -> Control:
 	h.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var who := UiKit.ellipsis(str(r["name"]), UiKit.BODY, UiKit.TEXT, _open == id)
 	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(who)
 	var fig := UiKit.line(figure, UiKit.BODY, UiKit.TEXT, true)
 	fig.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	# A name column that ends where its figure starts, not a screen away - on a phone too.
+	UiKit.near_figure(who, fig, 150.0 if compact else (200.0 if UiKit.view_width(self) >= 760.0 else 170.0))
+	h.add_child(who)
 	h.add_child(fig)
 	for n in [h, who, fig]:
 		(n as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -409,7 +446,7 @@ class Split extends Control:
 ## on the same clock. A tap on a mark picks that score; anywhere else on the
 ## chart picks the quarter.
 class Worm extends Control:
-	const CHART_H := 112.0
+	var CHART_H := 112.0
 	const LANE_H := 18.0
 	const PAD := 6.0
 	const QUARTER := 30.0
@@ -417,6 +454,8 @@ class Worm extends Control:
 
 	func setup(box: BoxScore) -> void:
 		_box = box
+		if box.compact:
+			CHART_H = 76.0
 		custom_minimum_size = Vector2(0, CHART_H + 2.0 * LANE_H + PAD * 2.0)
 		mouse_filter = Control.MOUSE_FILTER_STOP
 

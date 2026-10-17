@@ -242,5 +242,58 @@
 				"result": "{name} sends a video instead."
 			}
 		]
+	},
+	{
+		"id": "finals_club_greats",
+		"category": "community",
+		"phase": [
+			"finals"
+		],
+		"subject": {
+			"kind": "club"
+		},
+		"when": {
+			"finals_week_max": 4
+		},
+		"title": [
+			"The club's greats want to drop in before the final"
+		],
+		"text": [
+			"A few champions from the club's past would like ten minutes with the players at Thursday's session."
+		],
+		"choices": [
+			{
+				"key": "in",
+				"label": "Bring them in",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 4,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": 1
+					}
+				],
+				"result": "In the huddle with players whose names are on the honour boards. The young ones hang off every word."
+			},
+			{
+				"key": "later",
+				"label": "Not this week",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 4,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "The session runs as planned. A couple of the old players take it personally."
+			}
+		]
 	}
 ]

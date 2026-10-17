@@ -34,7 +34,7 @@ FLOOR_DELTAS="${FLOOR_DELTAS:-tests/floor_deltas}"
 SUITES_ONLY="${SUITES_ONLY:-0}"
 # PR CI stops promptly; local/main/diagnostic runs default to all failures.
 STOP_ON_FAILURE="${STOP_ON_FAILURE:-0}"
-ALL_SUITES=(draft draft_ui assets intake intake_ui expansion finals save chronology career coaches coach_market coach_pathway coach_effects career_ui potential ratings ai training selection matchup matchday roles injuries awards achievements contracts league club match_game pressure workload fitness preseason match_visual league_balance calibration balance stats story back_nav scroll family keyboard)
+ALL_SUITES=(draft draft_ui assets intake intake_ui expansion finals save chronology career coaches coach_market coach_pathway coach_effects career_ui potential ratings ai training selection matchup matchday calls roles injuries awards achievements contracts league club match_game pressure workload fitness preseason plan_know planpane match_visual league_balance calibration balance stats story back_nav scroll family keyboard nameink rowgap)
 [ "$#" -gt 0 ] && SUITES=("$@") || SUITES=("${ALL_SUITES[@]}")
 # Read once and clear it: the harness self-test runs this script again, and a
 # child that inherited EXTRAS_ONLY would run no suites and pass a short one.
@@ -159,6 +159,17 @@ else
 	summary+=("| suite_seeds | FAIL | see log |")
 fi
 
+echo "== Player-facing odds"
+if python3 tools/test_check_player_facing_odds.py > "$LOG_DIR/player_facing_odds.log" 2>&1 \
+		&& python3 tools/check_player_facing_odds.py >> "$LOG_DIR/player_facing_odds.log" 2>&1; then
+	summary+=("| player_facing_odds | pass | |")
+else
+	cat "$LOG_DIR/player_facing_odds.log"
+	note_error "tools/check_player_facing_odds.py: a player-facing string quotes odds"
+	failed=1
+	summary+=("| player_facing_odds | FAIL | see log |")
+fi
+
 echo "== Exported-build data check"
 if GODOT="$GODOT" tools/check_export_data.sh > "$LOG_DIR/export_data.log" 2>&1; then
 	summary+=("| export_data | pass | |")
@@ -177,6 +188,16 @@ else
 	note_error "tools/intake_harness.py failed"
 	failed=1
 	summary+=("| intake_harness | FAIL | see log |")
+fi
+
+echo "== Offline promise (Android preset requests vibrate only)"
+if python3 tools/test_android_permissions.py > "$LOG_DIR/offline_promise.log" 2>&1 		&& python3 tools/check_android_permissions.py >> "$LOG_DIR/offline_promise.log" 2>&1; then
+	summary+=("| offline_promise | pass | |")
+else
+	tail -15 "$LOG_DIR/offline_promise.log"
+	note_error "tools/check_android_permissions.py: the Android preset asks for more than vibrate, which breaks the menu's offline promise"
+	failed=1
+	summary+=("| offline_promise | FAIL | see log |")
 fi
 fi
 

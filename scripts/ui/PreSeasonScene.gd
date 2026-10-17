@@ -18,6 +18,8 @@ const FILL_MIN_CONTRAST := 2.0
 var _root: VBoxContainer
 var _settings: Control
 var _lines := {}        # block index -> {"gain": Label, "cost": Label}
+var _drill_rows := {}   # block index -> the plans it drills (shown on a Game plan block)
+var _drill_buttons := {}   # block index -> {plan: Button}
 var _choices := {}      # "Load0" / "Focus0" -> {key: Button}
 var _base_head: Label
 var _base_body: Label
@@ -57,6 +59,8 @@ func _build() -> void:
 	UiKit.clear(_root)
 	_lines = {}
 	_choices = {}
+	_drill_rows = {}
+	_drill_buttons = {}
 	var stop: String = GameState.preseason_stop()
 	var settings := UiKit.btn("Settings", UiKit.SECONDARY)
 	settings.name = "PreSeasonSettings"
@@ -139,16 +143,46 @@ func _header(stop: String) -> Control:
 		for n in names.get_children():
 			(n as Label).autowrap_mode = TextServer.AUTOWRAP_OFF
 		who.add_theme_constant_override("separation", 14)
+		_hang_watch(stop, who, WATCH_WIDE)   # between the club and the big line it belongs to
 		var words := UiKit.vbox(0)
 		words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		words.add_child(hero)
 		words.add_child(sub)
 		who.add_child(words)
 	else:
+		_hang_watch(stop, who, WATCH)   # at the end of the club's row, down beside the big line
 		v.add_child(hero)
 		v.add_child(sub)
 	v.add_child(_club_rule())
 	return v
+
+
+## The stopwatch at the time trial, hung from the top of the club's row in a
+## slot with no height of its own: the header is exactly as tall as without
+## it and nothing under it moves. Steel and white, never tinted; no tap.
+func _hang_watch(stop: String, who: HBoxContainer, height: float) -> void:
+	if stop != "trial":
+		return
+	var watch := UiArt.view("stopwatch", height)
+	if watch == null:
+		return
+	watch.name = "TrialStopwatch"
+	var slot := Control.new()
+	slot.name = "TrialStopwatchSlot"
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.custom_minimum_size = Vector2(watch.custom_minimum_size.x, 0)
+	slot.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	watch.size = watch.custom_minimum_size
+	slot.add_child(watch)
+	who.add_child(slot)
+
+
+## The stopwatch at the time trial stop (director, 2026-10-14: "Bigger, in
+## real colours"). It may not move anything, so it is as tall as the words it
+## stands beside: on a phone the club's row and the big line (56), on a wide
+## screen the one row the header is (40).
+const WATCH := 56.0
+const WATCH_WIDE := 40.0
 
 
 func _hero(stop: String) -> String:
@@ -419,10 +453,70 @@ func _block(i: int) -> Control:
 			func(key: String): _pick(i, key, "")))
 	v.add_child(_choice_row("Focus", "Focus%d" % i, focus_options, str(blocks[i][1]),
 			func(key: String): _pick(i, "", key)))
+	var drill := _drill_row(i)
+	v.add_child(drill)
+	_drill_rows[i] = drill
 	var gain := _stake(v, "Gain:", "BlockGain_%d" % i)
 	var cost := _stake(v, "Cost:", "BlockCost_%d" % i)
 	_lines[i] = {"gain": gain, "cost": cost}
 	return row
+
+
+## The plans a Game plan block can drill: the five that take drilling, one or
+## two chosen (a tap on a chosen one lets it go; a third takes the first's place).
+## Shown only while the block's focus is Game plan.
+func _drill_row(i: int) -> Control:
+	var h := UiKit.vbox(4)
+	h.name = "Drill%d" % i
+	var l := UiKit.lbl("Drill", UiKit.BODY, UiKit.TEXT, true)
+	h.add_child(l)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	h.add_child(grid)
+	var buttons := {}
+	for plan in PreSeason.DRILL_PLANS:
+		var key := str(plan)
+		var b := UiKit.btn(CoachReport.plan_label(key), UiKit.SECONDARY)
+		b.name = "Drill%d_%s" % [i, key]
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# Two lines (the plan, how well the side knows it); the grid's width is
+		# the block's, never the words'.
+		b.clip_text = true
+		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		b.custom_minimum_size = Vector2(0, 52)
+		b.pressed.connect(func(): _toggle_drill(i, key))
+		buttons[key] = b
+		grid.add_child(b)
+	_drill_buttons[i] = buttons
+	return h
+
+
+## How well the side knows a plan, and where the drilling set leaves it:
+## "medium", or "medium, then high" once the weeks are enough.
+func _knows_words(plan: String) -> String:
+	var now: int = GameState.plan_level(GameState.my_club, plan)
+	var after: int = GameState.plan_level_after_drills(plan)
+	var t := PreSeason.fluency_word(now)
+	if after != now:
+		t += ", then " + PreSeason.fluency_word(after)
+	return t
+
+
+func _toggle_drill(i: int, plan: String) -> void:
+	var drills: Array = GameState.preseason_drills(i)
+	if drills.has(plan):
+		if drills.size() == 1:
+			return   # a Game plan block always drills something
+		drills.erase(plan)
+	else:
+		drills.append(plan)
+		while drills.size() > int(PreSeason.tune("drill_max_plans")):
+			drills.pop_front()
+	GameState.set_preseason_drills(i, drills)
+	_refresh_words()
 
 
 ## "Load" or "Focus" in bold beside its options. These are the coach's
@@ -521,7 +615,14 @@ func _refresh_words() -> void:
 	for i in _lines:
 		var load := str(blocks[i][0])
 		var focus := str(blocks[i][1])
-		(_lines[i]["gain"] as Label).text = PreSeason.gain_line(load, focus, int(i))
+		(_lines[i]["gain"] as Label).text = PreSeason.gain_line(load, focus, int(i), GameState.preseason_drills(int(i)))
+		if _drill_rows.has(i):
+			(_drill_rows[i] as Control).visible = focus == "plan"
+			var drills: Array = GameState.preseason_drills(int(i))
+			for plan in (_drill_buttons[i] as Dictionary):
+				var btn: Button = _drill_buttons[i][plan]
+				_paint_choice(btn, drills.has(str(plan)))
+				btn.text = "%s\n%s" % [CoachReport.plan_label(str(plan)), _knows_words(str(plan))]
 		var cost := PreSeason.cost_line(load, focus, int(i))
 		(_lines[i]["cost"] as Label).text = cost
 		# A cost is shown only when there is one.
