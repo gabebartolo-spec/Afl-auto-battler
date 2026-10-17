@@ -225,7 +225,10 @@ func _build() -> void:
 	var page := UiKit.vbox(UiKit.SECTION)
 	_root.add_child(UiKit.scroll(page))
 	var week := _week_section(season)
-	var ladder := _ladder_section(season)
+	# PC: the ladder and the league's front page stand side by side in the right
+	# column, both in view without scrolling (director, 2026-10-14).
+	var right_w := (_content_width() - 28.0) * 0.56
+	var ladder := _ladder_section(season, -1.0 if _narrow() else right_w * 0.42)
 	if _narrow():
 		page.add_child(week)
 		page.add_child(UiKit.rule())
@@ -242,10 +245,21 @@ func _build() -> void:
 		left.add_child(week)
 		left.add_child(UiKit.rule())
 		left.add_child(_standing_card())
-		if not GameState.news.is_empty():
-			left.add_child(_news_card())
+		# The front page sits under the ladder, in the space it leaves empty.
+		var right := UiKit.hbox(20)
+		right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		right.size_flags_stretch_ratio = 1.25
+		left.size_flags_stretch_ratio = 1.0
+		cols.add_child(right)
 		ladder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		cols.add_child(ladder)
+		ladder.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		right.add_child(ladder)
+		if not GameState.news.is_empty():
+			var news := _news_card()
+			news.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			news.size_flags_stretch_ratio = 1.2
+			news.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			right.add_child(news)
 	if _narrow():
 		_root.add_child(_bar_air())
 		_root.add_child(_footer(season))
@@ -268,9 +282,12 @@ func _build() -> void:
 		# left and the club's screens on the right.
 		if not season.is_season_over() and not _upcoming_match().is_empty():
 			week_row.add_child(_sim_round_button())
+		# The same split as the columns above, so the club buttons stand under the ladder.
+		week_row.size_flags_stretch_ratio = 1.0
 		foot.add_child(week_row)
 		var row := _footer(season, false)
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.size_flags_stretch_ratio = 1.25
 		foot.add_child(row)
 	# Motion plays once per visit, not on every rebuild after an answer.
 	_settled = true
@@ -285,7 +302,7 @@ func _week_title(season: Season) -> String:
 	return _finals_label()
 
 
-func _ladder_section(season: Season) -> Control:
+func _ladder_section(season: Season, table_width := -1.0) -> Control:
 	var v := UiKit.vbox(6)
 	v.name = "LadderSection"
 	var head := UiKit.hbox(8)
@@ -304,6 +321,8 @@ func _ladder_section(season: Season) -> Control:
 		series.pressed.connect(_show_finals)
 		head.add_child(series)
 	var width := _content_width() if _narrow() else _content_width() * 0.45
+	if table_width > 0.0:
+		width = table_width
 	v.add_child(UiKit.ladder_table(season.ladder_sorted(), GameState.my_club, width, 0, false))
 	return v
 
@@ -531,42 +550,18 @@ func _league_names() -> Dictionary:
 	return _name_index
 
 
-## The latest league headlines; More opens the whole feed.
+## The league's front page in small: the lead story and a few headlines; a
+## tap opens the whole page.
 func _news_card() -> Control:
-	var card := HBoxContainer.new()
-	card.name = "NewsCard"
-	var row := card
-	row.add_theme_constant_override("separation", 8)
-	var v := UiKit.vbox(2)
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(v)
-	v.add_child(UiKit.lbl("League news", UiKit.BODY, UiKit.TEXT, true))
-	for item in GameState.news.slice(0, 2):
-		v.add_child(UiKit.ellipsis(str(item["text"]), UiKit.SECONDARY, UiKit.TEXT))
-	var more := UiKit.btn("More", 14)
-	more.name = "NewsMore"
-	more.custom_minimum_size = Vector2(72, 44)
-	more.pressed.connect(_show_news)
-	row.add_child(more)
-	return card
+	return NewsFront.mini(GameState.news, GameState.my_club, _show_news, _league_names())
 
 
 func _show_news() -> void:
-	var box := UiKit.modal_box(self, 620.0, 560.0)
+	var wide := ScreenLayout.roomy(UiKit.view_width(self), UiKit.view_height(self))
+	var box := UiKit.modal_box(self, 1080.0 if wide else 620.0, 0.0 if wide else 560.0)
 	_news_overlay = box["overlay"]
 	_news_overlay.name = "NewsFeed"
-	var v: VBoxContainer = box["body"]
-	v.add_child(UiKit.heading("League news", UiKit.H1))
-	v.add_child(UiKit.lbl("Difficulty: %s" % str(GameState.difficulty_rules()["label"]), 12, UiKit.MUTED))
-	var last_when := ""
-	for item in GameState.news:
-		var when := "%d  %s" % [int(item["year"]), str(item["when"])]
-		if when != last_when:
-			v.add_child(UiKit.lbl(when, UiKit.SECONDARY, UiKit.EMPH, true))
-			last_when = when
-		var l := NameInk.label(str(item["text"]), _league_names(), UiKit.SECONDARY, UiKit.TEXT)
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(l)
+	NewsFront.fill(box["body"], GameState.news, GameState.my_club, wide, _league_names())
 	var ok := UiKit.btn("Close", UiKit.NAME, true)
 	ok.custom_minimum_size = Vector2(0, 44)
 	ok.pressed.connect(func(): _news_overlay.queue_free())
