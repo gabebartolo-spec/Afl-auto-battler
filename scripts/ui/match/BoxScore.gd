@@ -352,9 +352,8 @@ func _player_row(r: Dictionary, figure: String) -> Control:
 	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var fig := UiKit.line(figure, UiKit.BODY, UiKit.TEXT, true)
 	fig.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	if compact or UiKit.view_width(self) >= 760.0:
-		# A name column that ends where its figure starts, not a screen away.
-		UiKit.near_figure(who, fig, 150.0 if compact else 200.0)
+	# A name column that ends where its figure starts, not a screen away - on a phone too.
+	UiKit.near_figure(who, fig, 150.0 if compact else (200.0 if UiKit.view_width(self) >= 760.0 else 170.0))
 	h.add_child(who)
 	h.add_child(fig)
 	for n in [h, who, fig]:

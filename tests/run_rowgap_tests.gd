@@ -16,6 +16,11 @@ var _explore := false
 const SUITE_SEED := 2027
 const MAX_GAP := 160.0
 const SCREENS := ["list", "training", "coaching", "staff", "stats", "offseason", "season_review", "forge", "hub", "selection"]
+## The smallest type a stats sheet may use on a wide screen: UiKit.SMALL, the smallest
+## body size the hub itself uses (the calls block used to run at 12 and 11).
+const BODY_FLOOR := 13
+## A wide sheet fills its screen (to its 12 unit margins); the breaks and full time.
+const SHEET_FILL := 0.97
 const SIZES := [Vector2i(1280, 720), Vector2i(2560, 1440), Vector2i(390, 844)]
 
 
@@ -50,6 +55,8 @@ func _run() -> void:
 		await _settle()
 		await _box_score(size)
 		await _match_sheets(size)
+		if size == SIZES[0]:
+			await _calls_seeds(size)
 		for key in SCREENS:
 			await _screen(str(key), size)
 		for section in ["ladder", "players", "ratings", "awards", "trophies"]:
@@ -134,6 +141,7 @@ func _match_sheets(size: Vector2i) -> void:
 		_audit(sheet, "break stats %dx%d" % [size.x, size.y])
 		if size.x >= 1280:
 			_one_page(sheet, "break stats %dx%d" % [size.x, size.y])
+			_wide_sheet(sheet, "break stats %dx%d" % [size.x, size.y], size)
 	scene.call("_close_report")
 	await _settle(4)
 	sim.run_quarter()
@@ -151,6 +159,10 @@ func _match_sheets(size: Vector2i) -> void:
 		_audit(ft, "full time stats %dx%d" % [size.x, size.y])
 		if size.x >= 1280:
 			_one_page(ft.find_child("StatsColumns", true, false), "full time stats %dx%d" % [size.x, size.y])
+			_wide_sheet(ft, "full time stats %dx%d" % [size.x, size.y], size)
+			_calls_in_view(ft, "full time stats %dx%d" % [size.x, size.y])
+		else:
+			_phone_scorers(ft, "full time stats %dx%d" % [size.x, size.y])
 	scene.queue_free()
 	await _settle(4)
 
@@ -173,6 +185,126 @@ func _one_page(node: Node, tag: String) -> void:
 		print("PAGE %s: columns %d px, room %d px; width %d, kids %s" % [tag, int(held), int(room), int((cols as Control).size.x),
 				", ".join((cols.get_children() as Array).map(func(c): return "%s %d min %d" % [c.name, int((c as Control).size.x), int((c as Control).get_combined_minimum_size().x)]))])
 		_check(held <= room + 1.0, "%s: score and team numbers fit without scrolling (%d of %d px)" % [tag, int(held), int(room)])
+
+
+## Full time on the Stats tab at 1280x720 over several matches (different clubs, seeds and
+## numbers of calls): the calls block is inside the page every time, not one lucky game.
+func _calls_seeds(size: Vector2i) -> void:
+	for pair in [["ADE", 2026], ["MEL", 2031], ["GWS", 2040], ["WCE", 2052], ["RIC", 2067], ["FRE", 2075]]:
+		_state.reset()
+		_state.career_seed = int(pair[1])
+		_state.replay_seed = int(pair[1])
+		_state.set_setting("seen_training_intro", true)
+		_state.start_season(str(pair[0]), _db.club_list(str(pair[0])))
+		_state.prepare_interactive_match()
+		var sim = _state.pending_sim
+		for q in range(4):
+			sim.run_quarter()
+		var scene = load("res://scenes/MatchScene.tscn").instantiate()
+		root.add_child(scene)
+		await _settle(16)
+		scene.set("_res", sim.result())
+		scene.set("_finished", true)
+		scene.call("_show_fulltime")
+		await _settle(14)
+		scene.set("_ft_tab", "stats")
+		scene.call("_render_ft")
+		await _settle(14)
+		var ft = scene.find_child("FullTime", true, false)
+		_check(ft != null, "%s %d: full time opens" % [str(pair[0]), int(pair[1])])
+		if ft != null:
+			_calls_in_view(ft, "%s %d full time stats %dx%d" % [str(pair[0]), int(pair[1]), size.x, size.y])
+		scene.queue_free()
+		await _settle(4)
+
+
+## The whole Stats tab shows at once: the scroll holds no more than it shows, and the
+## "What your calls did" block (heading to last line) lies inside the visible page.
+func _calls_in_view(ft: Node, tag: String) -> void:
+	var calls := ft.find_child("CallsReadout", true, false) as Control
+	_check(calls != null and calls.is_visible_in_tree(), tag + ": the calls block is on the Stats tab")
+	var sc: Node = ft.find_child("MatchStats", true, false)
+	while sc != null and not (sc is ScrollContainer):
+		sc = sc.get_parent()
+	_check(sc != null, tag + ": the Stats tab sits in a scroll")
+	if calls == null or sc == null:
+		return
+	var view := (sc as Control).get_global_rect()
+	var at := calls.get_global_rect()
+	var held := 0.0
+	for ch in sc.get_children():
+		if ch is Control and not (ch is ScrollBar):
+			held = maxf(held, (ch as Control).size.y)
+	print("CALLS %s: block %d px at y %d..%d, page %d..%d, scroll holds %d of %d" % [tag, int(at.size.y),
+			int(at.position.y), int(at.end.y), int(view.position.y), int(view.end.y), int(held), int(view.size.y)])
+	_check(at.position.y >= view.position.y - 1.0 and at.end.y <= view.end.y + 1.0,
+			tag + ": the calls block is inside the page without scrolling (%d..%d of %d..%d)" % [int(at.position.y), int(at.end.y),
+			int(view.position.y), int(view.end.y)])
+	_check(at.position.x >= view.position.x - 1.0 and at.end.x <= view.end.x + 1.0, tag + ": the calls block is inside the page's width")
+	_check(held <= view.size.y + 1.0, tag + ": the Stats tab needs no scrolling (%d of %d px)" % [int(held), int(view.size.y)])
+
+
+## On a wide screen the sheet grows with it (to its margins) and no word on it is under
+## BODY_FLOOR: the type is the hub's, not smaller.
+func _wide_sheet(sheet: Node, tag: String, size: Vector2i) -> void:
+	var sc: Node = sheet.find_child("StatsColumns", true, false)
+	while sc != null and not (sc is ScrollContainer):
+		sc = sc.get_parent()
+	if sc == null:
+		_check(false, tag + ": the sheet has a scroll")
+		return
+	var shell := (sc as Control).get_parent().get_parent() as Control
+	var w := shell.size.x
+	var most := float(size.x) - 24.0
+	print("SHEET %s: %d of %d px wide" % [tag, int(w), int(most)])
+	_check(w <= most + 1.0, tag + ": the sheet fits its screen (%d of %d)" % [int(w), int(most)])
+	_check(w >= most * SHEET_FILL, tag + ": the sheet grows with the screen (%d of %d)" % [int(w), int(most)])
+	var low := 99
+	var where := ""
+	for n in sheet.find_children("*", "Control", true, false):
+		var c := n as Control
+		if not c.is_visible_in_tree():
+			continue
+		var fs := 0
+		var txt := ""
+		if c is Label:
+			txt = (c as Label).text
+			fs = c.get_theme_font_size("font_size")
+		elif c is RichTextLabel:
+			txt = (c as RichTextLabel).get_parsed_text()
+			fs = c.get_theme_font_size("normal_font_size")
+		if txt.strip_edges() != "" and fs < low:
+			low = fs
+			where = txt.left(24)
+	print("FONT %s: smallest %d px ('%s')" % [tag, low, where])
+	_check(low >= BODY_FLOOR, tag + ": the smallest type is %d px, not under %d ('%s')" % [low, BODY_FLOOR, where])
+
+
+## A phone's scorer rows keep the figure beside the name (the PR's own near_figure rule),
+## not a screen away: no more than MAX_GAP between his name and his figure.
+func _phone_scorers(sheet: Node, tag: String) -> void:
+	var worst := 0.0
+	var seen := 0
+	var who := ""
+	for b in sheet.find_children("BoxPlayer_*", "Button", true, false):
+		var h: Node = null
+		for c in b.get_children():
+			if c is HBoxContainer:
+				h = c
+		if h == null or h.get_child_count() < 2:
+			continue
+		var a = h.get_child(0)
+		var f = h.get_child(1)
+		if not (a is Label and f is Label):
+			continue
+		seen += 1
+		var gap := _text_start(f) - _text_end(a)
+		if gap > worst:
+			worst = gap
+			who = (a as Label).text
+	_check(seen >= 4, tag + ": scorer rows found (%d)" % seen)
+	print("SCORERS %s: %d rows, widest name-to-figure gap %d px ('%s')" % [tag, seen, int(worst), who])
+	_check(worst <= MAX_GAP, tag + ": a scorer's name and figure %d px apart ('%s')" % [int(worst), who])
 
 
 func _audit(scene: Node, tag: String) -> void:
