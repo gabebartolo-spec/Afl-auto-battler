@@ -161,6 +161,7 @@ func _build() -> void:
 ## own colours. It may not push the list down or squeeze the news, so on a
 ## phone it is as tall as the news it stands beside and no wider than before;
 ## on a wide screen it leads the news from the left.
+const TRADE_OFF_LINE := "Games earn the points and each costs more as a stat climbs: a plan is a choice of what he improves."
 const HERO_NARROW := 72.0
 const HERO_WIDE := 96.0
 
@@ -214,6 +215,11 @@ func _summary() -> Control:
 		warn.name = "PausedWarning"
 		warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(warn)
+	# What it costs and what it buys, in one line (P-63).
+	var trade := UiKit.lbl(TRADE_OFF_LINE, UiKit.SMALL, UiKit.TEXT)
+	trade.name = "TrainingTradeOff"
+	trade.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(trade)
 	return panel
 
 
@@ -810,10 +816,9 @@ func _ignore_mouse(node: Control) -> void:
 func _potential_note(p: Dictionary) -> String:
 	var mult := Potential.training_multiplier(p)
 	if bool(p.get("rehab", false)):
-		return "Rehab: back near his %d POT after this season. Training %d%% off until then." % [
-				int(p["potential"]), int(round((1.0 - mult) * 100.0))]
+		return "Rehab: back near his %d POT after this season. Training is cheaper until then." % int(p["potential"])
 	if mult < 0.95:
-		return "Room to grow: training %d%% off below his potential." % int(round((1.0 - mult) * 100.0))
+		return "Room to grow: training is cheaper while he is below his potential."
 	var gap := int(p.get("potential", p["overall"])) - int(p["overall"])
 	if gap < 0:
 		return "Past his projected peak: every point costs far more."
