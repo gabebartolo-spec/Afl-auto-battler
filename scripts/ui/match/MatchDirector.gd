@@ -1833,13 +1833,33 @@ const PRESS_FRAME_SHIFT := 9.0    # ...and looks toward its high line
 const PRESS_FROM := -10.0
 
 
-## The press zone, drawn: whether `side` is pressing right now (without the
-## ball, its plan the press, the ball in its opponents' back half or the
-## middle). The view fades the wash in and out in real time.
+## The press zone, drawn: whether `side` plays the Defensive press right now.
+## The tint follows the plan, with the ball only turning it up (director,
+## 2026-10-14: it was seen in the first quarter and then "disappeared"). The old
+## rule showed it only while the side was without the ball and the ball was up
+## its opponents' end, so it flickered with every change of possession and sat
+## at about a seventh of its strength on average, in any quarter.
 func press_zone_on(side: int) -> bool:
-	if _tac.size() < 2 or tokens.is_empty():
+	if _tac.size() < 2 or tokens.is_empty() or debug_no_press_shape:
+		return false
+	return str((_tac[side] as Dictionary).get("plan", "")) == "defensive"
+
+
+## Whether `side` is hunting right now: its plan the press, without the ball,
+## the ball in its opponents' back half or the middle.
+func press_zone_hunting(side: int) -> bool:
+	if not press_zone_on(side):
 		return false
 	return side != _poss and _pressing(side, (ball["pos"] as Vector2).x * _dir(side))
+
+
+## How strong the wash should be: half while the plan is the press, full while
+## the side is hunting, none under any other plan. The view eases to it.
+const PRESS_ZONE_STANDING := 0.5
+func press_zone_level(side: int) -> float:
+	if not press_zone_on(side):
+		return 0.0
+	return 1.0 if press_zone_hunting(side) else PRESS_ZONE_STANDING
 
 
 ## How strongly the press side is hunting at `x_side` metres up the ground
