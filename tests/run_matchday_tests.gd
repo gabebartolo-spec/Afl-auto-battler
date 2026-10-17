@@ -610,16 +610,16 @@ func _coach_descriptions(sz: Vector2i) -> void:
 		var w: String = await Tap.tap(b)
 		_check(w == "", "A finger picks the %s pep talk (%s: %s)" % [k, tag, w])
 		await _settle()
-		var note: Label = box.find_child("PepNote", true, false)
-		_check(note != null and note.is_visible_in_tree() and note.text != "" and note.text == report.pep_summary(k),
+		var note: Control = box.find_child("PepNote", true, false)
+		_check(note != null and note.is_visible_in_tree() and _flat(_text(note)) != "" and _flat(_text(note)) == _flat(report.pep_summary(k)),
 				"The %s pep talk shows its own description (%s)" % [k, tag])
-		pep_seen[note.text if note != null else ""] = true
+		pep_seen[_flat(_text(note)) if note != null else ""] = true
 	_check(pep_seen.size() == 4, "Each pep talk has its own words (%s)" % tag)
 	var composed: Button = box.find_child("PepPicker_steady", true, false)
 	await Tap.tap(composed)
 	await _settle()
-	var pn: Label = box.find_child("PepNote", true, false)
-	_check(pn != null and pn.text.begins_with("Keep them as they are"), "Back on Composed, its words return (%s)" % tag)
+	var pn: Control = box.find_child("PepNote", true, false)
+	_check(pn != null and _text(pn).begins_with("Keep them as they are"), "Back on Composed, its words return (%s)" % tag)
 
 	# Rotations: Normal as much as the other two, and never the legs report.
 	var rot_seen := {}
@@ -628,12 +628,12 @@ func _coach_descriptions(sz: Vector2i) -> void:
 		var rw: String = await Tap.tap(rb)
 		_check(rw == "", "A finger picks the %s rotation (%s: %s)" % [k, tag, rw])
 		await _settle()
-		var rn: Label = box.find_child("RotationNote", true, false)
-		_check(rn != null and rn.is_visible_in_tree() and rn.text == str(policies[k]["text"]),
+		var rn: Control = box.find_child("RotationNote", true, false)
+		_check(rn != null and rn.is_visible_in_tree() and _flat(_text(rn)) == _flat(str(policies[k]["text"])),
 				"The %s rotation shows its own description (%s)" % [k, tag])
-		_check(rn != null and rn.text != legs_text and not box.find_child("LegsView", true, false).is_ancestor_of(rn),
+		_check(rn != null and _text(rn) != legs_text and not box.find_child("LegsView", true, false).is_ancestor_of(rn),
 				"The rotation words are not the legs report (%s: %s)" % [k, str(k)])
-		rot_seen[rn.text if rn != null else ""] = true
+		rot_seen[_flat(_text(rn)) if rn != null else ""] = true
 	_check(rot_seen.size() == policies.size(), "Each rotation has its own words (%s)" % tag)
 
 	# Tag: "No tag" says so; a name brings the tagger line back.
@@ -1493,10 +1493,7 @@ func _pc_break_worst_case(club := "COL") -> void:
 	_check(worst <= 608.0 - 8.0, "...with at least 8 px to spare (%s: %.0f of 608)" % [club, worst])
 	_check(heights.size() == 1, "Choosing another call never changes the sheet's height (%s: %s)" % [club, str(heights.keys())])
 	# The synergies line is a fact for the game plan: it sits in that call.
-	var syn: Node = null
-	for l in box.find_children("*", "Label", true, false) if box != null else []:
-		if (l as Label).text.begins_with("Your synergies"):
-			syn = l
+	var syn: Node = box.find_child("SynergyBlock", true, false) if box != null else null
 	var plan_body: Node = box.find_child("CallBody_plan", true, false) if box != null else null
 	_check(syn == null or (plan_body != null and plan_body.is_ancestor_of(syn)),
 			"The synergies line sits with the game plan it informs (%s)" % club)
@@ -3041,6 +3038,16 @@ func _inside_scroll(c: Node) -> bool:
 			return true
 		p = p.get_parent()
 	return false
+
+
+## Words with the line breaks and the colons and semicolons that split a call's
+## words into lines taken out, in lower case, so the lines can be compared with
+## the call's full sentence.
+func _flat(s: String) -> String:
+	var out := s.to_lower().replace(":", " ").replace(";", " ").replace("\n", " ")
+	while out.contains("  "):
+		out = out.replace("  ", " ")
+	return out.strip_edges()
 
 
 ## The words a line shows, whether a Label or a tinted RichTextLabel carries them.

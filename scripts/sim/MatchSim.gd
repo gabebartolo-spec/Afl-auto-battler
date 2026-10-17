@@ -3605,6 +3605,7 @@ func begin_quarter() -> void:
 	tactics_history.append({
 		"quarter": current_quarter,
 		"plans": [(tactics[0] as Dictionary).duplicate(), (tactics[1] as Dictionary).duplicate()],
+		"rotations": [str(rotation_policy[0]), str(rotation_policy[1])],
 	})
 	_q_active = true
 	_q_i = 0

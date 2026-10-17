@@ -976,7 +976,7 @@ const PRESS_ZONE_ALPHA := 0.3
 ## The strength the colour is worked out at (what the club colour would be at
 ## a 40% mix), so the colour is the same hue and the strength the one above.
 const PRESS_COLOUR_ALPHA := 0.4
-const PRESS_FADE_SECS := 0.9
+const PRESS_FADE_SECS := 2.5
 var _zone_fade := [0.0, 0.0]
 var _press_said := [false, false]
 var _caption_rect = null       # where the caption was drawn last (the press line steps clear of it)
@@ -992,8 +992,8 @@ static func ease_fade(t: float) -> float:
 
 func _step_zone_fade(delta: float) -> void:
 	for side in [0, 1]:
-		var on: bool = director.press_zone_on(side)
-		_zone_fade[side] = move_toward(float(_zone_fade[side]), 1.0 if on else 0.0, delta / PRESS_FADE_SECS)
+		var target: float = director.press_zone_level(side)
+		_zone_fade[side] = move_toward(float(_zone_fade[side]), target, delta / PRESS_FADE_SECS)
 
 
 func _draw_press_zone(c: Vector2, a: float, b: float) -> void:
