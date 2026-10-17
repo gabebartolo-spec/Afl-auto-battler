@@ -730,7 +730,7 @@ func _show_coach_box() -> void:
 	plan_known.visible = false
 	# The plan under the buttons, in short separate lines: what it does, what
 	# it gains and costs, what it beats, and who makes it work.
-	var plan_note := UiKit.vbox(5)
+	var plan_note := UiKit.vbox(3)
 	plan_note.name = "PlanNote"
 	var my_ground: Array = (sim.squads[_my_side] as Squad).ground
 	var sync_note := func(key: String) -> void:
@@ -1015,7 +1015,7 @@ func _show_coach_box() -> void:
 	# yours and theirs, share a column, so every column fits a 720-unit
 	# screen.
 	var tail: VBoxContainer = col_b
-	var pep_note := UiKit.vbox(5)
+	var pep_note := UiKit.vbox(3)
 	pep_note.name = "PepNote"
 	var sync_pep := func(key: String) -> void:
 		_fill_note_lines(pep_note, CoachReport.pep_summary(key))
@@ -1029,7 +1029,7 @@ func _show_coach_box() -> void:
 	var rot_opts := []
 	for k in MatchSim.ROTATION_POLICIES:
 		rot_opts.append([str(k), str(ROTATION_SHORT.get(k, MatchSim.ROTATION_POLICIES[k]["label"]))])
-	var rot_note := UiKit.vbox(5)
+	var rot_note := UiKit.vbox(3)
 	rot_note.name = "RotationNote"
 	var sync_rot := func(key: String) -> void:
 		_fill_note_lines(rot_note, str(MatchSim.ROTATION_POLICIES[key]["text"]))
@@ -2051,7 +2051,6 @@ func _synergy_block() -> Control:
 	var syn: Array = GameState.pending_sim.synergies
 	var v := UiKit.vbox(3)
 	v.name = "SynergyBlock"
-	v.add_child(UiKit.spacer(6))
 	v.add_child(UiKit.lbl("Synergies", UiKit.SECONDARY, UiKit.TEXT, true))
 	v.add_child(_plan_row("Yours:", _synergy_names(syn[_my_side]), "SynYours"))
 	v.add_child(_plan_row("Theirs:", _synergy_names(syn[1 - _my_side]), "SynTheirs"))
