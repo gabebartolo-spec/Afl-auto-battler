@@ -54,6 +54,7 @@ func run() -> void:
 	_test_bench_strip()
 	_test_ends_change_at_restart(res)
 	_test_upright_oval(res)
+	_test_plan_tint_every_quarter()
 	GameState.replay_seed = 0
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -1479,15 +1480,25 @@ func _test_press_shape(res: Dictionary) -> void:
 	d.ball["pos"] = Vector2(-30.0, 0.0)
 	_check(d.press_zone_on(1) and not d.press_zone_on(0), "The zone is on for the press side only, while it hunts")
 	d._poss = 1
-	_check(not d.press_zone_on(1), "...and off when it has the ball")
+	_check(d.press_zone_on(1), "...and stays on when it has the ball: the tint follows the plan")
+	_check(d.press_zone_level(1) == MatchDirector.PRESS_ZONE_STANDING and not d.press_zone_hunting(1), "...at half strength while it has the ball")
+	d._poss = 0
+	_check(d.press_zone_level(1) == 1.0 and d.press_zone_hunting(1), "...and at full strength while it hunts without the ball")
+	d._poss = 1
+	d.ball["pos"] = Vector2(40.0, 0.0)
+	_check(d.press_zone_on(1), "...wherever the ball is")
+	d._tac[1] = {"side": 1, "plan": "balanced", "bursts": []}
+	_check(not d.press_zone_on(1) and d.press_zone_level(1) == 0.0, "...and off under any other plan")
+	d._tac[1] = {"side": 1, "plan": "defensive", "bursts": []}
+	d.ball["pos"] = Vector2(-30.0, 0.0)
 	d._poss = 0
 	MatchDirector.debug_no_press_shape = true
 	_check(not d.press_zone_on(1), "No zone when the shape is off")
 	MatchDirector.debug_no_press_shape = false
 	var pvs = load("res://scripts/ui/PitchView.gd")
 	_check(pvs.ease_fade(0.0) == 0.0 and pvs.ease_fade(1.0) == 1.0 and pvs.ease_fade(0.1) < 0.05
-			and is_equal_approx(pvs.ease_fade(0.5), 0.5) and float(pvs.PRESS_FADE_SECS) >= 0.9,
-			"The zone eases in and out over 0.9 s, not linearly")
+			and is_equal_approx(pvs.ease_fade(0.5), 0.5) and float(pvs.PRESS_FADE_SECS) >= 2.0,
+			"The zone eases in and out over 2.5 s, not linearly")
 	# The tint is the press club's own colour and shows on a phone (director,
 	# 2026-10-13: 0.12 moved a channel 8-11 of 255, a darker turf stripe). At full
 	# strength the mix with the turf must move a channel by at least 12% of the range
@@ -2247,3 +2258,44 @@ func _test_upright_oval(res: Dictionary) -> void:
 				bad.append("over bench disc %d" % int(sp["num"]))
 	_check(bad.is_empty(), "Upright, a goal's ring stays in the view and off the bench at both ends (%s)" % ", ".join(bad))
 	pv2.free()
+
+
+## The press tint follows the game plan in every quarter, and a plan changed at
+## a break shows from the next quarter (director, 2026-10-14: seen in Q1, then
+## gone). A match played quarter by quarter as the coach plays it live: the plan
+## set at each break, the new events and timeline handed to the same director.
+func _test_plan_tint_every_quarter() -> void:
+	var plans := ["defensive", "defensive", "balanced", "defensive"]
+	for my_side in [0, 1]:
+		var sim := MatchSim.new(Squad.new("ADE", GameDB.club_list("ADE"), true, "ADE"),
+				Squad.new("MEL", GameDB.club_list("MEL"), false, "MEL"), 11)
+		var d := MatchDirector.new()
+		var evs: Array = []
+		var cursor := 0
+		var shown := []
+		for q in range(4):
+			sim.set_tactics(my_side, {"gameplan": plans[q], "focus_id": "", "tag_id": "", "pep": "steady"})
+			sim.set_tactics(1 - my_side, {"gameplan": "balanced", "focus_id": "", "tag_id": "", "pep": "steady"})
+			var res := sim.run_quarter()
+			res["home"] = "ADE"
+			res["away"] = "MEL"
+			res["label"] = "Round 1"
+			if q == 0:
+				d.setup(res, evs)
+			var all: Array = res["events"]
+			evs.append_array(all.slice(cursor))
+			cursor = all.size()
+			d.set_timeline(res["timeline"])
+			var on := 0
+			var ticks := 0
+			var guard := 0
+			while not d.idle() and guard < 100000:
+				guard += 1
+				d.advance(1.0 / 15.0)
+				ticks += 1
+				if d.press_zone_on(my_side):
+					on += 1
+			shown.append(float(on) / float(maxi(1, ticks)))
+		_check(float(shown[0]) > 0.97 and float(shown[1]) > 0.97 and float(shown[3]) > 0.97,
+				"Side %d: the press tint shows through the quarters of its plan (%s)" % [my_side, str(shown)])
+		_check(float(shown[2]) < 0.03, "Side %d: the tint is gone in the quarter the plan was changed (%s)" % [my_side, str(shown)])
