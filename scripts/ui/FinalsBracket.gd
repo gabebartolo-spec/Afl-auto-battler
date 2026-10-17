@@ -438,6 +438,7 @@ func _node(week: int, m: Array) -> Control:
 			var strip := ColorRect.new()
 			strip.color = Color(UiKit.score_colour(code), 0.45 if out else 1.0)
 			strip.custom_minimum_size = Vector2(4, 0)
+			strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			h.add_child(strip)
 			var fs := UiKit.NAME if tag == "GF" else UiKit.BODY
 			h.add_child(UiKit.ellipsis(GameDB.club_short(code), fs, UiKit.MUTED if out else UiKit.TEXT, win == code))

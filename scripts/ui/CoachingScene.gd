@@ -165,13 +165,18 @@ func _how_we_play() -> Control:
 	var profile := GameState.list_profile()
 	var note := _wrapped(CoachReport.plan_summary(GameState.club_plan), UiKit.SMALL, UiKit.TEXT)
 	note.name = "PlanNote"
-	var fit := _wrapped(GameState.plan_fit_line(ground, GameState.club_plan), UiKit.SMALL, UiKit.TEXT)
+	# His own players, so each name wears the club's ink (NameInk).
+	var mine := NameInk.from_squads([GameState.my_list], [GameState.my_club])
+	var fit := NameInk.rich(UiKit.SMALL, UiKit.TEXT)
 	fit.name = "PlanFit"
-	fit.visible = fit.text != ""
+	var fit_text := GameState.plan_fit_line(ground, GameState.club_plan)
+	NameInk.set_line(fit, fit_text, mine)
+	fit.visible = fit_text != ""
 	v.add_child(PlanTiles.grid(2 if _narrow() else 3, ground, profile, func(k: String):
 		note.text = CoachReport.plan_summary(k)
-		fit.text = GameState.plan_fit_line(ground, k)
-		fit.visible = fit.text != ""))
+		var t := GameState.plan_fit_line(ground, k)
+		NameInk.set_line(fit, t, mine)
+		fit.visible = t != ""))
 	# The strengths no plan runs on, as before: a word each, a tap for who leads it.
 	var rest := UiKit.vbox(0)
 	rest.name = "ListProfile"

@@ -49,6 +49,7 @@ func run() -> void:
 	_test_match_ground()
 	_test_discs_apart()
 	_test_clash_kit()
+	_test_label_overlap()
 	_test_sides()
 	_test_bench_strip()
 	_test_ends_change_at_restart(res)
@@ -1746,39 +1747,57 @@ func _test_discs_apart() -> void:
 func _test_clash_kit() -> void:
 	var fm: Array = PitchView.kits_for("FRE", "MEL")
 	var mel: Dictionary = GameDB.club_guernsey("MEL")
-	_check(bool(fm[1].get("clash", false)) and fm[1]["base"] == mel["pattern"] and fm[1]["pattern"] == mel["base"],
-			"Melbourne wear their clash strip at Fremantle: red with a navy yoke, their own two colours changed over")
-	_check(fm[0] == GameDB.club_guernsey("FRE"), "The home side always wears its own kit")
-	_check(UiKit.colour_distance(fm[0]["base"], fm[1]["base"]) >= PitchView.DISC_CLASH,
-			"After the swap the two bases are no longer alike")
-	var ws: Array = PitchView.kits_for("WBD", "STK")
-	_check(not ws[1].has("clash") and ws[1] == GameDB.club_guernsey("STK") and ws[0] == GameDB.club_guernsey("WBD"),
-			"The Bulldogs and St Kilda do not clash: both wear their own kit")
-	# Every pair of today's clubs: who swaps, in what, and whether it is enough.
-	var swaps := []
-	var foreign := []
+	_check(bool(fm[1].get("clash", false)) and fm[1]["base"] != mel["base"],
+			"Melbourne change their body colour at Fremantle")
+	_check(fm[0]["base"] == GameDB.club_guernsey("FRE")["base"] and fm[0]["design"] == GameDB.club_guernsey("FRE")["design"],
+			"The home side always wears its own kit")
+	var hw: Array = PitchView.kits_for("HAW", "WCE")
+	_check(not hw[1].has("clash") and hw[1]["base"] == GameDB.club_guernsey("WCE")["base"],
+			"Hawthorn and West Coast do not clash: both wear their own kit")
+	# Adelaide v Melbourne, the pair the director found alike (2026-10-14): each way.
+	for pair in [["ADE", "MEL"], ["MEL", "ADE"]]:
+		var k: Array = PitchView.kits_for(str(pair[0]), str(pair[1]))
+		_check(PitchView.disc_distance(k[0], k[1]) >= PitchView.DISC_CLASH,
+				"%s v %s: the two discs are plainly different (%.0f)" % [pair[0], pair[1], PitchView.disc_distance(k[0], k[1])])
+	# The third colour defines the club: Adelaide's disc carries its gold.
+	var ade: Dictionary = PitchView.with_trim("ADE", GameDB.club_guernsey("ADE"))
+	_check(ade.get("ring", null) != null and (ade["ring"] as Color).is_equal_approx(GameDB.club_colours("ADE")[2]),
+			"Adelaide's disc has a ring of its gold")
+	_check(PitchView.with_trim("MEL", GameDB.club_guernsey("MEL")).get("ring", null) == null,
+			"Melbourne's disc has no third colour")
+	# Every one of the 306 home-and-away pairs of today's 18 clubs, after the clash rule.
+	var swaps := 0
+	var worst := 1000.0
 	var alike := []
-	var left := []
+	var foreign := []
 	for h in GameDB.CLUB_ORDER.slice(0, 18):
 		for a in GameDB.CLUB_ORDER.slice(0, 18):
 			if h == a:
 				continue
-			var own: Dictionary = GameDB.club_guernsey(str(a))
-			var k: Array = PitchView.kits_for(str(h), str(a))
-			var d := UiKit.colour_distance(k[0]["base"], k[1]["base"])
-			if bool(k[1].get("clash", false)):
-				swaps.append("%s v %s" % [h, a])
-				if k[1]["base"] != own["pattern"] or k[1]["pattern"] != own["base"] or k[1]["design"] != own["design"]:
+			var k2: Array = PitchView.kits_for(str(h), str(a))
+			var d: float = PitchView.disc_distance(k2[0], k2[1])
+			worst = minf(worst, d)
+			if bool(k2[1].get("clash", false)):
+				swaps += 1
+				# Only the club's own colours (or its white) are ever used.
+				var own: Array = GameDB.club_colours(str(a))
+				var okc := false
+				own.append(Color.WHITE)
+				for c in own:
+					if (c as Color).is_equal_approx(k2[1]["base"]):
+						okc = true
+				if not okc:
 					foreign.append("%s v %s" % [h, a])
-				if d < PitchView.DISC_CLASH:
-					alike.append("%s v %s (%.0f)" % [h, a, d])
-			elif d < PitchView.DISC_CLASH:
-				left.append("%s v %s (%.0f)" % [h, a, d])
-	print("  clash strips, %d of 306 home-and-away pairs: %s" % [swaps.size(), ", ".join(swaps)])
-	_check(swaps.size() == 88, "88 home-and-away pairs of today's 18 clubs put the away side in its clash strip (%d)" % swaps.size())
-	_check(foreign.is_empty(), "A clash strip uses only that club's own two kit colours and its own design (%s)" % ", ".join(foreign))
-	_check(alike.is_empty(), "No clash strip still looks like the home side (%s)" % ", ".join(alike))
-	_check(left.is_empty(), "No pair is left alike with nothing to swap to (%s)" % ", ".join(left))
+			if d < PitchView.DISC_CLASH:
+				alike.append("%s v %s (%.0f)" % [h, a, d])
+	print("  clash strips, %d of 306 home-and-away pairs; closest pair %.0f" % [swaps, worst])
+	_check(alike.is_empty(), "All 306 pairs: the two discs are plainly different (%s)" % ", ".join(alike))
+	_check(swaps > 0 and swaps < 306, "Some, not all, of the pairs put the away side in a clash strip (%d)" % swaps)
+	_check(foreign.is_empty(), "A clash strip uses only that club's own colours (%s)" % ", ".join(foreign))
+	# The number reads: near-black on a light body, white on a dark one.
+	var ric: Array = PitchView.number_inks(GameDB.club_guernsey("RIC").merged({"base": Color("#FFD200"), "design": "plain", "pattern": Color("#FFD200")}))
+	_check((ric[0] as Color).get_luminance() < 0.2, "The number is dark on a yellow disc")
+	_check((PitchView.number_inks(GameDB.club_guernsey("MEL"))[0] as Color).get_luminance() > 0.8, "The number is white on a navy disc")
 	var pv := PitchView.new()
 	pv.size = Vector2(370, 490)
 	var res := _sim(31, "FRE", "MEL").run()
@@ -1805,6 +1824,85 @@ func _test_clash_kit() -> void:
 			if box.grow(tr).has_point(d2):
 				covered += 1
 	_check(shown > 50 and covered == 0, "The call over the play covers no disc (%d frames with a call, %d discs covered)" % [shown, covered])
+	pv.free()
+
+
+## The surnames under the discs never run over one another or over another
+## player's disc and number (director, 2026-10-14: "van Rooyenrell"), and the
+## ball carrier's is never dropped. Seeded match, every frame of play at a phone
+## size, checked on the frames with the most names.
+func _test_label_overlap() -> void:
+	# A real match (three of your players ringed) and the most names a frame can
+	# carry (everyone ringed).
+	_label_run("a few ringed", 3)
+	_label_run("everyone ringed", 99)
+
+
+func _label_run(what: String, ringed_count: int) -> void:
+	var pv := PitchView.new()
+	pv.size = Vector2(370, 490)
+	var res := _sim(31, "ADE", "MEL").run()
+	res["home"] = "ADE"
+	res["away"] = "MEL"
+	pv.setup(res)
+	var ringed := {}
+	for t in pv.director.tokens:
+		if ringed.size() < ringed_count:
+			ringed[str(t.get("pid", ""))] = true
+	pv.rings = ringed
+	pv.set_speed(4.0)
+	pv.play()
+	var frames := 0
+	var names := 0
+	var bad := 0
+	var far := 0
+	var twice := 0
+	var missing := 0
+	var guard := 0
+	while pv.playing and guard < 3000:
+		guard += 1
+		pv._process(1.0 / 30.0)
+		if guard % 6 != 0:
+			continue
+		var tr := pv.token_radius()
+		var fs := clampi(int(tr * 1.15), 9, 12)
+		var discs := pv.disc_positions()
+		var lay := pv.role_label_layout(tr, fs)
+		var wanted := pv.label_wanted()
+		var captioned := int(pv._caption["tok"]) if not pv._caption.is_empty() else -1
+		frames += 1
+		names += lay.size()
+		var seen := {}
+		for i in range(lay.size()):
+			var id := int(lay[i]["id"])
+			var r: Rect2 = lay[i]["rect"]
+			if seen.has(id) or id == captioned:
+				twice += 1
+			seen[id] = true
+			for j in range(i + 1, lay.size()):
+				if r.intersects(lay[j]["rect"] as Rect2):
+					bad += 1
+			var c: Vector2 = discs[id]
+			if Vector2(clampf(c.x, r.position.x, r.end.x), clampf(c.y, r.position.y, r.end.y)).distance_to(c) > tr * 2.2:
+				far += 1
+		# Every player who should be named, and is on screen, has his name.
+		for id in wanted:
+			var t: Dictionary = pv.director.tokens[id]
+			var p: Vector2 = discs[id]
+			if int(id) == captioned or float(t.get("down", 0.0)) > 0.0 or str(t.get("surname", "")) == "" 					or p.x < 0.0 or p.y < 0.0 or p.x > pv.size.x or p.y > pv.size.y:
+				continue
+			if not seen.has(int(id)):
+				missing += 1
+	print("  labels (%s): frames %d, names %d, name overlaps %d, far from disc %d, named twice %d, missing %d" % [what, frames, names, bad, far, twice, missing])
+	_check(frames > 50 and names > frames, "The name test saw busy frames, %s (%d frames, %d names)" % [what, frames, names])
+	_check(bad == 0, "No name overlaps another name, %s (%d)" % [what, bad])
+	# With everyone ringed 36 names cannot all fit beside their discs; a real
+	# match (a few ringed) must, but for a pack so tight that a name finds no free
+	# place beside its disc: that is allowed in at most 1 frame in 50.
+	var real_match := ringed_count < 10
+	_check(far == 0 or not real_match, "Every name sits beside its own disc, %s (%d too far)" % [what, far])
+	_check(twice == 0, "A player's name is drawn once, not under his disc and again in the caption, %s (%d)" % [what, twice])
+	_check(missing <= frames / 50 or not real_match, "Every named player on screen has his name, %s (%d missing in %d frames)" % [what, missing, frames])
 	pv.free()
 
 
