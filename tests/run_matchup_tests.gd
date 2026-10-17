@@ -36,6 +36,7 @@ func _run() -> void:
 	await _hub_tests()
 	await _poster_ball()
 	await _wide_hub_footer()
+	await _phone_footer_fits()
 	await _regular_bye()
 	await _finals_week_by_week()
 	await _finals_cup()
@@ -216,6 +217,57 @@ func _wide_hub_footer() -> void:
 	_check(why == "", "PC: a real tap on Training reaches the button (%s)" % why)
 	hub.queue_free()
 	await _settle()
+	root.size = Vector2i(390, 844)
+
+
+## The hub's bottom row on the phone widths players have (360, 390, 412) and at 320, the
+## narrowest ScreenLayout allows (a 390 px wide window on a desktop is scaled to 320 units,
+## where "Sim the week" was cut to "Sim the we..."): every label shows
+## in full (none ellipsised), each button is thumb-high, the row stays on screen, and a real
+## finger's tap reaches "Sim the week" where it now sits. Checked with no job open on the
+## staff and with one open ("Coaching · 1", the longest label the row carries).
+func _phone_footer_fits() -> void:
+	var db = root.get_node("GameDB")
+	for vacancies in [0, 1]:
+		for w in [320, 360, 390, 412]:
+			_reset()
+			_state.start_season("MEL", db.club_list("MEL"))
+			_state.set_setting("seen_weekly_loop_intro", true)
+			if vacancies > 0:
+				_state.staff_vacancies = [{"reason": "A coach has retired."}]
+			root.size = Vector2i(w, 844)
+			var hub: Control = await _open_hub()
+			var footer: Control = hub.find_child("HubFooter", true, false)
+			var tag := "%d wide, %d open jobs" % [w, vacancies]
+			_check(footer != null, "%s: the bottom row is there" % tag)
+			if footer == null:
+				hub.queue_free()
+				continue
+			var texts: Array = []
+			for b in footer.find_children("*", "Button", true, false):
+				var btn := b as Button
+				texts.append(btn.text)
+				var font: Font = btn.get_theme_font("font")
+				var fs: int = btn.get_theme_font_size("font_size")
+				var sb: StyleBox = btn.get_theme_stylebox("normal")
+				var room := btn.size.x - (sb.get_margin(SIDE_LEFT) + sb.get_margin(SIDE_RIGHT) if sb != null else 0.0)
+				var need := font.get_string_size(btn.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+				_check(need <= room + 0.5, "%s: '%s' shows in full (%.0f px of text in %.0f)" % [tag, btn.text, need, room])
+				_check(btn.size.y >= 44.0, "%s: '%s' is thumb-high (%.0f px)" % [tag, btn.text, btn.size.y])
+			var sim: Button = footer.find_child("SimRound", true, false) as Button
+			_check(sim != null and sim.text == "Sim the week", "%s: the button still says Sim the week (%s)" % [tag, ", ".join(texts)])
+			_check(Rect2(Vector2.ZERO, Vector2(root.size)).grow(1).encloses(footer.get_global_rect()), "%s: the row stays on the phone" % tag)
+			if vacancies == 0 and sim != null:
+				# A real tap at its place (its route unhooked, so the tap does not play a week).
+				for c in sim.pressed.get_connections():
+					sim.pressed.disconnect(c["callable"])
+				var hit := [false]
+				sim.pressed.connect(func(): hit[0] = true)
+				var why: String = await Tap.tap(sim)
+				_check(why == "" and hit[0], "%s: a real tap on Sim the week reaches it (%s)" % [tag, why])
+			hub.queue_free()
+			await _settle()
+	_state.staff_vacancies = []
 	root.size = Vector2i(390, 844)
 
 

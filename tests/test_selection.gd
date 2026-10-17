@@ -246,7 +246,7 @@ func _test_with_us_and_milestones() -> void:
 	var w := GameState.with_us(p)
 	_check(int(w["games"]) == 59 and int(w["goals"]) == 20 and int(w["since"]) == year - 5,
 			"With us counts only his games for your club: %s" % str(w))
-	_check(GameState.with_us_text(p) == "With us since %d: 59 games, 20 goals. Best and fairest %d. Premiership %d." % [
+	_check(GameState.with_us_text(p) == "With us since %d: 59 games, 20 goals. Carji Greeves Medal %d. Premiership %d." % [
 			year - 5, year - 3, year - 3], "With us in words: " + GameState.with_us_text(p))
 	var notes := GameState.milestone_notes()
 	var found := false

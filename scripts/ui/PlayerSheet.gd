@@ -28,7 +28,10 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 	UiKit.close_on_outside_tap(box, on_close)
 	var v: VBoxContainer = box["body"]
 
-	var name_l := UiKit.lbl(GameDB.player_display_name(p), 22, UiKit.TEXT, true)
+	# His name in his club's ink (design bible, readability): whose side he is on at a glance.
+	var name_ink := UiKit.club_name_colour(UiKit.club_ink(str(p.get("club", "")))) 			if str(p.get("club", "")) != "" else UiKit.TEXT
+	var name_l := UiKit.lbl(GameDB.player_display_name(p), 22, name_ink, true)
+	name_l.name = "ProfileName"
 	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(name_l)
 	var nickname_row := _identity(v, p)
@@ -60,29 +63,31 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 	# Now: available or not, and how he is feeling.
 	var state := PackedStringArray()
 	var weeks := int(p.get("injury_weeks", 0))
+	var rival := is_rival(p)
 	if Injuries.concussion_text(p) != "":
 		state.append(Injuries.concussion_text(p) + ".")
 	elif weeks > 0:
 		state.append("Injured: out %s%s." % ["1 week" if weeks == 1 else "%d weeks" % weeks,
 				" (%s)" % str(p["injury_kind"]) if str(p.get("injury_kind", "")) != "" else ""])
-	elif bool(p.get("rested", false)):
+	elif bool(p.get("rested", false)) and not rival:
 		state.append("Rested this week.")
 	else:
 		state.append("Available.")
-	state.append("Mood: %s." % ClubLife.mood(ClubLife.morale(p)).to_lower())
-	if ClubLife.mood_effect(ClubLife.morale(p)) != "":
-		state.append(ClubLife.mood_effect(ClubLife.morale(p)))
+	if not rival:
+		state.append("Mood: %s." % ClubLife.mood(ClubLife.morale(p)).to_lower())
+		if ClubLife.mood_effect(ClubLife.morale(p)) != "":
+			state.append(ClubLife.mood_effect(ClubLife.morale(p)))
 	var sl := UiKit.lbl(" ".join(state), UiKit.BODY, UiKit.BAD if weeks > 0 else UiKit.TEXT)
 	sl.name = "ProfileState"
 	sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(sl)
-	if Ratings.available(p):
+	if Ratings.available(p) and not rival:
 		var readiness := UiKit.lbl(Workload.description(p), UiKit.SMALL, UiKit.MUTED)
 		readiness.name = "ProfileReadiness"
 		readiness.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(readiness)
 	# A run you have promised him (Backing): a fact, not advice.
-	var promise := Backing.note(p)
+	var promise := Backing.note(p) if not rival else ""
 	if promise != "":
 		var pl := UiKit.lbl(promise, UiKit.BODY, UiKit.TEXT)
 		pl.name = "ProfileBacking"
@@ -108,7 +113,7 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 	dev.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	nums.add_child(dev)
 	var plan := GameState.train_plan_label(GameState.plan_for(p))
-	if plan != "":
+	if plan != "" and not rival:
 		v.add_child(UiKit.lbl("Training plan: %s" % plan, UiKit.SMALL, UiKit.MUTED))
 
 	# What he is picked for.
@@ -182,44 +187,48 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 		hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(hl)
 
-	# What he has done for your club: games, goals, best and fairests, flags.
+	# What the club remembers of him (P-37): his games and goals with you, then
+	# the three facts that matter most, newest first. Read-only.
 	if not GameState.list_player(str(p.get("id", ""))).is_empty():
-		var wu := GameState.with_us_text(p)
-		if wu != "":
+		var remembered := with_us_block(p)
+		if remembered != null:
 			v.add_child(UiKit.spacer(4))
-			var wl := UiKit.lbl(wu, UiKit.BODY, UiKit.TEXT)
-			wl.name = "ProfileWithUs"
-			wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			v.add_child(wl)
+			v.add_child(remembered)
 
 	# The attributes behind the rating: the deepest layer, last.
-	v.add_child(UiKit.spacer(6))
-	v.add_child(UiKit.section("Ratings"))
-	var grid := GridContainer.new()
-	grid.name = "ProfileAttributes"
-	grid.columns = 1 if UiKit.view_width(host) < 520.0 else 2
-	grid.add_theme_constant_override("h_separation", 14)
-	grid.add_theme_constant_override("v_separation", 3)
-	v.add_child(grid)
-	var attr: Dictionary = p["attr"]
-	for r in ATTR_ROWS:
-		grid.add_child(attr_bar(str(r[0]), str(r[1]), float(attr.get(r[0], 0.0))))
-	var lead := attr_bar("leadership", "Leadership", float(Leadership.of(p)))
-	lead.name = "ProfileLeadership"
-	grid.add_child(lead)
-	v.add_child(UiKit.spacer(4))
-	var lead_note := UiKit.lbl(Leadership.basis_text(), UiKit.SMALL, UiKit.MUTED)
-	lead_note.name = "ProfileLeadershipNote"
-	lead_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(lead_note)
+	var has_ratings := p.get("attr") is Dictionary and not (p["attr"] as Dictionary).is_empty()
+	if has_ratings:
+		v.add_child(UiKit.spacer(6))
+		v.add_child(UiKit.section("Ratings"))
+		var grid := GridContainer.new()
+		grid.name = "ProfileAttributes"
+		grid.columns = 1 if UiKit.view_width(host) < 520.0 else 2
+		grid.add_theme_constant_override("h_separation", 14)
+		grid.add_theme_constant_override("v_separation", 3)
+		v.add_child(grid)
+		var attr: Dictionary = p["attr"]
+		for r in ATTR_ROWS:
+			grid.add_child(attr_bar(str(r[0]), str(r[1]), float(attr.get(r[0], 0.0))))
+		var lead := attr_bar("leadership", "Leadership", float(Leadership.of(p)))
+		lead.name = "ProfileLeadership"
+		grid.add_child(lead)
+		v.add_child(UiKit.spacer(4))
+		var lead_note := UiKit.lbl(Leadership.basis_text(), UiKit.SMALL, UiKit.MUTED)
+		lead_note.name = "ProfileLeadershipNote"
+		lead_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(lead_note)
 	if nickname_row != null:
 		v.add_child(UiKit.spacer(10))
 		v.add_child(nickname_row)
 		v.add_child(UiKit.spacer(14))   # clear of Close
 
+	# What the host offers sits in its own block under a rule, so a line about the
+	# action is never read as the end of the scrolled sheet above it.
+	if not actions.is_empty():
+		box["footer"].add_child(UiKit.rule())
 	for a in actions:
 		var action: Dictionary = a
-		var detail := UiKit.lbl(str(action.get("detail", "")), UiKit.SMALL, UiKit.MUTED)
+		var detail := UiKit.lbl(str(action.get("detail", "")), UiKit.SMALL, UiKit.TEXT)
 		detail.name = "Detail_" + str(action.get("name", ""))
 		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box["footer"].add_child(detail)
@@ -236,6 +245,33 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 			on_close.call())
 	box["footer"].add_child(close)
 	return overlay
+
+
+## "With us": his games and goals for your club, then up to three remembered
+## facts (Remembered.gd), each on a line of its own, newest first. Null for
+## someone yet to play for you.
+static func with_us_block(p: Dictionary) -> Control:
+	var w := GameState.with_us(p)
+	var head := Remembered.head(w)
+	if head == "":
+		return null
+	var box := UiKit.vbox(3)
+	box.name = "ProfileWithUs"
+	var title := UiKit.lbl("With us", UiKit.BODY,
+			UiKit.club_name_colour(UiKit.club_ink(GameState.my_club)), true)
+	title.name = "WithUsTitle"
+	box.add_child(title)
+	var hl := UiKit.lbl(head, UiKit.BODY, UiKit.TEXT)
+	hl.name = "WithUsHead"
+	box.add_child(hl)
+	var i := 0
+	for line in Remembered.sheet_lines(p, GameState.career_facts, GameState.my_club, w, GameState.LEARN_JOBS):
+		var l := UiKit.lbl(str(line), UiKit.BODY, UiKit.TEXT)
+		l.name = "Remembered_%d" % i
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(l)
+		i += 1
+	return box
 
 
 ## True when every season on his record was at this club.
@@ -292,6 +328,12 @@ static func attr_colour(v: float) -> Color:
 
 ## How far your player trusts you (Trust.gd), in words, with his reasons one tap
 ## away. Only your own players, and only once something has passed between you.
+## A player on another club: his load, mood and promises are private to that club.
+static func is_rival(p: Dictionary) -> bool:
+	var c := str(p.get("club", ""))
+	return c != "" and c != GameState.my_club
+
+
 static func _trust(v: VBoxContainer, p: Dictionary) -> void:
 	var id := str(p.get("id", ""))
 	if GameState.list_player(id).is_empty():

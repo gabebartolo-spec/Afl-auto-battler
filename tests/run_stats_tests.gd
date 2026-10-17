@@ -1694,7 +1694,7 @@ func _trophies() -> void:
 			groups.append([str(g.name).trim_prefix("PlayerGroup_"), who.text if who else "", hon])
 		_check(groups.size() == 2 and groups[0][0] == ids[0] and groups[1][0] == ids[2],
 				"Your players' honours by player, the most decorated first, none from elsewhere (%s: %s)" % [tag, str(groups)])
-		_check(groups.size() == 2 and groups[0][2] == ["Brownlow Medal %d" % year, "Best and fairest %d" % (year - 1)]
+		_check(groups.size() == 2 and groups[0][2] == ["Brownlow Medal %d" % year, "Copeland Trophy %d" % (year - 1)]
 				and groups[1][2] == ["All-Australian %d" % year],
 				"Each player's honours sit under him, newest first (%s)" % tag)
 		_check(groups.size() == 2 and groups[0][1] == str(_state.award_name({"id": ids[0]})),
@@ -1792,7 +1792,7 @@ func _trophies() -> void:
 	var listed := []
 	for i in range(opt.item_count if opt != null else 0):
 		listed.append(opt.get_item_text(i))
-	_check(listed == ["All honours", "Premierships", "Minor premierships", "Brownlow Medal", "All-Australian", "Best and fairest"],
+	_check(listed == ["All honours", "Premierships", "Minor premierships", "Brownlow Medal", "All-Australian", "Copeland Trophy"],
 			"The filter lists only the kinds of honour won (%s)" % str(listed))
 	_check(opt != null and (await Tap.tap(opt)) == "", "The filter takes a tap")
 	await _settle()
