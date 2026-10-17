@@ -96,25 +96,24 @@ def main():
     L.append("")
     L.append("## The yardstick")
     L.append("")
-    L.append("**Real AFL: roughly %d to %d list changes a club a year** (the brief for this audit, from the director's pass-2 candidate C-PC-23). "
+    L.append("**Real AFL: roughly %d to %d list changes a club a year** (the lead's brief for this audit; the candidate, C-PC-23, names no number). "
              "The audit compares **players leaving a club in a year** (retired + delisted + walked + traded out) with that range, and shows "
              "players arriving (drafted + traded in + signed) beside it." % (LOW, HIGH))
     L.append("")
     L.append("Cross-check from the Wikipedia draft pages for 2021 to 2025 (`<year> AFL draft`, \"List changes\" and \"Trades\" tables), "
-             "counted by table rows on 2026-10-18; the pages are uneven (the 2023 delistings table is not a table, 2025 has no free-agency table), so "
+             "counted by table rows on 2026-10-18; the pages are uneven (the 2023 page's tables did not parse and is left out, 2024 and 2025 have no free-agency table), so "
              "these are rough:")
     L.append("")
-    L.append("| Year | Delistings | Retirements | Trades (deals) | National draft picks | Exits a club from delistings and retirements alone |")
+    L.append("| Year | Delistings | Retirements | Trade table rows | National draft picks | Exits a club from delistings and retirements alone |")
     L.append("|---|---|---|---|---|---|")
     L.append("| 2021 | 94 | 9 | 10 | not counted | %.1f |" % ((94 + 9) / 18))
     L.append("| 2022 | 89 | 36 | 19 | 61 | %.1f |" % ((89 + 36) / 18))
     L.append("| 2024 | 62 | 31 | 32 | 73 | %.1f |" % ((62 + 31) / 18))
     L.append("| 2025 | 48 | 26 | 29 | 62 | %.1f |" % ((48 + 26) / 18))
     L.append("")
-    L.append("So a real club loses about 5 to 7 players a year to delisting and retirement, plus 1 to 3 to trades, which is how the "
-             "8 to 12 comes about. Players arriving are a similar number (about 4 draft picks, 1 to 3 trades, a few free agents and rookies). "
-             "The page counts leave out the rookie list and mid-season changes. The 8 to 12 range is the lead's figure; this table is only a "
-             "check that it is the right size, not a second yardstick.")
+    L.append("So the pages show a real club losing about 4 to 7 players a year to delisting and retirement alone; trades, free-agency "
+             "departures and the rookie list come on top, which is how a figure of 8 to 12 comes about. The 8 to 12 range is the lead's "
+             "number; this table only checks it is about the right size, it is not a second yardstick.")
     L.append("")
     L.append("## Result")
     L.append("")
@@ -158,6 +157,19 @@ def main():
     L.append("")
     L.append("## Flags")
     L.append("")
+    off_years = []
+    for y in years:
+        sub = [r for r in rows if r["year"] == y]
+        mo = statistics.mean(r["out"] for r in sub)
+        if mo < LOW or mo > HIGH:
+            off_years.append("%d (%.1f)" % (y, mo))
+    L.append("Off-seasons whose mean of players leaving is outside %d to %d: %s." % (LOW, HIGH, ", ".join(off_years) if off_years else "none"))
+    L.append("")
+    worst_clubs = sorted(clubs, key=lambda c: -sum(1 for r in rows if r["club"] == c and not (LOW <= r["out"] <= HIGH)) / max(1, sum(1 for r in rows if r["club"] == c)))[:3]
+    L.append("Clubs with the largest share of club-years outside the range: %s." % ", ".join(
+        "%s (%.0f%%)" % (c, 100.0 * sum(1 for r in rows if r["club"] == c and not (LOW <= r["out"] <= HIGH)) / sum(1 for r in rows if r["club"] == c))
+        for c in worst_clubs))
+    L.append("")
     if flagged:
         L.append("%d of %d AI clubs have a mean of players leaving outside %d to %d a year: %s."
                  % (len(flagged), len(clubs), LOW, HIGH, ", ".join("%s (%.1f, %s)" % f for f in flagged)))
@@ -171,7 +183,7 @@ def main():
     L.append("- A coach who works the list: your club is on autopilot like the others and is excluded, so trades you start, offers you accept and "
              "players you re-sign or let go are not in these numbers.")
     L.append("- Only the off-season list moves: the rookie and pre-season drafts, the mid-season draft, Category B rookies and in-season signings do not exist in the game, "
-             "so the real figures above are bigger than the comparable part.")
+             "so the real figures above include moves the game does not model.")
     L.append("- The real yardstick is a range from the brief and rough page counts, not a season-by-season table for every club; one real club's year "
              "(a rebuild, a premiership list) can sit well outside it.")
     L.append("- Careers of 10 seasons from the real 2026 lists: how churn changes over 20 or more seasons is not measured here (see `long_career_impl`).")

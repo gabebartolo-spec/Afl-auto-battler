@@ -146,7 +146,7 @@ def write_doc(path, date, shots, regressions, baseline_note):
     L.append("")
     L.append("## Smallest font by screen")
     L.append("")
-    L.append("Where the smallest text sits (phone), smallest first.")
+    L.append("Where the smallest text sits, smallest first (both sizes).")
     L.append("")
     small = []
     for size in SIZES:
