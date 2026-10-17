@@ -10,7 +10,8 @@ extends RefCounted
 ## rules between them; every other row has a very faint
 ## band (PANEL, flat). Numbers and their headers are right-aligned.
 const ROW_H := 32
-const ROW_H_NARROW := 40
+## A phone's row opens a club: thumb high (CLAUDE.md "Mobile first").
+const ROW_H_NARROW := 44
 const COL_GAP := 4
 
 ## The ladder's columns, phone first; a wide screen adds the rest.

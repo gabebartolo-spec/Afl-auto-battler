@@ -880,6 +880,11 @@ func _ladder(sz: Vector2i) -> void:
 			short_heads.append("%s %.0f" % [b.name, (b as Control).size.y])
 		header_w += (b as Control).size.x
 	_check(short_heads.is_empty(), "Ladder sort headers are %s px tall (%s: short %s)" % ["at least 44" if sz.x < 900 else "40", tag, str(short_heads)])
+	var short_rows := []
+	for b in s.find_children("Club_*", "Button", true, false):
+		if (b as Control).size.y < (44.0 if sz.x < 900 else 32.0):
+			short_rows.append("%s %.0f" % [b.name, (b as Control).size.y])
+	_check(short_rows.is_empty() and not _row_codes(s).is_empty(), "Ladder rows are %s px tall (%s: short %s)" % ["at least 44" if sz.x < 900 else "at least 32", tag, str(short_rows.slice(0, 3))])
 	if sz.x < 900:
 		_check(header_w <= sz.x, "...and the header row still fits the screen (%s: %.0f px)" % [tag, header_w])
 		# A finger on the narrowest header, the "#" column, takes the tap and
@@ -1067,9 +1072,9 @@ func _table_recipe(s: Node, tag: String, with_pos: bool) -> void:
 	var rows := s.find_children("Club_*", "Button", true, false)
 	var tall := true
 	for b in rows:
-		if int(b.size.y) != (32 if root.size.x >= 900 else 40):
+		if int(b.size.y) != (32 if root.size.x >= 900 else 44):
 			tall = false
-	_check(tall and not rows.is_empty(), "Rows are 32 px on a wide screen and a thumb-sized 40 px on a phone (%s)" % tag)
+	_check(tall and not rows.is_empty(), "Rows are 32 px on a wide screen and a thumb-sized 44 px on a phone (%s)" % tag)
 	# Your club's row is in your colour instead of its band.
 	var kit = load("res://scripts/ui/UiKit.gd")
 	var mine := str(_state.my_club)

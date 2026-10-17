@@ -1,2 +1,2 @@
 career_ui +16
-stats +4
+stats +6
