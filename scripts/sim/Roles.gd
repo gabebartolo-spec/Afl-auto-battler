@@ -24,6 +24,12 @@ const WING_MARGIN := 0.12
 const WING_CLEARANCES := 2.0
 const WING_CONTESTED_SHARE := 0.42
 const WING_STAT_GAMES := 6.0
+## ...but never a midfielder who is one of the league's ball-winners: this many
+## clearances or contested possessions a game (season of WING_STAT_GAMES or
+## more) makes him an inside midfielder however much he runs (Gulden,
+## Callaghan, Holmes, Dawson, Merrett read as wings on percentile gaps).
+const WING_NEVER_CLEARANCES := 3.5
+const WING_NEVER_CONTESTED := 8.0
 ## How much more of the transition ball a wing gets, and how much less of
 ## the stoppage ball (MatchSim.pick_carrier / _stoppage).
 const WING_TRANSITION := 1.6
@@ -36,6 +42,10 @@ const TAG_PLAIN := 0.55
 ## outrun his contested ball.
 const TAGGER_PRESSURE := 0.70
 const TAGGER_MARGIN := 0.20
+## The median midfielder's Pressure: at or below it a tag holds no tighter
+## than any midfielder doing the job (TAG_PLAIN); from it up to a Tagger's
+## level (TAGGER_PRESSURE) the hold tightens to a Tagger's (director, 2026-10-11).
+const TAG_HOLD_FROM := 0.50
 
 
 ## What the wing rewards: carry and disposal. Raw attribute blend.
@@ -59,6 +69,10 @@ static func is_mid(p: Dictionary) -> bool:
 static func is_wing(p: Dictionary) -> bool:
 	if not is_mid(p) or str(p.get("role", "")) == "RUCK":
 		return false
+	if float(p.get("gm", 0.0)) >= WING_STAT_GAMES:
+		var gms := float(p["gm"])
+		if float(p.get("cl", 0.0)) / gms >= WING_NEVER_CLEARANCES 				or float(p.get("cp", 0.0)) / gms >= WING_NEVER_CONTESTED:
+			return false
 	var mid_view := p.duplicate()
 	mid_view["role"] = "MID"
 	var run := 0.5 * (PlayerProfile.percentile(mid_view, "carry") + PlayerProfile.percentile(mid_view, "disposal"))
@@ -86,6 +100,20 @@ static func is_tagger(p: Dictionary) -> bool:
 	var win := PlayerProfile.percentile(mid_view, "contested")
 	var run := 0.5 * (PlayerProfile.percentile(mid_view, "carry") + PlayerProfile.percentile(mid_view, "disposal"))
 	return press >= TAGGER_PRESSURE and press - maxf(win, run) >= TAGGER_MARGIN
+
+
+## How much of a full tagger's hold his Pressure gives, 0 to 1: 0 at or
+## below the median midfielder (TAG_HOLD_FROM), 1 at a Tagger's level and
+## for a Tagger. His legs on the day scale it again (MatchSim.tag_hold).
+static func tag_press(p: Dictionary) -> float:
+	if p.is_empty() or not p.has("attr"):
+		return 0.0
+	if is_tagger(p):
+		return 1.0
+	var mid_view := p.duplicate()
+	mid_view["role"] = "MID"
+	var press := PlayerProfile.percentile(mid_view, "pressure")
+	return clampf((press - TAG_HOLD_FROM) / (TAGGER_PRESSURE - TAG_HOLD_FROM), 0.0, 1.0)
 
 
 ## His football identity in two or three words: "Wing", "Tagger",

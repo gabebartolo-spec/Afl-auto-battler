@@ -1,0 +1,599 @@
+[
+	{
+		"id": "selection_talk_dropped",
+		"category": "selection",
+		"phase": [
+			"regular",
+			"finals"
+		],
+		"cooldown": 6,
+		"subject_cooldown": 5,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"talk_case": "dropped"
+			},
+			"pick": "highest:games"
+		},
+		"title": [
+			"{name} wants a word"
+		],
+		"text": [
+			"{talk_text}"
+		],
+		"choices": [
+			{
+				"key": "explain",
+				"label": "{explain_label}",
+				"effects": [
+					{
+						"op": "explain"
+					},
+					{
+						"op": "morale",
+						"d": 5,
+						"scale": "trust"
+					},
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You talked him through being dropped"
+					},
+					{
+						"op": "talk_note",
+						"said": "explain"
+					}
+				]
+			},
+			{
+				"key": "talk",
+				"label": "Promise him a game this week",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 15,
+						"scale": "trust"
+					},
+					{
+						"op": "expects_game",
+						"sting": 12
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You promised him his spot back"
+					},
+					{
+						"op": "talk_note",
+						"said": "promise"
+					}
+				]
+			},
+			{
+				"key": "call",
+				"label": "It's my call",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -5
+					},
+					{
+						"op": "trust",
+						"d": -4,
+						"why": "You told him the side was your call when he was dropped"
+					},
+					{
+						"op": "talk_note",
+						"said": "call"
+					}
+				],
+				"result": "You tell {name} selection is your call, and it stands."
+			}
+		],
+		"stakes": "{kpi_or_need} Promise him a game and he expects to play this week."
+	},
+	{
+		"id": "selection_talk_back",
+		"category": "selection",
+		"phase": [
+			"regular"
+		],
+		"cooldown": 6,
+		"subject_cooldown": 5,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"talk_case": "back"
+			},
+			"pick": "highest:games"
+		},
+		"title": [
+			"{name} wants a word"
+		],
+		"text": [
+			"{talk_text}"
+		],
+		"choices": [
+			{
+				"key": "explain",
+				"label": "{explain_label}",
+				"effects": [
+					{
+						"op": "explain"
+					},
+					{
+						"op": "morale",
+						"d": 5,
+						"scale": "trust"
+					},
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You told him where he stood after his injury"
+					},
+					{
+						"op": "talk_note",
+						"said": "explain"
+					}
+				]
+			},
+			{
+				"key": "talk",
+				"label": "Promise him a game this week",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 15,
+						"scale": "trust"
+					},
+					{
+						"op": "expects_game",
+						"sting": 12
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You promised him a game on his return"
+					},
+					{
+						"op": "talk_note",
+						"said": "promise"
+					}
+				]
+			},
+			{
+				"key": "call",
+				"label": "It's my call",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -5
+					},
+					{
+						"op": "trust",
+						"d": -4,
+						"why": "You told him the side was your call when he came back from injury"
+					},
+					{
+						"op": "talk_note",
+						"said": "call"
+					}
+				],
+				"result": "You tell {name} selection is your call, and it stands."
+			}
+		],
+		"stakes": "{kpi_or_need} Promise him a game and he expects to play this week."
+	},
+	{
+		"id": "selection_talk_waiting",
+		"category": "selection",
+		"phase": [
+			"regular"
+		],
+		"cooldown": 6,
+		"subject_cooldown": 5,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"talk_case": "waiting"
+			},
+			"pick": "highest:games"
+		},
+		"title": [
+			"{name} wants a word"
+		],
+		"text": [
+			"{talk_text}"
+		],
+		"choices": [
+			{
+				"key": "explain",
+				"label": "{explain_label}",
+				"effects": [
+					{
+						"op": "explain"
+					},
+					{
+						"op": "morale",
+						"d": 5,
+						"scale": "trust"
+					},
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You told him what he has to show for a game"
+					},
+					{
+						"op": "talk_note",
+						"said": "explain"
+					}
+				]
+			},
+			{
+				"key": "talk",
+				"label": "Promise him a game this week",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 15,
+						"scale": "trust"
+					},
+					{
+						"op": "expects_game",
+						"sting": 12
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You promised him his first game in weeks"
+					},
+					{
+						"op": "talk_note",
+						"said": "promise"
+					}
+				]
+			},
+			{
+				"key": "call",
+				"label": "It's my call",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -5
+					},
+					{
+						"op": "trust",
+						"d": -4,
+						"why": "You told him the side was your call while he waited for a game"
+					},
+					{
+						"op": "talk_note",
+						"said": "call"
+					}
+				],
+				"result": "You tell {name} selection is your call, and it stands."
+			}
+		],
+		"stakes": "{kpi_or_need} Promise him a game and he expects to play this week."
+	},
+	{
+		"id": "selection_unhappy",
+		"category": "selection",
+		"cooldown": 30,
+		"subject_cooldown": 5,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"morale_max": 34,
+				"talk_case": ""
+			},
+			"pick": "lowest:morale"
+		},
+		"title": [
+			"{name} is unhappy"
+		],
+		"text": [
+			"He feels he's being overlooked. An unhappy player plays below his best and costs more to re-sign."
+		],
+		"choices": [
+			{
+				"key": "talk",
+				"label": "Sit down with him",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 15,
+						"scale": "trust"
+					},
+					{
+						"op": "expects_game",
+						"sting": 12
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You sat down with him when he was unhappy"
+					},
+					{
+						"op": "talk_note",
+						"said": "promise"
+					}
+				]
+			},
+			{
+				"key": "earn",
+				"label": "Tell him to earn it",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -5
+					},
+					{
+						"op": "morale",
+						"d": 2,
+						"who": "others"
+					},
+					{
+						"op": "trust",
+						"d": -4,
+						"why": "You told him to earn his spot"
+					}
+				],
+				"result": "{name} is told to earn his spot. The group respects it."
+			}
+		]
+	},
+	{
+		"id": "selection_finals_experience",
+		"category": "selection",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"selected": false,
+				"games_min": 150
+			},
+			"pick": "highest:games"
+		},
+		"title": [
+			"{name} wants to play in the final"
+		],
+		"text": [
+			"He's played {games} games and knows September footy. You've left him out."
+		],
+		"choices": [
+			{
+				"key": "in",
+				"label": "Bring him in",
+				"effects": [
+					{
+						"op": "expects_game",
+						"sting": 12
+					},
+					{
+						"op": "morale",
+						"d": 8
+					},
+					{
+						"op": "trust",
+						"d": 6,
+						"why": "You trusted his finals experience"
+					}
+				]
+			},
+			{
+				"key": "stick",
+				"label": "Stick with the side",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -6
+					},
+					{
+						"op": "trust",
+						"d": -4,
+						"why": "You left him out of the final"
+					}
+				],
+				"result": "{name} watches from the stands."
+			}
+		],
+		"phase": [
+			"finals"
+		],
+		"cooldown": 45
+	},
+	{
+		"id": "finals_gone",
+		"category": "selection",
+		"phase": [
+			"regular"
+		],
+		"subject": {
+			"kind": "player",
+			"where": {
+				"age_max": 21,
+				"fit": true,
+				"selected": false
+			},
+			"pick": "highest:potential"
+		},
+		"when": {
+			"finals_math": "out",
+			"round_max": 22
+		},
+		"per_season": 1,
+		"title": [
+			"No finals this year"
+		],
+		"text": [
+			"Pride and next year are all that's left. {name} has been banging on the door in the twos."
+		],
+		"choices": [
+			{
+				"key": "run",
+				"label": "Give {name} the run home",
+				"effects": [
+					{
+						"op": "start_backing"
+					},
+					{
+						"op": "trust",
+						"d": 6,
+						"why": "You gave him the run home when the finals were gone"
+					}
+				],
+				"result": "{name} gets the run home."
+			},
+			{
+				"key": "best",
+				"label": "Play the best side to the end",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "side"
+					},
+					{
+						"op": "morale",
+						"d": -4,
+						"who": "subject"
+					}
+				],
+				"result": "{name} stays down in the twos. The seniors play for pride."
+			}
+		]
+	},
+	{
+		"id": "finals_first_final",
+		"category": "selection",
+		"phase": [
+			"finals"
+		],
+		"subject": {
+			"kind": "player",
+			"where": {
+				"selected": true,
+				"fit": true,
+				"finals_games_max": 0,
+				"save_debut": true,
+				"games_min": 5,
+				"games_max": 40,
+				"age_max": 22
+			},
+			"pick": "highest:potential"
+		},
+		"when": {
+			"finals_week_max": 4
+		},
+		"cooldown": 8,
+		"subject_cooldown": 40,
+		"title": [
+			"{name}'s first final"
+		],
+		"text": [
+			"Named for his first final, with {games} senior games behind him. He hasn't stopped bouncing all week."
+		],
+		"choices": [
+			{
+				"key": "minder",
+				"label": "Put a senior player with him all week",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 6,
+						"who": "subject"
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You looked after him in his first finals week"
+					}
+				],
+				"result": "He shadows a senior player all week: meetings, recovery, the walk-through."
+			},
+			{
+				"key": "alone",
+				"label": "Let him find his own way",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 7,
+						"who": "subject"
+					}
+				],
+				"result": "Nobody makes a fuss. {first} backs himself."
+			}
+		]
+	},
+	{
+		"id": "gf_debut_year",
+		"category": "selection",
+		"phase": [
+			"finals"
+		],
+		"subject": {
+			"kind": "player",
+			"where": {
+				"debut_year": true,
+				"fit": true,
+				"selected": true
+			},
+			"pick": "random"
+		},
+		"when": {
+			"finals_week": 5
+		},
+		"priority": true,
+		"weight": 3,
+		"cooldown": 0,
+		"subject_cooldown": 0,
+		"title": [
+			"A Grand Final in his debut season"
+		],
+		"text": [
+			"{name} made his debut this season. On Saturday he plays in a Grand Final."
+		],
+		"choices": [
+			{
+				"key": "away",
+				"label": "Keep him away from the cameras",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "subject"
+					},
+					{
+						"op": "trust",
+						"d": 5,
+						"why": "You kept the Grand Final circus away from him"
+					}
+				],
+				"result": "No interviews for {first} this week. Train, eat, sleep."
+			},
+			{
+				"key": "enjoy",
+				"label": "Let him enjoy the week",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 10,
+						"who": "subject"
+					},
+					{
+						"op": "slow_start",
+						"who": "subject",
+						"chance": 20,
+						"on": "grand_final"
+					}
+				],
+				"result": "{first} does the radio, the TV and the newspaper photo. He's loving every minute."
+			}
+		]
+	}
+]

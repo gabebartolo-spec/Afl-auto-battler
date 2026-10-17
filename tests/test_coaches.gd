@@ -4,6 +4,7 @@ extends RefCounted
 ## role fit, and the Staff screen. Skills have no gameplay effect yet.
 ## Run through tests/run_coaches_tests.gd.
 
+const Tap := preload("res://tests/tap.gd")
 var failures: Array[String] = []
 var checks := 0
 
@@ -32,6 +33,16 @@ func run() -> void:
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	print("Coaches tests: %d checks, %d failures" % [checks, failures.size()])
+
+
+## A finger's tap on b where it sits on screen (tests/tap.gd), checked; if
+## something else takes the tap, the press goes through the handler so the
+## rest of the flow is still tested.
+func _press(b: Button, what: String) -> void:
+	var why: String = await Tap.tap(b)
+	_check(why == "", "A finger's tap reaches %s (%s)" % [what, why if why != "" else "it did"])
+	if why != "" and is_instance_valid(b):
+		b.emit_signal("pressed")
 
 
 func _check(condition: bool, message: String) -> void:
@@ -267,6 +278,8 @@ func _test_no_effects_yet() -> void:
 func _test_ui() -> void:
 	var tree := Engine.get_main_loop() as SceneTree
 	_new_career("CAR")
+	# A phone in portrait, so the taps land the way a player's would.
+	tree.root.size = Vector2i(390, 844)
 	var scene: Control = load("res://scenes/StaffScene.tscn").instantiate()
 	tree.root.add_child(scene)
 	for i in range(3):
@@ -284,7 +297,7 @@ func _test_ui() -> void:
 				digits = true
 	_check(not digits, "No numbers anywhere on the Staff screen")
 	if row != null:
-		row.emit_signal("pressed")
+		await _press(row, "a coach's row")
 		for i in range(2):
 			await tree.process_frame
 	var sheet := scene.find_child("CoachProfile", true, false)
@@ -295,12 +308,12 @@ func _test_ui() -> void:
 	await tree.process_frame
 	await tree.process_frame
 	_check(scene.find_child("CoachProfile", true, false) == null, "Back closes the profile")
-	scene.find_child("OtherClubs", true, false).emit_signal("pressed")
+	await _press(scene.find_child("OtherClubs", true, false) as Button, "Other clubs")
 	await tree.process_frame
 	var pick: Button = scene.find_child("StaffClubPick_GEE", true, false)
 	_check(pick != null, "Another club's staff is one tap away")
 	if pick != null:
-		pick.emit_signal("pressed")
+		await _press(pick, "another club's staff")
 		await tree.process_frame
 	_check(_text(scene).contains("Geelong") and scene.find_child("StaffRow_SC", true, false) is Button,
 			"An AI club shows its own senior coach")
@@ -325,6 +338,21 @@ func _test_ui() -> void:
 				"The player profile shows his career through 2026 (%s, want %s)" % [cl.text if cl != null else "none", want])
 		_check(_text(o).contains("Sydney 2017–2021") and _text(o).contains("Adelaide 2022–2026"),
 				"and the clubs, when there is more than one")
+	# The Norm Smith Medal stays on a player's profile for good, a real-named player too.
+	var medallist: Dictionary = dawson if not dawson.is_empty() else (GameState.season.lists["ADE"] as Array)[0]
+	var plain := PlayerSheet.open(host, medallist)
+	await tree.process_frame
+	_check(plain.find_child("ProfileHonours", true, false) == null, "A player with no honours shows no honours line")
+	plain.queue_free()
+	GameState.honour_roll.append({"year": 2031, "premier": "ADE", "norm_smith": [{"id": str(medallist["id"]), "club": "ADE", "line": "30 disp 2.1"}]})
+	GameState.honour_roll.append({"year": 2033, "premier": "GEE", "norm_smith": [{"id": str(medallist["id"]), "club": "ADE", "line": "28 disp"}]})
+	var decorated := PlayerSheet.open(host, medallist)
+	await tree.process_frame
+	var hon: Label = decorated.find_child("ProfileHonours", true, false)
+	_check(hon != null and hon.text == "Norm Smith Medal 2031, 2033",
+			"His profile lists the Norm Smith Medal under his honours (%s)" % [hon.text if hon != null else "none"])
+	decorated.queue_free()
+	GameState.honour_roll.resize(GameState.honour_roll.size() - 2)
 	host.queue_free()
 
 
@@ -386,6 +414,8 @@ func _test_ui_expiring() -> void:
 			job = j
 			break
 	staff[job]["contract_to"] = GameState.season_year
+	# A phone in portrait, so the taps land the way a player's would.
+	tree.root.size = Vector2i(390, 844)
 	var scene: Control = load("res://scenes/StaffScene.tscn").instantiate()
 	tree.root.add_child(scene)
 	for i in range(3):
@@ -396,7 +426,7 @@ func _test_ui_expiring() -> void:
 			and scene.find_child("Release_" + job, true, false) != null,
 			"An expiring assistant shows his term ending, with Re-sign and Release")
 	if keep != null:
-		keep.emit_signal("pressed")
+		await _press(keep, "Re-sign")
 		for i in range(2):
 			await tree.process_frame
 	_check(scene.find_child("ContractEnds_" + job, true, false) == null

@@ -16,7 +16,6 @@ extends RefCounted
 const START_CONFIDENCE := 60
 const WARN_LINE := 30
 const MORALE_BASE := 70
-const EVENT_CHANCE := 0.7
 
 
 ## The season's goal from where the list ranks pre-season (`rank`, by
@@ -215,82 +214,9 @@ static func team_form_label(f: float) -> String:
 	return "Cold"
 
 
-## This week's event for your club, or {} (about 30% of weeks are quiet).
-## `ctx`: list, round, seed, losses (current losing streak), selected (ids
-## in this week's side), cap_room (cap points free), memory (what has
-## already come up this season: "extension|id", "media|id" -> true,
-## "unhappy|id" -> round) and last_key (last week's event).
-##
-## Every card is a trade-off a coach could make either way, depending on
-## the week: short term against long term, the board against the player,
-## development against the side, certainty against flexibility.
-##
-## A card's "default" is what happens if it is left unanswered: no benefit
-## comes without a choice. -1 changes nothing ("unanswered" may add the cost
-## of saying nothing); an option index is the consequence of not acting - a
-## sore star plays sore, a contract request goes unanswered, the board's
-## patience thins.
-static func pick_event(ctx: Dictionary) -> Dictionary:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = hash("event|%d|%d" % [int(ctx.get("seed", 0)), int(ctx.get("round", 0))])
-	if rng.randf() >= EVENT_CHANCE:
-		return {}
-	var list: Array = ctx.get("list", [])
-	var selected: Dictionary = ctx.get("selected", {})
-	var memory: Dictionary = ctx.get("memory", {})
-	var round_no := int(ctx.get("round", 0))
-	var fit := []
-	for p in list:
-		if int(p.get("injury_weeks", 0)) <= 0:
-			fit.append(p)
-	fit.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
-	var pool := []
-	if fit.size() >= 5:
-		pool.append(_sore_star(fit[rng.randi_range(0, 4)]))
-	pool.append(_training())
-	pool.append(_fans())
-	var worst := {}
-	for p in fit:
-		if selected.has(str(p["id"])) and not memory.has("media|" + str(p["id"])) and (worst.is_empty() \
-				or int(p["attr"]["discipline"]) < int(worst["attr"]["discipline"])):
-			worst = p
-	if not worst.is_empty() and int(worst["attr"]["discipline"]) <= 40:
-		pool.append(_media(worst))
-	var cap_room := int(ctx.get("cap_room", 0))
-	for p in fit:
-		if extension_wanted(p, memory) and early_price(p) - int(p.get("salary", 0)) <= cap_room:
-			pool.append(_extension(p))
-			break
-	# The board calls at three straight losses, not every week of a slump.
-	var losses := int(ctx.get("losses", 0))
-	if losses >= 3 and losses % 3 == 0:
-		pool.append(_pressure())
-	for p in fit:
-		if float(p.get("age", 30.0)) <= 21.0 and int(p.get("potential", 0)) >= int(p["overall"]) + 8 \
-				and not selected.has(str(p["id"])) and not Backing.is_active(p):
-			pool.append(_young_gun(p))
-			break
-	# The sit-down (RPG-003): it opens on what actually happened to him, when
-	# something did; a low mood with no fact behind it is the fallback.
-	var info: Dictionary = ctx.get("talk_info", {})
-	var talk := pick_talk(fit, info, memory, round_no)
-	if not talk.is_empty():
-		pool.append(_unhappy(talk["p"], str(talk["case"]), info.get(str(talk["p"]["id"]), {})))
-	else:
-		for p in fit:
-			var last := int(memory.get("unhappy|" + str(p["id"]), -99))
-			if morale(p) < 35 and round_no - last >= UNHAPPY_GAP:
-				pool.append(_unhappy(p))
-				break
-	# Not the same card two weeks running when there is anything else.
-	var last_key := str(ctx.get("last_key", ""))
-	if pool.size() > 1:
-		var fresh := pool.filter(func(e): return str(e["key"]) != last_key)
-		if not fresh.is_empty():
-			pool = fresh
-	var e: Dictionary = pool[rng.randi_range(0, pool.size() - 1)]
-	e["round"] = round_no
-	return e
+## The week's card itself is data now (data/stories, StoryDeck, StoryEngine);
+## the rules below stay here because the cards and the rest of the game share
+## them. The story tests check the deck's sizes against these constants.
 
 
 ## Rounds before the same unhappy player can come to you again.
@@ -301,6 +227,10 @@ const SORE_LEGS := 90.0
 ## A heavy week's and a recovery week's effect on this week's injury risk.
 const HEAVY_RISK := 1.25
 const FRESH_RISK := 0.75
+## A slow start (a story card's "small chance"): the legs a player takes to the
+## first bounce, a little under a heavy week's, so the first quarter is the
+## cost and the rest of the match is his own (energy comes back at each break).
+const SLOW_LEGS := 82.0
 ## XP: a heavy week, a closed session, a development week (between a
 ## reserves game and a senior game, so playing stays the best teacher).
 const HEAVY_XP := 12
@@ -339,100 +269,9 @@ static func early_years(p: Dictionary) -> int:
 	return 3 if float(p.get("age", 25.0)) <= 28.0 else 2
 
 
-static func _opt(key: String, label: String, detail: String) -> Dictionary:
-	return {"key": key, "label": label, "detail": detail}
-
-
 ## "about a 1 in 4": a risk in words.
-static func _odds(chance: float) -> String:
+static func odds(chance: float) -> String:
 	return "about a 1 in %d" % maxi(2, roundi(1.0 / maxf(0.01, chance)))
-
-
-static func _sore_star(p: Dictionary) -> Dictionary:
-	var n := GameDB.player_display_name(p)
-	var sore := p.duplicate()
-	sore["sore"] = true
-	return {"key": "sore_star", "player_id": str(p["id"]), "default": 1,
-		"title": "%s pulled up sore" % n,
-		"text": "The physio says he can play, but he is not right.",
-		"options": [
-			_opt("rest", "Rest him this week", "He misses the game, but he is right for next week."),
-			_opt("play", "Play him", "He starts short of a gallop, and there is %s chance he breaks down for weeks." % _odds(Injuries.chance(sore))),
-		]}
-
-
-static func _training() -> Dictionary:
-	return {"key": "training", "default": -1,
-		"title": "Coaches want an extra session",
-		"text": "A heavy week on the track, or a week to freshen up?",
-		"options": [
-			_opt("heavy", "Heavy session", "+%d XP for everyone, but heavy legs on game day and more soft-tissue risk." % HEAVY_XP),
-			_opt("recover", "Recovery week", "Fresher bodies: fewer injuries this week and morale +3. No extra development."),
-		]}
-
-
-static func _fans() -> Dictionary:
-	return {"key": "fans", "default": -1,
-		"title": "Members want an open training day",
-		"text": "The fans would love it. The coaches would rather work.",
-		"options": [
-			_opt("open", "Open the doors", "The board is pleased (+4) and the group enjoys it (morale +3)."),
-			_opt("closed", "Closed session", "+%d XP for everyone." % CLOSED_XP),
-		]}
-
-
-static func _media(p: Dictionary) -> Dictionary:
-	var n := GameDB.player_display_name(p)
-	return {"key": "media", "player_id": str(p["id"]), "default": -1,
-		"unanswered": {"board": -4, "text": "You say nothing. The board wanted an answer (-4).",
-			"hint": "Say nothing: the board is unimpressed (-4)."},
-		"title": "%s is in the papers" % n,
-		"text": "An off-field incident. The board is watching how you handle it.",
-		"options": [
-			_opt("suspend", "Suspend him for a week", "He misses this game; the board approves (+4); his morale drops."),
-			_opt("back", "Back your player", "His morale lifts (+8); the board is unimpressed (-4)."),
-		]}
-
-
-static func _extension(p: Dictionary) -> Dictionary:
-	var n := GameDB.player_display_name(p)
-	var ask := Contracts.asking_salary(p)
-	var years := early_years(p)
-	return {"key": "extension", "player_id": str(p["id"]), "default": 1,
-		"title": "%s wants to talk contract" % n,
-		"text": "He is out of contract at season's end and wants security now. Today his rating is worth %s a season." % Contracts.money(ask),
-		"options": [
-			_opt("extend", "Extend him now",
-					"He signs on for %d more season%s at %s a season: a premium for certainty, locked in whatever he does next." % [
-						years - 1, "" if years == 2 else "s", Contracts.money(early_price(p))]),
-			_opt("wait", "Wait for the off-season",
-					"No commitment yet. He asks what his rating is worth then - less if he drops, more if he improves. He is disappointed (morale -5)."),
-		]}
-
-
-static func _pressure() -> Dictionary:
-	return {"key": "pressure", "default": 1,
-		"title": "The board wants answers",
-		"text": "Another losing run. The chairman asks what happens next.",
-		"options": [
-			_opt("promise", "Promise a win this week", "Win and the board is won over (+8); lose and it is -10."),
-			_opt("patience", "Ask for patience", "Confidence -3."),
-		]}
-
-
-static func _young_gun(p: Dictionary) -> Dictionary:
-	var n := GameDB.player_display_name(p)
-	var run := MatchNotes.count_word(Backing.RUN_GAMES)
-	return {"key": "young_gun", "player_id": str(p["id"]), "default": -1,
-		"title": "%s is pushing for games" % n,
-		"text": "The kid is flying at training and wants a senior game.",
-		"options": [
-			_opt("blood", "Back him for %s games" % run,
-					"Nothing develops a player like AFL footy, and he is thrilled (morale +%d) - but he expects to be picked for the next %s games. Leave him out while he is fit and the promise breaks (morale up to -%d)." % [
-							Backing.THRILL, run, Backing.STING]),
-			_opt("develop", "A week with the development coaches",
-					"+%d XP without taking a spot in the side, but no game at all this week." % DEV_WEEK_XP),
-		]}
 
 
 # --- The sit-down that grows out of what happened (RPG-003 slice 1, director
@@ -468,26 +307,6 @@ static func talk_case(p: Dictionary, i: Dictionary) -> String:
 	return ""
 
 
-## The player and case the week's sit-down is about, or {}: the first case in
-## TALK_CASES order, then the most senior games; nobody seen in UNHAPPY_GAP.
-static func pick_talk(fit: Array, info: Dictionary, memory: Dictionary, round_no: int) -> Dictionary:
-	var best := {}
-	var best_rank := 99
-	for p in fit:
-		var id := str(p["id"])
-		if round_no - int(memory.get("unhappy|" + id, -99)) < UNHAPPY_GAP:
-			continue
-		var c := talk_case(p, info.get(id, {}))
-		if c == "":
-			continue
-		var rank := TALK_CASES.find(c)
-		var games := int((info.get(id, {}) as Dictionary).get("games", 0))
-		if rank < best_rank or (rank == best_rank and games > int((info.get(str(best["p"]["id"]), {}) as Dictionary).get("games", 0))):
-			best = {"p": p, "case": c}
-			best_rank = rank
-	return best
-
-
 ## What the card opens on, in a coach's words.
 static func talk_text(case: String, i: Dictionary) -> String:
 	match case:
@@ -499,30 +318,3 @@ static func talk_text(case: String, i: Dictionary) -> String:
 			var w := int(i.get("weeks_without", 0))
 			return "%s weeks without a senior game, and he's fit. He wants to know what he has to do." % MatchNotes.count_word(w).capitalize()
 	return ""
-
-
-static func _unhappy(p: Dictionary, case := "", i := {}) -> Dictionary:
-	var n := GameDB.player_display_name(p)
-	if case != "":
-		var kpi := str(i.get("kpi", ""))
-		var need := "What a %s has to show: %s." % [str(i.get("job", "player")), str(i.get("need", ""))]
-		return {"key": "unhappy", "player_id": str(p["id"]), "case": case, "kpi": kpi,
-			"verdict": str(i.get("verdict", "")), "job": str(i.get("job", "")), "need": str(i.get("need", "")),
-			"default": -1,
-			"title": "%s wants a word" % n,
-			"text": talk_text(case, i),
-			"options": [
-				# Plain facts, never an argument for or against your call: his
-				# season on his job's numbers, or what his job has to show.
-				_opt("explain", "Talk him through his season" if kpi != "" else "Tell him what he has to show",
-						"%s Morale +%d; nothing promised." % [kpi if kpi != "" else need, EXPLAIN_LIFT]),
-				_opt("talk", "Promise him a game this week", "Morale +15, but he expects a game this week. Leave him out fit and it sours (-12)."),
-				_opt("call", "It's my call", "You tell him selection is your call, and it stands. His morale -5."),
-			]}
-	return {"key": "unhappy", "player_id": str(p["id"]), "default": -1,
-		"title": "%s is unhappy" % n,
-		"text": "He feels he is being overlooked. Unhappy players play below their best and cost more to re-sign.",
-		"options": [
-			_opt("talk", "Sit down with him", "Morale +15, but he expects a game this week. Leave him out fit and it sours (-12)."),
-			_opt("earn", "Tell him to earn it", "His morale -5; the rest of the group respects the standard (+2)."),
-		]}

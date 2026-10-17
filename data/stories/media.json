@@ -1,0 +1,555 @@
+[
+	{
+		"id": "media_in_the_papers",
+		"category": "media",
+		"cooldown": 40,
+		"subject_cooldown": 30,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"selected": true,
+				"form_games_min": 3
+			},
+			"pick": "lowest:form"
+		},
+		"title": [
+			"The papers want {name} dropped"
+		],
+		"text": [
+			"Gary Haddon has {name} on the back page after a poor few weeks and says he should make way. {first} has averaged a Player rating of {form} over his last three games. Players who started as a {role_word} this year average a Player rating of {role_avg}."
+		],
+		"unanswered": {
+			"trust": -2,
+			"why": "You said nothing when the papers went after him",
+			"text": "You say nothing. {first} reads the back page on his own."
+		},
+		"choices": [
+			{
+				"key": "suspend",
+				"label": "Rest him this week",
+				"effects": [
+					{
+						"op": "rest"
+					},
+					{
+						"op": "morale",
+						"d": -10
+					},
+					{
+						"op": "trust",
+						"d": -6,
+						"why": "You dropped him after the papers pushed"
+					}
+				],
+				"result": "{name} sits out this week."
+			},
+			{
+				"key": "back",
+				"label": "Keep him in",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 8
+					},
+					{
+						"op": "trust",
+						"d": 10,
+						"why": "You kept him in when the papers wanted him out"
+					},
+					{
+						"op": "flag",
+						"name": "backed_in_papers"
+					}
+				],
+				"result": "{name} stays in the side."
+			}
+		],
+		"arc": "papers",
+		"beat": "start"
+	},
+	{
+		"id": "media_radio_spray",
+		"category": "media",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"Kev Pollard has sprayed you on radio"
+		],
+		"text": [
+			"Outer Wing Radio: \"{club} have lost their way and the coach has lost the rooms.\" Do you bite?"
+		],
+		"choices": [
+			{
+				"key": "bite",
+				"label": "Hit back in the presser",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": -3
+					}
+				],
+				"result": "You hit back. The players love it; the board winces."
+			},
+			{
+				"key": "ignore",
+				"label": "Let your footy do the talking",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "all"
+					}
+				],
+				"result": "You say nothing. The rooms hear it all week anyway."
+			}
+		],
+		"when": {
+			"losing_run_min": 2
+		}
+	},
+	{
+		"id": "media_newspaper_column",
+		"category": "media",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"games_min": 100
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} has been offered a newspaper column"
+		],
+		"text": [
+			"A weekly piece in the Sunday paper. Good money, and a lot of opinions."
+		],
+		"choices": [
+			{
+				"key": "yes",
+				"label": "Let him write it",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 5
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You let him write his column"
+					},
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "{name}'s first column runs on Sunday."
+			},
+			{
+				"key": "no",
+				"label": "Knock it back",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -4
+					},
+					{
+						"op": "trust",
+						"d": -3,
+						"why": "You knocked back his newspaper column"
+					}
+				],
+				"result": "{name} turns the paper down."
+			}
+		]
+	},
+	{
+		"id": "media_young_feature",
+		"category": "media",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"age_max": 22,
+				"games_min": 5
+			},
+			"pick": "random"
+		},
+		"title": [
+			"Footy Tonight want a feature on {name}"
+		],
+		"text": [
+			"Trish Lomax wants a week with him. Good for the club, and a lot of spotlight on a kid."
+		],
+		"choices": [
+			{
+				"key": "yes",
+				"label": "Do the feature",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 5
+					},
+					{
+						"op": "board",
+						"d": 2
+					},
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "others"
+					}
+				],
+				"result": "The feature goes to air. The boys give him a hard time."
+			},
+			{
+				"key": "no",
+				"label": "Keep him out of it",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -3
+					}
+				],
+				"result": "No feature. {first} would have liked it."
+			}
+		]
+	},
+	{
+		"id": "media_team_leak",
+		"category": "media",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"The Siren has your side before it's announced"
+		],
+		"text": [
+			"Someone at the club is talking to Gary Haddon."
+		],
+		"choices": [
+			{
+				"key": "hunt",
+				"label": "Find the leak",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -3,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": 3
+					}
+				],
+				"result": "You go looking. Everyone feels watched."
+			},
+			{
+				"key": "let",
+				"label": "Let it go",
+				"effects": [
+					{
+						"op": "board",
+						"d": -3
+					}
+				],
+				"result": "You let it go. The board isn't happy."
+			}
+		]
+	},
+	{
+		"id": "media_cameras_in_rooms",
+		"category": "media",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"Footy Tonight want cameras in the rooms"
+		],
+		"text": [
+			"Trish Lomax wants a behind-the-scenes piece while you're winning."
+		],
+		"choices": [
+			{
+				"key": "yes",
+				"label": "Let the cameras in",
+				"effects": [
+					{
+						"op": "board",
+						"d": 4
+					},
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "all"
+					}
+				],
+				"result": "The cameras are in. Some of the players hate it."
+			},
+			{
+				"key": "no",
+				"label": "The rooms stay ours",
+				"effects": [
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "No cameras. The network isn't happy."
+			}
+		],
+		"when": {
+			"winning_run_min": 3
+		}
+	},
+	{
+		"id": "media_papers_fronts_group",
+		"category": "media",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} wants to front the group"
+		],
+		"text": [
+			"You kept {name} in when the papers wanted him out. He asks for five minutes with the group at the review to answer the papers' story himself."
+		],
+		"choices": [
+			{
+				"key": "front",
+				"label": "Let him front the group",
+				"effects": [
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You let him front the group",
+						"line": "He trusts you more."
+					},
+					{
+						"op": "delegate",
+						"held": [
+							{
+								"op": "morale",
+								"d": 3,
+								"who": "others"
+							}
+						],
+						"failed": [
+							{
+								"op": "morale",
+								"d": -3,
+								"who": "others"
+							}
+						],
+						"held_result": "{name} takes the group through it and they hear him out.",
+						"failed_result": "It does not land with the group."
+					}
+				],
+				"result": "",
+				"rule": "The group listens to a player with Leadership {holds_at} or more, or {holds_trust_at} or more if he trusts you. {name}: Leadership {leadership}."
+			},
+			{
+				"key": "private",
+				"label": "Keep it between you two",
+				"effects": [
+					{
+						"op": "trust",
+						"d": -2,
+						"why": "You kept it between you two when he asked for the group",
+						"line": "He trusts you a little less."
+					}
+				],
+				"result": "You talk it through with {name} alone."
+			}
+		],
+		"arc": "papers",
+		"beat": "end",
+		"needs": {
+			"flag": "backed_in_papers",
+			"after": 3,
+			"within": 15
+		},
+		"cooldown": 0,
+		"subject_cooldown": 0
+	},
+	{
+		"id": "media_papers_again",
+		"category": "media",
+		"weight": 2,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"starting": true,
+				"has_role2": true,
+				"form_low": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"They say {name} is in the wrong spot"
+		],
+		"text": [
+			"A former player on the radio says {name} should be playing as a {trial_word}. {first} wants to know if you will try it."
+		],
+		"choices": [
+			{
+				"key": "stand",
+				"label": "Leave him where he is",
+				"effects": [
+					{
+						"op": "trust",
+						"d": -4,
+						"why": "You said no when he asked to try the move"
+					}
+				],
+				"result": "{name} stays in his role."
+			},
+			{
+				"key": "down",
+				"label": "Try him as a {trial_word}",
+				"effects": [
+					{
+						"op": "role_trial",
+						"weeks": 3
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You tried him in the role he asked about"
+					}
+				],
+				"result": "You try {name} as a {trial_word}."
+			}
+		],
+		"cooldown": 40,
+		"subject_cooldown": 30,
+		"unanswered": {
+			"trust": -2,
+			"why": "You said nothing when he asked about the move",
+			"text": "You say nothing. {first} is left waiting for an answer."
+		}
+	},
+	{
+		"category": "media",
+		"scripted": true,
+		"cooldown": 0,
+		"subject_cooldown": 0,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"id": "media_trial_worked",
+		"title": [
+			"{name} passed his trial as a {trial_word}"
+		],
+		"text": [
+			"{first} averaged a Player rating of {trial_avg} as a {trial_word} over the three games. Players who started as a {trial_word} this year average a Player rating of {trial_par}. {trial_tail}"
+		],
+		"choices": [
+			{
+				"key": "ok",
+				"label": "Good to hear",
+				"effects": [],
+				"result": "{name} is back in his usual spot."
+			}
+		]
+	},
+	{
+		"category": "media",
+		"scripted": true,
+		"cooldown": 0,
+		"subject_cooldown": 0,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"id": "media_trial_not_yet",
+		"title": [
+			"{name}'s trial as a {trial_word} is over"
+		],
+		"text": [
+			"{first} averaged a Player rating of {trial_avg} as a {trial_word} over the three games. Players who started as a {trial_word} this year average a Player rating of {trial_par}. {trial_tail}"
+		],
+		"choices": [
+			{
+				"key": "ok",
+				"label": "Fair enough",
+				"effects": [],
+				"result": "{name} is back in his usual spot."
+			}
+		]
+	},
+	{
+		"id": "gf_week",
+		"category": "media",
+		"phase": [
+			"finals"
+		],
+		"subject": {
+			"kind": "club"
+		},
+		"when": {
+			"finals_week": 5
+		},
+		"priority": true,
+		"weight": 1,
+		"cooldown": 60,
+		"title": [
+			"Grand Final week"
+		],
+		"text": [
+			"The Brownlow on Monday, media day, the parade on Friday. Somewhere in there, you have to train."
+		],
+		"choices": [
+			{
+				"key": "all",
+				"label": "Do all of it",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 6,
+						"who": "all"
+					},
+					{
+						"op": "heavy_legs",
+						"who": "side"
+					}
+				],
+				"result": "The players soak up every minute, and they're tired by Friday."
+			},
+			{
+				"key": "min",
+				"label": "The bare minimum",
+				"effects": [
+					{
+						"op": "fresh",
+						"who": "side"
+					},
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "In and out of the parade, no Brownlow. The sponsors grumble to the board."
+			}
+		]
+	}
+]

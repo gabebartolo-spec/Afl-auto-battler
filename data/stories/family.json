@@ -1,0 +1,422 @@
+[
+	{
+		"id": "family_baby_due",
+		"category": "family",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"selected": true,
+				"age_min": 23
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{first} could become a dad on game day"
+		],
+		"text": [
+			"The baby's due on game day and we play away. He'll do whatever you ask, but you can see where his head is."
+		],
+		"choices": [
+			{
+				"key": "go",
+				"label": "Tell him to be there",
+				"effects": [
+					{
+						"op": "rest"
+					},
+					{
+						"op": "trust",
+						"d": 15,
+						"why": "You told him to be there for the birth"
+					},
+					{
+						"op": "morale",
+						"d": 6
+					}
+				],
+				"result": "{first} is there for the birth. He won't forget it."
+			},
+			{
+				"key": "play",
+				"label": "Ask him to play, then fly home",
+				"effects": [
+					{
+						"op": "trust",
+						"d": -10,
+						"why": "You asked him to play the week his first child was born"
+					}
+				],
+				"result": "{first} plays. He's on the first flight home after the siren."
+			}
+		],
+		"default": 1,
+		"private": true
+	},
+	{
+		"id": "family_dad_in_hospital",
+		"category": "family",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name}'s dad is in hospital"
+		],
+		"text": [
+			"He's from interstate and wants to fly home this week."
+		],
+		"choices": [
+			{
+				"key": "go",
+				"label": "Put him on the plane",
+				"effects": [
+					{
+						"op": "rest"
+					},
+					{
+						"op": "trust",
+						"d": 12,
+						"why": "You put him on a plane when his dad was in hospital"
+					},
+					{
+						"op": "morale",
+						"d": 4
+					}
+				],
+				"result": "{first} flies home. The club looks after the flights."
+			},
+			{
+				"key": "stay",
+				"label": "Ask him to play first",
+				"effects": [
+					{
+						"op": "trust",
+						"d": -10,
+						"why": "You asked him to play while his dad was in hospital"
+					},
+					{
+						"op": "morale",
+						"d": -6
+					}
+				],
+				"result": "{first} stays and plays. His head's somewhere else."
+			}
+		],
+		"private": true
+	},
+	{
+		"id": "family_brothers_wedding",
+		"category": "family",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"selected": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{first}'s brother is getting married on game day"
+		],
+		"text": [
+			"He's the best man. The wedding's been booked for a year."
+		],
+		"choices": [
+			{
+				"key": "go",
+				"label": "Let him go",
+				"effects": [
+					{
+						"op": "rest"
+					},
+					{
+						"op": "trust",
+						"d": 8,
+						"why": "You let him be best man at his brother's wedding"
+					}
+				],
+				"result": "{first} makes the speech."
+			},
+			{
+				"key": "play",
+				"label": "He plays",
+				"effects": [
+					{
+						"op": "trust",
+						"d": -5,
+						"why": "You kept him from his brother's wedding"
+					},
+					{
+						"op": "morale",
+						"d": -4
+					}
+				],
+				"result": "{first} plays. He watches the speeches on his phone."
+			}
+		],
+		"private": true
+	},
+	{
+		"id": "family_partner_job_offer",
+		"category": "family",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"contract_years_max": 1,
+				"age_min": 23
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name}'s partner has a job offer back home"
+		],
+		"text": [
+			"He's out of contract at season's end, and home is calling."
+		],
+		"choices": [
+			{
+				"key": "help",
+				"label": "Tell him the club will help",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 4
+					},
+					{
+						"op": "trust",
+						"d": 6,
+						"why": "You told him the club would help his family settle"
+					}
+				],
+				"result": "The club starts looking for work for his partner here."
+			},
+			{
+				"key": "footy",
+				"label": "Tell him footy comes first",
+				"effects": [
+					{
+						"op": "trust",
+						"d": -6,
+						"why": "You told him footy came before his family's plans"
+					}
+				],
+				"result": "{first} nods. He doesn't look convinced."
+			}
+		],
+		"private": true
+	},
+	{
+		"id": "family_newborn_no_sleep",
+		"category": "family",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"age_min": 22
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} isn't sleeping"
+		],
+		"text": [
+			"A newborn at home and three hours' sleep a night. The fitness staff have noticed."
+		],
+		"choices": [
+			{
+				"key": "light",
+				"label": "Give him a lighter week",
+				"effects": [
+					{
+						"op": "fresh"
+					},
+					{
+						"op": "morale",
+						"d": 3
+					},
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You eased off when the baby wasn't sleeping"
+					}
+				],
+				"note": "He'll miss some development.",
+				"result": "{first} gets a lighter week."
+			},
+			{
+				"key": "normal",
+				"label": "Business as usual",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -3
+					},
+					{
+						"op": "heavy_legs"
+					}
+				],
+				"result": "{first} trains as normal, on not much sleep."
+			}
+		],
+		"private": true,
+		"stakes": "A lighter week costs him some development."
+	},
+	{
+		"id": "family_partner_graduation",
+		"category": "family",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name}'s partner graduates on Thursday"
+		],
+		"text": [
+			"It's right in the middle of main training."
+		],
+		"choices": [
+			{
+				"key": "go",
+				"label": "Give him the afternoon",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3
+					},
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You gave him the afternoon for his partner's graduation"
+					}
+				],
+				"result": "{first} is at the graduation."
+			},
+			{
+				"key": "train",
+				"label": "Training's training",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -3
+					},
+					{
+						"op": "trust",
+						"d": -2,
+						"why": "You kept him at training for his partner's graduation"
+					}
+				],
+				"result": "{first} trains."
+			}
+		],
+		"private": true
+	},
+	{
+		"id": "family_house_settlement",
+		"category": "family",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"age_min": 22
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{name} settles on his first house on Thursday"
+		],
+		"text": [
+			"He needs the morning off to sign everything."
+		],
+		"choices": [
+			{
+				"key": "go",
+				"label": "Give him the morning",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3
+					},
+					{
+						"op": "trust",
+						"d": 2,
+						"why": "You gave him the morning to buy his first house"
+					}
+				],
+				"result": "{first} gets the keys."
+			},
+			{
+				"key": "train",
+				"label": "Do it after training",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -2
+					}
+				],
+				"result": "{first} signs after training, a bit flat about it."
+			}
+		],
+		"private": true
+	},
+	{
+		"id": "finals_family_tickets",
+		"category": "family",
+		"phase": [
+			"finals"
+		],
+		"subject": {
+			"kind": "club"
+		},
+		"when": {
+			"finals_week_max": 4
+		},
+		"title": [
+			"Four tickets doesn't go far"
+		],
+		"text": [
+			"Every player gets four for the final. Parents, partners, the junior coach who drove him to training: the list is longer than that."
+		],
+		"choices": [
+			{
+				"key": "more",
+				"label": "Find them more",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 4,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "The club finds two more each, out of the members' allocation."
+			},
+			{
+				"key": "four",
+				"label": "Four is four",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": 1
+					}
+				],
+				"result": "Same four as every club. A few players are working the phones."
+			}
+		]
+	}
+]

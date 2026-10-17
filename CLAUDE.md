@@ -97,6 +97,14 @@ every fact in its own card, generic dashboard grids, gradients, glows, big
 corner radii, excess separators, decorative stat boxes and icons. Prefer flat,
 editorial layouts: typography, alignment, spacing, restrained surfaces.
 
+**Readability is a pillar (design bible, director 2026-10-13).** It applies to
+every screen. Sections feel distinct: club colours and strategic bold set them
+apart, because text that is all one colour and weight harms readability. A
+player's or club's allegiance is obvious at a glance, without reading the name.
+No text the coach needs is overlooked: nothing he decides on sits in uniform
+grey. Club colour must stay readable (check contrast for dark clubs on the dark
+page) and must not be mistaken for GOOD/BAD or the primary action.
+
 **Colour, type, components, copy.** The exact rules are in
 [docs/VISUAL_STYLE_GUIDE.md](docs/VISUAL_STYLE_GUIDE.md): colour and where it goes
 (§2.1-2.2), type roles (§2.3), the component kit (§3), copy (§5). Before adding a
@@ -120,7 +128,7 @@ The director reviewed and included FL-001–FL-008 for Claude's queue. Read [ROA
 
 ## Explicitly assigned visual styling — 2026-10-06
 
-The director included all eight STYLE-01–STYLE-08 work packages after the complete interview. Read [ROADMAP §9.5](docs/roadmap/23-9-5-approved-visual-styling-work-director-interview-2026.md#95-approved-visual-styling-work--director-interview-2026-10-06). Dark Android is primary; wide-screen and light maintenance follow. The Training **player-row** name/secondary-line stack is a confirmed vertical-alignment defect, independent of broad restyling. Inspect the current implementation/art branch before repairing audit-snapshot findings.
+The director included all eight STYLE-01–STYLE-08 work packages after the complete interview. Read [ROADMAP §9.5](docs/roadmap/23-9-5-approved-visual-styling-work-director-interview-2026.md#95-approved-visual-styling-work--director-interview-2026-10-06). Dark Android is primary; wide-screen maintenance follows. The light theme is parked by the director (2026-10-13: "im also happy to abandon 'light mode' for now, i dont want to waste time on it"): no new light-theme work, captures or tests until he says otherwise; the code stays. The Training **player-row** name/secondary-line stack is a confirmed vertical-alignment defect, independent of broad restyling. Inspect the current implementation/art branch before repairing audit-snapshot findings.
 
 The art agent has higher authority than ChatGPT on visual direction; Claude implements its treatment and reports constraints. **All final decisions go through the director.** Scope approval permits scoped prototypes/reviewable implementation, not final font, palette, geometry or layout selection. Obtain final director appearance approval before completing/merging visual treatments; ordinary green CI is insufficient. Preserve gameplay, information, touch/Back, existing 2.5D art and correctness/performance gates. No new scene authority or competing design system is added. No rejected style candidates remain.
 

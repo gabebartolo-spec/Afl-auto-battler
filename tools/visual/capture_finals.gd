@@ -2,9 +2,12 @@ extends SceneTree
 ## The Finals bracket (FinalsBracket), for the director's look. Needs a real
 ## renderer:
 ##   godot --path . --script tools/visual/capture_finals.gd -- --out /tmp/fin
-##       [--size 1280x720] [--week 3] [--club COL]
+##       [--size 1280x720] [--week 3] [--club COL] [--premier FRE]
 ## Plays a seeded season to finals week --week (6 = after the Grand Final)
-## and writes <out>.png.
+## and writes <out>.png. --premier shows that club as the premier for the
+## look: it trades places with the club that won, everywhere in the series
+## (this capture only; nothing is saved). On the CI workflow a phone also
+## needs -f resolution=390x844.
 
 var W := 1280
 var H := 720
@@ -18,6 +21,7 @@ func _run() -> void:
 	var out := "/tmp/fin"
 	var week := 3
 	var club := "COL"
+	var premier := ""
 	var a := OS.get_cmdline_user_args()
 	for i in range(a.size()):
 		var v := str(a[i + 1]) if i + 1 < a.size() else ""
@@ -28,6 +32,7 @@ func _run() -> void:
 				H = int(v.split("x")[1])
 			"--week": week = int(v)
 			"--club": club = v
+			"--premier": premier = v
 	await process_frame
 	var db = root.get_node("GameDB")
 	var gs = root.get_node("GameState")
@@ -43,8 +48,22 @@ func _run() -> void:
 		if gs.season.is_season_over() or (not f.is_empty() and int(f.get("week", 1)) >= week):
 			break
 		gs.advance()
-	root.size = Vector2i(W, H)
+	var won := str(gs.season.finals.get("premier", ""))
+	if premier != "" and won != "" and premier != won:
+		gs.season.finals = _swap(gs.season.finals, won, premier)
+	# The canvas a player's screen gives the game, whatever this machine's display density.
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	DisplayServer.window_set_size(Vector2i(W, H))
+	for i in range(10):
+		await process_frame
+	var layout = root.get_node("ScreenLayout")
+	var density: float = layout.desktop_density(Vector2(root.size), DisplayServer.screen_get_scale(),
+			DisplayServer.screen_get_dpi() if OS.get_name() == "Windows" else 0)
+	layout.ui_scale = 1.0 / maxf(1.0, density)
+	layout._update_scale()
+	for i in range(10):
+		await process_frame
+	print("canvas ", root.get_visible_rect().size)
 	var kit = load("res://scripts/ui/UiKit.gd")
 	var bg := ColorRect.new()
 	bg.color = kit.BG
@@ -68,3 +87,20 @@ func _run() -> void:
 	img.save_png(out + ".png")
 	print("wrote ", out + ".png", " finals week ", gs.season.finals.get("week", 0), " done ", gs.season.is_season_over())
 	quit()
+
+
+## `v` with the two club codes trading places wherever they appear.
+func _swap(v, a: String, b: String):
+	if v is String:
+		return b if v == a else (a if v == b else v)
+	if v is Array:
+		var out := []
+		for x in v:
+			out.append(_swap(x, a, b))
+		return out
+	if v is Dictionary:
+		var d := {}
+		for k in v:
+			d[k] = _swap(v[k], a, b)
+		return d
+	return v

@@ -20,10 +20,17 @@ var form := 0.0
 ## (-0.75 .. 1), and whether it picks its own plan each quarter (AI clubs).
 var tactics_exec := 1.0
 var tactics_read := 0.0
+## How much of each plan's upside the side keeps for how well it knows the plan
+## (plan familiarity, behind the pre-season switch): plan -> 0..1. Empty = every
+## plan as written. Worked out before the match starts (CoachEffects.apply).
+var plan_know := {}
 var ai_plans := false
 ## Your club: the assistant takes the routine match-day calls you leave to
 ## him - the loose defender and the key defenders' match-ups (MatchSim).
 var assistant := false
+## An AI club's senior coach's match-day tendency (Coaches.STYLES): when and
+## how hard he reacts to the scoreboard. "balanced" for your club, always.
+var coach_style := "balanced"
 
 ## Role-group strengths
 var ruck := 45.0

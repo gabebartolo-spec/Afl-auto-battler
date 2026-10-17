@@ -178,6 +178,29 @@ static func run_line(club: String, n: int) -> String:
 	return "%s have kicked %s in a row." % [GameDB.club_name(club), count_word(n)]
 
 
+## The Defensive press taking hold (V2, press pilot), said once a side a match.
+static func press_line(club: String) -> String:
+	return "%s push up to press." % GameDB.club_name(club)
+
+
+## Does this event open the line: the side pressed by the plan in force is
+## now defending, the other side having the ball in open play.
+static func press_trigger(timeline: Array, event_index: int, ev: Dictionary, said: Array) -> int:
+	var side := int(ev.get("side", 0))
+	if not ["handball", "kick", "mark"].has(str(ev.get("kind", ""))):
+		return -1
+	var presser := 1 - side
+	if bool(said[presser]):
+		return -1
+	var plan := ""
+	for e in timeline:
+		if int((e as Dictionary).get("at", 0)) > event_index:
+			break
+		if int((e as Dictionary).get("side", -1)) == presser:
+			plan = str((e as Dictionary).get("plan", ""))
+	return presser if plan == "defensive" else -1
+
+
 # ---------------------------------------------------------------------------
 # Quarter-break facts
 # ---------------------------------------------------------------------------
@@ -197,6 +220,11 @@ static func quarter_facts(res: Dictionary, my_side: int, q: int, answers := {}) 
 	var mine := _team_delta(now, was, my_side)
 	var theirs := _team_delta(now, was, opp)
 	var out := []
+	# Three-quarter time leads with where the match stands and why (ComebackTelling).
+	if q == 3:
+		var story := ComebackTelling.break_line(res, my_side)
+		if story != "":
+			out.append(story)
 
 	var clr_m := int(mine.get("clearances", 0.0))
 	var clr_t := int(theirs.get("clearances", 0.0))
@@ -354,7 +382,9 @@ static func calls_lines(res: Dictionary, my_side: int, q: int) -> Array:
 			if stars >= 0:
 				out.append(("%s: your stars had %d disposals" % [label, stars])
 						+ ((", from %d%s." % [_stars_disposals(res, was, before, my_side), prev]) if q >= 2 else "."))
-	for key in [["tag_id", "Tag on %s: %d disposal%s", opp], ["focus_id", "Through %s: %d disposal%s", my_side]]:
+	for key in [["tag_id", "Tag on %s: %d disposal%s", opp], ["focus_mid", "Through %s: %d disposal%s", my_side],
+			["focus_fwd", "Through %s: %d disposal%s", my_side], ["focus_def", "Through %s: %d disposal%s", my_side],
+			["focus_id", "Through %s: %d disposal%s", my_side]]:
 		var id := str(calls.get(key[0], ""))
 		if id == "":
 			continue
@@ -398,6 +428,34 @@ const FOCUS_ROLES := {
 	"DEF": ["our key distributor", "first use of the ball out of the back half"],
 	"RUCK": ["our key man in the middle", "the ball goes to him more often"],
 }
+
+
+## The three play-through calls (director, 2026-10-07): [heading, his job,
+## what it does, with nobody picked, the spot it works from].
+const FOCUS_SLOT_TEXT := {
+	"focus_mid": ["Midfield pillar", "our midfield pillar",
+			"the ball goes to him more often through the midfield",
+			"Nobody: the midfield shares the ball.", "the midfield"],
+	"focus_fwd": ["Forward target", "our key forward target",
+			"more of the ball up forward and more of the shots at goal",
+			"Nobody: the forwards share the entries.", "the forward line"],
+	"focus_def": ["Backline distributor", "our backline distributor",
+			"first use of the ball out of the back half",
+			"Nobody: the backs share the ball out of defence.", "the back line"],
+}
+
+
+## Under a play-through call: his job and what it does; with nobody, what that
+## means; and, when he is not in the spot the call works from, that it waits.
+static func focus_slot_note(slot: String, name: String, working: bool, benched: bool) -> String:
+	var t: Array = FOCUS_SLOT_TEXT[slot]
+	if name == "":
+		return str(t[3])
+	if benched:
+		return "%s is on the bench: the call waits until he is back on." % name
+	if not working:
+		return "%s is not in %s now: the call waits until he is back there." % [name, str(t[4])]
+	return "%s is %s: %s." % [name, str(t[1]), str(t[2])]
 
 
 static func focus_role_text(name: String, role: String) -> String:
@@ -495,9 +553,14 @@ static func match_factors(res: Dictionary, my_side: int) -> Array:
 	var t_me: Dictionary = team[my_side] if team.size() > my_side else {}
 	var t_op: Dictionary = team[opp] if team.size() > opp else {}
 
-	# The turning points first: the score that put the winners in front for
-	# good, a star lost to injury, a late miss in a close loss.
-	out.append_array(turning_points(res, my_side))
+	# The comeback first, when the break scores show one (ComebackTelling), then the
+	# turning points: the score that put the winners in front for good (not said again
+	# when the comeback sentence already names its kicker), a star lost to injury, a
+	# late miss in a close loss.
+	var turn := ComebackTelling.turn_facts(res, my_side)
+	if not turn.is_empty():
+		out.append(str(turn["text"]))
+	out.append_array(turning_points(res, my_side, str(turn.get("player", ""))))
 
 	# 1. The run that decided it: four or more goals in a row.
 	var run := _longest_run(res.get("events", []))
@@ -516,7 +579,9 @@ static func match_factors(res: Dictionary, my_side: int) -> Array:
 		if absi(m) > absi(best_m):
 			best_m = m
 			best_q = i
-	if best_q >= 0 and absi(best_m) >= 24 and (out.is_empty() or int(run["q"]) != best_q + 1):
+	var told_q: Array = turn.get("quarters", [])
+	if best_q >= 0 and absi(best_m) >= 24 and (out.is_empty() or int(run["q"]) != best_q + 1) \
+			and not told_q.has(best_q + 1):
 		var s := 0 if best_m > 0 else 1
 		out.append("%s won the %s quarter %d.%d to %d.%d." % [GameDB.club_name(codes[s]),
 				QUARTER_NAMES[best_q], int(qg[best_q][s]), int(qb[best_q][s]),
@@ -616,6 +681,129 @@ static func game_line(st: Dictionary) -> String:
 	return ", ".join(bits)
 
 
+## Assign defensive forward (the break): the words around the control. The
+## effect numbers come straight from MatchSim's constants, never typed twice.
+static func minder_question(opp_name: String, club: String) -> String:
+	return "Who covers %s (%s)? He roams behind the ball; your forward goes up the ground with him." % [opp_name, club]
+
+
+static func minder_none_line() -> String:
+	return "They have no loose defender this quarter, so there is nobody to cover."
+
+
+## What the choice does and costs, in one line and in words (no numbers on
+## the break): how much of the contests the loose defender would reach he
+## still reaches with a Defensive forward on him and with any other forward
+## (MatchSim.MINDER_ROAM), and how much less often the forward sent is a
+## target himself (MatchSim.MINDER_INVOLVE).
+static func minder_cost_line() -> String:
+	var roam: Dictionary = MatchSim.MINDER_ROAM
+	var involve := float(MatchSim.MINDER_INVOLVE)
+	var often := "far less often" if involve <= 0.35 else ("less often" if involve <= 0.7 else "a little less often")
+	return "He reaches %s of his contests with a Defensive forward on him, %s with any other forward. Whoever goes is a target %s himself." % [
+			reach_words(float(roam["specialist"])), reach_words(float(roam["other"])), often]
+
+
+## A share kept, in words: 0.40 is "well under half", 0.70 is "most".
+static func reach_words(kept: float) -> String:
+	if kept <= 0.25:
+		return "hardly any"
+	if kept <= 0.45:
+		return "well under half"
+	if kept <= 0.55:
+		return "about half"
+	if kept <= 0.8:
+		return "most"
+	return "nearly all"
+
+
+## A forward's card for the job: where he plays, Defensive forward when he
+## has the trait, and his Pressure (the one attribute the job runs on).
+## `wide` is the list sheet's single line; the grid card puts the trait on
+## its own line.
+static func loose_question() -> String:
+	return "Who plays loose behind the ball?"
+
+
+## Your loose man's intercepts this match, in a line: "Jake Lever: 4
+## intercepts so far." Nothing hidden: the number is his match stat.
+static func loose_tally_line(who: String, n: int) -> String:
+	if n <= 0:
+		return "%s: no intercepts yet." % who
+	return "%s: %d intercept%s so far." % [who, n, "" if n == 1 else "s"]
+
+
+## A defender's card for the loose interceptor call: where he plays, his
+## Intercept and Marking (his read of the ball is 0.55 Intercept + 0.30
+## Marking + 0.15 Pressure, Matchups.interceptor_score) and "Interceptor"
+## when he has the trait.
+## `wide` is the list sheet's single line (MatchNotes.card_detail).
+static func loose_card_detail(p: Dictionary, wide: bool) -> String:
+	var attr: Dictionary = p.get("attr", {})
+	return card_detail(p, "Interceptor" if Traits.has(p, "interceptor") else "",
+			PackedStringArray(["Intercept %d" % roundi(float(attr.get("intercept", 0.0))),
+			"Marking %d" % roundi(float(attr.get("marking", 0.0)))]), wide)
+
+
+static func minder_card_detail(p: Dictionary, wide: bool) -> String:
+	var pressure := roundi(float((p.get("attr", {}) as Dictionary).get("pressure", 0.0)))
+	return card_detail(p, "Defensive forward" if Traits.has(p, "def_forward") else "",
+			PackedStringArray(["Pressure %d" % pressure]), wide)
+
+
+## A player card's detail under his name, in groups: where he plays (and the
+## trait, when he has it) on one line, the ratings on the next, so a line
+## only ever breaks between groups, never at a "·" (BOSS QC 2026-10-11).
+## `wide` is the list sheet's single line.
+static func card_detail(p: Dictionary, trait_name: String, ratings: PackedStringArray, wide: bool) -> String:
+	var places := PackedStringArray()
+	for r in Ratings.positions(p):
+		places.append(str(UiKit.ROLE_LABEL.get(str(r), str(r))))
+	# No-break spaces hold each "·" to the words either side.
+	var dot := "\u00a0·\u00a0"
+	var where := "/".join(places)
+	if trait_name != "":
+		where += dot + trait_name
+	return where + dot + dot.join(ratings) if wide else where + "\n" + dot.join(ratings)
+
+
+## A "Who tags" card (director, 2026-10-11, reworked 2026-10-13): the facts
+## the tag rule reads, nothing else, as parts so the card can set each in its
+## own place. His position ("Tagger" with the trait), his Pressure, his legs
+## in the game's words (legs_word, no number; `legs_bad` only when he is
+## running on empty) and what going to the tag gives up of his own game: his
+## Player rating for the season so far, the figure the Ratings screen shows
+## (a game's average; `rating` is -1 before he has played).
+static func tagger_card(p: Dictionary, legs: float, rating := -1.0) -> Dictionary:
+	var places := PackedStringArray()
+	for r in Ratings.positions(p):
+		places.append(str(UiKit.ROLE_LABEL.get(str(r), str(r))))
+	var where := "/".join(places)
+	if Roles.is_tagger(p):
+		where += " · Tagger"
+	var a: Dictionary = p.get("attr", {})
+	var lw := legs_word(legs)
+	var gives := "his own game (yet to play this season)"
+	if rating >= 0.0:
+		gives = "his own game (season rating %.1f)" % rating
+	return {"where": where, "pressure": str(roundi(float(a.get("pressure", 0)))),
+			"legs": lw.left(1).to_upper() + lw.substr(1), "legs_bad": legs < TIRING,
+			"gives_label": "Gives up", "gives": gives}
+
+
+## The same card in one run of words, for the long list ("Other player...")
+## where each man is one tap row: wide puts it on one line.
+static func tagger_card_detail(p: Dictionary, legs: float, wide: bool, rating := -1.0) -> String:
+	var c := tagger_card(p, legs, rating)
+	# No-break spaces hold each "·" to the words either side, so a line
+	# never ends on one.
+	var dot := " · "
+	var first := "%s%sPressure %s" % [c["where"], dot, c["pressure"]]
+	var second := "%s%sGives up %s" % [c["legs"], dot, c["gives"]]
+	return (first + dot + second) if wide else (first + "
+" + second)
+
+
 ## The best few players of a side by influence: [{"id", "name", "line"}].
 static func standouts(res: Dictionary, side: int, n: int) -> Array:
 	var ranked := rated_players(res, side)
@@ -665,6 +853,49 @@ static func rating(st: Dictionary) -> int:
 
 static func rating_text(r) -> String:
 	return str(int(r))
+
+
+## One player's match rating so far. The single place the Defensive forward
+## block reads a rating from, so when Best players becomes coaches' votes
+## this is the one line to swap.
+static func match_rating(res: Dictionary, id: String) -> int:
+	return rating((res.get("players", {}) as Dictionary).get(id, {}))
+
+
+## How a Defensive forward is going against their loose defender, from the
+## sim's own records: the contests between the two (MatchSim.roam_pairs), the
+## roamer's intercepts and both match ratings. df_id "" is no Defensive
+## forward: then the roamer's roaming contests against anyone stand in.
+static func df_duel(res: Dictionary, df_id: String, roamer_id: String) -> Dictionary:
+	var players: Dictionary = res.get("players", {})
+	var pairs: Dictionary = res.get("roam_pairs", {})
+	var out := {"df_id": df_id, "roamer_id": roamer_id,
+			"roamer_intercepts": int(float((players.get(roamer_id, {}) as Dictionary).get("intercepts", 0.0))),
+			"roamer_rating": match_rating(res, roamer_id),
+			"df_rating": match_rating(res, df_id) if df_id != "" else -1,
+			"contests": 0, "df_won": 0, "roamer_won": 0}
+	if df_id != "":
+		var rec: Array = pairs.get("%s|%s" % [roamer_id, df_id], [0, 0])
+		out["contests"] = int(rec[0])
+		out["roamer_won"] = int(rec[1])
+		out["df_won"] = int(rec[0]) - int(rec[1])
+	else:
+		var st: Dictionary = players.get(roamer_id, {})
+		out["contests"] = int(float(st.get("roam_wins", 0.0)) + float(st.get("roam_losses", 0.0)))
+		out["roamer_won"] = int(float(st.get("roam_wins", 0.0)))
+	return out
+
+
+## The two lines under the ratings: [contests, intercepts]. Surnames given.
+static func df_duel_lines(d: Dictionary, df_name: String, roamer_name: String) -> Array:
+	var n := int(d["contests"])
+	var contests: String
+	if str(d["df_id"]) != "":
+		contests = "No contests between them yet" if n == 0 else "%s won %d of their %d contests" % [df_name, int(d["df_won"]), n]
+	else:
+		contests = "" if n == 0 else "%s won %d of his %d roaming contests" % [roamer_name, int(d["roamer_won"]), n]
+	var ic := int(d["roamer_intercepts"])
+	return [contests, "%s: %d intercept%s" % [roamer_name, ic, "" if ic == 1 else "s"]]
 
 
 ## Every player of a side who took the field, best rated first:
@@ -1048,7 +1279,7 @@ static func story_feed_line(mem: Dictionary, ev: Dictionary) -> String:
 ## level after the first quarter), a star who went off hurt before the last
 ## quarter, and your missed set shot late in a close loss. [] for a match
 ## that never turned.
-static func turning_points(res: Dictionary, my_side: int) -> Array:
+static func turning_points(res: Dictionary, my_side: int, skip_kicker := "") -> Array:
 	var out := []
 	var events: Array = res.get("events", [])
 	var codes := [str(res.get("home", "")), str(res.get("away", ""))]
@@ -1067,7 +1298,7 @@ static func turning_points(res: Dictionary, my_side: int) -> Array:
 				took = ev
 			was_ahead = ahead
 		if not took.is_empty() and int(took.get("q", 1)) >= 2 and int(took.get("q", 1)) <= 4 \
-				and str(took.get("name", "")) != "":
+				and str(took.get("name", "")) != "" and (skip_kicker == "" or str(took.get("player_id", "")) != skip_kicker):
 			out.append("%s's %s %s put %s in front for good." % [str(took["name"]), str(took["kind"]),
 					_when(took), GameDB.club_name(codes[winner])])
 	var overall := {}
@@ -1127,4 +1358,27 @@ static func synergy_lines(res: Dictionary, my_side: int) -> Array:
 				fact = "%d inside 50s to %d." % [int(me.get("inside50", 0)), int(them.get("inside50", 0))]
 		if fact != "":
 			out.append("%s: %s" % [Traits.label(str(key)), fact])
+	return out
+
+
+## The standing calls the quarter just played broke, for the break's
+## attention pulse (director, 2026-10-11: only what genuinely needs the
+## coach): the tag the match ended, or your play-through player, loose
+## defender or defensive forward gone off hurt. Picker node names. `injuries`
+## is the match's injury log, `last` the calls made at the last break.
+static func broken_calls(res: Dictionary, injuries: Array, my_side: int, q: int, last: Dictionary) -> Array:
+	var out := []
+	if q <= 1:
+		return out
+	if not tag_drop_lines(res, my_side, q - 1).is_empty():
+		out.append("TagPicker")
+	var hurt := {}
+	for inj in injuries:
+		if int(inj.get("side", -1)) == my_side and int(inj.get("q", 0)) == q - 1:
+			hurt[str(inj.get("id", ""))] = true
+	for pair in [["focus_id", "FocusPicker"], ["interceptor_id", "InterceptorPicker"],
+			["spare_minder_id", "SpareMinderPicker"]]:
+		var id := str(last.get(pair[0], ""))
+		if id != "" and hurt.has(id):
+			out.append(pair[1])
 	return out

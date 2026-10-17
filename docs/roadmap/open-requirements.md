@@ -3,7 +3,7 @@
 Read in full at session start. One line per director requirement not DONE on main: owner, status, where the
 full wording lives (`docs/roadmap/`). Leaves this file only when its section file records DONE with the PR.
 Owner "none" = no plan or branch covers it. "verify" = code not checked this pass; owner checks before scheduling.
-Nothing here starts until the boss assigns it. Reconciled 2026-10-10 against main `d0fbaf4d` (hygiene); owners for items 1-9 set by the boss 2026-10-10 (order: 8, then 2-5 as one PR, 1, 9, 7). Items 10-31 unowned go to the director as one scheduling question (boss).
+Nothing here starts until the boss assigns it. Reconciled 2026-10-10 against main `d0fbaf4d` (hygiene); owners for items 1-9 set by the boss 2026-10-10 (order: 8, then 2-5 as one PR, 1, 9, 7). Items 10-31 unowned go to the director as one scheduling question (boss). Director decisions of 2026-10-13: [chapter 26](26-director-decisions-2026-10-13.md). Next patch milestone: 0.2.0 "Pre-season". Light theme parked by the director 2026-10-13 (ch. 26 s11).
 
 ## Director rules on main that the code does not meet
 
@@ -44,6 +44,8 @@ Nothing here starts until the boss assigns it. Reconciled 2026-10-10 against mai
 | 23 | This week: both sides' key-position heights and marking side by side | §1.11 matchup comparison | none | open |
 | 24 | Development manual-XP grid; Training compact card grid with roles and traits | §1.11 development, training; STYLE-01 | none | open |
 | 25 | Team builder: entry points share one side; headers from arranged fit; pre-game setup before Start | §1.11 team builder | none | verify |
+| 37 | **Audit the AI clubs' draft strategy**: do clubs that build their list from scratch (the AI drafting, trading and signing over seasons) end up on average weaker than the real 2026 lists, which real AFL professionals built? Measure over seeded 10-season careers: each AI club's list strength (best 23 and depth, by age bracket) against its real 2026 starting list and against the league's spread; where it drifts; and whether drafted players reach the OVR and roles the real list has. If the AI drafts notably worse teams than their real counterparts, buff its draft skill (needs, value, potential reads) until the gap closes, paired seeds, ± errors; balance is the director's call | director 2026-10-12 | dev-sim | open; audit first (tools/audit, CI), then a buff proposal with the numbers; AI-only change, W7 by qa |
+| 38 | **Live-3D vignette probe (LOW PRIORITY, explore later)**: one figure, the Tripo ruck rig, animated in real time inside Godot (glTF rig + clips from the existing Blender/Mixamo path) and judged by the same realism and motion critics against the sprite-sheet version at phone scale and frame time. The question: would real-time 3D vignettes (any camera angle, lighting, posture fixes on the rig instead of re-rendered sheets, no sheet growth) beat the approved 2.5D sheets for look, phone performance and pipeline cost? three.js is NOT the route (a playback stage with no authoring; Godot already renders 3D and exports to web) | director 2026-10-13 | none | open, unassigned, 0 credits; not before the current relaxed-arms slice lands |
 
 ## Stats, help, onboarding
 
@@ -60,6 +62,24 @@ Nothing here starts until the boss assigns it. Reconciled 2026-10-10 against mai
 | 29 | Run-of-goals cadence and efficacy; AI plan adaptation; blowout distribution; vignette reachability in close finishes | §1.11 observed failures | none | open |
 | 30 | Coleman goalkicking cap (defect found, balance-gated) | §1.11 Coleman | director | awaiting decision |
 | 31 | Native phone numbers: frame time, battery, loading | §1.11 performance | director's phone (probe build held) | waiting |
+
+## Story cards (director, 2026-10-12)
+
+| # | Requirement | Source | Owner | Status |
+|---|---|---|---|---|
+| 34 | **Audit every event card** (the 65 story cards and the older event cards): does any choice do nothing (no effect, no information, no follow-up)? Does any card never appear in a 10-season career? Can any be worded better (scrutable: a card keeps what it promises, football language, stakes true)? Found in play: "The fitness staff want a time trial" promised to tell the coach who is fit and named nobody (fix: claude/story-time-trial) | director 2026-10-12 | story | open; seeded audit over 10-season careers (card appearance counts per id, zero-effect choices listed), then a copy pass to the director as one sheet |
+| 35 | **A whole bespoke set of finals events**: cards that only fire in finals week (the elimination/qualifying week, the week after a loss that ends the season, the preliminary final build-up, the bye week, the club's first final in years, a veteran's last final), with real stakes and the finals mood in the copy | director 2026-10-12 | story | all 25 finals and Grand Final cards ruled card by card 2026-10-13; build in two slices (finals week, then Grand Final week); board rule "Yes, swap and tell me": board rewards only where the board is the point; swaps marked for him ([ch. 26 s4](26-director-decisions-2026-10-13.md)) |
+| 36 | **A small set of Grand Final events that make each Grand Final feel unique and memorable**: a handful of cards keyed to what is true of this Grand Final (the opponent, a captain's last game, a kid's first season, an injured star's fitness test, the parade, the week's press, the result's aftermath), so no two Grand Final weeks read the same | director 2026-10-12 | story | ruled 2026-10-13 with row 35 (second slice); the aftermath cards handle both the win and the loss |
+
+## Pre-season (director, 2026-10-13)
+
+| # | Requirement | Source | Owner | Status |
+|---|---|---|---|---|
+| 39 | **A pre-season** (headline of patch 0.2.0 "Pre-season"). Director: "a glaring hole in our game: pre season, a period of development, narratives, media speculation, fitness building, game-plan honing etc". Eight weeks, "but streamline it a touch"; "Plan in blocks, stop at events ... but reduce it to just 1 pre season match"; practice match "Trial players and plans, no ladder"; "Drill a plan, it works better"; papers "Predict, and you answer"; the intra-club match is a real match on the oval with next draft's prospects filling the spare spots. Full rulings: [ch. 26 s2](26-director-decisions-2026-10-13.md) | director 2026-10-13 | lead | in progress. Slices: 1 exists + blocks + time trial + sim to round 1; 2 plan familiarity; 3 practice match and intra-club match; 4 the papers; 5 pre-season story cards. Balance sizes go to his playtest |
+| 40 | **Create your own game plan, in the game as is.** Director: "i love the idea of 3 for our club forge, but 1 for our game as is" | director 2026-10-13 | lead | decide after plan drilling (row 39 slice 2) has been played; stretch |
+| 41 | **A full game-plan builder for the Club Forge** (create-a-club): the coach builds a plan of his own. Director: "i love the idea of 3 for our club forge" | director 2026-10-13 | none | open, unassigned; design sheet first |
+| 42 | **Believable comebacks.** Director: "my tester reported a scenario where he was 2 goals up at 3qt, simmed the last quarter, lost by 40 points. we need to codify realistic comeback rules. I mean a 52 point swing in one quarter is POSSIBLE but very very very unlikely. We need to keep comebacks in the game, maybe even make them a bigger part (Read more narrative/UI elements rather than frequency) of the game, but they need to be believable and not seem like the game hallucinating" | director 2026-10-13 | none | audit running; rules proposed with numbers after it, balance is his call |
+| 43 | **Tripo-made emblems and models to beautify the UI**, "just like how we did with our club guernsey logos on the ladder". Starts with three culture-strand icons (Standards, Togetherness, Ambition). Spend: 15,000 credits set aside 2026-10-13, "im not saying you HAVE to spend 15k in one go, im just setting that 15k aside to you to use as you see fit with over the next few hours,days, weeks" ([ch. 26 s10](26-director-decisions-2026-10-13.md)) | director 2026-10-13 | none | open, unassigned; credits used so far: 0; lead keeps the tally; art check before he sees any |
 
 ## Platforms and grounds
 

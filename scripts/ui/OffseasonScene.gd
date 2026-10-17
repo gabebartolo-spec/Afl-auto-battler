@@ -2,6 +2,7 @@ extends Control
 ## The off-season between the Grand Final and the national draft: contracts,
 ## free agency, trades and the club's annual department allocation.
 
+var _name_index := {}
 var _root: VBoxContainer
 var _tab := "contracts"
 var _notice := ""
@@ -46,14 +47,15 @@ func _ready() -> void:
 			_trade_club = code
 			break
 	get_viewport().size_changed.connect(func():
-		if is_inside_tree():
+		if is_inside_tree() and not UiKit.keyboard_resize(self):
 			_build())
 	_build()
 
 
 func _build() -> void:
+	_name_index = {}
 	if is_instance_valid(_scroll_box):
-		_scroll_positions[_scroll_tab] = _scroll_box.scroll_vertical
+		_scroll_positions[_scroll_tab] = UiKit.scroll_place(_scroll_box)
 	UiKit.clear(_root)
 	_root.add_child(UiKit.top_bar("Off-season", true))
 	var head := UiKit.panel(UiKit.PANEL, 10, 8)
@@ -95,13 +97,7 @@ func _build() -> void:
 			_trade(body)
 		"budget":
 			_budget(body)
-	_restore_scroll(_scroll_box, int(_scroll_positions.get(_tab, 0)))
-
-
-func _restore_scroll(scroll: ScrollContainer, offset: int) -> void:
-	await get_tree().process_frame
-	if is_instance_valid(scroll):
-		scroll.scroll_vertical = offset
+	UiKit.restore_scroll(_scroll_box, int(_scroll_positions.get(_tab, 0)))
 
 
 func _budget(body: VBoxContainer) -> void:
@@ -594,11 +590,15 @@ func _trade(body: VBoxContainer) -> void:
 		_build())
 	who.add_child(change)
 	body.add_child(who)
-	var phase := GameState.club_phase(_trade_club)
-	var stance := {"rebuilding": "are rebuilding: they guard young talent and want players for the future.",
-			"building": "are building: they weigh this season and the future evenly.",
-			"contending": "are contending: they want players who help them win now."}
-	var cycle := _para("%s %s" % [GameDB.club_name(_trade_club), str(stance.get(phase, ""))], 13, UiKit.MUTED)
+	var outlook := GameState.team_outlook(_trade_club)
+	var phase := str(outlook.get("phase", GameState.club_phase(_trade_club)))
+	var rating := _para(str(outlook.get("line", "")), 14, UiKit.TEXT)
+	rating.name = "TradeClubOutlook"
+	body.add_child(rating)
+	var stance := {"rebuilding": "They guard young talent and want players for the future.",
+			"building": "They weigh this season and the future evenly.",
+			"contending": "They want players who help them win now."}
+	var cycle := _para(str(stance.get(phase, "")), 13, UiKit.MUTED)
 	cycle.name = "TradeClubPhase"
 	body.add_child(cycle)
 	body.add_child(UiKit.spacer(4))
@@ -780,7 +780,8 @@ func _trade_club_sheet(body: VBoxContainer) -> void:
 	var options := []
 	for code in GameDB.active_clubs(GameState.season_year):
 		if code != GameState.my_club:
-			options.append([code, GameDB.club_name(code)])
+			options.append([code, "%s · %s" % [GameDB.club_name(code),
+					TeamRating.category(GameState.club_phase(code))]])
 	body.add_child(UiKit.choice_grid("TradeClubChoice", options, _trade_club, 2, func(code: String):
 		if code != _trade_club:
 			_theirs = []
@@ -856,7 +857,7 @@ func _pick_label(pk: Dictionary) -> String:
 ## not as bars across the screen (director, 2026-10-10).
 func _wide() -> bool:
 	var w := UiKit.view_width(self)
-	return ScreenLayout.is_desktop() and w >= 760.0 and w > UiKit.view_height(self) * 1.2
+	return ScreenLayout.roomy(w, UiKit.view_height(self))
 
 
 func _compact_actions(row: HBoxContainer, main: Button) -> void:
@@ -910,7 +911,15 @@ func _action_slot(card: PanelContainer) -> Container:
 	return card.get_child(0) as VBoxContainer
 
 
-func _para(text: String, size: int, colour: Color) -> Label:
-	var l := UiKit.lbl(text, size, colour)
+## Every club's players by name from the season's lists (they follow trades), so
+## a name in a sentence wears his club's colour (NameInk); made again on each build.
+func _names() -> Dictionary:
+	if _name_index.is_empty() and GameState.season != null:
+		_name_index = NameInk.from_lists(GameState.season.lists)
+	return _name_index
+
+
+func _para(text: String, size: int, colour: Color) -> Control:
+	var l := NameInk.label(text, _names(), size, colour)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l

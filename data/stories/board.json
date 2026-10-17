@@ -1,0 +1,281 @@
+[
+	{
+		"id": "board_wants_answers",
+		"category": "board",
+		"cooldown": 6,
+		"subject": {
+			"kind": "club"
+		},
+		"when": {
+			"losing_run_every": 3
+		},
+		"title": [
+			"The board wants answers"
+		],
+		"text": [
+			"Another loss, and the chairman's on the phone. He wants to know what happens next."
+		],
+		"default": 1,
+		"choices": [
+			{
+				"key": "promise",
+				"label": "Promise a win this week",
+				"effects": [
+					{
+						"op": "promise_win"
+					}
+				],
+				"result": "You promise the board a win this week."
+			},
+			{
+				"key": "patience",
+				"label": "Ask for patience",
+				"effects": [
+					{
+						"op": "board",
+						"d": -3
+					}
+				],
+				"result": "The board grudgingly agrees to wait."
+			}
+		]
+	},
+	{
+		"id": "board_president_lunch",
+		"category": "board",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"The president wants a lunch"
+		],
+		"text": [
+			"He wants to hear your plan for the rest of the season, face to face."
+		],
+		"choices": [
+			{
+				"key": "go",
+				"label": "Go and sell the plan",
+				"effects": [
+					{
+						"op": "board",
+						"d": 5
+					},
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "side"
+					}
+				],
+				"result": "You sell the plan over lunch. The players notice you weren't there."
+			},
+			{
+				"key": "no",
+				"label": "Send your apologies",
+				"effects": [
+					{
+						"op": "board",
+						"d": -3
+					}
+				],
+				"result": "You stay at the club."
+			}
+		],
+		"when": {
+			"board_max": 55
+		}
+	},
+	{
+		"id": "board_sponsor_shoot",
+		"category": "board",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"overall_min": 75
+			},
+			"pick": "random"
+		},
+		"title": [
+			"A sponsor wants {name} for an ad shoot"
+		],
+		"text": [
+			"Half a day in a studio on Wednesday."
+		],
+		"choices": [
+			{
+				"key": "yes",
+				"label": "Do the shoot",
+				"effects": [
+					{
+						"op": "board",
+						"d": 4
+					},
+					{
+						"op": "morale",
+						"d": -2
+					},
+					{
+						"op": "heavy_legs"
+					}
+				],
+				"result": "{name} does the shoot. The sponsor is thrilled."
+			},
+			{
+				"key": "no",
+				"label": "He needs the rest",
+				"effects": [
+					{
+						"op": "board",
+						"d": -3
+					}
+				],
+				"result": "{name} rests. The sponsor goes quiet."
+			}
+		]
+	},
+	{
+		"id": "board_billboards",
+		"category": "board",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"The board's thrilled with the run"
+		],
+		"text": [
+			"They want the players' faces on billboards around town."
+		],
+		"choices": [
+			{
+				"key": "yes",
+				"label": "Lap it up",
+				"effects": [
+					{
+						"op": "board",
+						"d": 3
+					},
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "all"
+					}
+				],
+				"result": "The billboards go up."
+			},
+			{
+				"key": "no",
+				"label": "Keep everyone grounded",
+				"effects": [
+					{
+						"op": "board",
+						"d": -1
+					},
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "all"
+					}
+				],
+				"result": "No billboards. Not yet."
+			}
+		],
+		"when": {
+			"winning_run_min": 4
+		}
+	},
+	{
+		"id": "board_savings",
+		"category": "board",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"The board wants savings"
+		],
+		"text": [
+			"A tight year. They're looking at the football department first."
+		],
+		"choices": [
+			{
+				"key": "cut",
+				"label": "Cut back the recovery staff this week",
+				"effects": [
+					{
+						"op": "board",
+						"d": 4
+					},
+					{
+						"op": "heavy_legs",
+						"who": "all"
+					}
+				],
+				"result": "The board likes the saving."
+			},
+			{
+				"key": "fight",
+				"label": "Fight for your staff",
+				"effects": [
+					{
+						"op": "board",
+						"d": -4
+					}
+				],
+				"result": "You fight for your people. The board notes it."
+			}
+		],
+		"when": {
+			"board_max": 45
+		}
+	},
+	{
+		"id": "board_injury_list",
+		"category": "board",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"The board's asking about the injury list"
+		],
+		"text": [
+			"Too many players in the rehab group, and they want to know why."
+		],
+		"choices": [
+			{
+				"key": "back",
+				"label": "Back your medical staff",
+				"effects": [
+					{
+						"op": "board",
+						"d": -2
+					},
+					{
+						"op": "morale",
+						"d": 2,
+						"who": "all"
+					}
+				],
+				"result": "You stand by the medical staff."
+			},
+			{
+				"key": "review",
+				"label": "Promise a review",
+				"effects": [
+					{
+						"op": "board",
+						"d": 3
+					},
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "all"
+					}
+				],
+				"result": "You promise a review. The physios aren't happy."
+			}
+		],
+		"when": {
+			"fit_count_max": 36
+		}
+	}
+]

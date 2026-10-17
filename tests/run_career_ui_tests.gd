@@ -235,7 +235,64 @@ func _run() -> void:
 			and current_scene.find_child("NameMode_real", true, false) == null,
 			"The menu itself carries no setup controls")
 	_check(not _screen_text().contains("players ·") and not _screen_text().contains("Quit"),
-			"No data line or Quit on the menu")
+			"No data line or Quit on the menu (the button is Exit game)")
+	# Exit game (director, 2026-10-12): on desktop, a real click saves and quits.
+	var size_pre := root.size
+	root.size = Vector2i(1280, 720)   # a desktop window, so the tap lands on screen
+	await _settle()
+	var exit_btn: Button = current_scene.find_child("ExitGame", true, false)
+	_check(exit_btn != null and exit_btn.text == "Exit game", "The menu has an Exit game button on desktop")
+	var quits := [0]
+	_router.quit_hook = func() -> void: quits[0] += 1
+	_state.mark_dirty()
+	var exit_tap: String = await Tap.tap(exit_btn) if exit_btn != null else "missing"
+	_check(exit_tap == "" and quits[0] == 1, "A real click on Exit game leaves the game once (%s, %d)" % [exit_tap, quits[0]])
+	_router.handle_back(false)
+	_check(quits[0] == 1, "Escape on the menu still does not quit")
+	_router.quit_hook = Callable()
+	root.size = size_pre
+	_check(exit_btn != null and exit_btn.custom_minimum_size.y >= 48.0
+			and exit_btn.get_parent().get_child(exit_btn.get_parent().get_child_count() - 1) == exit_btn,
+			"Exit game is last in the How to play / Settings row, at least 48 px tall")
+	# The gate is the platform, not the window width: a phone has no Exit game,
+	# a narrow desktop window still has it.
+	var sl = load("res://scripts/core/ScreenLayout.gd")
+	var wide := root.size
+	root.size = Vector2i(390, 844)
+	_router.to_main_menu(false)
+	await _settle()
+	var narrow_has: bool = current_scene.find_child("ExitGame", true, false) != null
+	sl.force_web_phone = true
+	_router.to_main_menu(false)
+	await _settle()
+	var phone_has: bool = current_scene.find_child("ExitGame", true, false) != null
+	sl.force_web_phone = false
+	root.size = wide
+	_router.to_main_menu(false)
+	await _settle()
+	_check(sl.desktop_for(["windows"]) and sl.desktop_for(["linuxbsd"]) and sl.desktop_for(["macos"])
+			and not sl.desktop_for(["web"]) and not sl.desktop_for(["android"]) and not sl.desktop_for(["ios"])
+			and not sl.desktop_for(["web", "wasm32"]),
+			"Exit game, Display and Alt+Enter follow is_desktop: false on a web export, Android and iOS")
+	_check(narrow_has and not phone_has, "Exit game: shown in a narrow desktop window, hidden on a phone (is_desktop false)")
+	# Fit to the screen (director, 2026-10-12): a desktop opens fullscreen unless
+	# the player chose Window, in which case the window opens maximised.
+	var screen_layout = load("res://scripts/core/ScreenLayout.gd")
+	var cfg_default := ConfigFile.new()
+	var cfg_window := ConfigFile.new()
+	cfg_window.set_value("ui", "fullscreen", false)
+	_check(screen_layout.start_mode(cfg_default) == DisplayServer.WINDOW_MODE_FULLSCREEN
+			and screen_layout.start_mode(cfg_window) == DisplayServer.WINDOW_MODE_MAXIMIZED,
+			"The window mode on start is fullscreen, or maximised when Window was chosen")
+	var was_full: bool = _state.fullscreen()
+	var alt_enter := InputEventKey.new()
+	alt_enter.keycode = KEY_ENTER
+	alt_enter.alt_pressed = true
+	alt_enter.pressed = true
+	root.get_node("ScreenLayout")._input(alt_enter)
+	_check(_state.fullscreen() == not was_full, "Alt+Enter switches between fullscreen and window")
+	root.get_node("ScreenLayout")._input(alt_enter)
+	_check(_state.fullscreen() == was_full, "and back again")
 	_check(current_scene.find_child("MenuHelp", true, false) != null
 			and current_scene.find_child("MenuSettings", true, false) != null,
 			"How to play and Settings are on the menu")
@@ -647,16 +704,26 @@ func _run() -> void:
 	_check(not form_digits and not form_text.contains(" his ") and not form_text.contains("his season"),
 			"Recent games shows no rating numbers and no dangling 'his' (%s)" % form_text.replace("\n", " / "))
 	var plan: Button = current_scene.find_child("ClubPlan_contest", true, false)
-	if plan != null:
-		plan.emit_signal("pressed")
-		await _settle()
+	var size_plan: Vector2i = root.size
+	root.size = Vector2i(390, 844)   # a phone window, so the finger lands on screen
+	await _settle()
+	plan = current_scene.find_child("ClubPlan_contest", true, false)
+	var why_plan: String = (await Tap.tap(plan)) if plan != null else "no tile"
+	await _settle()
 	_check(_state.club_plan == "contest" and _state.season.plans.get("SYD", "") == "contest",
-			"Choosing a game plan makes it the club's plan")
+			"Choosing a game plan makes it the club's plan (a real tap: %s)" % why_plan)
+	# Readability: the chosen plan is bold, the others regular.
+	var chosen_l: Label = plan.find_child("Plan", true, false) if plan != null else null
+	var other_tile: Node = current_scene.find_child("ClubPlan_attacking", true, false)
+	var other_l: Label = other_tile.find_child("Plan", true, false) if other_tile != null else null
+	root.size = size_plan
+	_check(chosen_l != null and other_l != null and chosen_l.get_theme_font("font") == load("res://scripts/ui/UiKit.gd").BOLD
+			and other_l.get_theme_font("font") != load("res://scripts/ui/UiKit.gd").BOLD, "The chosen plan is bold, the others are regular")
 	_state.set_club_plan("balanced")
 	_router.handle_back(true)
 	await _settle()
 	_check(_router.current() == "hub", "Back returns to the hub")
-	_state.week_event = load("res://scripts/sim/ClubLife.gd")._fans()
+	_state.week_event = _state.story_card("members_open_training")
 	_router.go("hub")
 	await _settle()
 	var ev_btn: Button = current_scene.find_child("Event_0", true, false)
@@ -666,6 +733,90 @@ func _run() -> void:
 		await _settle()
 	_check(not _state.week_event_pending() and _screen_text().contains("members loved it"),
 			"Answering it shows what happened")
+	# A big week's two cards: both show, and a finger on the second card's
+	# answer settles that card only.
+	_state.week_events = [_state.story_card("members_open_training"), _state.story_card("training_extra_session")]
+	var two_cards_size := root.size
+	root.size = Vector2i(390, 844)
+	_router.go("hub")
+	await _settle()
+	var second_card: Control = current_scene.find_child("WeekEvent_1", true, false)
+	var second_btn: Button = second_card.find_child("Event_1", true, false) if second_card != null else null
+	var second_tap: String = await Tap.tap(second_btn) if second_btn != null else "missing"
+	await _settle()
+	_check(second_tap == "" and bool(_state.week_events[1].get("resolved", false))
+			and not bool(_state.week_events[0].get("resolved", false)),
+			"Two cards in a big week, each answered on its own by a tap (%s)" % second_tap)
+	# What each answer does sits under its own button, worded from its effects,
+	# gains first then costs, in the same full-strength text for every answer:
+	# backing him names the promise, leaving him out names the missed game, and
+	# a finger on a button with lines under it still answers the card. The card
+	# does not repeat these lines under its heading.
+	_state.week_events = [_state.story_card("training_kid_pushing", _state.my_list[0])]
+	_router.go("hub")
+	await _settle()
+	var kid_card: Control = current_scene.find_child("WeekEvent", true, false)
+	var back_gain: Label = kid_card.find_child("EventGain_0_0", true, false) if kid_card != null else null
+	var back_cost: Label = kid_card.find_child("EventCost_0_0", true, false) if kid_card != null else null
+	var rest_gain: Label = kid_card.find_child("EventGain_0_1", true, false) if kid_card != null else null
+	var rest_cost: Label = kid_card.find_child("EventCost_0_1", true, false) if kid_card != null else null
+	var back_mark: Label = kid_card.find_child("EventGainMark_0_0", true, false) if kid_card != null else null
+	var cost_mark: Label = kid_card.find_child("EventCostMark_0_1", true, false) if kid_card != null else null
+	var rest_btn: Button = kid_card.find_child("Event_1", true, false) if kid_card != null else null
+	var same_style := true
+	for l in [back_gain, back_cost, rest_gain, rest_cost]:
+		if l == null or (l as Label).get_theme_font_size("font_size") < 14 or (l as Label).get_theme_color("font_color") != (back_gain as Label).get_theme_color("font_color") 				or (l as Label).get_theme_color("font_color").a < 0.99:
+			same_style = false
+	_check(kid_card != null and kid_card.find_child("EventStakes_0", true, false) == null
+			and back_mark != null and back_mark.text == "Gain:" and cost_mark != null and cost_mark.text == "Cost:"
+			and cost_mark.get_theme_font("font") != rest_cost.get_theme_font("font") and cost_mark.get_theme_color("font_color") == rest_cost.get_theme_color("font_color")
+			and back_gain != null and back_cost != null and back_cost.text.contains("promise breaks")
+			and rest_gain != null and rest_cost != null and rest_cost.text == "He misses this week's game."
+			and same_style and rest_btn != null and rest_cost.get_global_rect().position.y >= rest_gain.get_global_rect().end.y - 1.0
+			and rest_gain.get_global_rect().position.y >= rest_btn.get_global_rect().end.y - 1.0,
+			"Each answer says its gains then its costs under its own button, in the same full-strength text (%s / %s)" % [back_cost.text if back_cost != null else "none", rest_cost.text if rest_cost != null else "none"])
+	var first_btn: Button = kid_card.find_child("Event_0", true, false) if kid_card != null else null
+	_check(first_btn != null and rest_btn != null and back_gain != null and back_cost != null
+			and rest_btn.get_global_rect().position.y - back_cost.get_global_rect().end.y
+			> back_gain.get_global_rect().position.y - first_btn.get_global_rect().end.y + 4.0,
+			"The gap to the next button is larger than the gap from a button to its own lines")
+	var cost_tap: String = await Tap.tap(rest_btn) if rest_btn != null else "missing"
+	await _settle()
+	_check(cost_tap == "" and bool(_state.week_events[0].get("resolved", false)),
+			"A real tap on the answer that costs a game answers the card (%s)" % cost_tap)
+	_state.week_events = []
+	# His trust on the profile, at phone size: the words, and a finger on Why
+	# shows his reasons, newest first. A player you've had nothing to do with
+	# shows no trust line.
+	var trusted: Dictionary = _state.my_list[0]
+	var stranger: Dictionary = _state.my_list[1]
+	var saved_rel: Dictionary = _state.relations.duplicate(true)
+	_state.relations.erase(Trust.player_key(str(stranger["id"])))
+	_state.relations.erase(Trust.player_key(str(trusted["id"])))
+	Trust.change(_state.relations, Trust.player_key(str(trusted["id"])), 12, "You gave him his chance", _state.season_year, "Round 2")
+	Trust.change(_state.relations, Trust.player_key(str(trusted["id"])), 10, "You promised him his spot back", _state.season_year, "Round 5")
+	var tsheet: Control = load("res://scripts/ui/PlayerSheet.gd").open(current_scene, trusted)
+	await _settle()
+	var twords: Label = tsheet.find_child("TrustWords", true, false)
+	var twhy: Button = tsheet.find_child("TrustWhy", true, false)
+	var treasons: Control = tsheet.find_child("TrustReasons", true, false)
+	_check(twords != null and twords.text == "Trusts you." and treasons != null and not treasons.visible,
+			"The profile says he trusts you, with the reasons folded away")
+	var why_tap: String = await Tap.tap(twhy) if twhy != null else "missing"
+	await _settle()
+	var first_reason: Label = treasons.get_child(1) if treasons != null and treasons.get_child_count() > 2 else null
+	_check(why_tap == "" and treasons.visible and twhy.size.y >= 44 and first_reason != null
+			and first_reason.text.begins_with("Round 5, ") and first_reason.text.ends_with("Trust rose."),
+			"A tap on Why shows his reasons, newest first (%s)" % why_tap)
+	tsheet.queue_free()
+	var ssheet: Control = load("res://scripts/ui/PlayerSheet.gd").open(current_scene, stranger)
+	await _settle()
+	_check(ssheet.find_child("ProfileTrust", true, false) == null,
+			"A player you've had nothing to do with shows no trust line")
+	ssheet.queue_free()
+	_state.relations = saved_rel
+	await _settle()
+	root.size = two_cards_size
 
 	# --- Sim round asks first: it plays your match without you --------------
 	_state.set_confirm_sim_round(true)
@@ -680,7 +831,7 @@ func _run() -> void:
 	await _settle()
 	_check(current_scene.find_child("SimConfirm", true, false) != null and _state.season.round_index == r0,
 			"Sim round asks before playing your match")
-	_check(_screen_text().contains("Play Round %d?" % (r0 + 1)), "The question names the round")
+	_check(_screen_text().contains("Sim Round %d?" % (r0 + 1)), "The question names the round")
 	_router.handle_back(true)
 	await _settle()
 	_check(_router.current() == "hub" and current_scene.find_child("SimConfirm", true, false) == null
@@ -1350,7 +1501,7 @@ func _run() -> void:
 		confirm.emit_signal("pressed")
 		await _settle()
 	_check(_router.current() == "draft", "Confirming starts a new career at the draft")
-	_check(not _state.has_saved_career(), "The replaced save is removed")
+	_check(_state.has_saved_career(), "The old save is kept until the new career has a club (Back must not lose it)")
 	_check(_state.season == null and _state.draft != null, "The new career starts empty")
 
 	# --- Escape on the main menu never quits ---------------------------------
@@ -1377,6 +1528,17 @@ func _run() -> void:
 	_state.set_confirm_sim_round(false)
 	_router.go("hub")
 	await _settle()
+	# The line under each club on the hub says the same numbers the game holds (TeamRating).
+	var own_line: Label = current_scene.find_child("MyTeamOutlook", true, false)
+	var opp_line: Label = current_scene.find_child("OppTeamOutlook", true, false)
+	var own_o: Dictionary = _state.team_outlook(_state.my_club)
+	var opp_o: Dictionary = _state.team_outlook(str(_state.my_next_opponent().get("code", "")))
+	var rating_tail := "%s. Team rating %d. On this list, %d in three years."
+	_check(own_line != null and opp_line != null
+			and own_line.text == rating_tail % [own_o["category"], own_o["rating"], own_o["forecast"]]
+			and opp_line.text.ends_with(rating_tail % [opp_o["category"], opp_o["rating"], opp_o["forecast"]])
+			and own_line.autowrap_mode != TextServer.AUTOWRAP_OFF and opp_line.autowrap_mode != TextServer.AUTOWRAP_OFF,
+			"The hub's two rating lines read as the game's numbers and wrap rather than cut off (%s | %s)" % [own_line.text if own_line else "-", opp_line.text if opp_line else "-"])
 	var r_start: int = _state.season.round_index
 	var sim_btn: Button = current_scene.find_child("SimRound", true, false)
 	sim_btn.emit_signal("button_down")
@@ -1473,9 +1635,12 @@ func _run() -> void:
 
 	await _test_season_awards()
 	await _test_back_arrow_taps()
+	await _test_finals_card_taps()
 	_test_type_roles()
 	await _test_names_fit()
 	_state.delete_saved_career()
+	await _new_career_keeps_the_save()
+	await _pc_hub_and_list_layout()
 	print("Career UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
@@ -1500,6 +1665,88 @@ func _test_back_arrow_taps() -> void:
 			why = await Tap.tap(b)
 			await _settle()
 		_check(_router.current() == "hub", "Tapping back on %s gets you out (%s)" % [key, why if why != "" else "ok"])
+
+
+## The finals cards on a phone: a club on its week off (no match, so no Play match) is shown the
+## week-off card and a finger on "Rest them" answers it; in the semi week the same card has a third
+## choice, and a finger on it answers it too; a Grand Final card with the rule under "See the rule".
+func _test_finals_card_taps() -> void:
+	_state.reset()
+	_state.career_seed = 4401
+	_state.replay_seed = 4401
+	_state.start_season("FRE", _db.club_list("FRE"))
+	var sea = _state.season
+	var codes: Array = sea.ladder.keys()
+	codes.sort()
+	codes.erase("FRE")
+	codes.insert(0, "FRE")
+	for i in range(codes.size()):
+		var row: Dictionary = sea.ladder[codes[i]]
+		row["w"] = 20 - i
+		row["l"] = 4 + i
+		row["d"] = 0
+		row["p"] = 24
+		row["pf"] = 2400 - i * 20
+		row["pa"] = 2000
+	sea.round_index = sea.fixture.size()
+	sea.recalc_ladder()
+	sea.start_finals()
+	_state._next_week_event()
+	root.size = Vector2i(390, 844)
+	_router.stack = ["main"]
+	_router.go("hub")
+	await _settle()
+	var card: Control = current_scene.find_child("WeekEvent", true, false)
+	var ids: Array = _state.week_events.map(func(c): return str(c["tid"]))
+	_check(card != null and ids == ["finals_week_off"], "A club on its week off sees the week-off card on the hub (%s)" % str(ids))
+	var play_btn: Button = null
+	for b in current_scene.find_children("*", "Button", true, false):
+		if (b as Button).text == "Play the wildcard":
+			play_btn = b
+	_check(play_btn != null and play_btn.get_combined_minimum_size().x <= play_btn.size.x + 0.5,
+			"The wildcard week's Play button reads whole on a 390 phone (%s)" % (str(play_btn.size) if play_btn != null else "missing"))
+	var rest: Button = card.find_child("Event_0", true, false) if card != null else null
+	_check(card != null and card.find_child("Event_2", true, false) == null, "Week one of the finals: two choices, no semi to watch")
+	var tap_why: String = await Tap.tap(rest) if rest != null else "missing"
+	await _settle()
+	var all_fresh := true
+	for q in _state.my_list:
+		all_fresh = all_fresh and bool(q.get("fresh", false))
+	_check(tap_why == "" and bool(_state.week_events[0].get("resolved", false)) and all_fresh,
+			"A finger on Rest them answers the week-off card and the whole list is fresh (%s)" % tap_why)
+	# The semi week: the same card with a third choice.
+	sea.finals["week"] = 3
+	sea.finals["weeks"] = [[], []]
+	sea.finals["slots"] = {"W_QF1": "FRE"}
+	_state._next_week_event()
+	_router.go("hub")
+	await _settle()
+	card = current_scene.find_child("WeekEvent", true, false)
+	var semi: Button = card.find_child("Event_2", true, false) if card != null else null
+	_check(semi != null and semi.text.contains("Watch the semi together"), "The semi week's card has a third choice: Watch the semi together")
+	var semi_why: String = await Tap.tap(semi) if semi != null else "missing"
+	await _settle()
+	_check(semi_why == "" and bool(_state.week_events[0].get("resolved", false)), "A finger on it answers the card (%s)" % semi_why)
+	# A captain card in the Grand Final: the rule is one tap away.
+	sea.finals["week"] = 5
+	sea.finals["weeks"] = [[], [], [], []]
+	sea.finals["slots"] = {"W_PF1": "FRE", "W_PF2": "ESS"}
+	var captaincy = load("res://scripts/sim/Captaincy.gd")
+	var cap: Dictionary = {}
+	for q in _state.my_list:
+		if captaincy.role_of(_state.captaincy_record("FRE"), str(q["id"])) == "captain":
+			cap = q
+	_state.week_events = [_state.story_card("finals_second_chance", cap)]
+	_router.go("hub")
+	await _settle()
+	card = current_scene.find_child("WeekEvent", true, false)
+	var rule_btn: Control = null
+	if card != null:
+		for n in card.find_children("*", "Button", true, false):
+			if (n as Button).text.contains("See the rule"):
+				rule_btn = n
+	_check(rule_btn != null, "A card that leaves it to the captain offers See the rule")
+	_state.week_events = []
 
 
 func _test_season_awards() -> void:
@@ -1672,3 +1919,104 @@ func _find_named(n: Node, named: String, out: Array) -> void:
 		out.append(n)
 	for c in n.get_children():
 		_find_named(c, named, out)
+
+
+## qa web pass, 2026-10-12: starting a new career must not cost the player the
+## one they have. The old save stays until the new career has a club; Back on
+## Choose your club steps back to the New career options, and Continue still
+## offers the old career. Real taps at each step.
+func _new_career_keeps_the_save() -> void:
+	_state.reset()
+	_state.start_season("COL", _db.club_list("COL"))
+	_check(_state.save_career(), "(setup) the old career is saved")
+	_state.reset()
+	_router.stack = []
+	_router.go("main")
+	await _settle()
+	var old_club := str(_state.saved_career_meta().get("club", ""))
+	_check(old_club == "COL" and current_scene.find_child("ContinueCareer", true, false) != null,
+			"The title offers Continue for the saved career")
+	var t1: String = await Tap.tap(current_scene.find_child("NewCareer", true, false))
+	await _settle()
+	var t2: String = await Tap.tap(current_scene.find_child("StartCareer", true, false))
+	await _settle()
+	var t3: String = await Tap.tap(current_scene.find_child("ConfirmNewCareer", true, false))
+	await _settle()
+	await _settle()
+	_check(t1 == "" and t2 == "" and t3 == "" and _router.current() == "draft",
+			"New career > Choose your club > Start new career reaches Choose your club (%s %s %s, at %s)" % [t1, t2, t3, _router.current()])
+	_check(str(_state.saved_career_meta().get("club", "")) == "COL",
+			"The old career is still saved while the club is being chosen")
+	# One step back: the New career options, not the title.
+	var back_tap: String = await Tap.tap(current_scene.find_child("BackToMenu", true, false))
+	await _settle()
+	await _settle()
+	_check(back_tap == "" and _router.current() == "main" and str(current_scene.get("_mode")) == "setup",
+			"Back on Choose your club steps back to the New career options (%s; now %s, mode %s)" % [back_tap, _router.current(), str(current_scene.get("_mode"))])
+	_check(str(_state.saved_career_meta().get("club", "")) == "COL", "...and the old career is still saved")
+	# And back to the title, where Continue still offers it.
+	_router.handle_back(false)
+	await _settle()
+	var meta: Node = current_scene.find_child("CareerMeta", true, false)
+	_check(current_scene.find_child("ContinueCareer", true, false) != null and meta != null
+			and (meta as Label).text.contains(_db.club_name("COL")),
+			"The title still offers Continue for the old career")
+	# Escape on Choose your club does the same.
+	await Tap.tap(current_scene.find_child("NewCareer", true, false))
+	await _settle()
+	await Tap.tap(current_scene.find_child("StartCareer", true, false))
+	await _settle()
+	await Tap.tap(current_scene.find_child("ConfirmNewCareer", true, false))
+	await _settle()
+	await _settle()
+	_router.handle_back(false)
+	await _settle()
+	await _settle()
+	_check(_router.current() == "main" and str(current_scene.get("_mode")) == "setup"
+			and str(_state.saved_career_meta().get("club", "")) == "COL",
+			"Escape on Choose your club also steps back to the options with the old career kept")
+	_state.delete_saved_career()
+
+
+## web's PC pass (2026-10-12): at 1280x720 the hub shows Play match and Play
+## round together without scrolling, and My list's Captaincy row is a row of
+## text, not a bar across the window.
+func _pc_hub_and_list_layout() -> void:
+	root.size = Vector2i(1280, 720)
+	_state.reset()
+	_state.start_season("COL", _db.club_list("COL"))
+	_router.stack = []
+	_router.go("main")
+	await _settle()
+	_router.go("hub")
+	await _settle()
+	await _settle()
+	var play: Control = current_scene.find_child("WeekActions", true, false)
+	var play_btn: Button = null
+	if play != null:
+		for b in play.find_children("*", "Button", true, false):
+			if (b as Button).text == "Play match":
+				play_btn = b
+	var sim: Button = current_scene.find_child("SimRound", true, false)
+	var win := Rect2(Vector2.ZERO, Vector2(root.size))
+	var in_scroll := func(c: Control) -> bool:
+		var p := c.get_parent()
+		while p != null:
+			if p is ScrollContainer:
+				return true
+			p = p.get_parent()
+		return false
+	_check(play_btn != null and sim != null, "The hub has Play match and Play round at 1280x720")
+	if play_btn != null and sim != null:
+		_check(win.encloses(play_btn.get_global_rect()) and win.encloses(sim.get_global_rect())
+				and not in_scroll.call(play_btn) and not in_scroll.call(sim),
+				"Play match and Play round are both on screen without scrolling at 1280x720 (%s, %s)" % [str(play_btn.get_global_rect()), str(sim.get_global_rect())])
+	_check(play_btn != null and sim != null and play_btn.get_parent() == sim.get_parent(),
+			"On a PC bar the match choices sit together: Play round beside Pick the side and Play match")
+	_router.go("list")
+	await _settle()
+	await _settle()
+	var cap: Control = current_scene.find_child("CaptaincyOpen", true, false)
+	var cap_title: Control = cap.find_child("SectionTitle", true, false) if cap != null else null
+	_check(cap_title != null and cap_title.size.x >= 60.0, "The Captaincy label is visible beside the names (%.0f wide)" % (cap_title.size.x if cap_title != null else -1.0))
+	_check(cap != null and cap.size.x < 640.0 and cap.size.y >= 44.0, "My list's Captaincy row is not a bar across the PC window and is thumb high (%.0f x %.0f)" % [cap.size.x if cap != null else -1.0, cap.size.y if cap != null else -1.0])

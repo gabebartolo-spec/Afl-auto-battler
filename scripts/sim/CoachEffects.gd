@@ -115,6 +115,14 @@ static func set_table(coaches: Dictionary, clubs: Array, my_club: String) -> voi
 		table[club] = tactics(by.get(club, {}), club == my_club)
 		table[club]["ai"] = club != my_club
 		table[club]["assistant"] = club == my_club
+		# An AI club's senior coach's tendency; yours is you.
+		var sc: Dictionary = (by.get(club, {}) as Dictionary).get("SC", {})
+		table[club]["style"] = Coaches.style(sc) if club != my_club and not sc.is_empty() else "balanced"
+
+
+## How well each club knows each plan (GameState.plan_known, the same
+## dictionary): club -> {plan: level}. Empty with the pre-season switch off.
+static var known := {}
 
 
 static func for_club(code: String) -> Dictionary:
@@ -126,10 +134,15 @@ static func apply(sq: Squad) -> void:
 	var t: Dictionary = for_club(sq.code)
 	if t.is_empty():
 		return
+	sq.plan_know = {}
+	var levels: Dictionary = known.get(sq.code, {})
+	for plan in levels:
+		sq.plan_know[str(plan)] = PreSeason.familiar_mult(int(levels[plan]))
 	sq.tactics_exec = float(t["exec"])
 	sq.tactics_read = float(t["read"])
 	sq.ai_plans = bool(t["ai"])
 	sq.assistant = bool(t.get("assistant", false))
+	sq.coach_style = str(t.get("style", "balanced"))
 
 
 ## club -> {job: record}, in one pass over the records.

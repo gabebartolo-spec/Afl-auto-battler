@@ -9,6 +9,7 @@
     "club": 170,
     "pressure": 58,
     "workload": 22,
+    "fitness": 15,
     "balance": 163,
     "training": 40,
     "injuries": 86,
@@ -38,6 +39,14 @@
     "league_balance": 231,
     "calibration": 131,
     "matchup": 79,
-    "stats": 10
+    "stats": 10,
+    "story": 30,
+    "back_nav": 140,
+    "family": 15,
+    "scroll": 30,
+    "nameink": 10,
+    "keyboard": 30,
+    "preseason": 150,
+    "plan_know": 60
   }
 }

@@ -50,6 +50,34 @@ const CLASS_TIERS := [
 ]
 const CLASS_TOP_RANKS := 30
 
+## Draft-night rating scale for generated classes (director 2026-10-14, "A: gentle": young
+## draftees arrive lower and climb like real AFL ones). 1.0 is the old curve. Only new
+## generated classes use it: players already on a list, and the real 2026 class, are not rescaled. The
+## rank-base rating is multiplied by this and the points taken off are added back to
+## the prospect's room, so his POT (his ceiling) does not move.
+## (static var, not const, only so tools/audit can try arms in one run.)
+static var DRAFT_NIGHT_SCALE := 0.78
+## Readiness (director 2026-10-13: "some players are more ready-made than others"): with the scale
+## below 1, a few prospects keep most of the old draft-night rating (ready-made: senior footy in
+## year 1, less climb left), most lose it all, and some lose more (long-term projects, a big
+## climb). Over-age prospects are likelier to be ready-made. The class average drop is unchanged.
+static var DRAFT_READINESS := true
+const READY_DROP := [0.25, 0.93, 1.5]  # share of the drop kept: ready-made, typical, project
+
+
+## 0 ready-made, 1 typical, 2 project: seeded by the prospect alone.
+static func readiness(p: Dictionary) -> int:
+	var rng := _rng_for("ready|%s|%s" % [str(p.get("id", "")), str(p.get("draft_year", 2026))])
+	var roll := rng.randf()
+	var over_age := float(p.get("age", 18.0)) >= 19.0
+	var ready_p := 0.40 if over_age else 0.08
+	var project_p := 0.10 if over_age else 0.32
+	if roll < ready_p:
+		return 0
+	if roll < ready_p + project_p:
+		return 2
+	return 1
+
 const ROLE_DELTAS := {
 	"MID": {"disposal": 6.0, "contested": 5.0, "pressure": 3.0, "carry": 4.0,
 			"creating": 2.0, "marking": -1.0, "goalkicking": -3.0, "intercept": 0.0,
@@ -125,6 +153,15 @@ static func project(p: Dictionary) -> void:
 	var rank := int(p.get("draft_rank", 0))
 	var role := str(p.get("role", "MID"))
 	var target := rank_base_overall(rank)
+	p.erase("night_drop")
+	if DRAFT_NIGHT_SCALE != 1.0 and p.has("class_shift"):
+		var drop := target * (1.0 - DRAFT_NIGHT_SCALE)
+		if DRAFT_READINESS:
+			var rd := readiness(p)
+			drop *= float(READY_DROP[rd])
+			p["readiness"] = ["ready", "typical", "project"][rd]
+		target -= drop
+		p["night_drop"] = drop
 
 	# Reported U18 production lifts the floor, capped so a stat-stuffing
 	# Talent League season can never out-project a 20-game AFL pro.
@@ -157,7 +194,11 @@ static func project(p: Dictionary) -> void:
 		target += 1.0  # over-age means proven, at a small trade-off in ceiling
 	target += rng.randf_range(-1.5, 1.5)
 	target += float(p.get("class_shift", 0.0))
+	var unscaled := target + float(p.get("night_drop", 0.0))
 	target = clampf(target, 38.0, 74.0)
+	if p.has("night_drop"):
+		# Only the points actually taken off count (the floor stops the lowest picks).
+		p["night_drop"] = clampf(unscaled, 38.0, 74.0) - target
 
 	# Attributes: centre on the target with the shape of a real player of his
 	# role (a specialist's spike and weak spot, not a flat template - director,
@@ -206,6 +247,11 @@ static func project(p: Dictionary) -> void:
 static var _shapes := {}
 ## How many of the nearest real players, by overall, a shape is drawn from.
 const SHAPE_NEAREST := 10
+
+
+## Forget the cached shapes: a new career rebuilds them from the 2026 players.
+static func forget_cache() -> void:
+	_shapes = {}
 
 
 ## The shape of one of the real players of `role` nearest `level` overall,
@@ -340,19 +386,7 @@ static func age_player(p: Dictionary, year: int) -> float:
 	else:
 		p["sample"] = maxf(18.0, float(p.get("gm", 0.0)))
 
-	var d := 0.0
-	if age <= 20.0:
-		d = rng.randf_range(2.5, 6.0)
-	elif age <= 23.0:
-		d = rng.randf_range(1.0, 4.0)
-	elif age <= 27.0:
-		d = rng.randf_range(0.0, 2.0)
-	elif age <= 30.0:
-		d = rng.randf_range(-1.0, 1.0)
-	elif age <= 33.0:
-		d = rng.randf_range(-3.0, 0.0)
-	else:
-		d = rng.randf_range(-6.0, -1.5)
+	var d := Potential.age_step(age, rng.randf())
 	var ov := int(p.get("overall", 50))
 	if age <= 25.0 and ov < 55:
 		d += 1.0  # late bloomers keep climbing

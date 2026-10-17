@@ -172,6 +172,26 @@ static func view_height(node: Node) -> float:
 	return vp.get_visible_rect().size.y if vp != null else 720.0
 
 
+## True when a phone's on-screen keyboard is the likely cause of a resize: a
+## text field has focus (on the screen or on a sheet over it) and the width is
+## the one the screen was built for, or ScreenLayout saw the window keep its
+## width in pixels (a keyboard takes height, never width). A screen skips its
+## rebuild then: freeing the focused field hides the keyboard, the window
+## grows back, the rebuild runs again, and the screen shifts in a loop.
+## Every screen that rebuilds on a resize asks this first.
+static func keyboard_resize(node: Node, built_width := -1.0) -> bool:
+	var vp := node.get_viewport()
+	if vp == null:
+		return false
+	var owner := vp.gui_get_focus_owner()
+	if not (owner is LineEdit or owner is TextEdit):
+		return false
+	if built_width >= 0.0 and absf(view_width(node) - built_width) < 1.0:
+		return true
+	var layout := node.get_node_or_null("/root/ScreenLayout")
+	return layout != null and bool(layout.keyboard_up)
+
+
 static func full_rect(c: Control) -> Control:
 	c.set_anchors_preset(Control.PRESET_FULL_RECT)
 	return c
@@ -194,6 +214,7 @@ static func hbox(sep := 8) -> HBoxContainer:
 ## own rail is 8 units).
 const SCROLL_RAIL := 20       # the touch area, in units
 const SCROLL_THUMB := 6       # the line you see inside it
+const SCROLL_THUMB_HOT := 10  # the same line, fatter, under the pointer or held
 const SCROLL_THUMB_MIN := 48  # never shorter than a fingertip
 
 static func scroll(child: Control) -> ScrollContainer:
@@ -206,7 +227,108 @@ static func scroll(child: Control) -> ScrollContainer:
 	style_scrollbar(s.get_v_scroll_bar())
 	child.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	s.add_child(child)
+	_let_drags_through(s)
 	return s
+
+
+## A swipe that starts on a button must scroll the page, not stop at the button:
+## every button inside a scrolling page lets the drag reach the page (a tap
+## still presses it). Buttons are set as they arrive, so a row built later is
+## covered too. (My list rows were plain buttons and swallowed the swipe.)
+static func _let_drags_through(s: ScrollContainer) -> void:
+	var pass_on := func(n: Node) -> void:
+		if n is BaseButton and is_instance_valid(s) and s.is_ancestor_of(n) 				and (n as Control).mouse_filter == Control.MOUSE_FILTER_STOP:
+			(n as Control).mouse_filter = Control.MOUSE_FILTER_PASS
+	s.tree_entered.connect(func() -> void:
+		var tree := s.get_tree()
+		if not tree.node_added.is_connected(pass_on):
+			tree.node_added.connect(pass_on)
+		_pass_buttons(s))
+	s.tree_exiting.connect(func() -> void:
+		var tree := s.get_tree()
+		if tree != null and tree.node_added.is_connected(pass_on):
+			tree.node_added.disconnect(pass_on))
+
+
+static func _pass_buttons(node: Node) -> void:
+	for c in node.get_children():
+		if c is BaseButton and (c as Control).mouse_filter == Control.MOUSE_FILTER_STOP:
+			(c as Control).mouse_filter = Control.MOUSE_FILTER_PASS
+		_pass_buttons(c)
+
+
+## Where the player is on a scrolled page, for a screen that rebuilds itself
+## (a move, a resize) and puts them back. Ask this, never scroll_vertical, when
+## you are about to rebuild: a page still waiting to be put back reports the
+## place it was asked to hold, so a second rebuild before the first has settled
+## (a browser reports its size more than once) cannot read 0 and send the
+## player to the top of the page.
+static func scroll_place(sc: ScrollContainer) -> int:
+	if sc == null or not is_instance_valid(sc):
+		return 0
+	return int(sc.get_meta("scroll_place", sc.scroll_vertical))
+
+
+## Put a rebuilt page back at `value` once it is laid out and tall enough,
+## holding the place until then. The player's own scroll (wheel, drag, bar) ends
+## the hold.
+static func restore_scroll(sc: ScrollContainer, value: int) -> void:
+	if sc == null or not is_instance_valid(sc):
+		return
+	if value <= 0:
+		sc.remove_meta("scroll_place")
+		return
+	sc.set_meta("scroll_place", value)
+	var bar := sc.get_v_scroll_bar()
+	var release := func(ev: InputEvent) -> void:
+		if is_instance_valid(sc) and (ev is InputEventMouseButton or ev is InputEventScreenTouch or ev is InputEventScreenDrag):
+			sc.remove_meta("scroll_place")
+	sc.gui_input.connect(release)
+	bar.gui_input.connect(release)
+	var loop := Engine.get_main_loop() as SceneTree
+	var held := 0
+	for i in range(90):
+		if not is_instance_valid(sc) or not sc.has_meta("scroll_place"):
+			return
+		sc.scroll_vertical = value
+		# Laid out (the bar knows its page) and at the place: hold it a few
+		# frames more, as the rows above settle, then let go.
+		if bar.page > 0.0 and sc.scroll_vertical >= value:
+			held += 1
+			if held >= 4:
+				break
+		else:
+			held = 0
+		await loop.process_frame
+	if is_instance_valid(sc):
+		sc.remove_meta("scroll_place")
+
+
+## Every page that scrolls up and down under `root`, in order, with where the
+## player is on it; give the list back to restore_places after a rebuild.
+static func scroll_places(root: Node) -> Array:
+	var places := []
+	for sc in _vertical_scrolls(root):
+		places.append(scroll_place(sc))
+	return places
+
+
+static func restore_places(root: Node, places: Array) -> void:
+	var scrolls := _vertical_scrolls(root)
+	for i in range(mini(scrolls.size(), places.size())):
+		restore_scroll(scrolls[i], int(places[i]))
+
+
+static func _vertical_scrolls(node: Node) -> Array:
+	var out := []
+	# clear() keeps the row under the pointer a frame longer, hidden: not a page.
+	if str(node.name).begins_with("Leaving_"):
+		return out
+	if node is ScrollContainer and (node as ScrollContainer).vertical_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED:
+		out.append(node)
+	for c in node.get_children():
+		out.append_array(_vertical_scrolls(c))
+	return out
 
 
 ## A slim thumb in a wide touch area, flat like everything else: no track, the
@@ -218,16 +340,16 @@ static func style_scrollbar(bar: ScrollBar) -> void:
 	track.content_margin_left = SCROLL_RAIL
 	bar.add_theme_stylebox_override("scroll", track)
 	bar.add_theme_stylebox_override("grabber", _thumb(Color(MUTED, 0.55)))
-	bar.add_theme_stylebox_override("grabber_highlight", _thumb(Color(MUTED, 0.85)))
-	bar.add_theme_stylebox_override("grabber_pressed", _thumb(TEXT))
+	bar.add_theme_stylebox_override("grabber_highlight", _thumb(Color(MUTED, 0.85), SCROLL_THUMB_HOT))
+	bar.add_theme_stylebox_override("grabber_pressed", _thumb(TEXT, SCROLL_THUMB_HOT))
 
 
-static func _thumb(colour: Color) -> StyleBoxFlat:
+static func _thumb(colour: Color, width := SCROLL_THUMB) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = colour
-	sb.set_corner_radius_all(SCROLL_THUMB / 2)
+	sb.set_corner_radius_all(width / 2)
 	# The thumb hugs the right edge; the rest of the rail is touch area.
-	sb.expand_margin_left = -(SCROLL_RAIL - SCROLL_THUMB)
+	sb.expand_margin_left = -(SCROLL_RAIL - width)
 	sb.content_margin_top = SCROLL_THUMB_MIN / 2.0
 	sb.content_margin_bottom = SCROLL_THUMB_MIN / 2.0
 	return sb
@@ -269,6 +391,267 @@ static func rule() -> ColorRect:
 ## A section heading: sentence case, weight not colour.
 static func section(text: String) -> Label:
 	return lbl(text, H2, TEXT, true)
+
+
+## Clubs whose data order is not the colour a supporter names first. The data
+## lists the Bulldogs' red before their blue and Essendon's black before its
+## red; every other club's first colour is the one. -1 = no hue at all
+## (Collingwood: black and white), so its ink is plain TEXT. Used only to
+## compute an ink for a club with none picked (a created club), and on the
+## light ground.
+const INK_SLOT := {"WBD": 1, "ESS": 1, "COL": -1}
+
+## Each club's two hand-picked inks on the dark page (director, 2026-10-13:
+## "hand-picked, clash swap"). Both are the club's real guernsey colours,
+## lifted along their own hue just far enough to read as text (4.5:1 on the
+## page and on a panel); nothing is computed. The first is the colour a
+## supporter names (Brisbane's gold, Melbourne's red, Hawthorn's brown), the
+## second another real colour of the guernsey, shown by the away side when the
+## two first inks look alike (a clash guernsey): see club_ink_pair. Where the
+## guernsey has no second colour that reads, the second is plain white
+## (Collingwood is white either way: no hue at all).
+const CLUB_INKS := {
+	"ADE": ["#FFC83A", "#F0455C"],  # gold, then red (director 2026-10-14: "why is there no yellow for the crows?"); a gold 14 from West Coast's
+	"BRL": ["#F7CE8A", "#4D90E0"],  # gold, then blue
+	"CAR": ["#6B7CF2", "#F1EEE6"],  # navy lifted to blue, then white
+	"CANB": ["#4FA0F0", "#F5B301"],  # navy lifted to blue, then gold
+	"COL": ["#F1EEE6", "#F1EEE6"],  # black and white: plain text
+	"ESS": ["#EE5A66", "#F1EEE6"],  # red, then white
+	"FRE": ["#B48AF0", "#F1EEE6"],  # purple, then white
+	"GCS": ["#FF6A3D", "#FFDD00"],  # red, then gold
+	"GEE": ["#98C4F0", "#F1EEE6"],  # navy lifted to sky, then white
+	"GWS": ["#F47920", "#C9C9C4"],  # orange, then silver
+	"HAW": ["#C08A55", "#FBBF15"],  # brown, then gold
+	"MEL": ["#F03C4A", "#6C93E6"],  # red, then navy lifted to blue
+	"NTH": ["#3F82F5", "#C4D1E5"],  # royal blue, then pale blue
+	"PAD": ["#14B4D6", "#C0C0C0"],  # teal, then silver
+	"RIC": ["#FFE12E", "#F1EEE6"],  # yellow, then white
+	"STK": ["#F5427A", "#F1EEE6"],  # red, then white
+	"SYD": ["#F04A3C", "#F1EEE6"],  # red, then white
+	"TAS": ["#4CB36B", "#E8D44D"],  # green, then yellow
+	"WBD": ["#5A8FE8", "#F0455C"],  # blue, then red
+	"WCE": ["#F2A900", "#6B9AF5"],  # gold, then blue lifted
+}
+
+## Two inks this far apart (CIE76, in Lab) are "alike" and the away side takes
+## its second. 25 is a clear difference at a glance on a phone, two names side
+## by side; 8 is the least any two clubs' first inks differ on their own.
+const INK_CLASH := 25.0
+
+
+## The club's primary identity colour as text on `surface` (the screen's ground
+## by default, the panel, a little lighter than the page): the first of its two
+## hand-picked inks (CLUB_INKS). A single-club screen shows this one; a screen
+## with two sides uses club_ink_pair. A created club, or the light ground, has
+## no picked ink: its colour is lifted (or deepened) along its own hue only as
+## far as it takes to read at 4.5:1. A name or a bar that is the club's; never
+## body text and never a rating (those stay TEXT, not GOOD/BAD).
+static func club_ink(code: String, surface := AUTO_COLOUR) -> Color:
+	return _ink(code, 0, surface)
+
+
+## The club's second hand-picked ink (its clash guernsey), same rules.
+static func club_ink_second(code: String, surface := AUTO_COLOUR) -> Color:
+	return _ink(code, 1, surface)
+
+
+## The two inks for a club's two sides in an intra-club match: [home strip,
+## clash strip]. Each is the readable colour nearest the strip it wears: one of
+## the club's two hand-picked inks when one of them is that colour (Melbourne's
+## navy side in the lifted blue, its red side in the red), otherwise the
+## strip's own colour lifted until it reads (a black strip in grey). The two
+## are never the same ink.
+static func side_inks(base: String, surface := AUTO_COLOUR) -> Array:
+	var kits: Array = PitchView.kits_for(GameDB.side_codes(base)[0], GameDB.side_codes(base)[1]) \
+			if GameDB.is_side(str(GameDB.side_codes(base)[0])) else PitchView.kits_for(base, base)
+	var picked: Array = [club_ink(base, surface), club_ink_second(base, surface)]
+	var out := []
+	for i in range(2):
+		var strip: Color = (kits[i] as Dictionary).get("base", Color.WHITE)
+		var best: Color = readable_ink(strip, surface)
+		for cand in picked:
+			if _same_family(strip, cand) and (out.is_empty() or not (out[0] as Color).is_equal_approx(cand)):
+				best = cand
+				break
+		out.append(best)
+	return out
+
+
+## Whether an ink is the same colour as a strip: the same hue for two real
+## colours (within 30 degrees), white for a white strip. A black strip has no
+## ink of its own colour.
+static func _same_family(strip: Color, ink: Color) -> bool:
+	if strip.s < 0.25:
+		return strip.v > 0.7 and ink.s < 0.15
+	if ink.s < 0.25:
+		return false
+	var d := absf(strip.h - ink.h) * 360.0
+	return minf(d, 360.0 - d) < 30.0
+
+
+## `colour` along its own hue, lightened (or darkened on a light ground) only
+## as far as it takes to read at 4.5:1. A colour with no hue (black, white)
+## stays a grey: no hue is invented for it.
+static func readable_ink(colour: Color, surface := AUTO_COLOUR) -> Color:
+	if surface == AUTO_COLOUR:
+		surface = PANEL
+	var dark_ground := _relative_luminance(surface) < 0.4
+	var grey := colour.s < 0.25
+	var sat := 0.0 if grey else colour.s
+	var val := colour.v
+	for i in 24:
+		var cand := Color.from_hsv(colour.h, sat, val)
+		if contrast(cand, surface) >= 4.5:
+			return cand
+		if dark_ground:
+			val = minf(1.0, val + 0.05)
+			if not grey:
+				sat = maxf(0.6, sat - 0.02)
+		else:
+			val = maxf(0.0, val - 0.05)
+	return TEXT
+
+
+static func _ink(code: String, which: int, surface) -> Color:
+	# A side of an intra-club match is in the colour of the strip it wears; its
+	# "second" ink is the other side's.
+	if GameDB.is_side(code):
+		var own := 1 if GameDB.side_is_clash(code) else 0
+		return side_inks(GameDB.side_base(code), surface)[own if which == 0 else 1 - own]
+	if CLUB_INKS.has(code) and _appearance == "dark" and surface == AUTO_COLOUR:
+		return Color(str((CLUB_INKS[code] as Array)[which]))
+	if surface == AUTO_COLOUR:
+		surface = PANEL
+	var slot := int(INK_SLOT.get(code, 0))
+	if which == 1:
+		slot = 1 if slot == 0 else 0
+	if slot < 0:
+		return TEXT
+	var cols: Array = GameDB.club_colours(code)
+	var pick: Color = cols[slot]
+	if pick.s < 0.25:
+		# A custom club whose colour is black or white: its most saturated.
+		pick = Color(0, 0, 0, 0)
+		var best_s := 0.25
+		for c in cols:
+			var col: Color = c
+			if col.s > best_s:
+				best_s = col.s
+				pick = col
+		if pick.a == 0.0:
+			return TEXT
+	var dark_ground := _relative_luminance(surface) < 0.4
+	var h := pick.h
+	var sat := pick.s
+	var val := pick.v
+	for i in 24:
+		var cand := Color.from_hsv(h, sat, val)
+		if contrast(cand, surface) >= 4.5:
+			return cand
+		if dark_ground:
+			val = minf(1.0, val + 0.05)
+			sat = maxf(0.6, sat - 0.02)
+		else:
+			val = maxf(0.0, val - 0.05)
+	return TEXT
+
+
+## CIE76 colour distance, in Lab: the perceptual gap between two colours.
+static func colour_distance(a: Color, b: Color) -> float:
+	return _lab(a).distance_to(_lab(b))
+
+
+static func _lab(c: Color) -> Vector3:
+	var r := _lin(c.r)
+	var g := _lin(c.g)
+	var b := _lin(c.b)
+	var x := (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047
+	var y := 0.2126 * r + 0.7152 * g + 0.0722 * b
+	var z := (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883
+	var fx := _lab_f(x)
+	var fy := _lab_f(y)
+	var fz := _lab_f(z)
+	return Vector3(116.0 * fy - 16.0, 500.0 * (fx - fy), 200.0 * (fy - fz))
+
+
+static func _lin(v: float) -> float:
+	return v / 12.92 if v <= 0.04045 else pow((v + 0.055) / 1.055, 2.4)
+
+
+static func _lab_f(t: float) -> float:
+	return pow(t, 1.0 / 3.0) if t > 0.008856 else 7.787 * t + 16.0 / 116.0
+
+
+## The two inks for a screen where both clubs appear (director, 2026-10-13: a
+## clash swap). The home side keeps its first ink; the away side keeps its first
+## too unless that looks like the home's (INK_CLASH), when it shows its second,
+## like an away guernsey. If the second is no better, the farther of the two.
+static func club_ink_pair(home: String, away: String) -> Array:
+	var h := club_ink(home)
+	var a := club_ink(away)
+	if colour_distance(h, a) < INK_CLASH:
+		var a2 := club_ink_second(away)
+		if colour_distance(h, a2) > colour_distance(h, a):
+			a = a2
+	return [h, a]
+
+
+## A name in the club's colour is for colours that are not red: a red name
+## beside the red action button reads as a warning (director, 2026-10-13: "red
+## bar and crest, name in white"). Red clubs carry the red in the bar and the
+## crest only; their name is plain bold TEXT.
+static func club_name_colour(ink: Color) -> Color:
+	var deg := ink.h * 360.0
+	if ink.s > 0.45 and (deg <= 18.0 or deg >= 335.0):
+		return TEXT
+	return ink
+
+
+## A section's own club, at a glance (director 2026-10-13, for every screen with
+## two sides or a club's section): the club's guernsey and its name in bold,
+## in the club's readable colour (white for a red club, whose red is in the bar
+## and guernsey), with `right` (a column heading, say) at the end. Pass `ink`
+## from club_ink_pair on a screen with two sides. The heading row only; pair it
+## with club_section_body for the bar.
+static func club_heading(code: String, right: Control = null, fs := NAME, marker := 22.0, ink := Color(0, 0, 0, 0)) -> HBoxContainer:
+	if ink.a == 0.0:
+		ink = club_ink(code)
+	var h := hbox(6)
+	h.add_child(club_marker(code, marker))
+	var n := ellipsis(GameDB.club_name(code), fs, club_name_colour(ink), true)
+	n.name = "ClubName"
+	h.add_child(n)
+	if right != null:
+		h.add_child(right)
+	return h
+
+
+## `content` set beside a 4 px bar in the club's ink (the same `ink` as its
+## heading), so a club's section reads as that club's down its whole length.
+static func club_section_body(code: String, content: Control, ink := Color(0, 0, 0, 0)) -> HBoxContainer:
+	if ink.a == 0.0:
+		ink = club_ink(code)
+	var wrap := hbox(6)
+	var bar := ColorRect.new()
+	bar.name = "ClubBar"
+	bar.color = ink
+	bar.custom_minimum_size = Vector2(4, 0)
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrap.add_child(bar)
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wrap.add_child(content)
+	return wrap
+
+
+## Emphasis roles: weight and size before colour. A person's or thing's name
+## leading a row is bold TEXT (NAME); what is said about him sits under it in
+## full TEXT at SECONDARY, never grey, so no line is overlooked.
+static func emphasis(text: String, fs := NAME) -> Label:
+	return ellipsis(text, fs, TEXT, true)
+
+
+static func detail(text: String, fs := SECONDARY) -> Label:
+	return ellipsis(text, fs, TEXT)
 
 
 static func spacer(px := 6) -> Control:
@@ -371,9 +754,11 @@ static func figure(text: String, fs := 30, color := AUTO_COLOUR) -> Label:
 
 ## Motion (director, 2026-10-08: big type and motion). Short and quiet: a
 ## headline fades up, a number counts to itself, a screen eases in. Never in
-## a headless run (tests and tools), so what a check reads is final at once.
+## a headless run (tests and tools), so what a check reads is final at once,
+## and never with Reduced motion on (Settings): the one switch for every
+## moving thing, the goal shake included.
 static func motion_on() -> bool:
-	return DisplayServer.get_name() != "headless"
+	return (DisplayServer.get_name() != "headless" or Feel.test_motion) and not Feel.reduced
 
 
 ## Fade `c` up from nothing, `delay` seconds after it is shown.
@@ -410,6 +795,126 @@ static func count_up(l: Label, to: int, say: Callable, dur := 0.7, from := 0) ->
 		run.call()
 	else:
 		l.tree_entered.connect(run, CONNECT_ONE_SHOT)
+
+
+## A big moment lands (director, 2026-10-11: result, draft pick, ladder,
+## premiership): `c` drops into place with weight, the sting sounds and a
+## phone gives one firm buzz, `delay` seconds after it is shown. Then it
+## stops. Without motion only the sound and the buzz come. `sound` false for
+## a second thing landing on the same moment.
+static func land(c: Control, delay := 0.0, sound := true) -> void:
+	if c == null:
+		return
+	var hit := func() -> void:
+		if sound:
+			Feel.press("land")
+		if not motion_on() or not is_instance_valid(c):
+			return
+		Feel.moved.append("land")
+		c.pivot_offset = _pivot(c)
+		c.scale = Vector2(1.22, 1.22)
+		c.create_tween().tween_property(c, "scale", Vector2.ONE, 0.5) \
+				.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_after(c, delay if motion_on() else 0.0, hit)
+
+
+## Something that genuinely needs the coach (a call the match broke, a
+## question still unanswered) brightens twice, gently, and then holds still.
+## Never decoration, never a loop.
+static func attention(c: CanvasItem, delay := 0.45) -> void:
+	if c == null or not motion_on():
+		return
+	_after(c, delay, func() -> void:
+		if not is_instance_valid(c):
+			return
+		Feel.moved.append("attention")
+		var tw := c.create_tween()
+		for i in range(2):
+			tw.tween_property(c, "modulate", Color(1.55, 1.55, 1.55), 0.32).set_trans(Tween.TRANS_SINE)
+			tw.tween_property(c, "modulate", Color.WHITE, 0.55).set_trans(Tween.TRANS_SINE))
+
+
+## Living backgrounds (director, 2026-10-11): `apply(t)` is called with t going
+## 0 -> 1 over `secs` (eased out), then never again. One continuous tween read
+## from the clock every frame, so it is smooth at any frame rate (the director,
+## 2026-10-13: "this light is jittery": it used to step six times a second from a
+## Timer, which showed as jumps). A slow settle on arrival, not a loop: the
+## screen draws nothing once it's still (low_processor_mode). Without motion it
+## is called once with 1. `hz` is no longer used.
+static func drift(n: CanvasItem, apply: Callable, secs := 12.0, _hz := 6.0) -> void:
+	if not motion_on():
+		apply.call(1.0)
+		return
+	apply.call(0.0)
+	_after(n, 0.0, func() -> void:
+		if not is_instance_valid(n):
+			return
+		Feel.moved.append("drift")
+		var holder := Node.new()
+		holder.name = "Drift"
+		n.add_child(holder)
+		var tw := holder.create_tween()
+		tw.tween_method(func(e: float) -> void: apply.call(drift_at(e, secs)), 0.0, secs, secs)
+		tw.finished.connect(holder.queue_free))
+
+
+## The eased-out position of a drift `elapsed` seconds in: 0 -> 1, a pure
+## function of time, so frame rate cannot change it.
+static func drift_at(elapsed: float, secs: float) -> float:
+	var k := clampf(elapsed / maxf(0.001, secs), 0.0, 1.0)
+	return 1.0 - pow(1.0 - k, 3.0)
+
+
+## Run `f` once `c` is on screen, `delay` seconds later.
+static func _after(c: CanvasItem, delay: float, f: Callable) -> void:
+	var run := func() -> void:
+		if not is_instance_valid(c) or not c.is_inside_tree():
+			return
+		if delay > 0.0:
+			c.get_tree().create_timer(delay).timeout.connect(f)
+		else:
+			f.call()
+	if c.is_inside_tree():
+		run.call()
+	else:
+		c.tree_entered.connect(run, CONNECT_ONE_SHOT)
+
+
+## Where a label grows from: its text's own edge, so a punch doesn't slide it.
+static func _pivot(c: Control) -> Vector2:
+	var x := c.size.x / 2.0
+	if c is Label:
+		match (c as Label).horizontal_alignment:
+			HORIZONTAL_ALIGNMENT_LEFT:
+				x = 0.0
+			HORIZONTAL_ALIGNMENT_RIGHT:
+				x = c.size.x
+	return Vector2(x, c.size.y / 2.0)
+
+
+## Every button answers a finger (director, 2026-10-11): it presses in, and on
+## a real press (not a touch that became a scroll) it sounds and buzzes by its
+## kind: "main" a boot through the ball (the primary action), "soft" a lighter
+## one, "tick" a stud on concrete (a choice, a tab), "end" the siren (the end
+## of a flow). Wired once; a repaint only changes the kind.
+static func feel(b: BaseButton, kind: String) -> void:
+	b.set_meta("feel", kind)
+	if b.has_meta("feel_wired"):
+		return
+	b.set_meta("feel_wired", true)
+	b.button_down.connect(func() -> void: _press_in(b))
+	b.pressed.connect(func() -> void: Feel.press(str(b.get_meta("feel", "soft"))))
+
+
+static func _press_in(b: Control) -> void:
+	if not motion_on() or not is_instance_valid(b):
+		return
+	Feel.moved.append("press")
+	b.pivot_offset = b.size / 2.0
+	var tw := b.create_tween()
+	tw.tween_property(b, "scale", Vector2(0.96, 0.96), 0.05).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(0.08)
+	tw.tween_property(b, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 ## The painted drop shade under display type.
@@ -470,6 +975,7 @@ static func style_button(b: Button, fs := 16, primary := false, danger := false)
 	var focus := style(Color.TRANSPARENT, 0, RADIUS, TEXT)
 	focus.set_border_width_all(2)
 	b.add_theme_stylebox_override("focus", focus)
+	feel(b, "main" if primary else "soft")
 
 
 ## The quiet surface of a secondary control: one step up from the page, so it
@@ -507,7 +1013,7 @@ static func team_colour() -> Color:
 			continue
 		if best.a == 0.0 or col.s * col.v > best.s * best.v:
 			best = col
-	return ClubDuel._show(best) if best.a > 0.0 else ACCENT
+	return ClubBackdrop.lifted(best) if best.a > 0.0 else ACCENT
 
 
 ## Match day's sheet wash: the opponent's colour, the atmosphere you play
@@ -575,6 +1081,7 @@ static func paint_tab(b: Button, active: bool) -> void:
 	b.add_theme_color_override("font_color", TEXT if active else MUTED)
 	b.add_theme_color_override("font_hover_color", TEXT)
 	b.add_theme_color_override("font_pressed_color", TEXT)
+	feel(b, "tick")
 
 
 ## A short choice as one line of text (audit §8 Phase 1: the idiom for two
@@ -711,6 +1218,7 @@ static func paint_choice(b: Button, on: bool) -> void:
 	b.add_theme_color_override("font_color", TEXT if on else MUTED)
 	b.add_theme_color_override("font_hover_color", TEXT)
 	b.add_theme_color_override("font_pressed_color", TEXT)
+	feel(b, "tick")
 
 
 static func option() -> OptionButton:
@@ -843,7 +1351,7 @@ static func club_marker(code: String, size := 22.0) -> Control:
 		trim = g["pattern2"]
 	# The old flag's footprint (size less its 2 px of frame), so lists of clubs
 	# - the ladder above all - keep their row heights.
-	return GuernseyCrest.make(g["base"], g["pattern"], trim, str(g["design"]), code, size - 2.0)
+	return GuernseyCrest.make(g["base"], g["pattern"], trim, str(g["design"]), GameDB.side_base(code), size - 2.0)
 
 
 ## The same guernsey from colours alone (Club Forge shows a club before it
@@ -931,7 +1439,7 @@ static func modal_box(parent: Control, max_w: float, prefer_h := 0.0, wash := AU
 	# A PC: a sheet's actions sit at its right, sized to their words, not as
 	# bars across it (director, 2026-10-10: no phone UI on a PC).
 	var pw := view_width(parent)
-	if ScreenLayout.is_desktop() and pw >= 760.0 and pw > view_height(parent) * 1.2:
+	if ScreenLayout.roomy(pw, view_height(parent)):
 		footer.child_entered_tree.connect(func(c: Node) -> void:
 			if c is Button:
 				(c as Button).size_flags_horizontal = Control.SIZE_SHRINK_END
@@ -1032,7 +1540,7 @@ static func ladder_specs(width: float, full: bool) -> Array:
 		specs.append({"key": "d", "title": "D", "w": 26})
 	elif width >= 280.0:
 		specs.append({"key": "rec", "title": "W-L", "w": 48})
-	if full and width >= 760.0:
+	if full and ScreenLayout.wide_view(width, 0.0, 760.0, false):
 		specs.append({"key": "pf", "title": "PF", "w": 40})
 		specs.append({"key": "pa", "title": "PA", "w": 40})
 	if width >= 460.0:
@@ -1046,7 +1554,7 @@ static func _ladder_header(specs: Array) -> HBoxContainer:
 	for spec in specs:
 		var expand: bool = bool(spec.get("expand", false))
 		h.add_child(_ladder_label(str(spec["title"]), int(spec.get("w", 0)),
-				MUTED, 12, false, expand))
+				MUTED, SECONDARY, false, expand))
 	return h
 
 
@@ -1059,17 +1567,17 @@ static func _ladder_data_row(r: Dictionary, pos: int, specs: Array, mine: String
 		var expand: bool = bool(spec.get("expand", false))
 		var w := int(spec.get("w", 0))
 		if key == "club":
-			h.add_child(club_badge(str(r["code"]), 13, false, true))
+			h.add_child(club_badge(str(r["code"]), SECONDARY, false, true))
 		elif key == "pos":
-			h.add_child(_ladder_label(str(pos), w, col, 13, is_mine, false))
+			h.add_child(_ladder_label(str(pos), w, col, SECONDARY, is_mine, false))
 		elif key == "rec":
-			h.add_child(_ladder_label("%d-%d" % [int(r["w"]), int(r["l"])], w, col, 12, false, false))
+			h.add_child(_ladder_label("%d-%d" % [int(r["w"]), int(r["l"])], w, col, SECONDARY, false, false))
 		elif key == "pct":
-			h.add_child(_ladder_label("%.0f" % float(r["pct"]), w, col, 12, false, false))
+			h.add_child(_ladder_label("%.0f" % float(r["pct"]), w, col, SECONDARY, false, false))
 		elif key == "pts":
-			h.add_child(_ladder_label(str(int(r["pts"])), w, col, 13, true, false))
+			h.add_child(_ladder_label(str(int(r["pts"])), w, col, SECONDARY, true, false))
 		else:
-			h.add_child(_ladder_label(str(int(r.get(key, 0))), w, col, 12, false, false))
+			h.add_child(_ladder_label(str(int(r.get(key, 0))), w, col, SECONDARY, false, false))
 	return h
 
 

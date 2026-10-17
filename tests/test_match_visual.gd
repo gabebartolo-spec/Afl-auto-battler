@@ -43,9 +43,18 @@ func run() -> void:
 	_test_set_shot_calls()
 	_test_role_labels(res)
 	_test_flood_shape(res)
+	_test_press_shape(res)
 	_test_centre_setups(res)
 	_test_farewell()
 	_test_match_ground()
+	_test_discs_apart()
+	_test_clash_kit()
+	_test_label_overlap()
+	_test_sides()
+	_test_bench_strip()
+	_test_ends_change_at_restart(res)
+	_test_upright_oval(res)
+	_test_plan_tint_every_quarter()
 	GameState.replay_seed = 0
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -1026,11 +1035,65 @@ func _test_oval_people(res: Dictionary) -> void:
 	_check(pv3.caption_text() == "", "A tackle alone is not a turnover")
 	pv3._cue_turnover({"kind": "pressure", "side": 1, "num": away})
 	_check(pv3.caption_text() == "Turnover", "A forced turnover always says so")
-	_check(pv3.shaking(), "With Screen shake on, a turnover shakes the oval")
-	for i in range(10):
-		pv3._process(0.05)
-	_check(not pv3.shaking(), "...for a quarter of a second at most")
+	_check(not pv3.shaking(), "A turnover is an ordinary event: no shake")
+	# The club banner's light (UiKit.drift) is smooth: a pure function of time, monotone,
+	# near-constant change per unit time, the same position at 30 and 60 fps.
+	for fps in [30.0, 60.0]:
+		var prev := 0.0
+		var prev_step := -1.0
+		var smooth := true
+		var mono := true
+		for f in range(1, 61):
+			var v := UiKit.drift_at(float(f) / fps, 12.0)
+			var step := v - prev
+			if step < 0.0:
+				mono = false
+			if prev_step > 0.0 and absf(step - prev_step) > prev_step * 0.05:
+				smooth = false
+			prev = v
+			prev_step = step
+		_check(mono and smooth, "The banner light moves monotonically and smoothly across 60 frames at %d fps" % int(fps))
+	_check(is_equal_approx(UiKit.drift_at(1.0, 12.0), UiKit.drift_at(30.0 / 30.0, 12.0)),
+			"The light's place depends on time, not on the frame rate")
+	# A layout refresh mid-sweep does not reset it.
+	var duel := ClubDuel.new().setup("COL", "CAR")
+	duel.size = Vector2(390, 120)
+	duel._settle = 0.5
+	duel.resized.emit()
+	duel.size = Vector2(380, 120)
+	_check(is_equal_approx(duel._settle, 0.5), "A layout refresh mid-sweep leaves the light where it is")
+	duel.free()
+	# The goal shake: the only one. Capped at a share of the oval's height at any screen
+	# size (about 4 px on a phone), replaced and not stacked, and zero with it off.
 	var was := GameState.screen_shake_on()
+	GameState.set_screen_shake_on(true)
+	for sz in [Vector2(390, 844), Vector2(1920, 1080)]:
+		var pv4 := PitchView.new()
+		pv4.size = sz
+		pv4.setup(res)
+		var sc := -1
+		for t in pv4.director.tokens:
+			if sc < 0:
+				sc = int(t["num"])
+		var cap := minf(pv4.pitch_rect().size.y * PitchView.SHAKE_SHARE, PitchView.SHAKE_MAX_PX)
+		var worst := 0.0
+		pv4._name_the_scorer({"kind": "goal", "side": 0, "num": sc})
+		pv4._name_the_scorer({"kind": "goal", "side": 0, "num": sc})
+		_check(pv4.shaking(), "A goal shakes the oval at %s" % [sz])
+		for i in range(200):
+			worst = maxf(worst, pv4.shake_offset().length())
+			pv4._shake = maxf(0.0, pv4._shake - 0.001)
+		_check(worst <= cap + 0.001 and worst > 0.0, "Shake offset %.2f px stays within the cap %.2f at %s" % [worst, cap, sz])
+		_check(PitchView.SHAKE_TIME <= 0.2, "The shake lasts under a fifth of a second")
+		if sz.x < 500:
+			_check(cap <= 4.5, "On a phone the cap is about 4 px (%.2f)" % cap)
+		else:
+			_check(cap <= 4.0, "On a big monitor the cap stays small (%.2f)" % cap)
+		pv4._shake = PitchView.SHAKE_TIME
+		GameState.set_screen_shake_on(false)
+		pv4._name_the_scorer({"kind": "goal", "side": 0, "num": sc})
+		_check(pv4.shake_offset() == Vector2.ZERO, "With Screen shake off the offset is zero at %s" % [sz])
+		GameState.set_screen_shake_on(true)
 	GameState.set_screen_shake_on(false)
 	pv3._cue_turnover({"kind": "rebound", "side": 0, "num": home})
 	_check(pv3.caption_text() == "Turnover" and not pv3.shaking(), "With it off, the label shows and the screen stays still")
@@ -1078,6 +1141,25 @@ func _test_broadcast_vignettes() -> void:
 			"An ordinary crowded mark is not silently promoted to a speccy")
 	_check(BroadcastVignette.pick_kind(mark, {}, {}, front) == BroadcastVignette.SPECCY_FRONT,
 			"A real speccy through the corridor gets the front-on speccy shot")
+	# The front-on shot is behind the "speccy_front" switch (director, 2026-10-14): off (the default) a speccy plays
+	# the earlier shot and runs as long as it did; on it is the low, tight staging frozen on the grab.
+	Features.clear("speccy_front")
+	_check(not BroadcastVignette._sf_ready() and is_equal_approx(BroadcastVignette.duration_for(BroadcastVignette.SPECCY_FRONT), 3.8),
+			"With the speccy_front switch off a speccy plays the earlier shot, 3.8 s")
+	Features.set_on("speccy_front", true)
+	_check(BroadcastVignette._sf_ready(), "With the switch on the sheets hold the front-on speccy moves (the low, tight staging)")
+	_check(BroadcastVignette.duration_for(BroadcastVignette.SPECCY_FRONT) > BroadcastVignette.SF_FREEZE,
+			"On, the front-on speccy runs past the grab, so the still holds on it")
+	var vig_on := BroadcastVignette.new()
+	vig_on.setup(BroadcastVignette.SPECCY_FRONT, {"kind": "mark", "side": 0, "num": 4, "speccy": true}, {}, {"home": "FRE", "away": "MEL"})
+	var on_figures := vig_on._sf_ready()
+	vig_on.free()
+	Features.clear("speccy_front")
+	var vig_off := BroadcastVignette.new()
+	vig_off.setup(BroadcastVignette.SPECCY_FRONT, {"kind": "mark", "side": 0, "num": 4, "speccy": true}, {}, {"home": "FRE", "away": "MEL"})
+	var off_figures := vig_off._sf_ready()
+	vig_off.free()
+	_check(on_figures and not off_figures, "The same speccy event draws the new shot with the switch on and the earlier one with it off")
 	_check(BroadcastVignette.pick_kind(mark, {}, {}, flank) == BroadcastVignette.SPECCY_SIDE,
 			"A crowded mark near the flank gets the side-sit speccy shot")
 	_check(BroadcastVignette.pick_kind(mark, {}, {}, defensive) == BroadcastVignette.SPECCY_DEFENSIVE,
@@ -1325,6 +1407,135 @@ func _test_flood_shape(res: Dictionary) -> void:
 	d._tac[1] = {}
 
 
+## Defensive press pilot, V1-V3 (director, 2026-10-11): from its recorded plan, a
+## side that presses stands higher while the ball is in its opponents' back half
+## or the middle, narrower, and only then; the plan changes nothing else.
+func _test_press_shape(res: Dictionary) -> void:
+	var d := MatchDirector.new()
+	d.setup(res, res["events"])
+	# Side 0 attacks toward +x; side 1 defends the +x goal and presses (or not).
+	# Its height is how far up the ground it stands, from its own goal end, over
+	# three balls in its opponents' back half, plus its width (spread across).
+	var stand := func(plan: String, bx0: float) -> Dictionary:
+		d._tac[1] = {"side": 1, "plan": plan, "bursts": []}
+		var high := 0.0
+		var wide := 0.0
+		var n := 0
+		var front := -1.0e9
+		var back := 1.0e9
+		var mid_gap := 0.0
+		var mids := 0
+		var back_h := 0.0
+		var backs := 0
+		for t in d.tokens:
+			if int(t["side"]) == 1:
+				var p: Vector2 = d._structure_spot(t, Vector2(bx0, 0.0), 0)
+				high += -p.x
+				wide += absf(p.y)
+				front = maxf(front, -p.x)
+				back = minf(back, -p.x)
+				if str(t["role"]) == "DEF":
+					back_h += -p.x
+					backs += 1
+				if str(t["role"]) != "FWD" and str(t["role"]) != "DEF":
+					mid_gap += absf(p.x - bx0)
+					mids += 1
+				n += 1
+		return {"high": high / n, "wide": wide / n, "span": front - back, "mid_gap": mid_gap / maxi(1, mids), "back": back_h / maxi(1, backs)}
+	var worst := 1.0e9
+	for bx in [5.0, -10.0, -30.0, -50.0]:
+		# Side 1 faces -x, so its own goal end is +x: "up the ground" is -x.
+		var base: Dictionary = stand.call("balanced", bx)
+		var press: Dictionary = stand.call("defensive", bx)
+		worst = minf(worst, float(press["back"]) - float(base["back"]))
+		_check(float(press["wide"]) < float(base["wide"]), "The press stands narrower (ball at %d: %.1f v %.1f)" % [int(bx), float(press["wide"]), float(base["wide"])])
+	# One band around the ball: front to back inside 70 m, the midfield within
+	# 25 m of the ball (balls in the opponents' back half and the middle).
+	for bx in [5.0, -10.0, -30.0]:
+		var pb: Dictionary = stand.call("defensive", bx)
+		_check(float(pb["span"]) <= 70.0 and float(pb["mid_gap"]) <= 25.0,
+				"The press is one band round the ball (ball at %d: %.0f m front to back, midfield %.0f m off it)" % [int(bx), float(pb["span"]), float(pb["mid_gap"])])
+	_check(worst >= 12.0, "The press side's back line stands at least 12 m higher with the ball in their opponents' back half or the middle (least gain %.1f m)" % worst)
+	# The ball deep at the press side's own end (world x of 60): no change.
+	var far_base: Dictionary = stand.call("balanced", 60.0)
+	var far_press: Dictionary = stand.call("defensive", 60.0)
+	_check(absf(float(far_press["high"]) - float(far_base["high"])) < 0.01, "The shape is the same when the ball is at their own end")
+	# The faint press zone (director, 2026-10-11): strongest over the opponents'
+	# back third, a quarter of it in the middle, none in their forward third (the
+	# sim's own zone table); it fades in and out, never pops.
+	_check(is_equal_approx(MatchDirector.press_zone_strength(40.0), 1.0)
+			and is_equal_approx(MatchDirector.press_zone_strength(0.0), 0.25)
+			and MatchDirector.press_zone_strength(-40.0) == 0.0,
+			"The press zone follows the sim's zones: full in their back third, a quarter in the middle, none in their forward third")
+	# The field is soft-edged (no step between zones, none anywhere), and full / none far in.
+	var jump := 0.0
+	var xs := -70.0
+	while xs < 70.0:
+		jump = maxf(jump, absf(MatchDirector.press_zone_field(xs + 0.5) - MatchDirector.press_zone_field(xs)))
+		xs += 0.5
+	_check(jump < 0.06 and is_equal_approx(MatchDirector.press_zone_field(60.0), 1.0) and MatchDirector.press_zone_field(-60.0) == 0.0,
+			"The press zone's edges are feathered, never a step (largest change per half metre %.3f)" % jump)
+	d._tac[1] = {"side": 1, "plan": "defensive", "bursts": []}
+	d._poss = 0
+	d.ball["pos"] = Vector2(-30.0, 0.0)
+	_check(d.press_zone_on(1) and not d.press_zone_on(0), "The zone is on for the press side only, while it hunts")
+	d._poss = 1
+	_check(d.press_zone_on(1), "...and stays on when it has the ball: the tint follows the plan")
+	_check(d.press_zone_level(1) == MatchDirector.PRESS_ZONE_STANDING and not d.press_zone_hunting(1), "...at half strength while it has the ball")
+	d._poss = 0
+	_check(d.press_zone_level(1) == 1.0 and d.press_zone_hunting(1), "...and at full strength while it hunts without the ball")
+	d._poss = 1
+	d.ball["pos"] = Vector2(40.0, 0.0)
+	_check(d.press_zone_on(1), "...wherever the ball is")
+	d._tac[1] = {"side": 1, "plan": "balanced", "bursts": []}
+	_check(not d.press_zone_on(1) and d.press_zone_level(1) == 0.0, "...and off under any other plan")
+	d._tac[1] = {"side": 1, "plan": "defensive", "bursts": []}
+	d.ball["pos"] = Vector2(-30.0, 0.0)
+	d._poss = 0
+	MatchDirector.debug_no_press_shape = true
+	_check(not d.press_zone_on(1), "No zone when the shape is off")
+	MatchDirector.debug_no_press_shape = false
+	var pvs = load("res://scripts/ui/PitchView.gd")
+	_check(pvs.ease_fade(0.0) == 0.0 and pvs.ease_fade(1.0) == 1.0 and pvs.ease_fade(0.1) < 0.05
+			and is_equal_approx(pvs.ease_fade(0.5), 0.5) and float(pvs.PRESS_FADE_SECS) >= 2.0,
+			"The zone eases in and out over 2.5 s, not linearly")
+	# The tint is the press club's own colour and shows on a phone (director,
+	# 2026-10-13: 0.12 moved a channel 8-11 of 255, a darker turf stripe). At full
+	# strength the mix with the turf must move a channel by at least 12% of the range
+	# (30/255) and keep the club's hue, whatever the club (navy and brown included).
+	var turf: Color = pvs.PRESS_TURF
+	var pa := float(pvs.PRESS_ZONE_ALPHA)
+	# Director, 2026-10-13: "right colour, about half as strong" (0.4 -> 0.3: 0.2 lost the hue).
+	_check(is_equal_approx(pa, 0.3), "The press tint is laid at 0.3, lighter than the first 0.4 and not so light the club colour is lost")
+	var tint_ok := true
+	var tint_note := ""
+	for code in ["FRE", "MEL", "WBD", "STK", "CAR", "HAW"]:
+		var w: Color = pvs.press_zone_colour(code)
+		var mix := Color(turf.r * (1.0 - pa) + w.r * pa, turf.g * (1.0 - pa) + w.g * pa, turf.b * (1.0 - pa) + w.b * pa)
+		var shift := maxf(absf(mix.r - turf.r), maxf(absf(mix.g - turf.g), absf(mix.b - turf.b)))
+		var slot := 1 if code == "WBD" else 0
+		var club_h: float = (GameDB.club_colours(code)[slot] as Color).h * 360.0
+		var dh := absf(fposmod(mix.h * 360.0 - club_h + 180.0, 360.0) - 180.0)
+		if shift < 0.12 or dh > 30.0:
+			tint_ok = false
+			tint_note += " %s shift %.0f/255 hue off %.0f" % [code, shift * 255.0, dh]
+	_check(tint_ok, "The press tint shows on a phone and is the press club's colour:" + tint_note)
+	var black: Color = pvs.press_zone_colour("COL")
+	_check(black.v < 0.2 and float(turf.g) - (turf.g * (1.0 - pa) + black.g * pa) >= 0.05,
+			"A club with no hue (Collingwood) gets a dark wash that still darkens the turf visibly")
+	d._tac[1] = {}
+	# The line, once: only the pressing side's opponents' disposals open it.
+	var tl := [{"at": 0, "side": 1, "plan": "defensive"}, {"at": 0, "side": 0, "plan": "balanced"}]
+	var said := [false, false]
+	_check(MatchNotes.press_trigger(tl, 3, {"kind": "kick", "side": 1}, said) == -1, "No line when the press side has the ball")
+	_check(MatchNotes.press_trigger(tl, 3, {"kind": "goal", "side": 0}, said) == -1, "No line on a goal")
+	_check(MatchNotes.press_trigger(tl, 3, {"kind": "kick", "side": 0}, said) == 1, "The line comes the first time the press side defends")
+	said[1] = true
+	_check(MatchNotes.press_trigger(tl, 9, {"kind": "kick", "side": 0}, said) == -1, "...and only once")
+	_check(MatchNotes.press_trigger([{"at": 5, "side": 1, "plan": "defensive"}], 3, {"kind": "kick", "side": 0}, [false, false]) == -1, "No line before the plan is set")
+	_check(MatchNotes.press_line("RIC").ends_with("push up to press."), "The line reads as a commentator would say it")
+
+
 ## ARD-M8-003 step 3, the second demonstration: attacking (stack) against
 ## defensive (flood) setups at the 2026 centre ball-up, each from the side's
 ## recorded call, and every setup legal under 6-6-6 (four in the square, six
@@ -1435,3 +1646,656 @@ func _test_match_ground() -> void:
 	VignetteGround.use_match({"home": "GEE", "away": "COL", "venue": "MCG"})
 	_check(VignetteGround.venue == "MCG", "A final at the MCG draws the MCG (the Grand Final)")
 	VignetteGround.venue = ""
+
+
+## Discs that would overlap are drawn apart (director, 2026-10-14): on a phone
+## and on a PC no two drawn centres are closer than a disc's diameter, the
+## players stay where the match has them, a disc never jumps from one frame to
+## the next, and a held ball is drawn at its holder's disc.
+func _test_discs_apart() -> void:
+	var res := _sim(31, "FRE", "MEL").run()
+	res["home"] = "FRE"
+	res["away"] = "MEL"
+	res["label"] = "Round 1"
+	# The first quarter is enough: every kind of pack and set-up happens in it.
+	var all: Array = res["events"]
+	var cut := all.size()
+	for k in range(all.size()):
+		if str(all[k].get("kind", "")) == "quarter":
+			cut = k + 1
+			break
+	res["events"] = all.slice(0, cut)
+	for view in [[Vector2(370, 490), true, "phone", false], [Vector2(760, 590), false, "PC", false],
+			[Vector2(370, 490), true, "phone, fully apart", true]]:
+		PitchView.nudge_full = view[3]
+		var pv := PitchView.new()
+		pv.size = view[0]
+		pv.camera_enabled = view[1]
+		pv.setup(res)
+		pv.set_speed(4.0)
+		var worst_nudge_discs := 0.0
+		var top_ok := true
+		pv.play()
+		var closest := INF
+		var real_closest := INF
+		var moved_engine := 0
+		var worst_nudge_m := 0.0
+		var ball_off := 0.0
+		var guard := 0
+		while pv.playing and guard < 60000:
+			guard += 1
+			pv._process(1.0 / 30.0)
+			var before := []
+			for t in pv.director.tokens:
+				before.append(t["pos"])
+			var drawn := pv.disc_positions()
+			var tr := pv.token_radius()
+			var real := PackedVector2Array()
+			for i in range(before.size()):
+				real.append(pv._w2s(before[i]))
+			for i in range(pv.director.tokens.size()):
+				if pv.director.tokens[i]["pos"] != before[i]:
+					moved_engine += 1
+				worst_nudge_m = maxf(worst_nudge_m, drawn[i].distance_to(real[i]) / pv._scale())
+				worst_nudge_discs = maxf(worst_nudge_discs, drawn[i].distance_to(real[i]) / (2.0 * tr))
+				for j in range(i + 1, drawn.size()):
+					closest = minf(closest, drawn[i].distance_squared_to(drawn[j]) / (4.0 * tr * tr))
+					real_closest = minf(real_closest, real[i].distance_squared_to(real[j]) / (4.0 * tr * tr))
+			var holder := int(pv.director.ball.get("holder", -1))
+			if str(pv.director.ball.get("mode", "")) == "held" and holder >= 0:
+				ball_off = maxf(ball_off, pv.ball_point().distance_to(drawn[holder]) / pv._scale())
+				var order := pv.draw_order()
+				if order.size() != drawn.size() or int(order[-1]) != holder \
+						or int(pv.director.tokens[order[-2]]["side"]) == int(pv.director.tokens[holder]["side"]) \
+						or int(pv.director.tokens[order[-3]]["side"]) == int(pv.director.tokens[holder]["side"]):
+					top_ok = false
+		closest = sqrt(closest)
+		real_closest = sqrt(real_closest)
+		if bool(view[3]):
+			_check(not pv.playing and closest >= 0.97,
+					"%s: no two discs are drawn closer than a diameter (closest %.2f of one; the players themselves get to %.2f)" % [
+					str(view[2]), closest, real_closest])
+		else:
+			_check(not pv.playing and worst_nudge_discs <= PitchView.NUDGE_CAP + 0.01,
+					"%s: a disc is drawn within half its width of its player (%.2f of a disc at most; closest pair %.2f of one, the players %.2f)" % [
+					str(view[2]), worst_nudge_discs, closest, real_closest])
+		_check(top_ok, "%s: the man with the ball is drawn last, over the two opponents nearest him" % str(view[2]))
+		_check(moved_engine == 0, "%s: drawing the discs apart moves no player" % str(view[2]))
+		_check(ball_off <= 1.0, "%s: a held ball is drawn at its holder's disc (%.2f m off)" % [str(view[2]), ball_off])
+		_check(worst_nudge_m < 20.0, "%s: no disc is drawn far from its player (%.1f m at most)" % [str(view[2]), worst_nudge_m])
+		print("  discs apart, %s: closest %.2f diameters (players %.2f), biggest nudge %.1f m" % [
+				str(view[2]), closest, real_closest, worst_nudge_m])
+		pv.free()
+	PitchView.nudge_full = false
+	# Frame to frame: two players standing still on one spot are drawn the same
+	# way every frame (no jitter, no swapping sides).
+	var pv2 := PitchView.new()
+	pv2.size = Vector2(370, 490)
+	pv2.setup(res)
+	var first := pv2.disc_positions().duplicate()
+	var settled := PackedVector2Array()
+	var drift := 0.0
+	for k in range(40):
+		var now := pv2.disc_positions().duplicate()
+		if k >= 20:
+			if settled.is_empty():
+				settled = now
+			for i in range(now.size()):
+				drift = maxf(drift, now[i].distance_to(settled[i]))
+	_check(drift < 0.5, "Discs at rest are drawn in the same place every frame (%.2f px of drift)" % drift)
+	var sides_kept := true
+	for i in range(first.size()):
+		for j in range(i + 1, first.size()):
+			if first[i].distance_to(first[j]) < 40.0 and (first[j] - first[i]).dot(settled[j] - settled[i]) < 0.0:
+				sides_kept = false
+	_check(sides_kept, "Two discs drawn apart keep their sides of each other")
+	pv2.free()
+
+
+## Two sides whose discs look alike: the away side wears its clash strip, its
+## own kit with the two colours changed over. Fremantle v Melbourne is one; the
+## Bulldogs v St Kilda is not. And the call over the play covers no disc.
+func _test_clash_kit() -> void:
+	var fm: Array = PitchView.kits_for("FRE", "MEL")
+	var mel: Dictionary = GameDB.club_guernsey("MEL")
+	_check(bool(fm[1].get("clash", false)) and fm[1]["base"] != mel["base"],
+			"Melbourne change their body colour at Fremantle")
+	_check(fm[0]["base"] == GameDB.club_guernsey("FRE")["base"] and fm[0]["design"] == GameDB.club_guernsey("FRE")["design"],
+			"The home side always wears its own kit")
+	var hw: Array = PitchView.kits_for("HAW", "WCE")
+	_check(not hw[1].has("clash") and hw[1]["base"] == GameDB.club_guernsey("WCE")["base"],
+			"Hawthorn and West Coast do not clash: both wear their own kit")
+	# Adelaide v Melbourne, the pair the director found alike (2026-10-14): each way.
+	for pair in [["ADE", "MEL"], ["MEL", "ADE"]]:
+		var k: Array = PitchView.kits_for(str(pair[0]), str(pair[1]))
+		_check(PitchView.disc_distance(k[0], k[1]) >= PitchView.DISC_CLASH,
+				"%s v %s: the two discs are plainly different (%.0f)" % [pair[0], pair[1], PitchView.disc_distance(k[0], k[1])])
+	# The third colour defines the club: Adelaide's disc carries its gold.
+	var ade: Dictionary = PitchView.with_trim("ADE", GameDB.club_guernsey("ADE"))
+	_check(ade.get("ring", null) != null and (ade["ring"] as Color).is_equal_approx(GameDB.club_colours("ADE")[2]),
+			"Adelaide's disc has a ring of its gold")
+	_check(PitchView.with_trim("MEL", GameDB.club_guernsey("MEL")).get("ring", null) == null,
+			"Melbourne's disc has no third colour")
+	# Every one of the 306 home-and-away pairs of today's 18 clubs, after the clash rule.
+	var swaps := 0
+	var worst := 1000.0
+	var alike := []
+	var foreign := []
+	for h in GameDB.CLUB_ORDER.slice(0, 18):
+		for a in GameDB.CLUB_ORDER.slice(0, 18):
+			if h == a:
+				continue
+			var k2: Array = PitchView.kits_for(str(h), str(a))
+			var d: float = PitchView.disc_distance(k2[0], k2[1])
+			worst = minf(worst, d)
+			if bool(k2[1].get("clash", false)):
+				swaps += 1
+				# Only the club's own colours (or its white) are ever used.
+				var own: Array = GameDB.club_colours(str(a))
+				var okc := false
+				own.append(Color.WHITE)
+				for c in own:
+					if (c as Color).is_equal_approx(k2[1]["base"]):
+						okc = true
+				if not okc:
+					foreign.append("%s v %s" % [h, a])
+			if d < PitchView.DISC_CLASH:
+				alike.append("%s v %s (%.0f)" % [h, a, d])
+	print("  clash strips, %d of 306 home-and-away pairs; closest pair %.0f" % [swaps, worst])
+	_check(alike.is_empty(), "All 306 pairs: the two discs are plainly different (%s)" % ", ".join(alike))
+	_check(swaps > 0 and swaps < 306, "Some, not all, of the pairs put the away side in a clash strip (%d)" % swaps)
+	_check(foreign.is_empty(), "A clash strip uses only that club's own colours (%s)" % ", ".join(foreign))
+	# The number reads: near-black on a light body, white on a dark one.
+	var ric: Array = PitchView.number_inks(GameDB.club_guernsey("RIC").merged({"base": Color("#FFD200"), "design": "plain", "pattern": Color("#FFD200")}))
+	_check((ric[0] as Color).get_luminance() < 0.2, "The number is dark on a yellow disc")
+	_check((PitchView.number_inks(GameDB.club_guernsey("MEL"))[0] as Color).get_luminance() > 0.8, "The number is white on a navy disc")
+	var pv := PitchView.new()
+	pv.size = Vector2(370, 490)
+	var res := _sim(31, "FRE", "MEL").run()
+	res["home"] = "FRE"
+	res["away"] = "MEL"
+	pv.setup(res)
+	_check(pv.clash, "The view knows the away side is in its clash strip")
+	# The call over the play ("Turnover", a scorer's name) never covers a disc.
+	pv.set_speed(4.0)
+	pv.play()
+	var covered := 0
+	var shown := 0
+	var guard := 0
+	while pv.playing and guard < 4000:
+		guard += 1
+		pv._process(1.0 / 30.0)
+		var drawn := pv.disc_positions()
+		var box := pv.caption_box()
+		if box.size.x <= 0.0:
+			continue
+		shown += 1
+		var tr := pv.token_radius()
+		for d2 in drawn:
+			if box.grow(tr).has_point(d2):
+				covered += 1
+	_check(shown > 50 and covered == 0, "The call over the play covers no disc (%d frames with a call, %d discs covered)" % [shown, covered])
+	pv.free()
+
+
+## The surnames under the discs never run over one another or over another
+## player's disc and number (director, 2026-10-14: "van Rooyenrell"), and the
+## ball carrier's is never dropped. Seeded match, every frame of play at a phone
+## size, checked on the frames with the most names.
+func _test_label_overlap() -> void:
+	# A real match (three of your players ringed) and the most names a frame can
+	# carry (everyone ringed).
+	_label_run("a few ringed", 3)
+	_label_run("everyone ringed", 99)
+
+
+func _label_run(what: String, ringed_count: int) -> void:
+	var pv := PitchView.new()
+	pv.size = Vector2(370, 490)
+	var res := _sim(31, "ADE", "MEL").run()
+	res["home"] = "ADE"
+	res["away"] = "MEL"
+	pv.setup(res)
+	var ringed := {}
+	for t in pv.director.tokens:
+		if ringed.size() < ringed_count:
+			ringed[str(t.get("pid", ""))] = true
+	pv.rings = ringed
+	pv.set_speed(4.0)
+	pv.play()
+	var frames := 0
+	var names := 0
+	var bad := 0
+	var far := 0
+	var twice := 0
+	var missing := 0
+	var guard := 0
+	while pv.playing and guard < 3000:
+		guard += 1
+		pv._process(1.0 / 30.0)
+		if guard % 6 != 0:
+			continue
+		var tr := pv.token_radius()
+		var fs := clampi(int(tr * 1.15), 9, 12)
+		var discs := pv.disc_positions()
+		var lay := pv.role_label_layout(tr, fs)
+		var wanted := pv.label_wanted()
+		var captioned := int(pv._caption["tok"]) if not pv._caption.is_empty() else -1
+		frames += 1
+		names += lay.size()
+		var seen := {}
+		for i in range(lay.size()):
+			var id := int(lay[i]["id"])
+			var r: Rect2 = lay[i]["rect"]
+			if seen.has(id) or id == captioned:
+				twice += 1
+			seen[id] = true
+			for j in range(i + 1, lay.size()):
+				if r.intersects(lay[j]["rect"] as Rect2):
+					bad += 1
+			var c: Vector2 = discs[id]
+			if Vector2(clampf(c.x, r.position.x, r.end.x), clampf(c.y, r.position.y, r.end.y)).distance_to(c) > tr * 2.2:
+				far += 1
+		# Every player who should be named, and is on screen, has his name.
+		for id in wanted:
+			var t: Dictionary = pv.director.tokens[id]
+			var p: Vector2 = discs[id]
+			if int(id) == captioned or float(t.get("down", 0.0)) > 0.0 or str(t.get("surname", "")) == "" 					or p.x < 0.0 or p.y < 0.0 or p.x > pv.size.x or p.y > pv.size.y:
+				continue
+			if not seen.has(int(id)):
+				missing += 1
+	print("  labels (%s): frames %d, names %d, name overlaps %d, far from disc %d, named twice %d, missing %d" % [what, frames, names, bad, far, twice, missing])
+	_check(frames > 50 and names > frames, "The name test saw busy frames, %s (%d frames, %d names)" % [what, frames, names])
+	_check(bad == 0, "No name overlaps another name, %s (%d)" % [what, bad])
+	# With everyone ringed 36 names cannot all fit beside their discs; a real
+	# match (a few ringed) must, but for a pack so tight that a name finds no free
+	# place beside its disc: that is allowed in at most 1 frame in 50.
+	var real_match := ringed_count < 10
+	_check(far == 0 or not real_match, "Every name sits beside its own disc, %s (%d too far)" % [what, far])
+	_check(twice == 0, "A player's name is drawn once, not under his disc and again in the caption, %s (%d)" % [what, twice])
+	_check(missing <= frames / 50 or not real_match, "Every named player on screen has his name, %s (%d missing in %d frames)" % [what, missing, frames])
+	pv.free()
+
+
+## Everything a screen can ask about every club and every pair of clubs: names,
+## colours, kits, inks. The same before a club's two sides are registered,
+## while they are, and after they are taken out again.
+func _look_of_every_club() -> String:
+	var parts := []
+	for a in GameDB.club_order:
+		parts.append([a, GameDB.club_name(str(a)), GameDB.club_short(str(a)), str(GameDB.club_colours(str(a))),
+				str(GameDB.club_marker_colours(str(a))), str(GameDB.club_guernsey(str(a))),
+				str(UiKit.club_ink(str(a))), str(UiKit.club_ink_second(str(a))), str(PitchView.press_zone_colour(str(a))),
+				GameDB.side_base(str(a)), GameDB.is_side(str(a))])
+		for b in GameDB.club_order:
+			parts.append([str(PitchView.kits_for(str(a), str(b))), str(UiKit.club_ink_pair(str(a), str(b))),
+					GameDB.coach_side(str(a), str(b), GameState.my_club)])
+	return str(hash(str(parts)))
+
+
+## A club playing itself (an intra-club match): each side is its own entry
+## beside the real clubs, with its own name and kit, and a normal club-v-club
+## match is untouched by it.
+func _test_sides() -> void:
+	var order_before: Array = GameDB.club_order.duplicate()
+	var clubs_before := GameDB.clubs.size()
+	GameState.my_club = "FRE"
+	var before := _look_of_every_club()
+	var plain := _sim(77, "FRE", "MEL").run()
+	_check(not GameDB.is_side("FRE") and GameDB.side_base("FRE") == "FRE" and not GameDB.side_is_coach("FRE")
+			and GameDB.coach_side("FRE", "MEL", GameState.my_club) == 0 and GameDB.coach_side("MEL", "FRE", GameState.my_club) == 1
+			and GameDB.coach_side("MEL", "GEE", GameState.my_club) == 1,
+			"With no sides registered a club is itself, and the coach's side is his club's, as always")
+
+	var codes: Array = GameDB.register_sides("FRE")
+	var home := str(codes[0])
+	var clash := str(codes[1])
+	_check(GameDB.club_name(home) == "Fremantle Purple" and GameDB.club_name(clash) == "Fremantle White"
+			and GameDB.club_short(home) == "Purple" and GameDB.club_short(clash) == "White",
+			"Fremantle's two sides are named by their strips: Fremantle Purple and Fremantle White")
+	_check(GameDB.is_side(home) and GameDB.is_side(clash) and GameDB.side_base(home) == "FRE" and GameDB.side_base(clash) == "FRE"
+			and GameDB.side_is_coach(home) and not GameDB.side_is_coach(clash)
+			and GameDB.coach_side(home, clash, GameState.my_club) == 0 and GameDB.coach_side(clash, home, GameState.my_club) == 1,
+			"The coach's side is the one flagged as his, the side in the home strip, whichever end it is listed")
+	_check(GameDB.club_order == order_before and not GameDB.active_clubs(2030).has(home)
+			and not GameDB.players_by_club.has(home) and GameDB.clubs.size() == clubs_before + 2,
+			"A side is in no competition and holds no list: it is only a name and a kit")
+	var kits: Array = PitchView.kits_for(home, clash)
+	var as_away: Array = PitchView.kits_for("FRE", "FRE")
+	_check((kits[0]["base"] as Color).is_equal_approx(GameDB.club_guernsey("FRE")["base"])
+			and (kits[1]["base"] as Color).is_equal_approx(as_away[1]["base"])
+			and (kits[1]["base"] as Color).is_equal_approx(GameDB.club_guernsey("FRE")["pattern"])
+			and UiKit.colour_distance(kits[0]["base"], kits[1]["base"]) >= PitchView.DISC_CLASH,
+			"The first side wears the club's kit colour and the second the oval's own clash colour for that club, its kit's other colour (no invented colour), and the two read apart")
+	_check((kits[0]["pattern"] as Color).is_equal_approx(kits[0]["base"]) and (kits[1]["pattern"] as Color).is_equal_approx(kits[1]["base"]),
+			"Each side wears its colour plain, so two sides of a half-and-half kit are never mirror images of each other")
+	_check(GameDB.club_guernsey(clash) == kits[1] and GameDB.club_guernsey(home) == kits[0],
+			"Each side's kit is its own wherever a kit is asked for (crests, the close-ups)")
+	var inks: Array = UiKit.club_ink_pair(home, clash)
+	_check(UiKit.club_ink(home).is_equal_approx(UiKit.club_ink("FRE")) and UiKit.club_ink(clash).is_equal_approx(UiKit.club_ink_second("FRE"))
+			and (inks[0] as Color).is_equal_approx(UiKit.club_ink("FRE")) and (inks[1] as Color).is_equal_approx(UiKit.club_ink_second("FRE")),
+			"On the scoreboard and the stats Fremantle Purple is in the club's purple ink and Fremantle White in its white")
+	GameDB.register_sides("MEL")
+	var mel: Array = PitchView.kits_for("MEL_H", "MEL_A")
+	_check(GameDB.club_name("MEL_H") == "Melbourne Navy" and GameDB.club_name("MEL_A") == "Melbourne Red"
+			and (mel[1]["base"] as Color).is_equal_approx(GameDB.club_guernsey("MEL")["pattern"])
+			and UiKit.club_ink("MEL_A").is_equal_approx(UiKit.club_ink("MEL"))
+			and UiKit.club_ink("MEL_H").is_equal_approx(UiKit.club_ink_second("MEL")),
+			"Melbourne Navy is in the club's blue ink and Melbourne Red in its red: each side's ink is the colour of the strip it wears")
+	GameDB.register_sides("RIC")
+	var ric: Array = UiKit.club_ink_pair("RIC_H", "RIC_A")
+	_check(GameDB.club_name("RIC_H") == "Richmond Black" and GameDB.club_name("RIC_A") == "Richmond Yellow"
+			and (ric[0] as Color).s < 0.1 and UiKit.contrast(ric[0], UiKit.PANEL) >= 4.5
+			and (ric[1] as Color).is_equal_approx(UiKit.club_ink("RIC")),
+			"Richmond Black is in a readable grey (no hue invented for black) and Richmond Yellow in the club's yellow")
+	_check(_look_of_every_club() == before, "With the two sides registered, every real club and every real pair looks exactly as before")
+	var pv := PitchView.new()
+	pv.size = Vector2(370, 490)
+	var res := _sim(31, "FRE", "FRE").run()
+	res["home"] = home
+	res["away"] = clash
+	pv.setup(res)
+	_check(pv._kits[0] == kits[0] and pv._kits[1] == kits[1] and pv.clash,
+			"The oval draws the two sides in the home strip and the clash strip")
+	pv.free()
+	# Every club has two named strips, and a created club falls back to plain words.
+	var named := true
+	var worn := []
+	for c in GameDB.CLUB_ORDER:
+		var two: Array = GameDB.register_sides(str(c))
+		var k: Array = PitchView.kits_for(str(two[0]), str(two[1]))
+		named = named and GameDB.SIDE_COLOUR_NAMES.has(str(c)) and GameDB.club_short(str(two[0])) != GameDB.club_short(str(two[1])) \
+				and GameDB.club_name(str(two[0])).begins_with(GameDB.club_name(str(c)) + " ")
+		var two_inks: Array = UiKit.club_ink_pair(str(two[0]), str(two[1]))
+		if UiKit.colour_distance(k[0]["base"], k[1]["base"]) < PitchView.DISC_CLASH \
+				or (two_inks[0] as Color).is_equal_approx(two_inks[1]) \
+				or UiKit.contrast(two_inks[0], UiKit.PANEL) < 4.5 or UiKit.contrast(two_inks[1], UiKit.PANEL) < 4.5:
+			worn.append(str(c))
+		var own: Array = [GameDB.club_colours(str(c))[0], GameDB.club_colours(str(c))[1], GameDB.club_colours(str(c))[2],
+				GameDB.club_guernsey(str(c))["base"], GameDB.club_guernsey(str(c))["pattern"]]
+		var is_own := false
+		for col in own:
+			is_own = is_own or (k[1]["base"] as Color).is_equal_approx(col)
+		named = named and is_own
+	_check(named and worn.is_empty(), "Every club has two strips with their own colour names, the second strip is always one of the club's own colours, and no club's two sides look alike on the oval or the scoreboard (%s)" % ", ".join(worn))
+	GameDB.unregister_sides()
+	_check(GameDB.clubs.size() == clubs_before and not GameDB.is_side(home) and GameDB.club_name(home) == home
+			and _look_of_every_club() == before,
+			"Taken out again, nothing of the sides is left and every club looks as it did")
+	var again := _sim(77, "FRE", "MEL").run()
+	_check(again["score"] == plain["score"] and again["goals"] == plain["goals"] and again["behinds"] == plain["behinds"]
+			and (again["events"] as Array).size() == (plain["events"] as Array).size()
+			and str(again["players"]) == str(plain["players"]),
+			"A club-v-club match on the same seed plays out identically after sides have come and gone")
+	GameState.my_club = ""
+
+
+## The bench strip: five a side, inside the view, and an interchange swaps the
+## man coming on for the man going off, when the oval shows it.
+func _test_bench_strip() -> void:
+	var res := _sim(31, "FRE", "MEL").run()
+	res["home"] = "FRE"
+	res["away"] = "MEL"
+	_check((res["bench"] as Array).size() == 2 and (res["bench"][0] as Array).size() == 5
+			and (res["bench"][1] as Array).size() == 5, "A match says who started on each bench: five a side")
+	for view in [[Vector2(370, 490), true, "phone"], [Vector2(900, 590), false, "PC"]]:
+		var pv := PitchView.new()
+		pv.size = view[0]
+		pv.camera_enabled = view[1]
+		pv.setup(res)
+		var spots := pv.bench_spots(pv.token_radius())
+		var per := [0, 0]
+		var inside := true
+		for sp in spots:
+			per[int(sp["side"])] += 1
+			var p: Vector2 = sp["pos"]
+			var r: float = sp["r"]
+			if p.x - r < 0.0 or p.y - r < 0.0 or p.x + r > pv.size.x or p.y + r > pv.size.y:
+				inside = false
+		_check(per == [5, 5] and inside, "%s: five bench discs a side, all inside the view (%s)" % [str(view[2]), str(per)])
+		if str(view[2]) == "PC":
+			_check(bool(spots[0]["column"]), "PC: the bench runs down the sides of the ground, using the width")
+			var a := MatchMotion.HALF_LEN * pv._scale()
+			var clear := true
+			for sp in spots:
+				if absf((sp["pos"] as Vector2).x - pv.size.x * 0.5) < a + float(sp["r"]):
+					clear = false
+			_check(clear, "PC: no bench disc sits on the ground")
+		else:
+			_check(not bool(spots[0]["column"]), "Phone: the bench runs along the bottom of the view")
+			var ground_bottom: float = pv.size.y * 0.5 + MatchMotion.HALF_WID * pv.pitch_rect().size.x / (2.0 * MatchMotion.HALF_LEN) * 1.5
+			_check((spots[0]["pos"] as Vector2).y - float(spots[0]["r"]) > ground_bottom,
+					"Phone: the bench sits below the oval at its closest zoom, in the stand's band")
+		pv.free()
+	# Rotations: at every interchange the bench stays five, the man on leaves it
+	# and the man off joins it, and nobody is on the ground and the bench at once.
+	var pv3 := PitchView.new()
+	pv3.size = Vector2(370, 490)
+	var wrong := []
+	var subs := [0]
+	pv3.event_played.connect(func(ev):
+		if str(ev.get("kind", "")) != "sub":
+			return
+		subs[0] += 1
+		var side := int(ev["side"])
+		var nums := []
+		for b in pv3.director.bench[side]:
+			nums.append(int(b["num"]))
+		var on_ground := []
+		for t in pv3.director.tokens:
+			if int(t["side"]) == side:
+				on_ground.append(int(t["num"]))
+		var both := nums.filter(func(n): return on_ground.has(n))
+		if nums.size() != 5 or nums.has(int(ev["num"])) or not nums.has(int(ev["off_num"])) or not both.is_empty():
+			wrong.append("event %d" % pv3.current_index()))
+	pv3.setup(res)
+	var opening := []
+	for b in pv3.director.bench[0]:
+		opening.append(int(b["num"]))
+	pv3.set_speed(8.0)
+	pv3.play()
+	var guard := 0
+	while pv3.playing and guard < 200000:
+		guard += 1
+		pv3._process(1.0 / 30.0)
+	var closing := []
+	for b in pv3.director.bench[0]:
+		closing.append(int(b["num"]))
+	_check(subs[0] > 0 and wrong.is_empty(), "Every interchange swaps one man on the bench strip (%d interchanges; wrong at %s)" % [
+			subs[0], ", ".join(wrong.slice(0, 5))])
+	_check(opening != closing, "The bench changes as the match rotates")
+	pv3.free()
+	var old := res.duplicate()
+	old.erase("bench")
+	var pv4 := PitchView.new()
+	pv4.size = Vector2(370, 490)
+	pv4.setup(old)
+	_check(pv4.bench_spots(pv4.token_radius()).is_empty(), "An old result with no bench shows no strip, and plays")
+	pv4.free()
+
+
+## The sides change ends when the next quarter restarts, not at the siren, and
+## never after the last one; the match itself is the same watched or not.
+func _test_ends_change_at_restart(res: Dictionary) -> void:
+	var pv := PitchView.new()
+	pv.size = Vector2(370, 490)
+	var at_siren := []
+	var changes := []
+	pv.ends_changed.connect(func(p): changes.append(p))
+	pv.event_played.connect(func(ev):
+		if str(ev.get("kind", "")) == "quarter":
+			at_siren.append([int(ev.get("q", 0)), pv.period]))
+	var copy: Array = (res["events"] as Array).duplicate(true)
+	pv.setup(res)
+	pv.set_speed(8.0)
+	pv.play()
+	var guard := 0
+	while pv.playing and guard < 200000:
+		guard += 1
+		pv._process(1.0 / 30.0)
+	var held := true
+	for row in at_siren:
+		if int(row[1]) != int(row[0]):
+			held = false
+	_check(at_siren.size() >= 3 and held, "At each siren the ground still shows the quarter just played (%s)" % str(at_siren))
+	_check(changes == [2, 3, 4] and pv.period == 4, "Ends change three times, at each restart, and not after the final siren (%s)" % str(changes))
+	_check(res["events"] == copy, "Watching the match changes nothing in it")
+	var again := _result(42)
+	_check(again["score"] == res["score"] and again["goals"] == res["goals"] and again["behinds"] == res["behinds"]
+			and (again["events"] as Array).size() == (res["events"] as Array).size(),
+			"The same seed gives the same score and the same match after one has been watched")
+	# Skipped, not watched: the same ends.
+	var pv2 := PitchView.new()
+	pv2.size = Vector2(370, 490)
+	pv2.setup(res)
+	pv2.skip_to_end()
+	_check(pv2.period == 4, "A skipped match ends at the fourth quarter's ends (%d)" % pv2.period)
+	pv.free()
+	pv2.free()
+
+
+## The oval upright (a phone held upright): the same picture as the ground lying
+## flat, turned a quarter turn, the whole ground in view, the home side kicking
+## up the screen first and down it after the change of ends, the bench clear of
+## the turf, and a point on a disc finding that player, upright and flat.
+func _test_upright_oval(res: Dictionary) -> void:
+	var up := PitchView.new()
+	up.size = Vector2(370, 490)
+	up.camera_enabled = false
+	up.upright = true
+	var flat := PitchView.new()
+	flat.size = Vector2(490, 370)
+	flat.camera_enabled = false
+	var turn := func(q: Vector2) -> Vector2:
+		var v := q - flat.size * 0.5
+		return up.size * 0.5 + Vector2(v.y, -v.x)
+	var ends := []
+	up.ends_changed.connect(func(_p): ends.append(up._w2s(Vector2(MatchMotion.GOAL_X, 0.0)).y < up.size.y * 0.5))
+	up.setup(res)
+	flat.setup(res)
+	var gr: Rect2 = up.pitch_rect()
+	_check(Rect2(Vector2.ZERO, up.size).encloses(gr) and gr.size.y > gr.size.x * 1.2
+			and is_equal_approx(gr.size.x, flat.pitch_rect().size.y) and is_equal_approx(gr.size.y, flat.pitch_rect().size.x),
+			"Upright, the whole ground is in view and runs top to bottom (%s)" % str(gr))
+	var home_goal: Vector2 = up._w2s(Vector2(MatchMotion.GOAL_X, 0.0))
+	_check(home_goal.y < up.size.y * 0.5 and absf(home_goal.x - up.size.x * 0.5) < 0.5,
+			"In the first quarter the home side kicks up the screen, the goal on the centre line")
+	up.set_speed(8.0)
+	flat.set_speed(8.0)
+	up.play()
+	flat.play()
+	var worst := 0.0
+	var ball_worst := 0.0
+	var wrong_hit := 0
+	var carrier_missed := 0
+	var guard := 0
+	while up.playing and guard < 200000:
+		guard += 1
+		up._process(1.0 / 30.0)
+		flat._process(1.0 / 30.0)
+		if guard % 5 != 0:
+			continue
+		for i in range(up.director.tokens.size()):
+			var a2: Vector2 = up._w2s(up.director.tokens[i]["pos"])
+			var b2: Vector2 = turn.call(flat._w2s(flat.director.tokens[i]["pos"]))
+			worst = maxf(worst, a2.distance_to(b2))
+		ball_worst = maxf(ball_worst, up._w2s(up.director.ball["pos"]).distance_to(turn.call(flat._w2s(flat.director.ball["pos"]))))
+		if guard % 50 != 0:
+			continue
+		for pv in [up, flat]:
+			var drawn: PackedVector2Array = pv.disc_positions()
+			var tr: float = pv.token_radius()
+			for i in range(drawn.size()):
+				var hit: int = pv.disc_at_point(drawn[i])
+				if hit < 0 or drawn[hit].distance_to(drawn[i]) > tr * 1.25:
+					wrong_hit += 1
+			var holder := int(pv.director.ball.get("holder", -1))
+			if holder >= 0 and pv.disc_at_point(drawn[holder]) != holder:
+				carrier_missed += 1
+	_check(not up.playing and worst < 0.01 and ball_worst < 0.01,
+			"Every player and the ball are in the same place upright as flat, turned (%.3f px, ball %.3f px)" % [worst, ball_worst])
+	_check(ends == [false, true, false], "Upright, the home side kicks down, up, then down the screen after each change of ends (%s)" % str(ends))
+	_check(wrong_hit == 0, "A point on a disc finds a player drawn there, upright and flat (%d misses)" % wrong_hit)
+	_check(carrier_missed == 0, "A point on the ball carrier's disc finds him, upright and flat (%d misses)" % carrier_missed)
+	up.free()
+	flat.free()
+	# The bench, upright: five a side in the bottom corners, inside the view, off the turf.
+	var bres := _sim(31, "FRE", "MEL").run()
+	bres["home"] = "FRE"
+	bres["away"] = "MEL"
+	var pv2 := PitchView.new()
+	pv2.size = Vector2(370, 490)
+	pv2.camera_enabled = false
+	pv2.upright = true
+	pv2.setup(bres)
+	var spots := pv2.bench_spots(pv2.token_radius())
+	var s := pv2._scale()
+	var on_turf := 0
+	var outside := 0
+	for sp in spots:
+		var q: Vector2 = (sp["pos"] as Vector2) - pv2.size * 0.5
+		var r: float = sp["r"]
+		var ex := (absf(q.x) - r) / (MatchMotion.HALF_WID * s)
+		var ey := (absf(q.y) - r) / (MatchMotion.HALF_LEN * s)
+		if ex * ex + ey * ey < 1.0:
+			on_turf += 1
+		var at: Vector2 = sp["pos"]
+		if at.x - r < 0.0 or at.y - r < 0.0 or at.x + r > pv2.size.x or at.y + r > pv2.size.y:
+			outside += 1
+	_check(spots.size() == 10 and on_turf == 0 and outside == 0,
+			"Upright, the bench's ten discs sit in the view and off the turf (%d, %d on the turf, %d outside)" % [spots.size(), on_turf, outside])
+	_check(absf(float(spots[0]["r"]) - pv2.token_radius()) < 0.5, "Upright, a bench disc is as big as a player's on the ground")
+	# A goal's ring at either end: never past the view's edge, never over the bench.
+	var bad := []
+	for gx in [MatchMotion.GOAL_X, -MatchMotion.GOAL_X]:
+		var at: Vector2 = pv2._w2s(Vector2(gx, 0.0))
+		var biggest := minf(MatchMotion.HALF_LEN * s, MatchMotion.HALF_WID * s) * 0.42
+		var r := minf(biggest, pv2.flash_room(at, pv2.token_radius()))
+		if at.y - r < 0.0 or at.y + r > pv2.size.y or at.x - r < 0.0 or at.x + r > pv2.size.x:
+			bad.append("off the view at %s" % str(at))
+		for sp in spots:
+			if (sp["pos"] as Vector2).distance_to(at) < r + float(sp["r"]):
+				bad.append("over bench disc %d" % int(sp["num"]))
+	_check(bad.is_empty(), "Upright, a goal's ring stays in the view and off the bench at both ends (%s)" % ", ".join(bad))
+	pv2.free()
+
+
+## The press tint follows the game plan in every quarter, and a plan changed at
+## a break shows from the next quarter (director, 2026-10-14: seen in Q1, then
+## gone). A match played quarter by quarter as the coach plays it live: the plan
+## set at each break, the new events and timeline handed to the same director.
+func _test_plan_tint_every_quarter() -> void:
+	var plans := ["defensive", "defensive", "balanced", "defensive"]
+	for my_side in [0, 1]:
+		var sim := MatchSim.new(Squad.new("ADE", GameDB.club_list("ADE"), true, "ADE"),
+				Squad.new("MEL", GameDB.club_list("MEL"), false, "MEL"), 11)
+		var d := MatchDirector.new()
+		var evs: Array = []
+		var cursor := 0
+		var shown := []
+		for q in range(4):
+			sim.set_tactics(my_side, {"gameplan": plans[q], "focus_id": "", "tag_id": "", "pep": "steady"})
+			sim.set_tactics(1 - my_side, {"gameplan": "balanced", "focus_id": "", "tag_id": "", "pep": "steady"})
+			var res := sim.run_quarter()
+			res["home"] = "ADE"
+			res["away"] = "MEL"
+			res["label"] = "Round 1"
+			if q == 0:
+				d.setup(res, evs)
+			var all: Array = res["events"]
+			evs.append_array(all.slice(cursor))
+			cursor = all.size()
+			d.set_timeline(res["timeline"])
+			var on := 0
+			var ticks := 0
+			var guard := 0
+			while not d.idle() and guard < 100000:
+				guard += 1
+				d.advance(1.0 / 15.0)
+				ticks += 1
+				if d.press_zone_on(my_side):
+					on += 1
+			shown.append(float(on) / float(maxi(1, ticks)))
+		_check(float(shown[0]) > 0.97 and float(shown[1]) > 0.97 and float(shown[3]) > 0.97,
+				"Side %d: the press tint shows through the quarters of its plan (%s)" % [my_side, str(shown)])
+		_check(float(shown[2]) < 0.03, "Side %d: the tint is gone in the quarter the plan was changed (%s)" % [my_side, str(shown)])

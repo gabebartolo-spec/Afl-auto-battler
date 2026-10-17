@@ -9,6 +9,8 @@ extends RefCounted
 ##   Rising Star      best votes-then-influence among the season's weekly
 ##                    nominees (one a round: the most influential player 21
 ##                    and under not yet nominated)
+##   Norm Smith Medal the most influential player on the ground in the Grand
+##                    Final, from either side (the same measure as the votes)
 ##   Best & fairest   5-4-3-2-1 within each side every match, finals included
 ##   All-Australian   the season's best 23 by position (12+ games)
 ##
@@ -68,6 +70,54 @@ static func tally_match(tally: Dictionary, res: Dictionary, regular: bool) -> vo
 		for i in range(mini(5, everyone.size())):
 			var t: Dictionary = tally[str(everyone[i][0])]
 			t["coaches"] = int(t.get("coaches", 0)) + (5 - i)
+
+
+## The Norm Smith Medal for one Grand Final result: the most influential
+## player on the ground, from either side (CoachReport.influence, the measure
+## the Brownlow votes use). A level count goes to the home side's player who
+## comes first in the roster, so the same match always names the same man.
+## Returns {id, club, influence, line} (`line` is his stat line that day), or
+## {} when the match kept no player stats.
+static func norm_smith(res: Dictionary) -> Dictionary:
+	var stats_all: Dictionary = res.get("players", {})
+	var roster: Array = res.get("roster", [])
+	var codes := [str(res.get("home", "")), str(res.get("away", ""))]
+	var best := {}
+	for side in range(mini(2, roster.size())):
+		for r in roster[side]:
+			var id := str(r["id"])
+			if not stats_all.has(id):
+				continue
+			var inf := CoachReport.influence(stats_all[id])
+			if best.is_empty() or inf > float(best["influence"]):
+				best = {"id": id, "club": codes[side], "influence": inf,
+						"line": plain_line(stats_all[id])}
+	return best
+
+
+## What he did, in plain words: up to three headline figures, goals first if he
+## kicked any, then disposals, then tackles or marks (whichever he had more of).
+## "3 goals, 25 disposals and 8 marks".
+static func plain_line(st: Dictionary) -> String:
+	var parts: Array = []
+	var goals := int(st.get("goals", 0.0))
+	if goals > 0:
+		parts.append("%d %s" % [goals, "goal" if goals == 1 else "goals"])
+	var disp := int(st.get("disposals", 0.0))
+	if disp > 0:
+		parts.append("%d %s" % [disp, "disposal" if disp == 1 else "disposals"])
+	if parts.size() < 3:
+		var tackles := int(st.get("tackles", 0.0))
+		var marks := int(st.get("marks", 0.0))
+		if tackles > 0 and tackles >= marks:
+			parts.append("%d %s" % [tackles, "tackle" if tackles == 1 else "tackles"])
+		elif marks > 0:
+			parts.append("%d %s" % [marks, "mark" if marks == 1 else "marks"])
+	if parts.is_empty():
+		return "best on the ground"
+	if parts.size() == 1:
+		return str(parts[0])
+	return "%s and %s" % [", ".join(parts.slice(0, parts.size() - 1)), parts[parts.size() - 1]]
 
 
 ## The season's awards. `players` maps id -> player dict (role, age) for
@@ -255,4 +305,38 @@ static func update_records(records: Dictionary, awards: Dictionary, season_log: 
 			var margin := int(s[side]) - int(s[1 - side])
 			if margin > int((records.get("biggest_win", {}) as Dictionary).get("value", -1)):
 				records["biggest_win"] = {"value": margin, "club": code, "opp": opp, "year": year}
+		_comeback_records(records, res, year)
 	return records
+
+
+## The greatest comeback (the biggest deficit at a break a side then won from) and the biggest
+## lead lost (the biggest lead at a break a side then lost from), over the career. Only from the
+## break scores, and only past the bars Headlines uses for a comeback headline, so a record is
+## never claimed for an ordinary game. Extra time (quarters that do not add up) says nothing.
+## "at" is the break (0 quarter time, 1 half time, 2 three-quarter time).
+static func _comeback_records(records: Dictionary, res: Dictionary, year: int) -> void:
+	var s: Array = res.get("score", [0, 0])
+	if int(s[0]) == int(s[1]):
+		return
+	var winner := 0 if int(s[0]) > int(s[1]) else 1
+	var leads: Array = Headlines._break_leads(res, winner)
+	if leads.is_empty():
+		return
+	var worst := 0
+	var worst_at := -1
+	var best := 0
+	var best_at := -1
+	for i in range(leads.size()):
+		if int(leads[i]) < worst:
+			worst = int(leads[i])
+			worst_at = i
+		if int(leads[i]) > best:
+			best = int(leads[i])
+			best_at = i
+	var win_code := str(res["home"] if winner == 0 else res["away"])
+	var lose_code := str(res["away"] if winner == 0 else res["home"])
+	if -worst >= Headlines.COMEBACK and -worst > int((records.get("biggest_comeback", {}) as Dictionary).get("value", -1)):
+		records["biggest_comeback"] = {"value": -worst, "club": win_code, "opp": lose_code, "year": year, "at": worst_at}
+	# The loser's biggest lead at a break is the winner's biggest deficit.
+	if -worst >= Headlines.LED and -worst > int((records.get("biggest_blown", {}) as Dictionary).get("value", -1)):
+		records["biggest_blown"] = {"value": -worst, "club": lose_code, "opp": win_code, "year": year, "at": worst_at}

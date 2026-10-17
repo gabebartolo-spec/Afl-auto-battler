@@ -110,7 +110,9 @@ func _ready() -> void:
 	_content = UiKit.vbox(12)
 	_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	margin.add_child(UiKit.scroll(_content))
-	get_viewport().size_changed.connect(_render)
+	get_viewport().size_changed.connect(func():
+		if not UiKit.keyboard_resize(self):
+			_render())
 	_render()
 
 
@@ -168,7 +170,8 @@ func _show_home() -> void:
 		col.add_child(cont)
 		var meta := GameState._save_meta() if live else GameState.saved_career_meta()
 		if str(meta.get("club", "")) != "":
-			var info := UiKit.lbl(_meta_line(meta), UiKit.SMALL, UiKit.MUTED)
+			# Which career Continue opens is what the coach decides on: TEXT, not MUTED.
+			var info := UiKit.lbl(_meta_line(meta), UiKit.BODY, UiKit.TEXT)
 			info.name = "CareerMeta"
 			info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			col.add_child(info)
@@ -189,11 +192,25 @@ func _show_home() -> void:
 	col.add_child(forge)
 
 	_content.add_child(UiKit.spacer(18))
-	var quiet := UiKit.hbox(4)
-	quiet.alignment = BoxContainer.ALIGNMENT_CENTER
+	# A flow, so on a narrow window the last link wraps instead of leaving the screen.
+	var quiet := HFlowContainer.new()
+	quiet.add_theme_constant_override("h_separation", 4)
+	quiet.alignment = FlowContainer.ALIGNMENT_CENTER
 	quiet.add_child(_quiet_btn("How to play", "MenuHelp", _show_help))
 	quiet.add_child(_quiet_btn("Settings", "MenuSettings", _show_settings))
+	# Last in the row, desktop only (director, 2026-10-12): Android Back already leaves
+	# the app from this menu, iOS and the web have no quit of their own. The gate is the
+	# platform (ScreenLayout.is_desktop), never the window width.
+	if ScreenLayout.is_desktop():
+		var exit := _quiet_btn("Exit game", "ExitGame", func(): Router.quit_game())
+		exit.custom_minimum_size = Vector2(120, 48)
+		quiet.add_child(exit)
 	_content.add_child(quiet)
+	var build := UiKit.lbl("Build " + BuildInfo.label(), UiKit.SMALL, UiKit.MUTED)
+	build.name = "BuildLabel"
+	build.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_content.add_child(UiKit.spacer(8))
+	_content.add_child(build)
 
 
 ## A secondary action that reads as text: no box, muted until pressed.
@@ -384,7 +401,9 @@ func _start_new_career() -> void:
 	GameState.set_show_real_names(_pick_real)
 	GameState.set_new_career_difficulty(_pick_difficulty)
 	GameState.set_new_career_tutorials(_pick_tutorials)
-	GameState.delete_saved_career()
+	# The old save stays on disk until the new career has a club and its first
+	# save replaces it: backing out of Choose your club must not cost the player
+	# the career they had (reset() clears memory only).
 	GameState.reset()
 	# A created club has no real 2026 list, so it only joins a League redraft.
 	if _pick_club and _pick_start != "real":

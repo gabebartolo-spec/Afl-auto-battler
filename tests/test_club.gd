@@ -39,6 +39,17 @@ func run() -> void:
 	print("Club tests: %d checks, %d failures" % [checks, failures.size()])
 
 
+## A sit-down card from the deck about `p`, opening on `case` with the facts
+## in `info` (as GameState.talk_info gives them).
+func _talk_card(p: Dictionary, case: String, info: Dictionary) -> Dictionary:
+	var facts := ClubStories.player_fact(GameState, p, false, info, 99, 0)
+	facts["talk_case"] = case
+	facts["talk_text"] = ClubLife.talk_text(case, info)
+	var deck := StoryDeck.all()
+	return StoryEngine.build(deck, StoryDeck.by_id(deck, "selection_talk_" + case), facts, {},
+			RandomNumberGenerator.new(), GameState.story_week())
+
+
 func _check(condition: bool, message: String) -> void:
 	checks += 1
 	if not condition:
@@ -168,25 +179,32 @@ func _test_season_flow() -> void:
 
 
 func _test_events() -> void:
-	var list := GameDB.club_list("GEE").duplicate(true)
+	GameState.reset()
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var ctx := ClubStories.context(GameState)
+	ctx["club"]["losing_run"] = 3
+	var story := StoryEngine.new_state()
 	var seen := {}
 	var quiet := 0
 	for r in range(1, 60):
-		var e := ClubLife.pick_event({"list": list, "round": r, "seed": 99, "losses": 3, "selected": {}})
-		if e.is_empty():
+		ctx["week"] = r
+		var cards := StoryEngine.pick_week(StoryDeck.all(), ctx, story)
+		if cards.is_empty():
 			quiet += 1
 			continue
+		var e: Dictionary = cards[0]
 		seen[str(e["key"])] = true
 		var opts: Array = e["options"]
 		if not (opts.size() >= 2 and int(e["default"]) < opts.size()):
 			_check(false, "Event %s offers a real choice" % e["key"])
 	_check(quiet > 5 and quiet < 35, "Some weeks are quiet (%d of 59)" % quiet)
-	_check(seen.has("pressure") and seen.has("training"), "Losing streaks bring the board to your door")
+	_check(seen.has("board_wants_answers") and seen.has("training_extra_session"),
+			"Losing streaks bring the board to your door (%s)" % str(seen.keys()))
 	# Resolving: rest a sore star and he sits out.
 	GameState.reset()
 	GameState.start_season("GEE", GameDB.club_list("GEE"))
 	var star: Dictionary = GameState.my_list[0]
-	GameState.week_event = ClubLife._sore_star(star)
+	GameState.week_event = GameState.story_card("health_pulled_up_sore", star)
 	GameState.resolve_week_event(0)
 	var side: Dictionary = GameState.current_side()
 	var picked := false
@@ -198,7 +216,7 @@ func _test_events() -> void:
 	_check(not star.has("rested"), "He is back for the next week")
 	# An unanswered card gives nothing for free: a training card left alone
 	# is a normal week (no XP, no morale, no fresh legs) ...
-	var ev := ClubLife._training()
+	var ev := GameState.story_card("training_extra_session")
 	GameState.week_event = ev
 	var xp_before := {}
 	var morale_before := {}
@@ -220,22 +238,24 @@ func _test_events() -> void:
 		if int(q.get("injury_weeks", 0)) == 0 and not q.has("rested"):
 			sore_star = q  # a fit player: an injured one is "ruled out anyway"
 			break
-	GameState.week_event = ClubLife._sore_star(sore_star)
+	GameState.week_event = GameState.story_card("health_pulled_up_sore", sore_star)
 	GameState._settle_week_event()
 	_check(bool(sore_star.get("sore", false)) and not bool(sore_star.get("rested", false)),
 			"A sore star nobody rests plays sore")
 	var conf_before := GameState.board_confidence()
 	var paper_man: Dictionary = GameState.my_list[2]
 	var paper_morale := ClubLife.morale(paper_man)
-	GameState.week_event = ClubLife._media(paper_man)
+	GameState.week_event = GameState.story_card("media_in_the_papers", paper_man)
 	var silence: Dictionary = GameState.week_event["unanswered"]
-	_check(str(silence.get("hint", "")).contains("(%d)" % int(silence["board"])),
+	var paper_trust := Trust.value(GameState.relations, Trust.player_key(str(paper_man["id"])))
+	_check(int(silence["trust"]) == -2 and str(silence.get("hint", "")).contains("trusts you"),
 			"The card says what saying nothing costs: %s" % str(silence.get("hint", "")))
 	GameState._settle_week_event()
-	_check(GameState.board_confidence() == clampi(conf_before - 4, 0, 100) and ClubLife.morale(paper_man) == paper_morale,
-			"Saying nothing about an incident costs the board, and lifts nobody")
+	_check(GameState.board_confidence() == conf_before and ClubLife.morale(paper_man) == paper_morale
+			and Trust.value(GameState.relations, Trust.player_key(str(paper_man["id"]))) < paper_trust,
+			"Saying nothing about the papers costs his trust, not the board, and lifts nobody")
 	GameState.advance()
-	var heavy := ClubLife._training()
+	var heavy := GameState.story_card("training_extra_session")
 	GameState.week_event = heavy
 	GameState.resolve_week_event(0)
 	var p3: Dictionary = GameState.my_list[3]
@@ -254,12 +274,12 @@ func _test_events() -> void:
 func _test_event_tradeoffs() -> void:
 	GameState.reset()
 	GameState.start_season("GEE", GameDB.club_list("GEE"))
-	_check(ClubLife._training()["options"].size() == 2, "No free 'normal week' beside a free recovery week")
+	_check(GameState.story_card("training_extra_session")["options"].size() == 2, "No free 'normal week' beside a free recovery week")
 	# A kid pushing for games: a development week costs him this week's game.
 	var kid: Dictionary = GameState.my_list[30]
 	kid["morale"] = 70
 	kid["xp"] = 0
-	GameState.week_event = ClubLife._young_gun(kid)
+	GameState.week_event = GameState.story_card("training_kid_pushing", kid)
 	GameState.resolve_week_event(1)
 	_check(bool(kid.get("rested", false)) and not Ratings.available(kid),
 			"A development week takes him out of this week's game")
@@ -270,7 +290,7 @@ func _test_event_tradeoffs() -> void:
 	# ...or his chance: he expects to be picked.
 	var kid2: Dictionary = GameState.my_list[31]
 	kid2["morale"] = 70
-	GameState.week_event = ClubLife._young_gun(kid2)
+	GameState.week_event = GameState.story_card("training_kid_pushing", kid2)
 	GameState.resolve_week_event(0)
 	_check(Ratings.available(kid2) and ClubLife.morale(kid2) == 75 and int(kid2.get("expects_game", 0)) == 10,
 			"Giving him a game: thrilled, available, and he expects to be picked")
@@ -280,13 +300,13 @@ func _test_event_tradeoffs() -> void:
 		if str(p["id"]) == str(kid2["id"]):
 			on_ground = true
 	_check(on_ground, "Auto-pick names the kid you gave a game (%s)" % GameState.week_event.get("outcome", ""))
-	_check(str(GameState.week_event.get("outcome", "")).contains("Auto-pick names him"),
+	_check(str(GameState.week_event.get("outcome", "")).contains("in the side this week"),
 			"The outcome says auto-pick has him")
 	kid2.erase("expects_game")
 	# An unhappy player: sitting down with him commits you to a game.
 	var sulk: Dictionary = GameState.my_list[26]
 	sulk["morale"] = 30
-	GameState.week_event = ClubLife._unhappy(sulk)
+	GameState.week_event = GameState.story_card("selection_unhappy", sulk)
 	GameState.resolve_week_event(0)
 	_check(ClubLife.morale(sulk) == 45 and bool(sulk.get("expects_game", false)), "A talk lifts him, and he expects a game")
 	# Your own side that leaves him out: the promise is broken, and it sours.
@@ -307,7 +327,7 @@ func _test_event_tradeoffs() -> void:
 	var mate: Dictionary = GameState.my_list[0]
 	sulk2["morale"] = 30
 	mate["morale"] = 70
-	GameState.week_event = ClubLife._unhappy(sulk2)
+	GameState.week_event = GameState.story_card("selection_unhappy", sulk2)
 	GameState.resolve_week_event(1)
 	_check(ClubLife.morale(sulk2) == 25 and ClubLife.morale(mate) == 72, "Earn it: he dips, the group lifts")
 
@@ -332,22 +352,18 @@ func _test_event_decisions() -> void:
 	_check(not ClubLife.extension_wanted(good, {}), "A good player below star level waits for the off-season")
 	_check(not ClubLife.extension_wanted(star, {"extension|someone_else": true}),
 			"Only one star asks to extend early in a season")
-	var offered_broke := false
-	for r in range(1, 40):
-		var ev := ClubLife.pick_event({"list": GameState.my_list, "round": r, "seed": 7,
-				"cap_room": -50, "memory": {}, "selected": {}})
-		if str(ev.get("key", "")) == "extension":
-			offered_broke = true
-	_check(not offered_broke, "No extension card when the cap cannot carry it")
+	_check(bool(ClubStories.player_fact(GameState, star, false, {}, 1, 999999999)["extension_ok"])
+			and not bool(ClubStories.player_fact(GameState, star, false, {}, 1, -50)["extension_ok"]),
+			"No extension card when the cap cannot carry it")
 	_check(not ClubLife.extension_wanted(star, {"extension|" + str(star["id"]): true}),
 			"He asks once a season, not every week")
 	GameState.salary_cap = 999999999
 	var sal_before := int(star["salary"])
-	GameState.week_event = ClubLife._extension(star)
+	GameState.week_event = GameState.story_card("contracts_wants_to_extend", star)
 	GameState.resolve_week_event(1)
 	_check(int(star["contract_years"]) == 1 and int(star["salary"]) == sal_before and ClubLife.morale(star) == 65,
 			"Waiting commits nothing and costs a little morale")
-	GameState.week_event = ClubLife._extension(star)
+	GameState.week_event = GameState.story_card("contracts_wants_to_extend", star)
 	GameState.resolve_week_event(0)
 	_check(int(star["salary"]) == early and int(star["contract_years"]) == 3,
 			"Extending locks in the early price for three seasons (young)")
@@ -359,7 +375,7 @@ func _test_event_decisions() -> void:
 	var signed: Dictionary = GameState.my_list[4]
 	signed["contract_years"] = 3
 	var s_sal := int(signed["salary"])
-	GameState.week_event = ClubLife._extension(signed)
+	GameState.week_event = GameState.story_card("contracts_wants_to_extend", signed)
 	GameState.resolve_week_event(0)
 	_check(int(signed["salary"]) == s_sal and int(signed["contract_years"]) == 3,
 			"An extension card for a player already signed changes nothing")
@@ -368,7 +384,7 @@ func _test_event_decisions() -> void:
 	late["contract_years"] = 1
 	late["morale"] = 70
 	GameState.salary_cap = 0
-	GameState.week_event = ClubLife._extension(late)
+	GameState.week_event = GameState.story_card("contracts_wants_to_extend", late)
 	GameState.resolve_week_event(0)
 	_check(int(late["contract_years"]) == 1 and ClubLife.morale(late) == 70,
 			"No cap room at resolution: he waits, and is not punished for it")
@@ -376,7 +392,7 @@ func _test_event_decisions() -> void:
 	# --- Sore player: playing is a real risk, resting a real cost ----------
 	var sore: Dictionary = GameState.my_list[1]
 	var base_risk := Injuries.chance(sore)
-	GameState.week_event = ClubLife._sore_star(sore)
+	GameState.week_event = GameState.story_card("health_pulled_up_sore", sore)
 	GameState.resolve_week_event(1)
 	var risk := Injuries.chance(sore)
 	_check(is_equal_approx(risk, base_risk * ClubLife.SORE_RISK) and risk > 0.15 and risk < 0.4,
@@ -385,7 +401,7 @@ func _test_event_decisions() -> void:
 	# --- Training: development against freshness ---------------------------
 	var q: Dictionary = GameState.my_list[6]
 	var r0 := Injuries.chance(q)
-	GameState.week_event = ClubLife._training()
+	GameState.week_event = GameState.story_card("training_extra_session")
 	GameState.resolve_week_event(0)
 	_check(Injuries.chance(q) > r0 and float(MatchSim._start_energy(q)) < 100.0,
 			"A heavy week: heavier legs and more soft-tissue risk")
@@ -393,41 +409,40 @@ func _test_event_decisions() -> void:
 	var q2: Dictionary = GameState.my_list[6]
 	var m0 := ClubLife.morale(q2)
 	var r1 := Injuries.chance(q2)
-	GameState.week_event = ClubLife._training()
+	GameState.week_event = GameState.story_card("training_extra_session")
 	GameState.resolve_week_event(1)
 	_check(Injuries.chance(q2) < r1 and ClubLife.morale(q2) >= mini(100, m0 + 3),
 			"A recovery week: fewer injuries and a lift")
 	# --- Board pressure: once a losing run, not every week of it -----------
 	var fires := {}
+	var board_card := StoryDeck.by_id(StoryDeck.all(), "board_wants_answers")
+	var bctx := ClubStories.context(GameState)
 	for losses in [3, 4, 5, 6]:
-		var hit := false
-		for r in range(1, 60):
-			if str(ClubLife.pick_event({"list": GameState.my_list, "round": r, "seed": 3,
-					"losses": losses}).get("key", "")) == "pressure":
-				hit = true
-		fires[losses] = hit
+		bctx["club"]["losing_run"] = losses
+		fires[losses] = not StoryEngine.eligible_subject(board_card, bctx, StoryEngine.new_state(), 10,
+				RandomNumberGenerator.new()).is_empty()
 	_check(fires[3] and not fires[4] and not fires[5] and fires[6],
 			"The board calls at three and six straight losses, not every week (%s)" % str(fires))
 	# --- Unhappy: not the same player again straight away; never injured --
 	var sad: Dictionary = GameState.my_list[20]
 	sad["morale"] = 20
-	var no_repeat := true
-	for r in range(1, 50):
-		var ev := ClubLife.pick_event({"list": [sad], "round": r, "seed": 5,
-				"memory": {"unhappy|" + str(sad["id"]): r - 2}})
-		if str(ev.get("key", "")) == "unhappy":
-			no_repeat = false
-	_check(no_repeat, "The same unhappy player does not come back two weeks later")
+	var mood_card := StoryDeck.by_id(StoryDeck.all(), "selection_unhappy")
+	var uctx := ClubStories.context(GameState)
+	uctx["players"] = [ClubStories.player_fact(GameState, sad, false, {}, 21, 0)]
+	var recent := StoryEngine.new_state()
+	recent["subj"][str(sad["id"])] = 8
+	var rng := RandomNumberGenerator.new()
+	_check(StoryEngine.eligible_subject(mood_card, uctx, recent, 10, rng).is_empty()
+			and not StoryEngine.eligible_subject(mood_card, uctx, StoryEngine.new_state(), 10, rng).is_empty(),
+			"The same unhappy player does not come back two weeks later")
 	sad["injury_weeks"] = 3
-	var injured_card := false
-	for r in range(1, 50):
-		if str(ClubLife.pick_event({"list": [sad], "round": r, "seed": 5}).get("key", "")) == "unhappy":
-			injured_card = true
-	_check(not injured_card, "No 'sit down with him' card for an injured player you cannot pick")
+	uctx["players"] = [ClubStories.player_fact(GameState, sad, false, {}, 99, 0)]
+	_check(StoryEngine.eligible_subject(mood_card, uctx, StoryEngine.new_state(), 10, rng).is_empty(),
+			"No 'sit down with him' card for an injured player you cannot pick")
 	sad["injury_weeks"] = 0
 	# The promise resolves once.
 	sad["morale"] = 30
-	GameState.week_event = ClubLife._unhappy(sad)
+	GameState.week_event = GameState.story_card("selection_unhappy", sad)
 	GameState.resolve_week_event(0)
 	GameState.advance()
 	var after_one := ClubLife.morale(sad)
@@ -440,17 +455,19 @@ func _test_event_decisions() -> void:
 	# --- Repetition: never the same card two weeks running with others about
 	var repeats := 0
 	var last := ""
+	var rctx := ClubStories.context(GameState)
+	var rstory := StoryEngine.new_state()
 	for r in range(1, 80):
-		var ev := ClubLife.pick_event({"list": GameState.my_list, "round": r, "seed": 11,
-				"last_key": last})
-		var k := str(ev.get("key", ""))
+		rctx["week"] = r
+		var cards := StoryEngine.pick_week(StoryDeck.all(), rctx, rstory)
+		var k := str((cards[0] as Dictionary).get("key", "")) if not cards.is_empty() else ""
 		if k != "" and k == last:
 			repeats += 1
 		last = k
 	_check(repeats == 0, "No card twice in a row (%d repeats)" % repeats)
 	# --- A player who has left before the card resolves ---------------------
 	var gone := {"id": "gone_player", "overall": 80, "attr": {"durability": 50}}
-	GameState.week_event = ClubLife._sore_star(gone)
+	GameState.week_event = GameState.story_card("health_pulled_up_sore", gone)
 	var outcome := GameState.resolve_week_event(1)
 	_check(outcome.begins_with("The moment has passed"), "A card about a departed player resolves harmlessly")
 
@@ -911,13 +928,13 @@ func _test_backing_flow() -> void:
 	_fresh_season()
 	# The card: back him for three games.
 	var kid := _kid(GameState.my_list[31], 0)
-	GameState.week_event = ClubLife._young_gun(kid)
+	GameState.week_event = GameState.story_card("training_kid_pushing", kid)
 	GameState.resolve_week_event(0)
 	_check(Backing.is_active(kid) and ClubLife.morale(kid) == 70 + Backing.THRILL
 			and int(kid.get("expects_game", 0)) == Backing.STING and bool(Backing.current(kid)["debut"]),
 			"Backing a kid on the card starts a run on his debut: thrilled, and he expects to be picked")
 	_check(str(GameState.week_event.get("outcome", "")).contains("run of three games")
-			and str(GameState.week_event.get("outcome", "")).contains("Auto-pick names him"),
+			and str(GameState.week_event.get("outcome", "")).contains("in the side this week"),
 			"The card says it is a run, and that auto-pick has him")
 	# The tap: a player auto-pick would not name.
 	var low := _kid(_spare_kid([str(kid["id"])]), 2)
@@ -1019,19 +1036,15 @@ func _test_backing_card_guard() -> void:
 	young["potential"] = int(young["overall"]) + 12
 	young.erase("injury_weeks")
 	list.append(young)
-	var drawn := 0
-	var drawn_backed := 0
-	for s in range(120):
-		var ctx := {"list": list, "round": 6, "seed": s, "losses": 0, "selected": {}, "cap_room": 0,
-				"memory": {}, "last_key": ""}
-		if str(ClubLife.pick_event(ctx).get("key", "")) == "young_gun":
-			drawn += 1
+	var kid_card := StoryDeck.by_id(StoryDeck.all(), "training_kid_pushing")
+	var kctx := ClubStories.context(GameState)
+	kctx["players"] = [ClubStories.player_fact(GameState, young, false, {}, 30, 0)]
+	var drawn := 0 if StoryEngine.eligible_subject(kid_card, kctx, StoryEngine.new_state(), 10,
+			RandomNumberGenerator.new()).is_empty() else 1
 	Backing.start(young, 2027, 6, 0)
-	for s in range(120):
-		var ctx := {"list": list, "round": 6, "seed": s, "losses": 0, "selected": {}, "cap_room": 0,
-				"memory": {}, "last_key": ""}
-		if str(ClubLife.pick_event(ctx).get("key", "")) == "young_gun":
-			drawn_backed += 1
+	kctx["players"] = [ClubStories.player_fact(GameState, young, false, {}, 30, 0)]
+	var drawn_backed := 0 if StoryEngine.eligible_subject(kid_card, kctx, StoryEngine.new_state(), 10,
+			RandomNumberGenerator.new()).is_empty() else 1
 	_check(drawn > 0 and drawn_backed == 0,
 			"The kid-pushing-for-games card is not drawn for a player on a run (%d v %d)" % [drawn, drawn_backed])
 
@@ -1178,7 +1191,7 @@ func _test_firsts_flow() -> void:
 	_fresh_season()
 	var year := GameState.season_year
 	var kid := _kid(GameState.my_list[31], 0)
-	GameState.week_event = ClubLife._young_gun(kid)
+	GameState.week_event = GameState.story_card("training_kid_pushing", kid)
 	GameState.resolve_week_event(0)
 	var vet := _kid(GameState.my_list[3], 120)
 	var unknown := _kid(GameState.my_list[29], 0)
@@ -1349,7 +1362,7 @@ func _test_fact_talks() -> void:
 	info["kpi"] = "Seven games: 12 disposals and 1 clearance a game."
 	info["job"] = "midfielder"
 	info["need"] = "disposals and clearances"
-	var card := ClubLife._unhappy(p, "dropped", info)
+	var card := _talk_card(p, "dropped", info)
 	var keys := []
 	for o in card["options"]:
 		keys.append(str(o["key"]))
@@ -1359,7 +1372,7 @@ func _test_fact_talks() -> void:
 	_check(str((card["options"][0] as Dictionary)["label"]) == "Talk him through his season",
 			"The label is neutral: it neither argues for nor against your call")
 	info["kpi"] = ""
-	var none_yet := ClubLife._unhappy(p, "waiting", info)
+	var none_yet := _talk_card(p, "waiting", info)
 	_check(str((none_yet["options"][0] as Dictionary)["label"]) == "Tell him what he has to show"
 			and str((none_yet["options"][0] as Dictionary)["detail"]).begins_with("What a midfielder has to show: disposals and clearances."),
 			"With no game this season, it is what his job has to show, in a coach's words")
@@ -1374,16 +1387,18 @@ func _test_fact_talks() -> void:
 	# A fact beats a low mood, and the low mood is still the fallback.
 	var sad: Dictionary = GameState.my_list[5]
 	sad["morale"] = 20
-	var facts := {str(p["id"]): vet, str(sad["id"]): {}}
+	var tctx := ClubStories.context(GameState)
+	tctx["players"] = [ClubStories.player_fact(GameState, p, false, vet, 4, 0),
+			ClubStories.player_fact(GameState, sad, false, {}, 6, 0)]
 	var opened_on := ""
 	var fallback := ""
-	for r in range(1, 60):
-		var ev := ClubLife.pick_event({"list": [p, sad], "round": r, "seed": 9, "talk_info": facts})
-		if str(ev.get("key", "")) == "unhappy" and opened_on == "":
-			opened_on = str(ev.get("case", ""))
-		var ev2 := ClubLife.pick_event({"list": [sad], "round": r, "seed": 9})
-		if str(ev2.get("key", "")) == "unhappy" and fallback == "":
-			fallback = "mood" if str(ev2.get("case", "")) == "" else str(ev2["case"])
+	for tid in ["selection_talk_dropped", "selection_unhappy"]:
+		var who := StoryEngine.eligible_subject(StoryDeck.by_id(StoryDeck.all(), tid), tctx,
+				StoryEngine.new_state(), 10, RandomNumberGenerator.new())
+		if str(who.get("id", "")) == str(p["id"]):
+			opened_on = str(who.get("talk_case", ""))
+		elif str(who.get("id", "")) == str(sad["id"]):
+			fallback = "mood"
 	_check(opened_on == "dropped", "When something happened, the card opens on it (%s)" % opened_on)
 	_check(fallback == "mood", "With nothing behind it, a low mood still brings the old card")
 	# Real matches: the round he last played, weeks without a game, his numbers.
@@ -1414,7 +1429,7 @@ func _test_fact_talks() -> void:
 		_check(GameState._back_from(benched) == "hamstring", "Hurt since his last game and fit: back from the hamstring")
 	# The answer is a career fact, settled after your next match with a line.
 	var vid := str(pl["id"])
-	GameState.week_event = ClubLife._unhappy(pl, "dropped", GameState.talk_info({})[vid])
+	GameState.week_event = _talk_card(pl, "dropped", GameState.talk_info({})[vid])
 	GameState.resolve_week_event(1)
 	var f: Array = CareerFacts.of(GameState.career_facts, vid, "talk")
 	_check(not f.is_empty() and str(f[-1]["d"]) == "dropped|promise" and str(f[-1]["out"]) == "",
@@ -1436,7 +1451,7 @@ func _test_fact_talks() -> void:
 		if str(q["id"]) != vid and int(q.get("injury_weeks", 0)) <= 0:
 			other = q
 	var oid := str(other["id"])
-	GameState.week_event = ClubLife._unhappy(other, "waiting", GameState.talk_info({})[oid])
+	GameState.week_event = _talk_card(other, "waiting", GameState.talk_info({})[oid])
 	GameState.resolve_week_event(0)
 	_check(str(GameState.week_event.get("outcome", "")).contains(GameState._kpi_text(other)),
 			"Explaining it says his numbers (%s)" % str(GameState.week_event.get("outcome", "")))

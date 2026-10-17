@@ -27,7 +27,7 @@ const PEP_EFFECTS := {
 	"steady": "No change.",
 	"fire_up": "A lift at the contest while you are chasing the game; level or in front it does nothing for you. Either way legs go quicker and tempers fray.",
 	"calm": "Settle them down: fewer errors, less rattled by pressure and legs last longer, but less ground gained.",
-	"heat": "Get on top of their ball carriers: more turnovers forced and more tackles laid, but legs go quicker.",
+	"heat": "Get on top of their ball carriers: more turnovers forced and more tackles laid, but legs burn out much faster, and it shows next week.",
 }
 
 ## What each plan does and gives up, in football words, from MatchSim.PLANS.
@@ -37,7 +37,7 @@ const PEP_EFFECTS := {
 const PLAN_SUMMARY := {
 	"balanced": "Play it straight: no extra edge, and nothing for them to exploit.",
 	"attacking": "Go through the corridor: more ground and better shots, but more turnovers, heavier legs, and they score more on the rebound. The better your runners, the more it gives. Beats Controlled tempo; a Defensive press squeezes it.",
-	"defensive": "Press up the ground: harder to score against, but fewer numbers forward and heavier legs. The more pressure players you have, the more it bites. Beats Attack corridor; Controlled tempo plays through it.",
+	"defensive": "Hunt the ball high: win it back in their half and lock it in, but heavier legs, rushed shots, and space behind if they break it. The more pressure players you have, the more it bites. Beats Attack corridor; Controlled tempo plays through it.",
 	"contest": "Numbers at the stoppage: win more of the clearances, but the ball moves a little slower and you are a little exposed on the rebound. Leans on your ball-winners and ruck.",
 	"controlled": "Keep the ball: fewer errors, less rattled by pressure and fresher legs, but less ground gained. Asks nothing special of your list. Plays through a Defensive press; Attack corridor runs past it.",
 	"through_stars": "Go through your best three: they see more of the ball and finish better, with fewer errors, but they know where it's going and the pressure comes. Worth more the further they stand above the rest.",
@@ -47,7 +47,7 @@ const PEP_SUMMARY := {
 	"steady": "Keep them as they are: no lift at the contest, and no settling either.",
 	"fire_up": "A lift at the contest when you are chasing the game; legs go quicker and tempers fray.",
 	"calm": "Fewer errors and less rattled by pressure, legs last longer; less ground gained.",
-	"heat": "Harder pressure on their ball carriers forces more turnovers; legs go quicker.",
+	"heat": "Harder pressure on their ball carriers forces more turnovers; legs burn out much faster, and it shows next week.",
 }
 
 const TEAM_COMPARE := [
@@ -67,7 +67,9 @@ const TEAM_COMPARE := [
 
 const IMPACT_LABELS := {
 	"gameplan": "gameplan", "pep": "pep talk",
-	"legs": "legs (fatigue and rotations)", "calls": "in-game calls",
+	"legs": "legs (fatigue and rotations)", "bursts": "in-game calls",
+	"moments": "calls at the moments", "loose": "loose defender", "matchups": "match-ups",
+	"tag": "tag", "minder": "defensive forward",
 	"traits": "traits and synergies", "form": "team form",
 }
 
@@ -88,10 +90,31 @@ static func impact_lines(now: Array, before: Array, side: int, min_pts := 0.3) -
 	return out
 
 
+## The full-time decision summary's numbers (director, 2026-10-11): what each
+## of `side`'s calls was worth on average (MatchSim.DECISION_CAUSES, a call
+## not made is left out), biggest first, and "the rest" (the players and the
+## bounce of the ball), so that the lines and the rest add up to the margin
+## exactly. {"lines": [{"cause", "pts"}], "rest": float}.
+static func decision_lines(impact: Array, side: int, margin: float) -> Dictionary:
+	var lines := []
+	var total := 0.0
+	for cause in MatchSim.DECISION_CAUSES:
+		var pts := _imp(impact, side, cause)
+		if pts != 0.0:
+			lines.append({"cause": cause, "pts": pts})
+			total += pts
+	lines.sort_custom(func(a, b): return absf(float(a["pts"])) > absf(float(b["pts"])))
+	return {"lines": lines, "rest": margin - total}
+
+
 static func _imp(arr: Array, side: int, cause: String) -> float:
 	if arr.size() <= side:
 		return 0.0
-	return float((arr[side] as Dictionary).get(cause, 0.0))
+	var d: Dictionary = arr[side]
+	# A match saved before the decision summary booked the bursts as "calls".
+	if cause == "bursts" and not d.has("bursts"):
+		return float(d.get("calls", 0.0))
+	return float(d.get(cause, 0.0))
 
 
 static func plan_label(key: String) -> String:
@@ -452,7 +475,14 @@ static func _split_plans(res: Dictionary, my_side: int, opp_side: int, quarters:
 
 
 static func _plan_entry(q: int, t: Dictionary) -> Dictionary:
-	var focus_id := str(t.get("focus_id", ""))
+	# Play through is three calls now (midfield, forward, back line); the older
+	# single call still reads as one.
+	var focus_ids := []
+	for key in ["focus_mid", "focus_fwd", "focus_def", "focus_id"]:
+		var fid := str(t.get(key, ""))
+		if fid != "" and not focus_ids.has(fid):
+			focus_ids.append(fid)
+	var focus_id := str(focus_ids[0]) if not focus_ids.is_empty() else ""
 	var tag_id := str(t.get("tag_id", ""))
 	var plan := str(t.get("gameplan", "balanced"))
 	if plan == "":
@@ -470,6 +500,7 @@ static func _plan_entry(q: int, t: Dictionary) -> Dictionary:
 		"focus_id": focus_id,
 		"tag_id": tag_id,
 		"focus_name": resolve_name(focus_id, "") if focus_id != "" else "",
+		"focus_names": focus_ids.map(func(fid): return resolve_name(str(fid), "")),
 		"tag_name": resolve_name(tag_id, "") if tag_id != "" else "",
 	}
 
