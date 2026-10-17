@@ -63,6 +63,7 @@ Floor is the fewest checks the suite may run (`expected_checks.txt`; a suite rep
 | `league` | Difficulty and the league news feed | 47 | 52 |
 | `club` | The board, morale and the weekly event card | 199 | 103 |
 | `story` | The week's story cards: the deck's checks, cooldowns, arcs, trust, ten seasons of repeats, the save round trip, cards never moving the dice | 94 | - |
+| `nameink` | A player's name in running text wears his club's ink: the index from the lists, the markup, every club's ink readable on dark, the match feed and goal rows carrying both clubs' colours | 16 | - |
 | `match_game` | Legs and rotations, match moments and calls, the rival coach, key match-ups, Play through by job | 346 | 333 |
 | `pressure` | Pressure acts and the team Pressure Rating | 21 | 38 |
 | `workload` | Workload across the campaign | 32 | 8 |
@@ -108,8 +109,8 @@ godot --headless --path . --script tests/run_training_tests.gd
 The intake suites cover the 2026 draft-class file (56 prospects: unique ids/
 ranks/aliases, role validity, projection band, ruck cover, valid tied-club
 tags), the projection maths (rank taper, date maths, idempotent re-projection),
-the reversed-ladder intake flow (snake rounds, truncation when the pool runs
-dry, capped-club skips, contiguous logs), and the full rollover (year
+the reversed-ladder intake flow (one order every round, truncation when the pool runs
+dry, extra rounds until lists are full, passing, Pick for me, capped-club skips, contiguous logs), and the full rollover (year
 advance, list merges with jumper numbers, ageing + retirement bounds, the
 generated 2027 class, determinism, and reset restoring the pristine 2026
 data). The UI suite runs the shared DraftScene in intake mode across the same

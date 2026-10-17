@@ -260,10 +260,13 @@ static func player_league_rates(players: Array) -> Dictionary:
 # ---------------------------------------------------------------------------
 ## Mutates each player dict, adding: rates, norm, attr, role, role_scores,
 ## overall, value. Call once at boot on the full player pool.
-static func derive_all(players: Array) -> Array:
+## `reference` is an already-rated pool whose league rates and normalisation
+## the new players are scaled against without changing it (list additions
+## rated on their record, GameDB._rate_established_additions).
+static func derive_all(players: Array, reference: Array = []) -> Array:
 	if players.is_empty():
 		return players
-	var league := player_league_rates(players)
+	var league := player_league_rates(reference + players)
 	var k_games: float = T["shrink_games"]
 	var k_acc: float = T["shrink_accuracy"]
 
@@ -287,7 +290,7 @@ static func derive_all(players: Array) -> Array:
 
 	# ---- normalisation params over the whole pool --------------------------
 	var keys: Array = players[0]["rates"].keys()
-	var params := build_norm_params(players, keys)
+	var params := build_norm_params(reference + players, keys)
 
 	for p in players:
 		var q := {}

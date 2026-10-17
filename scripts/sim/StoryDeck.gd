@@ -36,7 +36,15 @@ const OPS := {
 	# trust in you; a promised run for the young player the card names; the vice-captain
 	# takes the armband (through the Captaincy rules and their costs).
 	"delegate": true, "back_kid": false, "captaincy_swap": false,
+	# The finals cards. A small chance (set on the effect, as a percentage no
+	# bigger than RISK_MAX) that a player or the side takes the first bounce on
+	# slow legs (MatchSim, ClubLife.SLOW_LEGS); a small chance that, if the
+	# final is then lost, the side's morale falls by `d` instead of lifting; an
+	# injured player made available at a sore player's risk; one line to the news.
+	"slow_start": false, "loss_sting": false, "rush_back": true, "news": false,
 }
+## The biggest chance a "small chance" may be, in percent.
+const RISK_MAX := 30
 ## A role trial lasts this many of your games at most ("weeks" on the effect).
 const TRIAL_GAMES_MAX := 6
 ## The rule a dispute left to the captain follows: the group listens to him if his
@@ -51,15 +59,27 @@ const PLAYER_FACTS := ["name", "first", "age", "games", "fit", "selected", "over
 		"ask", "early_price", "more_seasons", "extension_ok", "job", "real_named",
 		"form", "form_games", "has_role2", "starting", "form_low", "role_avg", "role_word", "trial_word", "trial_home", "trial_avg", "trial_par", "trial_tail",
 		"leadership", "captain", "delegate_holds", "holds_at", "holds_trust_at",
+		# The finals cards: the ageing rule says this is his last season, the finals he has
+		# played in this save (and whether this save has seen every game he has played),
+		# a debut year, the milestone game he is about to play (0 for none), his rank by
+		# rating on the whole list, injury weeks to run, and whether you let the players hear
+		# he may retire.
+		"last_season", "finals_games", "save_debut", "debut_year", "milestone_next",
+		"injured_weeks", "rushable", "overall_rank", "told_players",
 		# International prospects (international.json): who he is, and where he is in his career.
 		"intl", "intl_region", "from", "demonym", "home_club", "seasons_listed", "goals"]
 ## Facts about the club and the week (GameState._story_club_facts).
 const CLUB_FACTS := ["club", "opp", "round", "year", "losing_run", "winning_run", "ladder",
 		"board", "fit_count", "run_games", "finals_week", "captain_name", "vice_name", "vice_id",
-		"has_vice", "kid_name", "kid_id", "has_kid"]
+		"has_vice", "kid_name", "kid_id", "has_kid",
+		# The finals cards: where you stand on the ten (in, out or live), a week off in the
+		# finals, beaten in last week's final and still alive, and the Grand Final's story
+		# with this opponent (consecutive Grand Finals against them, last year's result, an
+		# established rival).
+		"finals_math", "finals_bye", "lost_last_final", "gf_run", "gf_run_word", "gf_again", "rival"]
 
 const DEFAULTS := {"weight": 1, "cooldown": 40, "subject_cooldown": 8, "per_season": 0,
-		"phase": ["regular"], "default": -1}
+		"phase": ["regular"], "default": -1, "bye": false, "priority": false}
 
 ## The international prospects' cards (data/stories/international.json), played only with
 ## the "international_prospects" switch on.
@@ -204,7 +224,14 @@ static func _check_card(t: Dictionary) -> Array:
 			errs.append("%s: %s needs at least one variant" % [id, field])
 			continue
 		for s in v:
-			errs.append_array(_check_text(id, str(s), player))
+			if s is Dictionary:
+				# A case: the first one whose facts hold is the text (B1's "again").
+				errs.append_array(_check_text(id, str((s as Dictionary).get("text", "")), player))
+				for k in ((s as Dictionary).get("when", {}) as Dictionary):
+					if not _known_condition(str(k), (CLUB_FACTS + PLAYER_FACTS) if player else CLUB_FACTS):
+						errs.append("%s: unknown condition '%s' in a %s case" % [id, str(k), field])
+			else:
+				errs.append_array(_check_text(id, str(s), player))
 	# What's at risk, in one short line under the text (optional).
 	errs.append_array(_check_text(id, str(t.get("stakes", "")), player))
 	var choices: Array = t.get("choices", [])
@@ -223,6 +250,9 @@ static func _check_card(t: Dictionary) -> Array:
 			errs.append("%s/%s: the choice has no label" % [id, ck])
 		for field in ["label", "note", "rule", "result"]:
 			errs.append_array(_check_text("%s/%s" % [id, ck], str(c.get(field, "")), player, field == "result"))
+		for k in (c.get("when", {}) as Dictionary):
+			if not _known_condition(str(k), (CLUB_FACTS + PLAYER_FACTS) if player else CLUB_FACTS):
+				errs.append("%s/%s: unknown choice condition '%s'" % [id, ck, str(k)])
 		for e in c.get("effects", []):
 			errs.append_array(_check_effect("%s/%s" % [id, ck], e, player))
 	var un: Dictionary = t.get("unanswered", {})
@@ -243,12 +273,22 @@ static func _check_effect(where: String, e, player: bool) -> Array:
 	var who := str(e.get("who", "subject"))
 	if not WHO.has(who):
 		errs.append("%s: unknown target '%s'" % [where, who])
-	if (bool(OPS[op]) or ((op == "morale" or op == "xp") and (who == "subject" or who == "others"))) and not player:
+	if (bool(OPS[op]) or ((op == "morale" or op == "xp" or op == "slow_start") and (who == "subject" or who == "others"))) and not player:
 		errs.append("%s: '%s' needs a player card" % [where, op])
 	if CAPS.has(op):
 		var dv := int(e.get("d", 0))
 		if dv == 0 or absi(dv) > int(CAPS[op]):
 			errs.append("%s: %s of %d is outside 1..%d" % [where, op, dv, int(CAPS[op])])
+	if op == "slow_start" or op == "loss_sting":
+		var ch := int(e.get("chance", 0))
+		if ch < 1 or ch > RISK_MAX:
+			errs.append("%s: a small chance must be 1..%d percent, not %d" % [where, RISK_MAX, ch])
+	if op == "loss_sting" and (int(e.get("d", 0)) >= 0 or absi(int(e.get("d", 0))) > int(CAPS["morale"])):
+		errs.append("%s: a morale fall after a loss needs a negative size within the morale cap" % where)
+	if op == "news":
+		if str(e.get("text", "")) == "":
+			errs.append("%s: a news line needs its text" % where)
+		errs.append_array(_check_text(where, str(e.get("text", "")), player))
 	if op == "trust" and str(e.get("why", "")) == "":
 		errs.append("%s: a trust change needs its reason" % where)
 	if op == "trust":
@@ -260,10 +300,10 @@ static func _check_effect(where: String, e, player: bool) -> Array:
 	if op == "flag" and str(e.get("name", "")) == "":
 		errs.append("%s: a flag needs a name" % where)
 	if op == "delegate":
+		if (e.get("held", []) as Array).is_empty() and (e.get("failed", []) as Array).is_empty():
+			errs.append("%s: a dispute left to the captain needs an outcome" % where)
 		for side in ["held", "failed"]:
 			var nested: Array = e.get(side, [])
-			if nested.is_empty():
-				errs.append("%s: a dispute left to the captain needs a '%s' outcome" % [where, side])
 			for ne in nested:
 				if str((ne as Dictionary).get("op", "")) == "delegate":
 					errs.append("%s: a delegated outcome cannot delegate again" % where)

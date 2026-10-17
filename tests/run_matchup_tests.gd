@@ -36,6 +36,7 @@ func _run() -> void:
 	await _hub_tests()
 	await _poster_ball()
 	await _wide_hub_footer()
+	await _phone_footer_fits()
 	await _regular_bye()
 	await _finals_week_by_week()
 	await _finals_cup()
@@ -70,7 +71,7 @@ func _hub_tests() -> void:
 	_check(venue != null and venue.text.begins_with("Home · " if str(nxt["venue"]) == "home" else "Away · ")
 			and not venue.text.contains("at " + db.club_name(str(nxt["code"]))),
 			"Then where: home or away and the ground, not 'at' the opponent (%s)" % (venue.text if venue else "-"))
-	var facts := hub.find_children("Fact_*", "Label", true, false)
+	var facts := hub.find_children("Fact_*", "Control", true, false)
 	_check(facts.size() <= 3, "At most three facts about them (%d)" % facts.size())
 	var expected: Array = _state.opponent_facts(str(nxt["code"]))
 	# How they play, after three games: at most two lines, words not numbers.
@@ -143,8 +144,8 @@ func _hub_tests() -> void:
 			best = p
 	best["injury_weeks"] = 2
 	hub = await _open_hub()
-	var note: Label = hub.find_child("OwnNote_0", true, false)
-	_check(note != null and note.text.contains("out injured"), "Your injured star is this week's news")
+	var note: Control = hub.find_child("OwnNote_0", true, false)
+	_check(note != null and _plain(note).contains("out injured"), "Your injured star is this week's news")
 	best.erase("injury_weeks")
 	hub.queue_free()
 	await _settle()
@@ -164,7 +165,7 @@ func _hub_tests() -> void:
 			hub = await _open_hub()
 			var status: String = _state.my_finals_status()
 			var up := hub.find_child("Opponent", true, false) != null
-			if not up and not hub.find_children("Fact_*", "Label", true, false).is_empty():
+			if not up and not hub.find_children("Fact_*", "Control", true, false).is_empty():
 				facts_bad.append(status)
 			var acts: Control = hub.find_child("WeekActions", true, false)
 			if not (acts != null and acts.get_child_count() > 0):
@@ -176,7 +177,7 @@ func _hub_tests() -> void:
 	_check(acts_bad.is_empty(), "Every finals week has a next action (%s)" % str(acts_bad))
 	hub = await _open_hub()
 	_check(_screen_text(hub).contains("Season complete"), "A finished season says so")
-	_check(hub.find_children("Fact_*", "Label", true, false).is_empty(), "No facts once the season is over")
+	_check(hub.find_children("Fact_*", "Control", true, false).is_empty(), "No facts once the season is over")
 	_check(_button(hub.find_child("WeekActions", true, false), "National Draft") != null,
 			"The national draft is the next step")
 	hub.queue_free()
@@ -216,6 +217,57 @@ func _wide_hub_footer() -> void:
 	_check(why == "", "PC: a real tap on Training reaches the button (%s)" % why)
 	hub.queue_free()
 	await _settle()
+	root.size = Vector2i(390, 844)
+
+
+## The hub's bottom row on the phone widths players have (360, 390, 412) and at 320, the
+## narrowest ScreenLayout allows (a 390 px wide window on a desktop is scaled to 320 units,
+## where "Sim the week" was cut to "Sim the we..."): every label shows
+## in full (none ellipsised), each button is thumb-high, the row stays on screen, and a real
+## finger's tap reaches "Sim the week" where it now sits. Checked with no job open on the
+## staff and with one open ("Coaching · 1", the longest label the row carries).
+func _phone_footer_fits() -> void:
+	var db = root.get_node("GameDB")
+	for vacancies in [0, 1]:
+		for w in [320, 360, 390, 412]:
+			_reset()
+			_state.start_season("MEL", db.club_list("MEL"))
+			_state.set_setting("seen_weekly_loop_intro", true)
+			if vacancies > 0:
+				_state.staff_vacancies = [{"reason": "A coach has retired."}]
+			root.size = Vector2i(w, 844)
+			var hub: Control = await _open_hub()
+			var footer: Control = hub.find_child("HubFooter", true, false)
+			var tag := "%d wide, %d open jobs" % [w, vacancies]
+			_check(footer != null, "%s: the bottom row is there" % tag)
+			if footer == null:
+				hub.queue_free()
+				continue
+			var texts: Array = []
+			for b in footer.find_children("*", "Button", true, false):
+				var btn := b as Button
+				texts.append(btn.text)
+				var font: Font = btn.get_theme_font("font")
+				var fs: int = btn.get_theme_font_size("font_size")
+				var sb: StyleBox = btn.get_theme_stylebox("normal")
+				var room := btn.size.x - (sb.get_margin(SIDE_LEFT) + sb.get_margin(SIDE_RIGHT) if sb != null else 0.0)
+				var need := font.get_string_size(btn.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+				_check(need <= room + 0.5, "%s: '%s' shows in full (%.0f px of text in %.0f)" % [tag, btn.text, need, room])
+				_check(btn.size.y >= 44.0, "%s: '%s' is thumb-high (%.0f px)" % [tag, btn.text, btn.size.y])
+			var sim: Button = footer.find_child("SimRound", true, false) as Button
+			_check(sim != null and sim.text == "Sim the week", "%s: the button still says Sim the week (%s)" % [tag, ", ".join(texts)])
+			_check(Rect2(Vector2.ZERO, Vector2(root.size)).grow(1).encloses(footer.get_global_rect()), "%s: the row stays on the phone" % tag)
+			if vacancies == 0 and sim != null:
+				# A real tap at its place (its route unhooked, so the tap does not play a week).
+				for c in sim.pressed.get_connections():
+					sim.pressed.disconnect(c["callable"])
+				var hit := [false]
+				sim.pressed.connect(func(): hit[0] = true)
+				var why: String = await Tap.tap(sim)
+				_check(why == "" and hit[0], "%s: a real tap on Sim the week reaches it (%s)" % [tag, why])
+			hub.queue_free()
+			await _settle()
+	_state.staff_vacancies = []
 	root.size = Vector2i(390, 844)
 
 
@@ -564,7 +616,18 @@ func _finals_status_paths() -> void:
 		await _settle()
 		var you: Label = fb.find_child("FinalsYou", true, false)
 		var text := you.text if you != null else "-"
-		_check(text.contains(str(c[3])), "Finals status, %s: reads %s (%s)" % [c[0], c[3], text])
+		if str(c[3]) == "Premiers":
+			# The premiers' cup says it (#736): one "Premiers" over the club's name, and
+			# the status line under it stays silent rather than saying it twice.
+			var said := ""
+			for n in fb.find_children("*", "Label", true, false):
+				if (n as Label).text == "Premiers":
+					said = (n as Label).text
+			_check(said == "Premiers", "Finals status, %s: the cup reads Premiers (%s)" % [c[0], said])
+			_check(fb.find_child("FinalsPremier", true, false) != null, "Finals status, %s: the cup names the club" % c[0])
+			_check(you == null, "Finals status, %s: the line under it does not say it twice (%s)" % [c[0], text])
+		else:
+			_check(text.contains(str(c[3])), "Finals status, %s: reads %s (%s)" % [c[0], c[3], text])
 		if str(c[3]) == "Still alive":
 			_check(not text.contains("ended"), "Finals status, %s: never says the season ended" % c[0])
 		host.queue_free()
@@ -820,3 +883,12 @@ func _pre_match_scene() -> void:
 		if is_instance_valid(hub):
 			hub.queue_free()
 		await process_frame
+
+
+## The words a line shows, whether a Label or a tinted RichTextLabel carries them.
+func _plain(c: Control) -> String:
+	if c.has_meta("plain"):
+		return str(c.get_meta("plain"))
+	if c is Label:
+		return (c as Label).text
+	return (c as RichTextLabel).get_parsed_text() if c is RichTextLabel else ""
