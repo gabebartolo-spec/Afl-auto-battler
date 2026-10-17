@@ -81,6 +81,7 @@ A roadmap item is context, not authorisation.
 - [Stretch Goals](roadmap/25-stretch-goals.md) (1 KB)
 - [Director decisions, 2026-10-13](roadmap/26-director-decisions-2026-10-13.md) (6 KB)
 - [Director decisions, 2026-10-18](roadmap/28-director-decisions-2026-10-18.md) (3 KB)
+- [Director decisions, 2026-10-18, proposals pass 2](roadmap/29-director-decisions-2026-10-18-pass2.md) (3 KB)
 
 ## History (implementation records; not requirements)
 
