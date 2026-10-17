@@ -78,7 +78,11 @@ func _build() -> void:
 	for i in range(PreSeason.block_count()):
 		if not GameState.preseason_block_open(i):
 			first = i + 1
-	if stop == "intra":
+	if stop == "story":
+		page.add_child(_story_cards())
+		page.add_child(_blocks_section(first, _wide()))
+		page.add_child(_base_result())
+	elif stop == "intra":
 		if GameState.intra_played():
 			page.add_child(_intra_report())
 			page.add_child(_blocks_section(first, _wide()))
@@ -193,6 +197,8 @@ func _hero(stop: String) -> String:
 			return "The time trial"
 		"intra":
 			return "The intra-club match"
+		"story":
+			return "After week %d of %d" % [GameState.preseason_week(), PreSeason.weeks()]
 	return "Week %d of 8" % mini(PreSeason.weeks(), GameState.preseason_week() + 1)
 
 
@@ -206,6 +212,8 @@ func _hero_sub(stop: String) -> String:
 			if GameState.intra_played():
 				return "End of week 5. It counts for nothing on the ladder; what it showed is below."
 			return "End of week 5: two sides of 23 from your own list, with prospects from this year's National Draft filling the spots. It counts for nothing on the ladder."
+		"story":
+			return "Something has come up. Answer it, or press on and nothing changes."
 	return "Training is under way."
 
 
@@ -365,6 +373,17 @@ func _intra_report() -> Control:
 
 
 ## A 2 px rule in the club's colour: the section belongs to your club.
+## The card or cards the block threw up, answered here as on the hub.
+func _story_cards() -> Control:
+	var v := UiKit.vbox(10)
+	v.name = "PreSeasonCards"
+	var names := NameInk.from_lists(GameState.season.lists)
+	for i in range(GameState.week_events.size()):
+		v.add_child(EventCardView.build(i, not _wide(), func(): _build(),
+				func(t: String): EventCardView.rule_sheet(self, t), names))
+	return v
+
+
 func _club_rule() -> Control:
 	var r := ColorRect.new()
 	r.color = UiKit.club_ink(GameState.my_club)
@@ -805,6 +824,10 @@ func handle_back() -> bool:
 	if plan_sheet != null and is_instance_valid(plan_sheet) and not plan_sheet.is_queued_for_deletion():
 		plan_sheet.queue_free()
 		_build()
+		return true
+	var rule := get_node_or_null("RuleSheet")
+	if rule != null and is_instance_valid(rule) and not rule.is_queued_for_deletion():
+		rule.queue_free()
 		return true
 	if _settings != null and is_instance_valid(_settings):
 		_settings.queue_free()

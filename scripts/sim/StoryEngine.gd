@@ -509,9 +509,9 @@ static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
 			return [["gain", _trial_words(e)]]
 	var kind := ""
 	match op:
-		"morale", "board", "trust":
+		"morale", "board", "trust", "culture", "running":
 			kind = "gain" if d > 0 else ("cost" if d < 0 else "")
-		"xp", "fresh":
+		"xp", "fresh", "drill":
 			kind = "gain"
 		"rest", "sore", "heavy_legs", "expects_game", "start_backing", "back_kid", "slow_start", "loss_sting":
 			kind = "cost"
@@ -594,6 +594,17 @@ static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
 			return "A small chance the side's morale falls instead if you lose that final."
 		"role_trial":
 			return _trial_words(e)
+		"culture":
+			var label := "Standards"
+			for st in Culture.STRANDS:
+				if str(st[0]) == str(e.get("strand", "")):
+					label = str(st[1])
+			return "%s %s%s." % [label, "rises" if d > 0 else "falls", " a little" if absi(d) == 1 else ""]
+		"running":
+			var wk := "A week" if absi(d) == 1 else "Two weeks"
+			return "%s of hard running goes toward the fitness base." % wk if d > 0 					else "%s of running comes off the fitness base." % wk
+		"drill":
+			return "%s more week%s drilling the game plan." % [["", "One", "Two", "Three"][clampi(d, 1, 3)], "" if d == 1 else "s"]
 	return ""
 
 

@@ -324,5 +324,58 @@
 		},
 		"cooldown": 0,
 		"subject_cooldown": 0
+	},
+	{
+		"id": "pre_contract_talk",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true,
+				"contract_years_max": 1,
+				"extension_ok": true,
+				"age_min": 26
+			},
+			"pick": "highest:overall"
+		},
+		"title": [
+			"{name}: the paper has him headed interstate"
+		],
+		"text": [
+			"A paper has {first} on another club's shopping list, and his manager has rung. He's out of contract at season's end and wants it sorted before Round 1."
+		],
+		"choices": [
+			{
+				"key": "extend",
+				"label": "Sign him now",
+				"effects": [
+					{
+						"op": "extend_early"
+					}
+				]
+			},
+			{
+				"key": "wait",
+				"label": "Tell him it waits until the season's under way",
+				"note": "No commitment yet. He'll ask for what he's worth then: less if his form drops, more if he improves.",
+				"effects": [
+					{
+						"op": "morale",
+						"d": -4
+					},
+					{
+						"op": "trust",
+						"d": -3,
+						"why": "You put off his contract talk with another club interested"
+					}
+				],
+				"result": "{first} isn't happy to be put off, with the paper still running the story."
+			}
+		],
+		"category": "contracts",
+		"phase": [
+			"preseason"
+		],
+		"cooldown": 20,
+		"per_season": 1
 	}
 ]

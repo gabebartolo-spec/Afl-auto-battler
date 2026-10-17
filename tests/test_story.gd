@@ -66,6 +66,8 @@ func run() -> void:
 	_test_vacancy_is_filled()
 	var finals_cards = load("res://tests/test_finals_cards.gd").new()
 	finals_cards.run(self)
+	var preseason_cards = load("res://tests/test_preseason_cards.gd").new()
+	preseason_cards.run(self)
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	GameState.stories_on = true
@@ -194,13 +196,15 @@ func _test_hints_in_words() -> void:
 const GAIN_WORDS := {
 	"morale": "(?i)morale", "xp": "development", "board": "(?i)board confidence", "trust": "trusts you (a lot |a little )?more",
 	"fresh": "legs", "promise_win": "Win and", "extend_early": "signs on", "captaincy_swap": "takes the armband",
-	"rush_back": "cleared to play",
+	"rush_back": "cleared to play", "culture": "(Standards|Togetherness|Ambition) rises",
+	"running": "hard running goes toward", "drill": "drilling the game plan",
 }
 const COST_WORDS := {
 	"morale": "(?i)morale", "board": "(?i)board confidence", "trust": "trusts you (a lot |a little )?less",
 	"rest": "misses", "heavy_legs": "Heavy legs", "sore": "breaks down", "expects_game": "expects a game",
 	"start_backing": "expects to be picked", "back_kid": "is promised", "promise_win": "Lose and", "extend_early": "Locked in", "captaincy_swap": "mid-season",
 	"rush_back": "flares", "slow_start": "slowly", "loss_sting": "falls instead",
+	"culture": "(Standards|Togetherness|Ambition) falls", "running": "comes off the fitness base",
 }
 const SAMPLE_FACTS := {"sore_odds": "about 1 in 6", "run_games": 3, "early_price": "$1m", "more_seasons": "two more seasons"}
 
@@ -237,12 +241,12 @@ func _stakes_in(effects: Array) -> Array:
 		if op == "loss_sting":
 			costs.append_array([op, "morale"])
 			continue
-		if op in ["morale", "board", "trust"]:
+		if op in ["morale", "board", "trust", "culture", "running"]:
 			if d > 0 and not gains.has(op):
 				gains.append(op)
 			elif d < 0 and not costs.has(op):
 				costs.append(op)
-		elif op in ["xp", "fresh", "promise_win", "extend_early"] and not gains.has(op):
+		elif op in ["xp", "fresh", "drill", "promise_win", "extend_early"] and not gains.has(op):
 			gains.append(op)
 		if op in ["rest", "heavy_legs", "sore", "expects_game", "start_backing", "back_kid", "promise_win", "extend_early"] and not costs.has(op):
 			costs.append(op)

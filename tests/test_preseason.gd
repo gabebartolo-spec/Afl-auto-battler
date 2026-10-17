@@ -30,6 +30,7 @@ func run() -> void:
 	_test_intra_club()
 	_test_old_saves()
 	await _test_screens()
+	await _test_story_stop()
 	await _test_draft_card()
 	await _test_switch_off()
 	PreSeason.reload()
@@ -947,7 +948,13 @@ func _test_intra_club() -> void:
 			and str(GameState.preseason_intra()["report"]["stood"]) == str(rep["stood"])
 			and not GameState.sim_intra_match() and not GameState.toggle_intra_invite(str(pool[0]["id"])),
 			"Loaded after it is played, the report is still there and the match cannot be played again")
-	_check(GameState.preseason_advance() == "done" and not GameState.preseason_active(),
+	# A story card may stop it at the end of a block; pressing on leaves it unanswered.
+	var at_stop: String = GameState.preseason_advance()
+	var stops := 0
+	while at_stop == "story" and stops < 4:
+		stops += 1
+		at_stop = GameState.preseason_advance()
+	_check(at_stop == "done" and not GameState.preseason_active(),
 			"From the report, pressing on trains weeks 6 to 8 and leaves Round 1 to play")
 	# Best side v the rest plays out differently, and one-sidedly.
 	_to_intra()
@@ -1067,6 +1074,59 @@ func _roll() -> void:
 		GameState.finish_intake_draft()
 	else:
 		GameState.start_next_season()
+
+
+## A story card at the end of a block, on the screen, by real taps: the stop
+## says where it is, the card answers, the outcome shows, and the way on works.
+func _test_story_stop() -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	tree.root.size = Vector2i(390, 844)
+	PreSeason.reload()
+	var found := false
+	for seed in range(SUITE_SEED, SUITE_SEED + 30):
+		GameState.reset()
+		GameState.career_seed = seed
+		GameState.replay_seed = seed
+		GameState.start_season(CLUB, GameDB.club_list(CLUB))
+		GameState.open_preseason()
+		GameState.set_setting("seen_weekly_loop_intro", true)
+		GameState.set_setting("seen_training_intro", true)
+		var guard := 0
+		while GameState.preseason_active() and GameState.preseason_stop() != "story" and guard < 10:
+			guard += 1
+			if GameState.preseason_stop() == "intra" and not GameState.intra_played():
+				GameState.sim_intra_match()
+			GameState.preseason_advance()
+		if GameState.preseason_stop() == "story":
+			found = true
+			break
+	_check(found, "A card stop turns up in thirty careers, to see on the screen")
+	if not found:
+		return
+	var week := GameState.preseason_week()
+	var scene: Control = await _open(tree)
+	_check(scene != null and scene.name == "PreSeasonScene" and _label(scene, "PreSeasonHero") == "After week %d of 8" % week,
+			"A career saved at a card stop opens on that stop, saying which week it is")
+	var card := scene.find_child("WeekEvent", true, false)
+	var first_choice := scene.find_child("Event_0", true, false) as Button
+	_check(card != null and first_choice != null and scene.find_child("PreSeasonCards", true, false) != null,
+			"The card is on the pre-season screen with its answers")
+	_check(scene.find_child("EventGain_0_0", true, false) != null or scene.find_child("EventCost_0_0", true, false) != null,
+			"...and a choice shows its Gain or Cost line under it")
+	_check(_fits(scene, 390.0), "Nothing on the card stop runs off a phone's screen")
+	var id := str(GameState.week_events[0]["tid"])
+	_check(await _tap(first_choice, "the card's first answer"), "A finger's tap answers the card")
+	_check(bool(GameState.week_events[0].get("resolved", false)) and int(GameState.week_events[0].get("choice", -1)) == 0
+			and str(GameState.week_events[0].get("tid", "")) == id,
+			"...and the answer is recorded")
+	var scene2 := tree.current_scene as Control
+	_check(scene2.find_child("Event_0", true, false) == null, "...and the card then shows what happened, not its buttons")
+	var go := scene2.find_child("PreSeasonGo", true, false) as Button
+	_check(await _tap(go, "the way on from the card"), "A finger's tap presses on from the card")
+	await _frames(tree, 4)
+	_check(GameState.preseason_stop() != "story" and not bool(GameState.preseason.get("story_pending", false)),
+			"...and the pre-season is no longer waiting on it")
+	GameState.delete_saved_career()
 
 
 ## The draft card at the National Draft that follows the pre-season.
@@ -1519,6 +1579,13 @@ func _test_screens() -> void:
 			"A finger's tap goes back to training")
 	await _frames(tree, 10)
 	scene = tree.current_scene as Control
+	# A card at the end of a block stops it on the way; the way on is the same button.
+	var card_stops := 0
+	while scene != null and scene.find_child("PreSeasonCards", true, false) != null and card_stops < 4:
+		card_stops += 1
+		await _tap(scene.find_child("PreSeasonGo", true, false), "the way on past a card")
+		await _frames(tree, 10)
+		scene = tree.current_scene as Control
 	_check(scene != null and scene.name == "HubScene" and not GameState.preseason_active()
 			and GameState.preseason_week() == 8 and GameState.season.round_index == 0,
 			"The rest of the pre-season is trained and the hub opens at Round 1")
