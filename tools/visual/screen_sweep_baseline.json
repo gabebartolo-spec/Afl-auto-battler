@@ -132,7 +132,7 @@
    "built": true,
    "clipped": 0,
    "min_font": 11.0,
-   "offscreen": 108,
+   "offscreen": 0,
    "small": 0
   },
   "main": {
@@ -189,7 +189,7 @@
    "clipped": 0,
    "min_font": 12.0,
    "offscreen": 0,
-   "small": 27
+   "small": 7
   },
   "training": {
    "built": true,
