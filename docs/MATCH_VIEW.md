@@ -95,6 +95,30 @@ What that showed, and what the view does about it:
   and turns take time and paths curve. Sprint speed comes from the `carry`
   rating (presentation only).
 
+## The coach's calls on the oval
+
+Each structural call has a shape, read from the match's recorded calls
+(`timeline`) and drawn only as far as the engine acts on it
+(`MatchSim.PLANS`, `MatchSim.BURSTS`):
+
+| Call | On the oval |
+|---|---|
+| Defensive press | one band around the ball in their back half or the middle, narrower, with the press-zone wash |
+| Flood behind the ball | the midfield folds back between ball and goal, the half-forwards push up |
+| Stack the stoppage | the wings on the square's edge at a centre bounce, crashing in at the bounce |
+| Attack corridor | narrows into the corridor with the ball; moves quicker |
+| Controlled tempo | spreads wide with the ball, its lines short around it; moves slower |
+| Win contest | the midfield stays on the ball; extra numbers at every centre bounce, ball-up and throw-in (none at a marking contest: the engine gives it no edge there) |
+| Through stars | the three stars stand closest to the ball when it has it; their opponents play them tighter |
+| Throw numbers at it | with the ball the midfield runs ahead of it and the half-backs push up; moves quicker |
+| Slow it down | sits deeper, spreads wide with the ball; moves slower |
+
+The feed marks a plan when it starts ("Fremantle: Win contest is on until half
+time."), when it carries on over a break and when it ends, and a short call
+when it runs out ("Fremantle: Throw numbers at it ends."). A short call's start
+is the coach's call line already. `capture_match --noshape` draws every call as
+Balanced, so a clip pair differs in the shape alone.
+
 ## Your people on the oval
 
 Two marks say who is yours. PitchView draws both from what the match screen

@@ -21,8 +21,12 @@ extends SceneTree
 ##   --tag SIDE      that side tags the other side's best midfielder
 ##   --flood SIDE    that side floods behind the ball all match (0 home, 1 away)
 ##   --press SIDE    that side plays the Defensive press all match (--balanced SIDE: Balanced)
-##   --noshape       with --press: the sim keeps the press, the oval does not draw its shape
+##   --noshape       the sim keeps every call, the oval draws none of their shapes
 ##   --stack SIDE    that side stacks every centre ball-up
+##   --plan SIDE:KEY that side plays the plan KEY all match (attacking, contest,
+##                   controlled, through_stars, defensive, balanced)
+##   --surge SIDE / --hold SIDE  that side throws numbers at it / slows it down
+##                   (held on until the first break, as --flood)
 ##   --kside S       with --kind, only events by side S
 ##   --shake F       the turnover shake's size as a share of the oval's height
 
@@ -91,6 +95,15 @@ func _run() -> void:
 		# coach's "Flood behind the ball" call, held on), for the ARD-M8-003
 		# demonstration against ordinary coverage on the same seed.
 		(sim.bursts[int(args["flood"])] as Dictionary)["flood"] = 100000
+	if args.has("plan"):
+		# --plan SIDE:KEY: that side plays the plan all match, held (no AI re-pick).
+		var pk := str(args["plan"]).split(":")
+		if pk.size() == 2:
+			(sim.squads[int(pk[0])] as RefCounted).set("ai_plans", false)
+			sim.set_tactics(int(pk[0]), {"gameplan": str(pk[1])})
+	for burst in ["surge", "hold"]:
+		if args.has(burst):
+			(sim.bursts[int(args[burst])] as Dictionary)[burst] = 100000
 	if args.has("stack"):
 		# --stack SIDE: that side stacks every centre ball-up (the attacking
 		# setup, for the second demonstration).

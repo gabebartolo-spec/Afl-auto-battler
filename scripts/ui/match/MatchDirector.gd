@@ -110,6 +110,9 @@ var _out: Array = []
 var _timeline: Array = []
 var _tl_i := 0
 var _tac := [{}, {}]
+## Each side's three stars (MatchSim result "stars", PlanFit's Through stars
+## carriers) by player id: the men a Through stars side plays through.
+var _stars := [{}, {}]
 
 
 # ---------------------------------------------------------------------------
@@ -132,6 +135,11 @@ func setup(result: Dictionary, p_events: Array) -> void:
 	_timeline = result.get("timeline", [])
 	_tl_i = 0
 	_tac = [{}, {}]
+	_stars = [{}, {}]
+	var star_ids: Array = result.get("stars", [])
+	for side in range(mini(2, star_ids.size())):
+		for pid in (star_ids[side] as Array):
+			(_stars[side] as Dictionary)[str(pid)] = true
 	# Presentation stream: seeded from the fixture, never from MatchSim.
 	_rng.seed = hash("%s|%s|%s|view" % [result.get("home", ""), result.get("away", ""),
 			result.get("label", "")])
@@ -609,7 +617,7 @@ func _ballup_phases(k: int) -> Array:
 				"mode": "stoppage"})
 	var nk := _next_real(k)
 	var winner := _actor_id(events[nk]) if nk >= 0 else -1
-	var members := _nearest(at, 0, 3, [winner]) + _nearest(at, 1, 3, [winner])
+	var members := _nearest(at, 0, _pack_n(0), [winner]) + _nearest(at, 1, _pack_n(1), [winner])
 	for t in tokens:
 		if str(t["role"]) == "RUCK" and not members.has(int(t["id"])):
 			members.append(int(t["id"]))
@@ -634,7 +642,7 @@ func _throwin_phases(k: int) -> Array:
 	var infield := Vector2(at.x, at.y * 0.78)
 	var nk := _next_real(k)
 	var winner := _actor_id(events[nk]) if nk >= 0 else -1
-	var members := _nearest(infield, 0, 3, [winner]) + _nearest(infield, 1, 3, [winner])
+	var members := _nearest(infield, 0, _pack_n(0), [winner]) + _nearest(infield, 1, _pack_n(1), [winner])
 	for t in tokens:
 		if str(t["role"]) == "RUCK" and not members.has(int(t["id"])):
 			members.append(int(t["id"]))
@@ -1687,7 +1695,7 @@ func _refresh_structure() -> void:
 				continue
 			var g := _structure_spot(t, ball_p, _poss)
 			var d := (t["pos"] as Vector2).distance_to(g)
-			MatchMotion.set_goal(t, g, clampf(d / 45.0, 0.1, 0.6))
+			MatchMotion.set_goal(t, g, minf(clampf(d / 45.0, 0.1, 0.6) * _call_pace(side), CALL_PACE_TOP))
 
 
 ## Where a player stands when the ball is at `ball_p` and `poss` has it.
@@ -1711,6 +1719,30 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 	var pull := 0.12 if slot.begins_with("W") else (0.3 if role == "MID" or role == "RUCK" else 0.2)
 	if not has and _pressing(side, bx):
 		width *= PRESS_NARROW
+	# The coach's other structural calls (P-12; the notes above ATTACK_WIDTH):
+	# what the engine does with each call, drawn.
+	var plan := _plan_of(side)
+	var mid := role == "MID" or role == "RUCK"
+	if has:
+		match plan:
+			"attacking":
+				width = ATTACK_WIDTH
+			"controlled":
+				width = CONTROL_WIDTH
+				pull *= CONTROL_PULL
+				x = lerpf(x, bx + CONTROL_AHEAD, CONTROL_SHORT)
+		if _burst_on(side, "hold"):
+			width = maxf(width, HOLD_WIDTH)
+	if plan == "contest" and mid:
+		pull = CONTEST_PULL
+		x = bx + clampf(x - bx, -CONTEST_MID_BAND, CONTEST_MID_BAND)
+	if _burst_on(side, "surge"):
+		if has and mid:
+			x = maxf(x, bx + SURGE_AHEAD)
+		elif has and (slot == "CHB" or slot == "HBL" or slot == "HBR"):
+			x += SURGE_PUSH
+	if _burst_on(side, "hold"):
+		x -= HOLD_DEEP
 	var y := lerpf(base.y * width, ball_p.y, pull)
 	if not has:
 		x -= 3.0
@@ -1742,6 +1774,11 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 	if has and chase >= 0:
 		# Sent to their loose man: he stands where the spare would sit.
 		world = world.lerp((tokens[chase]["goal"] as Vector2), 0.6)
+	if has and plan == "through_stars" and _is_star(t):
+		# Through stars: the ball goes to the best three, so they stand
+		# closest to it, on a lead ahead of the ball.
+		var near := Vector2(ball_p.x + STAR_AHEAD * dir, lerpf(ball_p.y, world.y, 0.4))
+		world = world.lerp(near, STAR_PULL)
 	var flooding := not has and _flooding(side)
 	if not has:
 		var o := int(t["match"])
@@ -1758,9 +1795,16 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 			world = world.lerp(hole, 0.75)
 		elif o >= 0:
 			var og: Vector2 = tokens[o]["goal"]
-			if og.distance_to(world) < 35.0:
+			# Through stars: they know where the ball is going, so the man
+			# on a star goes with him wherever he leads.
+			var star_watch := _plan_of(1 - side) == "through_stars" and _is_star(tokens[o])
+			if og.distance_to(world) < 35.0 or star_watch:
 				var mark := og + (own_goal - og).normalized() * 2.5
 				var w := 0.65 if role == "DEF" else (0.45 if role == "MID" else 0.3)
+				if star_watch:
+					w = maxf(w, STAR_TIGHT)
+				elif plan == "contest" and mid:
+					w *= CONTEST_MAN   # Win contest: the midfield hunts the ball, not the man
 				if press_up:
 					w *= 0.1   # the press holds its band; it does not follow men back
 				if bool(t.get("tagging", false)):
@@ -1821,8 +1865,9 @@ static func press_zone_field(x_side: float) -> float:
 	return lerpf(lerpf(press_zone_strength(-e - 1.0), mid, fwd), press_zone_strength(e + 1.0), back)
 
 
-## Debug only (capture_match --noshape): draw the plan without its shape, the
-## sim untouched, so a clip pair differs in the formation alone.
+## Debug only (capture_match --noshape): draw the calls without their shapes
+## (the press, the flood, the stack and every P-12 shape), the sim untouched,
+## so a clip pair differs in the formation alone.
 static var debug_no_press_shape := false
 
 
@@ -1841,7 +1886,84 @@ const FLOOD_PUSH := 0.35
 ## The side's recorded calls include a flood (MatchSim.BURSTS, on the timeline
 ## from the chain it was made until it runs out).
 func _flooding(side: int) -> bool:
-	return ((_tac[side] as Dictionary).get("bursts", []) as Array).has("flood")
+	return _burst_on(side, "flood")
+
+
+# ---------------------------------------------------------------------------
+# The coach's other structural calls, drawn (P-12, director 2026-10-18: "the
+# oval answers a structural call"). Each shape is what the engine does with
+# the call (MatchSim PLANS and BURSTS), never more:
+# - Attack corridor (more metres and shots, quicker legs, more turnovers):
+#   with the ball the side narrows into the corridor, and it moves quicker.
+# - Controlled tempo (less pressure felt, fewer clangers, fewer metres,
+#   slower legs): with the ball it spreads wide and its lines come in short
+#   around the ball; it moves slower.
+# - Win contest (an edge at every stoppage, fewer metres): its midfield stays
+#   on the ball, and every centre bounce, ball-up and throw-in gets extra
+#   numbers (the centre bounce set up as a stack). The engine gives the plan
+#   no edge in a marking contest, so neither does the oval.
+# - Through stars (the ball to the best three, who are expected): with the
+#   ball the three stand closest to it, and their opponents play them tighter.
+# - Throw numbers at it (an edge at the contest, more shots, faster legs, more
+#   goals against when the other side gets out): with the ball the midfield
+#   runs ahead of it and the half-backs push up, a flood in reverse; it moves
+#   quicker. (Without the ball it keeps its usual shape.)
+# - Slow it down (less pressure felt, fewer clangers, fewer metres and fewer
+#   shots at both ends): the side sits deeper, spreads wide with the ball and
+#   moves slower.
+const ATTACK_WIDTH := 0.6          # a slot's width with the ball (Balanced 1.08)
+const CONTROL_WIDTH := 1.32
+const CONTROL_PULL := 0.5          # less drawn across to the ball: the width holds
+const CONTROL_SHORT := 0.35        # each line comes this share of the way in...
+const CONTROL_AHEAD := 10.0        # ...toward a point this far ahead of the ball
+const CONTEST_MID_BAND := 12.0     # the midfield stays within this of the ball
+const CONTEST_PULL := 0.6          # ...and drawn across to it
+const CONTEST_PACK := 2            # extra players a side in a stoppage pack
+const CONTEST_MAN := 0.4           # share of a midfielder's usual hold on his man
+const STAR_PULL := 0.55            # a star goes this share of the way to the ball
+const STAR_AHEAD := 12.0           # ...to a lead this far ahead of it
+const STAR_TIGHT := 0.85           # how tightly his opponent plays him
+const SURGE_AHEAD := 14.0          # the midfield runs at least this far ahead of the ball
+const SURGE_PUSH := 18.0           # the half-back line pushes up this far with the ball
+const HOLD_DEEP := 14.0            # Slow it down sits this much deeper
+const HOLD_WIDTH := 1.32
+## How briskly a side moves into its shape, from the pace the engine gives
+## the call (PLANS "pace", the legs Throw numbers at it burns; Slow it down's
+## quieter game).
+const CALL_PACE := {"attacking": 1.15, "controlled": 0.85, "surge": 1.3, "hold": 0.8}
+const CALL_PACE_TOP := 0.85
+
+
+## The plan in `side`'s recorded calls ("" with none recorded, or with the
+## shapes off for a capture).
+func _plan_of(side: int) -> String:
+	if debug_no_press_shape:
+		return ""
+	return str((_tac[side] as Dictionary).get("plan", ""))
+
+
+## Whether `side`'s recorded calls include the burst `kind` (MatchSim.BURSTS).
+func _burst_on(side: int, kind: String) -> bool:
+	if debug_no_press_shape:
+		return false
+	return ((_tac[side] as Dictionary).get("bursts", []) as Array).has(kind)
+
+
+func _call_pace(side: int) -> float:
+	var m := float(CALL_PACE.get(_plan_of(side), 1.0))
+	for kind in ["surge", "hold"]:
+		if _burst_on(side, kind):
+			m *= float(CALL_PACE[kind])
+	return m
+
+
+## Players a side sends into a stoppage pack (a ball-up, a throw-in).
+func _pack_n(side: int) -> int:
+	return 3 + (CONTEST_PACK if _plan_of(side) == "contest" else 0)
+
+
+func _is_star(t: Dictionary) -> bool:
+	return (_stars[int(t["side"])] as Dictionary).has(str(t["pid"]))
 
 
 ## The loose defender while his side defends: the one the match named
@@ -1927,10 +2049,12 @@ const ARC_EDGE := 37.0   # MatchMotion.GOAL_X (85) - 48
 ## A side's centre ball-up setup from its recorded calls: "stack" (extra
 ## numbers at the contest), "flood" (numbers behind the ball) or "".
 func _centre_setup(side: int) -> String:
-	var b: Array = (_tac[side] as Dictionary).get("bursts", [])
-	if b.has("stack"):
+	if _burst_on(side, "stack"):
 		return "stack"
-	return "flood" if b.has("flood") else ""
+	if _burst_on(side, "flood"):
+		return "flood"
+	# Win contest: an edge at every stoppage, so numbers at the centre bounce too.
+	return "stack" if _plan_of(side) == "contest" else ""
 
 
 # ---------------------------------------------------------------------------
