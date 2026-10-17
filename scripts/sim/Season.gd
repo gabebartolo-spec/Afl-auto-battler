@@ -563,6 +563,40 @@ func ladder_sorted() -> Array:
 	return out
 
 
+## Where `code` stands on the finals ten, by the points alone (the table cannot
+## say more than it knows): "in" when no result left can drop it out of the ten,
+## "out" when no result left can lift it into the ten, else "live". Level points
+## always count against the club, since percentage is decided on the day, so a
+## "in" or "out" is never wrong: it can only come a round or two late.
+func finals_math(code: String) -> String:
+	if not ladder.has(code) or is_regular_done():
+		return "live"
+	var left := {}
+	for c in ladder:
+		left[c] = 0
+	for r in range(round_index, fixture.size()):
+		for m in fixture[r]:
+			left[str(m["home"])] = int(left.get(str(m["home"]), 0)) + 1
+			left[str(m["away"])] = int(left.get(str(m["away"]), 0)) + 1
+	var least := int(ladder[code]["pts"])
+	var most := least + 4 * int(left.get(code, 0))
+	var could_pass := 0
+	var certain_ahead := 0
+	for c in ladder:
+		if c == code:
+			continue
+		var pts := int(ladder[c]["pts"])
+		if pts + 4 * int(left.get(c, 0)) >= least:
+			could_pass += 1
+		if pts > most:
+			certain_ahead += 1
+	if could_pass <= FINALISTS - 1:
+		return "in"
+	if certain_ahead >= FINALISTS:
+		return "out"
+	return "live"
+
+
 func is_regular_done() -> bool:
 	return round_index >= fixture.size()
 

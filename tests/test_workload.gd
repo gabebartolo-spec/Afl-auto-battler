@@ -266,6 +266,34 @@ func _test_ui() -> void:
 	var explanation := sheet.find_child("ProfileReadiness", true, false) as Label
 	_check(explanation != null and explanation.text.contains("week out of seniors"),
 			"The profile explains how the coach can help a tired player recover")
+	sheet.queue_free()
+	# A rival's load, mood and promises are private: never on his card or profile.
+	var other_code := "ADE"
+	var theirs: Array = GameDB.club_list(other_code)
+	var rp: Dictionary = theirs[0]
+	rp["workload"] = 60.0
+	rp["club"] = other_code
+	var tb := TeamBuilder.new()
+	tb.setup({"mid": [rp["id"]]}, false, theirs, true)
+	tree.root.add_child(tb)
+	for i in range(3):
+		await tree.process_frame
+	_check(tb.find_child("Readiness_" + str(rp["id"]), true, false) == null,
+			"A rival's card never shows his load")
+	var rsheet := PlayerSheet.open(screen, rp)
+	for i in range(3):
+		await tree.process_frame
+	_check(rsheet.find_child("ProfileReadiness", true, false) == null,
+			"A rival's profile never shows his load")
+	var rstate := rsheet.find_child("ProfileState", true, false) as Label
+	_check(rstate != null and not rstate.text.contains("Mood"), "A rival's profile never shows his mood")
+	var plan_leak := false
+	for lb in rsheet.find_children("*", "Label", true, false):
+		if (lb as Label).text.begins_with("Training plan"):
+			plan_leak = true
+	_check(not plan_leak, "A rival's profile never shows his training plan")
+	rsheet.queue_free()
+	tb.queue_free()
 	screen.queue_free()
 	await tree.process_frame
 
