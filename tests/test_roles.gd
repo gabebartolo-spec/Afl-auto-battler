@@ -285,17 +285,20 @@ func _test_tagger() -> void:
 			"Controlled tempo depends on ball users and is never a club's usual game")
 
 
-## A tag goes on a midfielder, by where he plays now (the director's PC
-## playtest, 2026-10-07): never a forward or a defender, a ruck in a midfield
-## slot only when midfield is one of his positions, and a tag that stops being
-## valid ends with a plain line - another player is never put in his place.
+## A tag goes on anyone with a midfield position, first or second, wherever he
+## lines up (director, 2026-10-14: a mid/forward like Rankine could not be
+## tagged); a defender, forward or ruck with no midfield position is refused.
+## The AI and the match moments keep the midfielders-only rule (taggable). A
+## coach's tag persists across breaks: a man sent back up forward keeps it,
+## with no "dropped" line; it ends only when he has gone from the match.
 func _test_tag_targets() -> void:
 	var away := Squad.new("CAR", GameDB.club_list("CAR"), false, "CAR")
 	var sim := MatchSim.new(Squad.new("COL", GameDB.club_list("COL"), true, "COL"), away, 7)
 	var mi := _slot(away, "MID")
-	var fi := _slot(away, "FWD")
-	var di := _slot(away, "DEF")
-	var ri := _slot(away, "RUCK")
+	# Refused cases need men with no midfield position at all.
+	var fi := _slot_without_mid(away, "FWD")
+	var di := _slot_without_mid(away, "DEF")
+	var ri := _slot_without_mid(away, "RUCK")
 	_check(mi >= 0 and fi >= 0 and di >= 0 and ri >= 0, "The opposition fields every line")
 	var mid_id := str(away.ground[mi]["id"])
 	_check(_tag_on(sim, mid_id) == mid_id, "A midfielder can be tagged")
@@ -307,12 +310,14 @@ func _test_tag_targets() -> void:
 		_check(sim.tag_drops.size() == 1 and str(sim.tag_drops[0]["id"]) == id,
 				"...and the dropped tag is on record for the break (%s)" % str(line[0]))
 
-	# The slot he fills decides, not a second position on his card.
+	# Midfield as a second position is enough, wherever he lines up today.
 	var unicorn: Dictionary = (away.ground[fi] as Dictionary).duplicate(true)
 	unicorn["role2"] = "MID"
 	away.ground[fi] = Ratings._for_slot(unicorn, "FWD")
-	_check(not sim.tag_target_ok(1, str(unicorn["id"])),
-			"A forward with midfield as a second position is not a target while he plays forward")
+	_check(sim.tag_target_ok(1, str(unicorn["id"])) and _tag_on(sim, str(unicorn["id"])) == str(unicorn["id"]),
+			"A forward with midfield as a second position is a target while he plays forward")
+	_check(not MatchSim.taggable(away.ground[fi]),
+			"...though the AI and the match moments still pick midfielders only")
 	away.ground[fi] = Ratings._for_slot(unicorn, "MID")
 	_check(sim.tag_target_ok(1, str(unicorn["id"])), "...but is while he plays in the midfield")
 	var ruck: Dictionary = (away.ground[di] as Dictionary).duplicate(true)
@@ -324,8 +329,8 @@ func _test_tag_targets() -> void:
 	away.ground[di] = Ratings._for_slot(ruck, "MID")
 	_check(sim.tag_target_ok(1, str(ruck["id"])), "...unless midfield is one of his positions")
 
-	# Resting a midfielder keeps his tag; bringing him back on up forward ends
-	# it, with a line for the break, and nobody takes his place.
+	# Resting a midfielder keeps his tag; bringing him back on up forward keeps
+	# it too, with no "dropped" line: the coach's tag persists across breaks.
 	var sim2 := MatchSim.new(Squad.new("COL", GameDB.club_list("COL"), true, "COL"),
 			Squad.new("CAR", GameDB.club_list("CAR"), false, "CAR"), 7)
 	var opp: Squad = sim2.squads[1]
@@ -340,15 +345,12 @@ func _test_tag_targets() -> void:
 		if str(opp.bench[i]["id"]) == tagged:
 			bi = i
 	sim2._swap(1, _slot(opp, "FWD"), bi)
-	_check(str((sim2.tactics[0] as Dictionary).get("tag_id", "")) == "" and sim2.tag_drops.size() == 1
-			and int(sim2.tag_drops[0]["side"]) == 0 and str(sim2.tag_drops[0]["id"]) == tagged,
-			"Back on up forward, the tag ends and is on record")
+	_check(str((sim2.tactics[0] as Dictionary).get("tag_id", "")) == tagged and sim2.tag_drops.is_empty(),
+			"Back on up forward, the tag stays and nothing is on record as dropped")
 	var res := {"tag_drops": sim2.tag_drops}
 	var lines: Array = MatchNotes.tag_drop_lines(res, 0, sim2.current_quarter)
-	_check(lines.size() == 1 and str(lines[0]).begins_with("Your tag on ")
-			and str(lines[0]).ends_with("he is no longer in the midfield."),
-			"The break says so in one plain line (%s)" % str(lines))
-	_check(MatchNotes.tag_drop_lines(res, 1, sim2.current_quarter).is_empty(), "...only to the side whose tag it was")
+	_check(lines.is_empty(), "The break has no dropped-tag line for a man who is still in the match (%s)" % str(lines))
+	_check(MatchNotes.tag_drop_lines(res, 1, sim2.current_quarter).is_empty(), "...and none for the other side either")
 	# A man gone off hurt ends the tag with no second line: the injury says it.
 	var other := str(opp.ground[_slot(opp, "MID")]["id"])
 	_tag_on(sim2, other)
@@ -356,6 +358,14 @@ func _test_tag_targets() -> void:
 	sim2._drop_tag_on(other)
 	_check(str((sim2.tactics[0] as Dictionary).get("tag_id", "")) == "" and sim2.tag_drops.size() == before,
 			"A man gone off hurt ends his tag without a second line")
+
+
+## A ground slot of `role` held by a man with no midfield position at all.
+func _slot_without_mid(sq: Squad, role: String) -> int:
+	for i in range(sq.ground.size()):
+		if str(sq.ground[i]["role"]) == role and not Ratings.positions(sq.ground[i]).has("MID"):
+			return i
+	return -1
 
 
 func _slot(sq: Squad, role: String) -> int:
