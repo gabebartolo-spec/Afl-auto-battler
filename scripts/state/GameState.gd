@@ -3956,7 +3956,8 @@ func with_us_text(p: Dictionary) -> String:
 			"" if g == 1 else "s", "no goals" if gl == 0 else "%d goal%s" % [gl, "" if gl == 1 else "s"]]])
 	bits.append_array(PackedStringArray(Firsts.with_us_bits(p)))
 	if not (w["bf"] as Array).is_empty():
-		bits.append("Best and fairest %s." % ", ".join(PackedStringArray((w["bf"] as Array).map(func(y): return str(y)))))
+		bits.append("%s %s." % [BestAndFairest.award_name(my_club),
+				", ".join(PackedStringArray((w["bf"] as Array).map(func(y): return str(y))))])
 	if not (w["flags"] as Array).is_empty():
 		var f: Array = w["flags"]
 		bits.append("%s %s." % ["Premiership" if f.size() == 1 else "Premierships",

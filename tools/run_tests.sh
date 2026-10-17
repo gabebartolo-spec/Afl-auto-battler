@@ -159,6 +159,17 @@ else
 	summary+=("| suite_seeds | FAIL | see log |")
 fi
 
+echo "== Player-facing odds"
+if python3 tools/test_check_player_facing_odds.py > "$LOG_DIR/player_facing_odds.log" 2>&1 \
+		&& python3 tools/check_player_facing_odds.py >> "$LOG_DIR/player_facing_odds.log" 2>&1; then
+	summary+=("| player_facing_odds | pass | |")
+else
+	cat "$LOG_DIR/player_facing_odds.log"
+	note_error "tools/check_player_facing_odds.py: a player-facing string quotes odds"
+	failed=1
+	summary+=("| player_facing_odds | FAIL | see log |")
+fi
+
 echo "== Exported-build data check"
 if GODOT="$GODOT" tools/check_export_data.sh > "$LOG_DIR/export_data.log" 2>&1; then
 	summary+=("| export_data | pass | |")
@@ -177,6 +188,16 @@ else
 	note_error "tools/intake_harness.py failed"
 	failed=1
 	summary+=("| intake_harness | FAIL | see log |")
+fi
+
+echo "== Offline promise (Android preset requests vibrate only)"
+if python3 tools/test_android_permissions.py > "$LOG_DIR/offline_promise.log" 2>&1 		&& python3 tools/check_android_permissions.py >> "$LOG_DIR/offline_promise.log" 2>&1; then
+	summary+=("| offline_promise | pass | |")
+else
+	tail -15 "$LOG_DIR/offline_promise.log"
+	note_error "tools/check_android_permissions.py: the Android preset asks for more than vibrate, which breaks the menu's offline promise"
+	failed=1
+	summary+=("| offline_promise | FAIL | see log |")
 fi
 fi
 

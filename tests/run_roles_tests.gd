@@ -953,6 +953,11 @@ func _culture_ui_tests() -> void:
 			and _screen_text(sheet).contains("Nothing stands out yet"),
 			"The screen says the strands in words, and what has nothing to say (%s)" % why)
 	_check(sheet != null and not _screen_text(sheet).contains("No effect"), "The screen claims no effect it does not have")
+	var no_effect: Label = sheet.find_child("CultureNoEffect", true, false) if sheet != null else null
+	_check(no_effect != null and no_effect.is_visible_in_tree() and no_effect.text.contains("has no effect on matches yet"),
+			"The header says plainly that culture has no effect on matches yet (P-63)")
+	_check(no_effect != null and no_effect.get_global_rect().position.y < sheet.find_child("Strand_standards", true, false).get_global_rect().position.y,
+			"That line sits above the strands, in the header")
 	_check(sheet != null and _screen_text(sheet).contains(Culture.moves_line("ambition")), "Each strand says what moves it")
 	var reasons: Node = sheet.find_child("CultureReasons", true, false) if sheet != null else null
 	_check(reasons != null and reasons.is_visible_in_tree() and _screen_text(reasons).contains("layed finals. Togetherness rose."),
