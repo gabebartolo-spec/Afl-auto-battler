@@ -869,6 +869,24 @@ func _ladder(sz: Vector2i) -> void:
 		_check(season.club_results(mine).size() == 0 or row_text.contains("".join(PackedStringArray((season.club_results(mine) as Array).slice(-5)))),
 				"...and the last five results as letters (%s)" % tag)
 
+	# The sort headers are thumb high on a phone (44 px; the sweep, 2026-10-18:
+	# they were 40) with the columns no wider than before, and unchanged on a PC.
+	var short_heads := []
+	var header_w := 0.0
+	for b in s.find_child("LadderHeader", true, false).get_children():
+		if not b is Button:
+			continue
+		if (b as Control).size.y < (44.0 if sz.x < 900 else 40.0):
+			short_heads.append("%s %.0f" % [b.name, (b as Control).size.y])
+		header_w += (b as Control).size.x
+	_check(short_heads.is_empty(), "Ladder sort headers are %s px tall (%s: short %s)" % ["at least 44" if sz.x < 900 else "40", tag, str(short_heads)])
+	if sz.x < 900:
+		_check(header_w <= sz.x, "...and the header row still fits the screen (%s: %.0f px)" % [tag, header_w])
+		# A finger on the narrowest header, the "#" column, takes the tap and
+		# puts the ladder back in its true order.
+		var pos_why: String = await Tap.tap(s.find_child("Sort_pos", true, false))
+		_check(pos_why == "", "A finger on the # header (24 px wide, 44 tall) reaches it (%s: %s)" % [tag, pos_why])
+
 	# A wide screen: the table is as wide as its columns, at the left beside the
 	# toggles, and the toggles are compact groups rather than bars across the window.
 	if sz.x >= 900:

@@ -139,7 +139,7 @@ static func build(host: Control) -> Control:
 	if wide:
 		# As wide as its columns, left-aligned: no gap between a club and its numbers.
 		t.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	t.add_child(_header(host, specs, width))
+	t.add_child(_header(host, specs, width, wide))
 	var band := false
 	for r in shown:
 		t.add_child(_row(host, r, specs, width, band, ROW_H if wide else ROW_H_NARROW))
@@ -204,7 +204,7 @@ static func _title_of(key: String) -> String:
 	return key
 
 
-static func _header(host: Control, specs: Array, width: float) -> Control:
+static func _header(host: Control, specs: Array, width: float, wide := false) -> Control:
 	var h := UiKit.hbox(COL_GAP)
 	h.name = "LadderHeader"
 	for c in specs:
@@ -230,7 +230,9 @@ static func _header(host: Control, specs: Array, width: float) -> Control:
 		sb.border_color = UiKit.TEXT
 		for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
 			b.add_theme_stylebox_override(state, sb)
-		b.custom_minimum_size = Vector2(int(c[2]), 40)
+		# A thumb-high header on a phone (44 px, CLAUDE.md "Mobile first"); the
+		# columns keep their widths. A wide screen keeps 40.
+		b.custom_minimum_size = Vector2(int(c[2]), 40 if wide else 44)
 		if int(c[2]) == 0:
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT if key == "club" else HORIZONTAL_ALIGNMENT_RIGHT

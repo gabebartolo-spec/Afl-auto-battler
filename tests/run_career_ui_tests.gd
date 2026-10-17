@@ -1641,6 +1641,7 @@ func _run() -> void:
 	_state.delete_saved_career()
 	await _new_career_keeps_the_save()
 	await _pc_hub_and_list_layout()
+	await _list_shape_fits_phones()
 	print("Career UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
@@ -2020,3 +2021,102 @@ func _pc_hub_and_list_layout() -> void:
 	var cap_title: Control = cap.find_child("SectionTitle", true, false) if cap != null else null
 	_check(cap_title != null and cap_title.size.x >= 60.0, "The Captaincy label is visible beside the names (%.0f wide)" % (cap_title.size.x if cap_title != null else -1.0))
 	_check(cap != null and cap.size.x < 640.0 and cap.size.y >= 44.0, "My list's Captaincy row is not a bar across the PC window and is thumb high (%.0f x %.0f)" % [cap.size.x if cap != null else -1.0, cap.size.y if cap != null else -1.0])
+
+
+## The Shape pane on My list is reachable on a phone (the screen sweep,
+## 2026-10-18: the board ran to y 1005 on an 844 px screen and the tree had no
+## scroll). Every control in the pane is on screen, or inside a scroll that
+## brings it on screen; a finger's tap on a guernsey at the foot of the oval
+## opens his profile; a swipe that starts on a guernsey scrolls the pane.
+func _list_shape_fits_phones() -> void:
+	for sz in [Vector2i(360, 740), Vector2i(390, 844), Vector2i(412, 915)]:
+		var tag := "%dx%d" % [sz.x, sz.y]
+		root.size = sz
+		_state.reset()
+		_state.start_season("MEL", _db.club_list("MEL"))
+		_router.stack = []
+		_router.go("main")
+		await _settle()
+		_router.go("hub")
+		await _settle()
+		_router.go("list")
+		for i in range(6):
+			await _settle()
+		var win := Rect2(Vector2.ZERO, Vector2(sz))
+		var board: Control = current_scene.find_child("Best22Board", true, false)
+		_check(board != null, "My list's Shape pane shows the board (%s)" % tag)
+		if board == null:
+			continue
+		var stray := []
+		var count := 0
+		for c in board.find_children("*", "Control", true, false):
+			var ctl := c as Control
+			# The boxes that hold the oval and the bench are as tall as their
+			# contents; what a finger meets is the controls inside them.
+			if not ctl.is_visible_in_tree() or ctl.size.x <= 0.0 or ctl.size.y <= 0.0 or ctl is BoxContainer:
+				continue
+			count += 1
+			if win.encloses(ctl.get_global_rect()):
+				continue
+			var sc: ScrollContainer = null
+			var p := ctl.get_parent()
+			while p != null and sc == null:
+				if p is ScrollContainer:
+					sc = p
+				p = p.get_parent()
+			if sc == null:
+				stray.append("%s %s" % [ctl.name, str(ctl.get_global_rect())])
+				continue
+			sc.ensure_control_visible(ctl)
+			await process_frame
+			if not win.encloses(ctl.get_global_rect()):
+				stray.append("%s %s after scrolling" % [ctl.name, str(ctl.get_global_rect())])
+		_check(count > 20 and stray.is_empty(), "Every control in the Shape pane is on screen or a scroll away (%s: %d controls, %d stray, first %s)" % [tag, count, stray.size(), stray.slice(0, 2)])
+		# The foot of the oval and the last bench spot take a finger.
+		var sc2: ScrollContainer = current_scene.find_child("ShapeScroll", true, false)
+		_check(sc2 != null and sc2.get_v_scroll_bar().max_value > sc2.size.y, "The Shape pane scrolls (%s)" % tag)
+		var spot: Control = board.find_child("Spot_FF", true, false)
+		var bench: Control = board.find_child("BenchSpot_4", true, false)
+		_check(spot != null and bench != null, "The full forward and the last bench spot are there (%s)" % tag)
+		if spot == null or bench == null:
+			continue
+		var shown := [""]
+		board.inspect.connect(func(id: String): shown[0] = id)
+		var why: String = await Tap.tap(spot)
+		_check(why == "" and shown[0] != "", "A finger on the full forward at the foot of the oval opens his profile (%s: %s)" % [tag, why])
+		current_scene.call("_close_profile")
+		await _settle()
+		if sz.x != 390:
+			continue
+		# A swipe that begins on a guernsey scrolls the pane and opens nobody.
+		sc2 = current_scene.find_child("ShapeScroll", true, false)
+		board = current_scene.find_child("Best22Board", true, false)
+		var from: Control = board.find_child("Spot_C", true, false)
+		sc2.scroll_vertical = 0
+		await process_frame
+		var opened := [false]
+		board.inspect.connect(func(_id: String): opened[0] = true)
+		var a := from.get_global_rect().get_center()
+		var t := InputEventScreenTouch.new()
+		t.index = 0
+		t.position = a
+		t.pressed = true
+		Input.parse_input_event(t)
+		Input.flush_buffered_events()
+		for step in range(1, 9):
+			var d := InputEventScreenDrag.new()
+			d.index = 0
+			d.position = a + Vector2(0, -30.0 * step)
+			d.relative = Vector2(0, -30.0)
+			Input.parse_input_event(d)
+			Input.flush_buffered_events()
+			await process_frame
+		var up := InputEventScreenTouch.new()
+		up.index = 0
+		up.position = a + Vector2(0, -240.0)
+		up.pressed = false
+		Input.parse_input_event(up)
+		Input.flush_buffered_events()
+		await _settle()
+		_check(sc2.scroll_vertical > 100 and not opened[0], "A swipe starting on a guernsey scrolls the Shape pane and opens nobody (%s: scrolled %d)" % [tag, sc2.scroll_vertical])
+
