@@ -261,6 +261,13 @@ func _list_row(p: Dictionary) -> Control:
 	var sub := UiKit.ellipsis("  ·  ".join(bits), UiKit.SMALL, UiKit.MUTED)
 	sub.name = "RowIdentity"
 	who.add_child(sub)
+	# Marked untouchable: a line of its own, so his name and his details are never cut for it.
+	if GameState.is_untouchable(str(p["id"])):
+		var mark := UiKit.ellipsis("Untouchable", UiKit.SMALL, UiKit.TEXT, true)
+		mark.name = "RowUntouchable"
+		mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		who.add_child(mark)
+		row.custom_minimum_size = Vector2(0, 74)
 	var status := _status(p)
 	if str(status[0]) != "":
 		var st := UiKit.line(str(status[0]), UiKit.SMALL, status[1], true)
@@ -302,7 +309,16 @@ func _open_profile(id: String) -> void:
 	if p.is_empty():
 		return
 	_close_profile()
-	_profile = PlayerSheet.open(self, p, func(): _profile = null)
+	# One toggle: rivals stop asking for him in trade talks. Nothing about his rating.
+	var on := GameState.is_untouchable(id)
+	var actions := [{"name": "Untouchable",
+			"label": "Remove untouchable mark" if on else "Mark untouchable",
+			"detail": "Rivals are not asking for him in trade talks." if on else "Rivals stop asking for him in trade talks.",
+			"run": func():
+				GameState.set_untouchable(id, not on)
+				_build()
+				_open_profile(id)}]
+	_profile = PlayerSheet.open(self, p, func(): _profile = null, actions)
 
 
 func _open_culture() -> void:

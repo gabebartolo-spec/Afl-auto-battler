@@ -118,6 +118,15 @@ var compensation: Array = []
 ## pick not listed still belongs to its own club. Saved; a draft year's
 ## entries go once that draft is done.
 var pick_owner := {}
+## How the club holding a traded pick got it: "year:round:origin club" ->
+## {"from": the club it came from, "season": the season whose trade period it
+## was, "gave": [{"id", "name"}] what went the other way}. Saved (a new key; an
+## older save has none and the pick reads "<origin>'s pick, traded in"). Goes with the
+## pick's entry in pick_owner. See pick_story.
+var pick_got := {}
+## Your players marked untouchable: {player id: true}. Rivals stop asking for
+## them in the offers they put to you. Saved (a new key; an older save has none).
+var untouchable := {}
 var offseason_log: Array = []    # what happened in the off-season, for news
 ## Offers rival clubs have made you this off-season: [{"club", "give" (their
 ## player and pick ids), "take" (yours), "status": "open", "accepted",
@@ -645,6 +654,8 @@ func save_career() -> bool:
 		"fa_closed_year": fa_closed_year,
 		"compensation": compensation,
 		"pick_owner": pick_owner,
+		"pick_got": pick_got,
+		"untouchable": untouchable,
 		"offseason_staff": offseason_staff,
 		"department_budget": department_budget,
 		"department_budget_year": department_budget_year,
@@ -809,6 +820,8 @@ func load_career() -> bool:
 	fa_closed_year = int(state.get("fa_closed_year", 0))
 	compensation = state.get("compensation", [])
 	pick_owner = state.get("pick_owner", {})
+	pick_got = state.get("pick_got", {})
+	untouchable = state.get("untouchable", {})
 	offseason_staff = state.get("offseason_staff", {})
 	department_budget = state.get("department_budget", ClubBudget.defaults())
 	department_budget_year = int(state.get("department_budget_year", season_year))
@@ -1238,6 +1251,8 @@ func reset() -> void:
 	fa_closed_year = 0
 	compensation = []
 	pick_owner = {}
+	pick_got = {}
+	untouchable = {}
 	offseason_log = []
 	trade_offers = []
 	trade_declined = {}
@@ -1583,6 +1598,9 @@ func finish_intake_draft() -> bool:
 	for key in pick_owner.keys():
 		if int(str(key).split(":")[0]) <= season_year:
 			pick_owner.erase(key)
+	for key in pick_got.keys():
+		if int(str(key).split(":")[0]) <= season_year:
+			pick_got.erase(key)
 	_ensure_league_lists()
 	var next_year := season_year + 1
 	var merged := 0
@@ -6100,6 +6118,91 @@ func pick_owner_of(year: int, rnd: int, origin: String) -> String:
 	return str(pick_owner.get("%d:%d:%s" % [year, rnd, origin], origin))
 
 
+## How the club that holds a pick got it, in one line. Its own: "Your own, 7th
+## on the ladder" (this year's draft; next year's has no place yet). Traded in:
+## "From Melbourne, for Jack Smith, 2027 trade period", or, when the club it
+## came from had it from someone else, "Melbourne's pick, from Carlton, for ...".
+## A fact, never a grade of the trade.
+func pick_story(year: int, rnd: int, origin: String) -> String:
+	if season == null:
+		return ""
+	var holder := pick_owner_of(year, rnd, origin)
+	if holder == origin:
+		var whose := "Your own" if holder == my_club else "%s's own" % GameDB.club_name(holder)
+		if year == season_year and season.ladder.has(origin):
+			whose += ", %s on the ladder" % ordinal(club_position(origin))
+		return whose
+	var got: Dictionary = pick_got.get("%d:%d:%s" % [year, rnd, origin], {})
+	if got.is_empty():
+		return "%s's pick, traded in" % GameDB.club_name(origin)
+	var prev := str(got.get("from", ""))
+	var words: Array = []
+	for g in got.get("gave", []):
+		var gid := str(g.get("id", ""))
+		var named := _find_player(gid) if not gid.begins_with("pick:") else {}
+		words.append(GameDB.player_display_name(named) if not named.is_empty() else str(g.get("name", "")))
+	var what := ""
+	if words.size() == 1:
+		what = str(words[0])
+	elif words.size() == 2:
+		what = "%s and %s" % [words[0], words[1]]
+	elif words.size() > 2:
+		what = "%s and %d more" % [words[0], words.size() - 1]
+	var from_words := "you" if prev == my_club else GameDB.club_name(prev)
+	var line := ("From %s" % from_words) if prev == origin else (
+			"%s's pick, from %s" % [GameDB.club_name(origin), from_words])
+	if what != "":
+		line += ", for " + what
+	return line + ", %d trade period" % int(got.get("season", year))
+
+
+## Last home-and-away rounds on, until the draft: where your first pick would
+## fall if the season ended today, in words. Today's order only, no guess at
+## what the other clubs will do. "" earlier in the year or once the draft is on.
+func pick_order_line() -> String:
+	if season == null or my_club == "" or season.fixture.is_empty() or draft != null:
+		return ""
+	if season.round_index < season.fixture.size() - PICK_LINE_ROUNDS:
+		return ""
+	var year := season_year
+	for rnd in range(1, trade_pick_rounds(year) + 1):
+		for origin in _draft_order():
+			if pick_owner_of(year, rnd, str(origin)) != my_club:
+				continue
+			var at := draft_spot(year, rnd, str(origin))
+			var lead := "Your first pick is" if season.is_regular_done() else "If the season ended today, your first pick would be"
+			var line := "%s No. %d" % [lead, at]
+			if str(origin) != my_club:
+				line += ", %s's" % GameDB.club_name(str(origin))
+			return line + "."
+	return "You hold no pick in the first %d rounds of this draft." % trade_pick_rounds(year)
+
+
+## The last six home-and-away rounds show where the first pick falls (the
+## director's proposal P-47: "from round 18" of 23).
+const PICK_LINE_ROUNDS := 6
+
+
+## Mark one of your players untouchable, or take the mark off. Rivals stop
+## asking for him in the offers they put to you; his value and his own
+## requests are untouched. Offers already on the table for him are withdrawn.
+func set_untouchable(id: String, on: bool) -> void:
+	if on and not my_list.any(func(q): return str(q["id"]) == id):
+		return
+	if on:
+		untouchable[id] = true
+		for o in trade_offers:
+			if str(o["status"]) == "open" and (o["take"] as Array).has(id) and not bool(o.get("request", false)):
+				o["status"] = "off"
+	else:
+		untouchable.erase(id)
+	mark_dirty()
+
+
+func is_untouchable(id: String) -> bool:
+	return untouchable.has(id)
+
+
 ## A pick as a trade asset, or {} if the id isn't a tradeable pick: {"pick",
 ## "id", "year", "round", "origin", "owner", "positions", "name"}. This year's
 ## spot is exact - the season is over, the order is the reversed ladder.
@@ -6420,6 +6523,26 @@ func make_trade(club: String, mine: Array, theirs: Array) -> Dictionary:
 	return {"ok": true, "reason": "Trade done."}
 
 
+## What went the other way in a trade, kept with the pick: [{"id", "name"}].
+func _trail_assets(assets: Array) -> Array:
+	var out := []
+	for x in assets:
+		out.append({"id": str(x["id"]), "name": str(x["name"]) if Contracts.is_pick(x) else GameDB.player_display_name(x)})
+	return out
+
+
+## A pick that changed hands remembers who it came from and for what; a pick
+## that went home to its own club has no story but its own.
+func _note_pick_got(a: Dictionary, from: String, to: String, gave: Array) -> void:
+	if not Contracts.is_pick(a):
+		return
+	var key := "%d:%d:%s" % [int(a["year"]), int(a["round"]), str(a["origin"])]
+	if to == str(a["origin"]):
+		pick_got.erase(key)
+	else:
+		pick_got[key] = {"from": from, "season": season_year, "gave": gave.duplicate(true)}
+
+
 ## One traded asset from `from` to `to`: a player changes lists, a pick
 ## changes owner (a pick back with its own club needs no entry).
 func _move_asset(a: Dictionary, from: String, to: String) -> void:
@@ -6536,6 +6659,10 @@ func _club_order(tag: String) -> Array:
 func _open_trade_market() -> void:
 	if my_club == "" or not season.lists.has(my_club):
 		return
+	# A mark on a player who has since left (retired, delisted, traded) goes.
+	for id in untouchable.keys():
+		if not my_list.any(func(q): return str(q["id"]) == str(id)):
+			untouchable.erase(id)
 	var prospects := trade_prospects()
 	_freeze_league(true)
 	_requested_trades(prospects)
@@ -6926,8 +7053,8 @@ func _make_trade_offers(prospects: Dictionary) -> void:
 	for club in _club_order("offers"):
 		if made >= MAX_OFFERS:
 			break
-		var open := my_list.filter(func(q): return not trade_requests.has(str(q["id"])) \
-				or (trade_requests[str(q["id"])]["to"] as Array).has(club))
+		var open := my_list.filter(func(q): return not untouchable.has(str(q["id"])) and (not trade_requests.has(str(q["id"])) \
+				or (trade_requests[str(q["id"])]["to"] as Array).has(club)))
 		var target := _trade_target(club, open, asked)
 		if target.is_empty():
 			continue
@@ -6974,6 +7101,8 @@ func put_on_trade_table(id: String) -> Dictionary:
 		return {"ok": false, "reason": "Trades are only open in the off-season.", "offers": 0}
 	if trade_table.has(id):
 		return {"ok": false, "reason": "That's already on the trade table.", "offers": 0}
+	if untouchable.has(id):
+		return {"ok": false, "reason": "He's marked untouchable. Take the mark off to hear offers.", "offers": 0}
 	var found := _trade_assets([id], my_club)
 	if str(found["error"]) != "":
 		return {"ok": false, "reason": str(found["error"]), "offers": 0}
@@ -7079,12 +7208,19 @@ func decline_trade_offer(i: int) -> void:
 ## Assets change hands between two clubs (dicts from _trade_assets or
 ## pick_asset); your selection loses anyone who leaves.
 func _execute_trade(a: String, b: String, a_gives: Array, b_gives: Array) -> void:
+	# What each side gave, as the other side will remember it (pick_story).
+	var a_gave := _trail_assets(a_gives)
+	var b_gave := _trail_assets(b_gives)
 	for x in a_gives:
 		_move_asset(x, a, b)
+		_note_pick_got(x, a, b, b_gave)
 	for x in b_gives:
 		_move_asset(x, b, a)
+		_note_pick_got(x, b, a, a_gave)
 	for x in a_gives + b_gives:
 		trade_requests.erase(str(x["id"]))
+		if not Contracts.is_pick(x):
+			untouchable.erase(str(x["id"]))   # he is no longer yours to protect
 	if _frozen_fingerprint != "":
 		_freeze_league(true)
 	var leaving := a_gives if a == my_club else (b_gives if b == my_club else [])
