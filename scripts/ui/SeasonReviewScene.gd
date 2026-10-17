@@ -122,6 +122,14 @@ func _build() -> void:
 	lv.add_child(UiKit.lbl("%s   -   %d pts" % [GameState.my_record(),
 			int(GameState.my_ladder_row().get("pts", 0))], 14, UiKit.TEXT))
 	lv.add_child(UiKit.spacer(4))
+	# Each fact beside its figure, not a panel apart (director, 2026-10-14).
+	var facts := GridContainer.new()
+	facts.name = "SeasonFacts"
+	facts.columns = 2
+	facts.add_theme_constant_override("h_separation", 20)
+	facts.add_theme_constant_override("v_separation", 5)
+	facts.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	lv.add_child(facts)
 	for row in [
 			["Points for", str(stats["pf"])],
 			["Points against", str(stats["pa"])],
@@ -131,10 +139,8 @@ func _build() -> void:
 			["Longest win streak", "%d games" % stats["streak"]],
 			["Goals kicked", str(stats["goals"])],
 	]:
-		var h := UiKit.hbox(6)
-		lv.add_child(h)
-		h.add_child(UiKit.ellipsis(row[0], 12, UiKit.MUTED))
-		h.add_child(UiKit.line(row[1], UiKit.SECONDARY, UiKit.TEXT, true))
+		facts.add_child(UiKit.line(row[0], 12, UiKit.MUTED))
+		facts.add_child(UiKit.line(row[1], UiKit.SECONDARY, UiKit.TEXT, true))
 
 	lv.add_child(UiKit.spacer(6))
 	lv.add_child(UiKit.lbl("Game by game", 12, UiKit.MUTED, true))

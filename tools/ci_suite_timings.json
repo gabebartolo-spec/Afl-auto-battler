@@ -48,6 +48,7 @@
     "keyboard": 30,
     "preseason": 150,
     "plan_know": 60,
+    "rowgap": 60,
     "planpane": 40
   }
 }

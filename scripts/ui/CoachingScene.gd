@@ -127,10 +127,10 @@ func _profile_row(row: Dictionary, ground: Array) -> Control:
 	b.add_child(h)
 	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var name_l := UiKit.line(str(row["label"]), UiKit.BODY, UiKit.TEXT)
-	name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	h.add_child(name_l)
 	var word := UiKit.line(str(row["word"]), UiKit.BODY, UiKit.TEXT, true)
+	UiKit.near_figure(name_l, word, 190.0)
 	word.name = "Word"
 	word.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	h.add_child(word)

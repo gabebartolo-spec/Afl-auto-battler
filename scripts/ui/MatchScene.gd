@@ -2079,29 +2079,47 @@ func _calls_view(q: int) -> Control:
 			before = (snaps[q - 2] as Dictionary).get("impact", [{}, {}])
 	v.add_child(UiKit.section("What your calls did" + (" in Q%d" % q if q > 0 else "")))
 	var lines := CoachReport.impact_lines(now, before, _my_side)
+	# Each cause beside what it was worth (director, 2026-10-14: a figure at the far
+	# end of the row "divorces the number from the source").
+	var worth := GridContainer.new()
+	worth.name = "CallsWorth"
+	worth.columns = 2
+	worth.add_theme_constant_override("h_separation", 24)
+	worth.add_theme_constant_override("v_separation", 3)
+	worth.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	for l in lines.slice(0, 5):
 		var pts := float(l["pts"])
-		var row := UiKit.hbox(8)
-		var name_l := UiKit.ellipsis(str(l["label"]), UiKit.SECONDARY, UiKit.TEXT)
-		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(name_l)
-		row.add_child(UiKit.line("%+.1f pts" % pts, UiKit.SECONDARY, UiKit.GOOD if pts > 0 else UiKit.BAD, true))
-		v.add_child(row)
+		worth.add_child(UiKit.line(str(l["label"]), UiKit.SECONDARY, UiKit.TEXT))
+		worth.add_child(UiKit.line("%+.1f pts" % pts, UiKit.SECONDARY, UiKit.GOOD if pts > 0 else UiKit.BAD, true))
+	if worth.get_child_count() > 0:
+		v.add_child(worth)
+	# The calls, a quarter at a time.
 	var moments: Array = _res.get("moments", [])
+	var last_q := -1
 	for m in moments:
 		if q > 0 and int(m.get("q", 0)) != q:
 			continue
-		var l2 := _say("%s  %s: %s. %s" % [_clock_text(int(m["q"]), int(m["min"])),
+		var mq := int(m["q"])
+		if q == 0 and mq != last_q:
+			last_q = mq
+			var qh := UiKit.lbl("Q%d" % mq if mq <= 4 else "Extra time", UiKit.SMALL, UiKit.MUTED, true)
+			qh.name = "CallsQuarter_%d" % mq
+			v.add_child(UiKit.spacer(4))
+			v.add_child(qh)
+		var clock := _clock_text(mq, int(m["min"]))
+		if q == 0:
+			clock = clock.substr(clock.find(" ") + 1) if clock.contains(" ") else clock
+		var l2 := _say("%s  %s: %s. %s" % [clock,
 				str(m.get("title", "")), str(m.get("choice_label", "")), str(m.get("outcome", ""))],
-				12, UiKit.EMPH if int(m.get("points", 0)) >= 6 else UiKit.TEXT)
+				UiKit.SMALL, UiKit.EMPH if int(m.get("points", 0)) >= 6 else UiKit.TEXT)
 		l2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l2)
 	var tag_line := _tag_line(q)
 	if tag_line != "":
-		v.add_child(_say(tag_line, 12, UiKit.TEXT))
+		v.add_child(_say(tag_line, UiKit.SMALL, UiKit.TEXT))
 	if lines.is_empty() and v.get_child_count() == 1:
-		v.add_child(UiKit.lbl("An even quarter: no call moved the needle much.", 12, UiKit.MUTED))
-	v.add_child(UiKit.lbl("Expected points each call added or cost, from the chances it changed.", 11, UiKit.MUTED))
+		v.add_child(UiKit.lbl("An even quarter: no call moved the needle much.", UiKit.SMALL, UiKit.MUTED))
+	v.add_child(UiKit.lbl("Expected points each call added or cost, from the chances it changed.", UiKit.SMALL, UiKit.MUTED))
 	return v
 
 
@@ -2641,19 +2659,14 @@ func _roster_side(side: int) -> Array:
 ## clubs, any quarter on its own. Close (or Back) returns to your calls.
 func _show_break_stats(players_first := false) -> void:
 	_close_report()
-	var box := UiKit.modal_box(self, 1100.0, 0.0, _wash())
+	var box := UiKit.modal_box(self, SHEET_MAX_W if _stats_wide() else 640.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
 	overlay.name = "BreakStatsSheet"
 	_report_overlay = overlay
 	var v: VBoxContainer = box["body"]
 	v.add_child(UiKit.ellipsis("Match stats", UiKit.H1, UiKit.TEXT, true))
-	var box_score := BoxScore.new().setup(_res, true)
+	var box_score := _stats_page(v, true, players_first)
 	box_score.name = "BreakBoxScore"
-	v.add_child(box_score)
-	v.add_child(UiKit.spacer(UiKit.GAP))
-	var msv := MatchStatsView.new()
-	msv.players_first = players_first
-	v.add_child(msv.setup(_res, _my_side, true))
 	var close := UiKit.btn("Back to your calls", UiKit.NAME, true)
 	close.custom_minimum_size = Vector2(0, 44)
 	close.pressed.connect(_close_report)
@@ -3333,7 +3346,9 @@ func _farewell_for(match: Dictionary) -> Dictionary:
 ## report) and Stats - and one way out: Continue. Back on Stats returns to
 ## Summary. Review match (Sim round) opens the same screen.
 func _show_fulltime() -> void:
-	var box := UiKit.modal_box(self, 640.0, 0.0, _wash())
+	# A PC's Stats tab holds the score and the team numbers side by side, so the
+	# sheet is wider there; the Summary keeps its own reading width inside it.
+	var box := UiKit.modal_box(self, SHEET_MAX_W if _stats_wide() else 640.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
 	overlay.name = "FullTime"
 	_ft_box = box
@@ -3348,21 +3363,31 @@ func _show_fulltime() -> void:
 	var home: String = _res["home"]
 	var away: String = _res["away"]
 	var mine := GameState.my_club != "" and (home == GameState.my_club or away == GameState.my_club)
+	# On a PC the two actions sit side by side at the sheet's right, one row tall, so the
+	# stats page keeps the height (a phone stacks them).
+	var actions: Control = box["footer"]
+	if _stats_wide():
+		var row := HBoxContainer.new()
+		row.name = "FullTimeActions"
+		row.alignment = BoxContainer.ALIGNMENT_END
+		row.add_theme_constant_override("separation", 12)
+		actions.add_child(row)
+		actions = row
 	if mine and (_interactive or _review):
 		var train := UiKit.btn("Training", UiKit.BODY)
 		train.name = "FullTimeTraining"
-		train.custom_minimum_size = Vector2(0, 44)
+		train.custom_minimum_size = Vector2(240 if _stats_wide() else 0, 48 if _stats_wide() else 44)
 		train.pressed.connect(func():
 			overlay.queue_free()
 			Router.replace("training"))
-		box["footer"].add_child(train)
+		actions.add_child(train)
 	# The week is over: back to the hub, where next week starts.
 	var leave := UiKit.btn("Continue", UiKit.HEADING, true)
 	leave.name = "FullTimeContinue"
-	leave.custom_minimum_size = Vector2(0, 48)
+	leave.custom_minimum_size = Vector2(240 if _stats_wide() else 0, 48)
 	leave.pressed.connect(func(): Router.back())
 	UiKit.feel(leave, "end")     # the end of the match: the siren
-	box["footer"].add_child(leave)
+	actions.add_child(leave)
 	_render_ft()
 	UiKit.land(overlay.find_child("Verdict", true, false) as Control, 0.3)   # the result lands (Feel)
 	UiKit.land(overlay.find_child("LadderMove", true, false) as Control, 1.0, false)   # then the ladder move
@@ -3389,7 +3414,12 @@ func _render_ft() -> void:
 		"stats":
 			_ft_stats(v)
 		_:
-			_ft_summary(v)
+			if _stats_wide():
+				var inner := UiKit.vbox(8)
+				v.add_child(UiKit.reading_column(inner, 640.0))
+				_ft_summary(inner)
+			else:
+				_ft_summary(v)
 	var sc := v.get_parent() as ScrollContainer
 	if sc != null:
 		sc.scroll_vertical = 0
@@ -3621,18 +3651,74 @@ func _key_stats_view(me: int) -> Control:
 	return v
 
 
+## A PC (landscape, roomy) shows the score and the team numbers side by side on one
+## page, so nothing needs scrolling to reach the stats (director, 2026-10-14: "having to
+## scroll down to see the stats part is bad"); a phone stacks them and scrolls.
+func _stats_wide() -> bool:
+	return ScreenLayout.roomy(UiKit.view_width(self), UiKit.view_height(self))
+
+
+## The sheet on a PC grows with the screen (the canvas the player's window gives, which
+## ScreenLayout sizes: a 2560x1440 window is a 1280x720 canvas at twice the pixels), up
+## to its margins.
+const SHEET_MAX_W := 4096.0
+## The three columns of a PC stats page: the score (box score), the team numbers and, at
+## full time, what the calls did. Each keeps its own width and shares what is left.
+const COL_SCORE_W := 400.0
+const COL_CALLS_W := 270.0
+const SCORE_SHARE := 1.0
+const TEAM_SHARE := 1.4
+const CALLS_SHARE := 0.9
+
+
+func _stats_page(host: VBoxContainer, live: bool, players_first: bool, calls: Control = null) -> BoxScore:
+	var bs := BoxScore.new()
+	var msv := MatchStatsView.new()
+	msv.players_first = players_first
+	if _stats_wide():
+		bs.compact = true
+		msv.compact = true
+		var cols := UiKit.hbox(20)
+		cols.name = "StatsColumns"
+		var gaps := 20.0 * (2.0 if calls != null else 1.0)
+		var room := UiKit.view_width(self) - 24.0 - 40.0 - gaps
+		var shares := SCORE_SHARE + TEAM_SHARE + (CALLS_SHARE if calls != null else 0.0)
+		# The width the team numbers will have: how many groups sit across, and how wide each is.
+		msv.room = room * TEAM_SHARE / shares
+		bs.custom_minimum_size.x = COL_SCORE_W if calls != null else 460.0
+		bs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bs.size_flags_stretch_ratio = SCORE_SHARE
+		bs.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		msv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		msv.size_flags_stretch_ratio = TEAM_SHARE
+		msv.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		cols.add_child(bs.setup(_res, live))
+		cols.add_child(msv.setup(_res, _my_side, live))
+		if calls != null:
+			calls.custom_minimum_size.x = COL_CALLS_W
+			calls.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			calls.size_flags_stretch_ratio = CALLS_SHARE
+			calls.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			cols.add_child(calls)
+		host.add_child(cols)
+	else:
+		host.add_child(bs.setup(_res, live))
+		host.add_child(UiKit.spacer(UiKit.GAP))
+		host.add_child(msv.setup(_res, _my_side, live))
+		if calls != null:
+			host.add_child(UiKit.spacer(UiKit.GAP))
+			host.add_child(calls)
+	return bs
+
+
 ## The Stats tab: the box score (BoxScore), then team and player stats a tab apart
-## (MatchStatsView, the same view as at the breaks), and what your calls did.
+## (MatchStatsView, the same view as at the breaks), and what your calls did - on a
+## PC a third column beside them, so the whole page shows at once.
 func _ft_stats(v: VBoxContainer) -> void:
 	var box := UiKit.vbox(8)
 	box.name = "MatchStats"
 	v.add_child(box)
-	box.add_child(BoxScore.new().setup(_res))
-	box.add_child(UiKit.spacer(UiKit.GAP))
-	box.add_child(MatchStatsView.new().setup(_res, _my_side))
-	if _interactive:
-		box.add_child(UiKit.spacer(UiKit.GAP))
-		box.add_child(_calls_view(0))
+	_stats_page(box, false, false, _calls_view(0) if _interactive else null)
 
 
 func _qcell(text: String, w: int, col: Color, fs: int, bold := false) -> Label:
