@@ -22,6 +22,7 @@ func run() -> void:
 	_test_brownlow_eligibility()
 	_test_norm_smith_rules()
 	_test_comeback_records()
+	_test_bf_names()
 	_test_full_season()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
@@ -48,6 +49,37 @@ func _sum(tally: Dictionary, key: String, club := "") -> int:
 		if club == "" or str(tally[id]["club"]) == club:
 			total += int(tally[id][key])
 	return total
+
+
+## The club best and fairest by its real name (P-54, data/bf_medals.json).
+func _test_bf_names() -> void:
+	var want := {"ADE": "Malcolm Blight Medal", "BRL": "Merrett–Murray Medal", "CAR": "John Nicholls Medal",
+			"COL": "Copeland Trophy", "ESS": "Crichton Medal", "FRE": "Doig Medal", "GEE": "Carji Greeves Medal",
+			"GCS": "Club Champion", "GWS": "Kevin Sheedy Medal", "HAW": "Peter Crimmins Medal",
+			"MEL": "Keith \"Bluey\" Truscott Medal", "NTH": "Syd Barker Medal", "PAD": "John Cahill Medal",
+			"RIC": "Jack Dyer Medal", "STK": "Trevor Barker Award", "SYD": "Bob Skilton Medal",
+			"WCE": "John Worsfold Medal", "WBD": "Charles Sutton Medal"}
+	var wrong := []
+	for code in want:
+		if BestAndFairest.award_name(code) != str(want[code]):
+			wrong.append("%s: %s" % [code, BestAndFairest.award_name(code)])
+	_check(wrong.is_empty(), "All 18 real clubs carry their own best and fairest name (%s)" % str(wrong))
+	var sourced := true
+	for code in want:
+		var e: Dictionary = BestAndFairest.data()["clubs"].get(code, {})
+		sourced = sourced and str(e.get("source", "")).begins_with("https://")
+	_check(sourced, "Every medal name records the page it was checked against")
+	for code in ["TAS", "CANB", "FORGE", ""]:
+		_check(BestAndFairest.award_name(code) == "Best and fairest" and not BestAndFairest.is_named(code),
+				"%s has no medal of its own and keeps Best and fairest" % (code if code != "" else "No club"))
+	_check(BestAndFairest.heading("FRE", "Fremantle") == "Doig Medal"
+			and BestAndFairest.heading("FORGE", "Redbacks") == "Redbacks best and fairest",
+			"A heading is the medal's name, or the club's best and fairest")
+	_check(BestAndFairest.count_line("NTH", "North Melbourne", 1) == "Syd Barker Medal"
+			and BestAndFairest.count_line("NTH", "North Melbourne", 3) == "3 Syd Barker Medals"
+			and BestAndFairest.count_line("COL", "Collingwood", 2) == "2 Copeland Trophies"
+			and BestAndFairest.count_line("FORGE", "Redbacks", 2) == "2 Redbacks best and fairests",
+			"A coach's count reads in the medal's own words")
 
 
 func _test_vote_arithmetic() -> void:

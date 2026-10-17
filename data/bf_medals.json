@@ -1,0 +1,84 @@
+{
+ "_about": "The club best and fairest, by its real name, for each of the 18 clubs that exist in the real league. P-54 (director, 2026-10-18). Each entry names the page its wording was checked against (English Wikipedia, read 2026-10-18; each page opens by naming the club and the award). A club not listed here (Tasmania, Canberra, a Forge club) keeps the plain 'Best and fairest'. Presentation only: nothing here is read by the match.",
+ "default": "Best and fairest",
+ "clubs": {
+  "ADE": {
+   "name": "Malcolm Blight Medal",
+   "source": "https://en.wikipedia.org/wiki/Malcolm_Blight_Medal"
+  },
+  "BRL": {
+   "name": "Merrett–Murray Medal",
+   "source": "https://en.wikipedia.org/wiki/Merrett%E2%80%93Murray_Medal"
+  },
+  "CAR": {
+   "name": "John Nicholls Medal",
+   "source": "https://en.wikipedia.org/wiki/John_Nicholls_Medal",
+   "note": "Formerly the Robert Reynolds Trophy, 1934 to 2003."
+  },
+  "COL": {
+   "name": "Copeland Trophy",
+   "source": "https://en.wikipedia.org/wiki/Copeland_Trophy",
+   "note": "The club calls it a Trophy (E. W. Copeland Trophy), not a medal."
+  },
+  "ESS": {
+   "name": "Crichton Medal",
+   "source": "https://en.wikipedia.org/wiki/Crichton_Medal",
+   "note": "Officially the W. S. Crichton Medal since 1959 or 1960; 'Crichton Medal' is the common name."
+  },
+  "FRE": {
+   "name": "Doig Medal",
+   "source": "https://en.wikipedia.org/wiki/Doig_Medal"
+  },
+  "GEE": {
+   "name": "Carji Greeves Medal",
+   "source": "https://en.wikipedia.org/wiki/Carji_Greeves_Medal"
+  },
+  "GCS": {
+   "name": "Club Champion",
+   "source": "https://en.wikipedia.org/wiki/Gold_Coast_Suns_Club_Champion",
+   "note": "Gold Coast has no named medal: the award is the Gold Coast Suns Club Champion."
+  },
+  "GWS": {
+   "name": "Kevin Sheedy Medal",
+   "source": "https://en.wikipedia.org/wiki/Kevin_Sheedy_Medal"
+  },
+  "HAW": {
+   "name": "Peter Crimmins Medal",
+   "source": "https://en.wikipedia.org/wiki/Peter_Crimmins_Medal"
+  },
+  "MEL": {
+   "name": "Keith \"Bluey\" Truscott Medal",
+   "source": "https://en.wikipedia.org/wiki/Keith_%27Bluey%27_Truscott_Trophy",
+   "note": "Wikipedia titles the page 'Trophy'; the award is widely written 'Medal' and its winners 'Keith \"Bluey\" Truscott Medallists' (Melbourne Football Club article, Aaron Davey 2009). The director's wording, 'Medal', is used."
+  },
+  "NTH": {
+   "name": "Syd Barker Medal",
+   "source": "https://en.wikipedia.org/wiki/Syd_Barker_Medal"
+  },
+  "PAD": {
+   "name": "John Cahill Medal",
+   "source": "https://en.wikipedia.org/wiki/John_Cahill_Medal"
+  },
+  "RIC": {
+   "name": "Jack Dyer Medal",
+   "source": "https://en.wikipedia.org/wiki/Jack_Dyer_Medal"
+  },
+  "STK": {
+   "name": "Trevor Barker Award",
+   "source": "https://en.wikipedia.org/wiki/Trevor_Barker_Award",
+   "note": "An award, not a medal (renamed for Trevor Barker)."
+  },
+  "SYD": {
+   "name": "Bob Skilton Medal",
+   "source": "https://en.wikipedia.org/wiki/Bob_Skilton_Medal"
+  },
+  "WCE": {
+   "name": "John Worsfold Medal",
+   "source": "https://en.wikipedia.org/wiki/John_Worsfold_Medal"
+  },
+  "WBD": {
+   "name": "Charles Sutton Medal",
+   "source": "https://en.wikipedia.org/wiki/Charles_Sutton_Medal"
+  }
+ }
+}

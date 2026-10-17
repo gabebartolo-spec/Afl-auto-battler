@@ -682,6 +682,9 @@ func _run() -> void:
 	_check(not digits and not lp_text.to_lower().contains("recommend") and not lp_text.to_lower().contains("should")
 			and not lp_text.to_lower().contains("best choice") and not lp_text.to_lower().contains("suits you"),
 			"The plans and strengths are words, with no advice")
+	var trade_line: Label = hwp.find_child("PlanTradeOff", true, false) if hwp != null else null
+	_check(trade_line != null and trade_line.is_visible_in_tree() and trade_line.text.contains("gives something up"),
+			"How we play says in a line that a plan costs something and buys an edge (P-63)")
 	_check(lp_rows.all(func(b): return (b as Button).size.y >= 44), "Each strength is a thumb-sized tap")
 	if not lp_rows.is_empty():
 		var detail: Label = (lp_rows[0] as Node).get_parent().find_child("Detail", false, false)
@@ -1780,11 +1783,17 @@ func _test_season_awards() -> void:
 	next.emit_signal("pressed")
 	_check(scene._done, "A tap completes the winner animation without advancing the award")
 	_check(var_to_str(_state.season_awards) == before, "Revealing awards does not mutate votes or results")
+	var seen := ""
 	for i in range(20):
 		if not is_instance_valid(ceremony):
 			break
+		for l in ceremony.find_children("*", "Label", true, false):
+			seen += (l as Label).text + " | "
 		next.emit_signal("pressed")
 		await _settle()
+	# Collingwood's best and fairest is the Copeland Trophy, named where the award is presented (P-54).
+	_check(seen.contains("Copeland Trophy") and not seen.contains("Best and fairest"),
+			"The awards screen presents Collingwood's best and fairest as the Copeland Trophy (%s)" % seen.substr(0, 400))
 	_check(not is_instance_valid(ceremony) and _state.season_awards.get("presentation_seen", false),
 		"Completing awards records viewing and returns to review")
 	_check(_state.save_career(), "Awards viewed state saves")
