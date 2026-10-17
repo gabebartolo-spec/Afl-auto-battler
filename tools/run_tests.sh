@@ -178,6 +178,16 @@ else
 	failed=1
 	summary+=("| intake_harness | FAIL | see log |")
 fi
+
+echo "== Offline promise (Android preset requests vibrate only)"
+if python3 tools/test_android_permissions.py > "$LOG_DIR/offline_promise.log" 2>&1 		&& python3 tools/check_android_permissions.py >> "$LOG_DIR/offline_promise.log" 2>&1; then
+	summary+=("| offline_promise | pass | |")
+else
+	tail -15 "$LOG_DIR/offline_promise.log"
+	note_error "tools/check_android_permissions.py: the Android preset asks for more than vibrate, which breaks the menu's offline promise"
+	failed=1
+	summary+=("| offline_promise | FAIL | see log |")
+fi
 fi
 
 # The harness checks itself: a truncated or unfloored suite must fail.
