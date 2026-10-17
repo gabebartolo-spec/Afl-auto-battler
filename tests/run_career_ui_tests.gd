@@ -300,6 +300,45 @@ func _run() -> void:
 	_check(tagline != null and tagline.text == "Build your dynasty.",
 			"The minimal menu uses the approved tagline")
 
+	# --- the offline promise and the browser's storage line (P-70, P-71) -----------
+	var promise: Label = current_scene.find_child("OfflinePromise", true, false)
+	_check(promise != null and promise.text == "Plays offline. No ads, no account.
+Your career stays on your phone.",
+			"The menu prints the offline promise in the approved words")
+	_check(promise != null and promise.visible and promise.autowrap_mode != TextServer.AUTOWRAP_OFF,
+			"The promise is on screen as two deliberate lines")
+	_check(not WebStorage.should_ask(false, false) and WebStorage.should_ask(true, false)
+			and not WebStorage.should_ask(true, true),
+			"The browser is asked to keep the save only on the web, and only until it has answered")
+	_check(WebStorage.is_final("granted") and WebStorage.is_final("refused")
+			and not WebStorage.is_final("pending") and not WebStorage.is_final(""),
+			"A pending or empty answer keeps the question open")
+	_check(WebStorage.notice_due("refused", false) and not WebStorage.notice_due("refused", true)
+			and not WebStorage.notice_due("granted", false) and not WebStorage.notice_due("unsupported", false),
+			"The line is due only when the browser refused and it has not been shown before")
+	_check(current_scene.find_child("StorageNotice", true, false) == null,
+			"No storage line on a desktop or phone menu, nor before the browser answers")
+	_state.set_setting(WebStorage.SHOWN_KEY, false)
+	current_scene.call("_on_storage_answer", "granted")
+	await _settle()
+	_check(current_scene.find_child("StorageNotice", true, false) == null,
+			"A granted request shows no line")
+	current_scene.call("_on_storage_answer", "refused")
+	await _settle()
+	var notice: Label = current_scene.find_child("StorageNotice", true, false)
+	_check(notice != null and notice.text == "Your browser may clear this save when space is short."
+			and bool(_state.get_setting(WebStorage.SHOWN_KEY, false)),
+			"A refusal shows the one plain line and remembers it was shown")
+	_router.to_main_menu(false)
+	await _settle()
+	current_scene.call("_on_storage_answer", "refused")
+	await _settle()
+	_check(current_scene.find_child("StorageNotice", true, false) == null,
+			"The line is not shown again on a later visit")
+	var presets := FileAccess.get_file_as_string("res://export_presets.cfg")
+	_check(presets.contains("user_data_backup/allow=true"),
+			"The Android export turns on the system's own backup of the save")
+
 	# --- settings: appearance and player names apply at once -----------------
 	current_scene.find_child("MenuSettings", true, false).emit_signal("pressed")
 	await _settle()
