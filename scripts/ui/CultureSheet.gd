@@ -7,6 +7,9 @@ extends RefCounted
 ## Layout: three words about us, and how we got here (director, 2026-10-13).
 
 const WIDE := 760.0
+## Under the title: culture is the club's story and nothing more, until the
+## director approves what it touches (scripts/sim/Culture.gd, "They have no effect yet").
+const NO_EFFECT_LINE := "Culture has no effect on matches yet. It tells the club's story; it costs nothing and earns nothing."
 ## The strand emblems: a square this size, tinted this far towards the club's colour.
 const ICON := 48.0
 const ICON_TINT := 0.55
@@ -216,6 +219,11 @@ static func _build(root: Control, club: String, data: Array, wide: bool, done: C
 	mark.add_child(mark_name)
 	top.add_child(mark)
 	page.add_child(top)
+	# What it costs and what it buys, in one line (P-63): nothing yet, and it says so.
+	var plain := UiKit.lbl(NO_EFFECT_LINE, UiKit.SECONDARY, UiKit.TEXT)
+	plain.name = "CultureNoEffect"
+	plain.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	page.add_child(plain)
 	page.add_child(UiKit.spacer(14))
 	# The statement: three phrases as one, the strand's name small beside each.
 	var statement := UiKit.vbox(88 if wide else 22)

@@ -271,6 +271,13 @@ func _confirm_release(p: Dictionary) -> void:
 	_release_overlay = box["overlay"]
 	_release_overlay.name = "ReleaseConfirmation"
 	box["body"].add_child(_para("Release %s?" % GameDB.player_display_name(p), 20, UiKit.TEXT))
+	# What the club remembers of him, once (P-37): the drop has a face. Read-only.
+	var kept := Remembered.release_line(p, GameState.career_facts, GameState.my_club,
+			GameState.with_us(p), GameState.LEARN_JOBS)
+	if kept != "":
+		var memory := _para(kept, 14, UiKit.TEXT)
+		memory.name = "ReleaseRemembered"
+		box["body"].add_child(memory)
 	box["body"].add_child(_para("He will leave your list and become a free agent. A delisted player earns no draft pick if he signs elsewhere.", 14, UiKit.TEXT))
 	var release := UiKit.btn("Release player", UiKit.NAME, true)
 	release.name = "ConfirmRelease"
