@@ -62,6 +62,18 @@ func _plan_lines() -> void:
 						"The beats line shows for the plans with a counter (%s)" % pk)
 				_check((pk == "balanced") == (pn.find_child("PlanBest", true, false) == null),
 						"The best-for-it line names players (%s)" % pk)
+				# Every name on that line is in his club's ink (director A1, 2026-10-14), not plain white.
+				var best: Node = pn.find_child("PlanBest", true, false)
+				if best != null:
+					var tx: Node = best.find_child("Text", true, false)
+					_check(tx is RichTextLabel, "The best-for-it names are drawn in ink, not a plain label (%s)" % pk)
+					if tx is RichTextLabel:
+						var ink: String = UK.club_ink("COL").to_html(false)
+						var shown: Array = str((tx as RichTextLabel).get_meta("plain", "")).split(", ", false)
+						_check(shown.size() == 3, "Three names on the best-for-it line (%s: %d)" % [pk, shown.size()])
+						for nm in shown:
+							_check((tx as RichTextLabel).text.find("[color=#%s]%s[/color]" % [ink, nm]) >= 0,
+									"%s wears his club's ink on the best-for-it line (%s)" % [nm, pk])
 				var longest := 0
 				for lb in pn.find_children("*", "Label", true, false):
 					longest = maxi(longest, (lb as Label).text.split(" ", false).size())
