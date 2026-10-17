@@ -47,6 +47,7 @@ func run() -> void:
 	_test_centre_setups(res)
 	_test_call_shapes(res)
 	_test_call_playback(res)
+	_test_call_visibility(res)
 	_test_call_lines(res)
 	_test_farewell()
 	_test_match_ground()
@@ -1764,6 +1765,93 @@ func _test_call_playback(res: Dictionary) -> void:
 			"With every call drawn, playback releases all %d events (%d)" % [evs.size(), (played["out"] as Array).size()])
 	_check(int(played["nan"]) == 0 and int(played["outside"]) == 0 and float(played["max_step"]) < 2.2,
 			"With every call drawn, nobody leaves the oval or jumps (%d outside, largest step %.2f m)" % [int(played["outside"]), float(played["max_step"])])
+
+
+## P-12 visibility floor (the motion critic, 2026-10-18: four of six shapes moved
+## 1 to 5 m at 1x, unreadable on a phone; the bible's bar for a structural move is
+## "the visual sim changes greatly"). Played for real, not from target spots:
+## the first quarter's events with side 0 on each call, against the same events
+## with side 0 on Balanced, measured where the players actually are at the
+## moments the call applies. Every shape must move its side by 8 m or more.
+const CALL_FLOOR := 8.0
+
+
+func _test_call_visibility(res: Dictionary) -> void:
+	var evs: Array = (res["events"] as Array).slice(0, 260)
+	var with_call := func(plan: String, bursts: Array) -> Dictionary:
+		var r2 := res.duplicate()
+		var tl := []
+		for e in res["timeline"]:
+			var e2: Dictionary = (e as Dictionary).duplicate(true)
+			if int(e2["side"]) == 0:
+				e2["plan"] = plan
+				e2["bursts"] = bursts
+			tl.append(e2)
+		r2["timeline"] = tl
+		return r2
+	# Side 0's shape, averaged over the frames of each kind: "has" (in
+	# possession, open play), "not" (without it) and "stop" (a stoppage from
+	# the bounce or throw-up on, and the clearance out of it).
+	var measure := func(r: Dictionary) -> Dictionary:
+		var d := MatchDirector.new()
+		d.setup(r, evs)
+		var acc := {}
+		var guard := 0
+		while not d.idle() and guard < 40000:
+			guard += 1
+			d.advance(1.0 / 15.0)
+			var b: Vector2 = d.ball["pos"]
+			var stop: bool = d._stoppage_on()
+			if stop and d._pi < d._phases.size() and str((d._phases[d._pi] as Dictionary).get("t", "")) in ["setup", "wait"]:
+				continue   # 6-6-6: nobody may crash in before the ball is up
+			var tag := "stop" if stop else ("has" if d._poss == 0 else "not")
+			var c := Vector2.ZERO
+			var ps := []
+			for t in d.tokens:
+				if int(t["side"]) == 0:
+					ps.append(t["pos"])
+					c += (t["pos"] as Vector2) / 18.0
+			var m := {"depth": c.x - b.x, "tilt": c.y * signf(float(d._star_y[0])), "wide": 0.0, "span": 0.0, "rad": 0.0}
+			for p in ps:
+				m["wide"] += absf((p as Vector2).y) / 18.0
+				m["span"] += absf((p as Vector2).x - c.x) / 18.0
+				m["rad"] += (p as Vector2).distance_to(b) / 18.0
+			for k in m:
+				var key: String = tag + "." + k
+				if not acc.has(key):
+					acc[key] = [0.0, 0]
+				acc[key][0] += float(m[k])
+				acc[key][1] += 1
+		var out := {}
+		for key in acc:
+			out[key] = float(acc[key][0]) / maxf(1.0, float(acc[key][1]))
+		return out
+	var bal: Dictionary = measure.call(with_call.call("balanced", []))
+	# [call, plan, bursts, measure, the sign a real shape moves it by]
+	var cases := [["Attack corridor (in possession, from the centre line)", "attacking", [], "has.wide", -1.0],
+			["Controlled tempo (in possession, front to back)", "controlled", [], "has.span", -1.0],
+			["Win contest (at a stoppage, from the ball)", "contest", [], "stop.rad", -1.0],
+			["Through stars (in possession, toward the star nearest the carrier)", "through_stars", [], "has.tilt", 1.0],
+			["Throw numbers at it (in possession, ahead of the ball)", "balanced", ["surge"], "has.depth", 1.0],
+			["Slow it down (in possession, ahead of the ball)", "balanced", ["hold"], "has.depth", -1.0],
+			["Slow it down (without the ball, ahead of the ball)", "balanced", ["hold"], "not.depth", -1.0]]
+	var said := []
+	for c in cases:
+		var m: Dictionary = measure.call(with_call.call(str(c[1]), c[2]))
+		var key := str(c[3])
+		var moved := (float(m.get(key, 0.0)) - float(bal.get(key, 0.0))) * float(c[4])
+		said.append("%s %.1f m" % [str(c[0]).get_slice(" (", 0), moved])
+		_check(moved >= CALL_FLOOR, "%s moves its side %.1f m from Balanced (%.1f against %.1f), at least %.0f m" % [
+				str(c[0]), moved, float(m.get(key, 0.0)), float(bal.get(key, 0.0)), CALL_FLOOR])
+	print("Call shapes against Balanced: " + ", ".join(said))
+	# The floor is a real measure: with the shapes off, a call measures as Balanced.
+	MatchDirector.debug_no_press_shape = true
+	var off: Dictionary = measure.call(with_call.call("balanced", ["surge"]))
+	var off_bal: Dictionary = measure.call(with_call.call("balanced", []))
+	MatchDirector.debug_no_press_shape = false
+	_check(absf(float(off.get("has.depth", 0.0)) - float(off_bal.get("has.depth", 0.0))) < 0.5,
+			"With the shapes off (capture --noshape), Throw numbers at it measures as Balanced (%.1f against %.1f)" % [
+				float(off.get("has.depth", 0.0)), float(off_bal.get("has.depth", 0.0))])
 
 
 ## The feed marks a call (P-12): a plan set at quarter time gives one start line,

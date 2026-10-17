@@ -12,7 +12,12 @@ extends SceneTree
 ##   --secs S        window length in 1x seconds (default 3)
 ##   --frames N      frames in the sheet (default 12)    --speed S (default 1)
 ##   --kind K [--nth N] [--lead L]  start L events before the N-th event of kind K
+##   --skip S        then play on S more 1x seconds before the window opens
 ##   --nocam         whole oval, no camera (trails are in screen space)
+##   --upright       the phone's view (#724): the ground upright, goals at the top
+##                   and bottom, the whole oval in frame, no camera; size the window
+##                   390x844 and place it with --rect as the match screen does
+##   --rect X,Y,W,H  the oval's rect in the window's UI units (default: all of it)
 ##   --call KEY      shoot, pass or bomb at every home set shot (live match)
 
 ##   --movie         also write every frame at 30 fps (<out>_f0000.png ...),
@@ -147,13 +152,21 @@ func _run() -> void:
 	var pitch = load("res://scripts/ui/PitchView.gd").new()
 	pitch.position = Vector2.ZERO
 	pitch.size = vis
+	if args.has("rect"):
+		# --rect X,Y,W,H: the oval where the match screen puts it, in the
+		# window's UI units (390x844 phone: 10,112,300,387 of 320x693).
+		var r := str(args["rect"]).split(",")
+		pitch.position = Vector2(float(r[0]), float(r[1]))
+		pitch.size = Vector2(float(r[2]), float(r[3]))
+		print("CAPTURE oval in pixels %s" % str(Rect2(pitch.position, pitch.size).size * (Vector2(W, H) / vis)))
 	root.add_child(pitch)
 	var overlay = load("res://tools/visual/trail_overlay.gd").new()
 	overlay.size = vis
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(overlay)
 	await process_frame
-	pitch.camera_enabled = not args.has("nocam")
+	pitch.camera_enabled = not args.has("nocam") and not args.has("upright")
+	pitch.upright = args.has("upright")
 	if args.has("shake"):
 		pitch.shake_share = float(args["shake"])
 	pitch.setup(res)
@@ -178,6 +191,10 @@ func _run() -> void:
 	while pitch.current_index() < from and guard < 200000:
 		pitch._process(dt)
 		guard += 1
+	# --skip S: play on S more 1x seconds before the window opens (into a beat,
+	# say from a centre bounce's set-up to the bounce).
+	for _s in range(int(round(float(args.get("skip", "0")) / dt / float(pitch.speed)))):
+		pitch._process(dt)
 	var secs := float(args.get("secs", "3"))
 	var frames := int(args.get("frames", "12"))
 	var steps := int(round(secs / dt / float(pitch.speed)))

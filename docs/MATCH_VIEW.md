@@ -106,18 +106,23 @@ Each structural call has a shape, read from the match's recorded calls
 | Defensive press | one band around the ball in their back half or the middle, narrower, with the press-zone wash |
 | Flood behind the ball | the midfield folds back between ball and goal, the half-forwards push up |
 | Stack the stoppage | the wings on the square's edge at a centre bounce, crashing in at the bounce |
-| Attack corridor | narrows into the corridor with the ball; moves quicker |
+| Attack corridor | with the ball the side packs the corridor and the ball goes down the middle (no switch of play); moves quicker |
 | Controlled tempo | spreads wide with the ball, its lines short around it; moves slower |
-| Win contest | the midfield stays on the ball; extra numbers at every centre bounce, ball-up and throw-in (none at a marking contest: the engine gives it no edge there) |
-| Through stars | the three stars stand closest to the ball when it has it; their opponents play them tighter |
-| Throw numbers at it | with the ball the midfield runs ahead of it and the half-backs push up; moves quicker |
-| Slow it down | sits deeper, spreads wide with the ball; moves slower |
+| Win contest | the midfield stays on the ball; at every centre bounce, ball-up and throw-in a bigger pack, with the wings and both half-lines sprinting in round it through the clearance (none at a marking contest: the engine gives it no edge there) |
+| Through stars | with the ball the three stars stand closest to it and lead first when the log has one getting it next, their opponents stay glued to them, and the rest of the side sets up on the side of the ground of the star nearest the ball-carrier |
+| Throw numbers at it | with the ball the midfield and the half-back line run past it, on the engine's quicker legs |
+| Slow it down | sits about 11 m deeper, spreads wide with the ball; moves slower. Carriers hold the ball no longer: the engine's hold chains have more disposals in the same minutes |
+
+Every shape moves its side at least 8 m from Balanced, measured in real
+playback at the moments it applies (`_test_call_visibility`).
 
 The feed marks a plan when it starts ("Fremantle: Win contest is on until half
 time."), when it carries on over a break and when it ends, and a short call
 when it runs out ("Fremantle: Throw numbers at it ends."). A short call's start
 is the coach's call line already. `capture_match --noshape` draws every call as
-Balanced, so a clip pair differs in the shape alone.
+Balanced, so a clip pair differs in the shape alone; `--upright --rect
+10,112,300,387 --size 390x844` draws the phone's upright oval where the match
+screen puts it.
 
 ## Your people on the oval
 
