@@ -60,29 +60,31 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 	# Now: available or not, and how he is feeling.
 	var state := PackedStringArray()
 	var weeks := int(p.get("injury_weeks", 0))
+	var rival := is_rival(p)
 	if Injuries.concussion_text(p) != "":
 		state.append(Injuries.concussion_text(p) + ".")
 	elif weeks > 0:
 		state.append("Injured: out %s%s." % ["1 week" if weeks == 1 else "%d weeks" % weeks,
 				" (%s)" % str(p["injury_kind"]) if str(p.get("injury_kind", "")) != "" else ""])
-	elif bool(p.get("rested", false)):
+	elif bool(p.get("rested", false)) and not rival:
 		state.append("Rested this week.")
 	else:
 		state.append("Available.")
-	state.append("Mood: %s." % ClubLife.mood(ClubLife.morale(p)).to_lower())
-	if ClubLife.mood_effect(ClubLife.morale(p)) != "":
-		state.append(ClubLife.mood_effect(ClubLife.morale(p)))
+	if not rival:
+		state.append("Mood: %s." % ClubLife.mood(ClubLife.morale(p)).to_lower())
+		if ClubLife.mood_effect(ClubLife.morale(p)) != "":
+			state.append(ClubLife.mood_effect(ClubLife.morale(p)))
 	var sl := UiKit.lbl(" ".join(state), UiKit.BODY, UiKit.BAD if weeks > 0 else UiKit.TEXT)
 	sl.name = "ProfileState"
 	sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(sl)
-	if Ratings.available(p):
+	if Ratings.available(p) and not rival:
 		var readiness := UiKit.lbl(Workload.description(p), UiKit.SMALL, UiKit.MUTED)
 		readiness.name = "ProfileReadiness"
 		readiness.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(readiness)
 	# A run you have promised him (Backing): a fact, not advice.
-	var promise := Backing.note(p)
+	var promise := Backing.note(p) if not rival else ""
 	if promise != "":
 		var pl := UiKit.lbl(promise, UiKit.BODY, UiKit.TEXT)
 		pl.name = "ProfileBacking"
@@ -108,7 +110,7 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 	dev.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	nums.add_child(dev)
 	var plan := GameState.train_plan_label(GameState.plan_for(p))
-	if plan != "":
+	if plan != "" and not rival:
 		v.add_child(UiKit.lbl("Training plan: %s" % plan, UiKit.SMALL, UiKit.MUTED))
 
 	# What he is picked for.
@@ -292,6 +294,12 @@ static func attr_colour(v: float) -> Color:
 
 ## How far your player trusts you (Trust.gd), in words, with his reasons one tap
 ## away. Only your own players, and only once something has passed between you.
+## A player on another club: his load, mood and promises are private to that club.
+static func is_rival(p: Dictionary) -> bool:
+	var c := str(p.get("club", ""))
+	return c != "" and c != GameState.my_club
+
+
 static func _trust(v: VBoxContainer, p: Dictionary) -> void:
 	var id := str(p.get("id", ""))
 	if GameState.list_player(id).is_empty():
