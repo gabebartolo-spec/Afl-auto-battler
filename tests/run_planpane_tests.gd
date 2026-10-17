@@ -79,6 +79,7 @@ func _plan_lines() -> void:
 ## with the right clubs and calls (theirs only for the game plan).
 func _calls_record() -> void:
 	var db = root.get_node("GameDB")
+	var Cr = load("res://scripts/sim/CoachReport.gd")
 	var UK = load("res://scripts/ui/UiKit.gd")
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
 		_state.reset()
@@ -114,8 +115,8 @@ func _calls_record() -> void:
 		root.add_child(m)
 		await _settle()
 		var other := 1 - mine
-		var mine_code := str((sim.squads[mine] as Squad).code)
-		var other_code := str((sim.squads[other] as Squad).code)
+		var mine_code := str(sim.squads[mine].code)
+		var other_code := str(sim.squads[other].code)
 		for kind in ["gameplan", "pep", "rotation"]:
 			var rec: Node = m.find_child("CallsRecord_" + kind, true, false)
 			_check(rec != null, "A record of %s calls shows at half time (%s)" % [kind, str(sz)])
@@ -126,18 +127,18 @@ func _calls_record() -> void:
 				_check(row != null, "Row for Q%d (%s, %s)" % [q + 1, kind, str(sz)])
 				if row == null:
 					continue
-				var names := row.find_children("ClubName", "Label", true, false)
-				var words := row.find_children("CallWords", "Label", true, false)
+				var names := row.find_children("ClubName*", "Label", true, false)
+				var words := row.find_children("CallWords*", "Label", true, false)
 				var want_clubs: Array = [db.club_short(mine_code)] if kind != "gameplan" 						else [db.club_short(mine_code), db.club_short(other_code)]
 				var got_clubs := []
 				for n in names:
 					got_clubs.append((n as Label).text.trim_suffix(": "))
 				_check(got_clubs == want_clubs, "Right clubs on Q%d %s (%s)" % [q + 1, kind, str(got_clubs)])
-				var want_mine := CoachReport.plan_label(plans[q]) if kind == "gameplan" 						else (CoachReport.pep_label(peps[q]) if kind == "pep" else str(ROTATION_WORDS[rots[q]]))
+				var want_mine: String = Cr.plan_label(plans[q]) if kind == "gameplan" 						else (Cr.pep_label(peps[q]) if kind == "pep" else str(ROTATION_WORDS[rots[q]]))
 				_check(words.size() == want_clubs.size() and (words[0] as Label).text == want_mine,
 						"Right call on Q%d %s (%s)" % [q + 1, kind, (words[0] as Label).text if not words.is_empty() else "-"])
 				if kind == "gameplan":
-					var theirs := CoachReport.plan_label(str(((sim.tactics_history[q]["plans"] as Array)[other] as Dictionary).get("gameplan", "balanced")))
+					var theirs: String = Cr.plan_label(str(((sim.tactics_history[q]["plans"] as Array)[other] as Dictionary).get("gameplan", "balanced")))
 					_check(words.size() == 2 and (words[1] as Label).text == theirs, "Their plan in Q%d is theirs (%s)" % [q + 1, theirs])
 					_check(names.size() == 2 and (names[0] as Label).get_theme_color("font_color") == UK.club_name_colour(UK.club_ink(mine_code)),
 							"Club names wear club colour (Q%d)" % [q + 1])

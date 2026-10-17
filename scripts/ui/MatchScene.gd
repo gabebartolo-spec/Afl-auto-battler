@@ -2024,11 +2024,11 @@ func _calls_record(kind: String) -> Control:
 				row.add_child(dot)
 			var nm := UiKit.lbl(GameDB.club_short(code) + ": ", UiKit.SECONDARY,
 					UiKit.club_name_colour(UiKit.club_ink(code)), true)
-			nm.name = "ClubName"
+			nm.name = "ClubName%d" % i
 			nm.autowrap_mode = TextServer.AUTOWRAP_OFF
 			row.add_child(nm)
 			var w := UiKit.lbl(str(side_words.call(side)), UiKit.SECONDARY, UiKit.TEXT)
-			w.name = "CallWords"
+			w.name = "CallWords%d" % i
 			w.autowrap_mode = TextServer.AUTOWRAP_OFF
 			row.add_child(w)
 		v.add_child(row)
