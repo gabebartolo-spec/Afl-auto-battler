@@ -36,7 +36,8 @@ const TAGLINE := "Build your dynasty."
 const NAME_OPTIONS := [["generated", "Generated"], ["real", "Real"]]
 ## The promise, printed once on the menu (P-70). tools/check_android_permissions.py
 ## fails CI if the Android export ever asks for more than vibrate.
-const OFFLINE_PROMISE := "Plays offline. No ads, no account, nothing sent anywhere."
+const OFFLINE_PROMISE := "Plays offline. No ads, no account.
+Your career stays on your phone."
 const NAMES_INFO := "Real shows each player's AFL name; generated names are invented. Ratings and results are the same either way."
 
 

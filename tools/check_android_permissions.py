@@ -1,6 +1,6 @@
 """The offline promise, enforced (P-70): the Android preset may ask for vibrate and nothing else.
 
-The menu says "Plays offline. No ads, no account, nothing sent anywhere." This reads
+The menu says "Plays offline. No ads, no account. Your career stays on your phone." This reads
 export_presets.cfg and fails if any Android preset requests a permission other than
 vibrate (the internet permission above all), asks for a custom permission, or turns on a
 Gradle plugin (a billing or ads library arrives that way).
@@ -73,6 +73,6 @@ if __name__ == "__main__":
     for e in errors:
         print("FAIL:", e)
     if errors:
-        print("The menu promises: Plays offline. No ads, no account, nothing sent anywhere.")
+        print("The menu promises: Plays offline. No ads, no account. Your career stays on your phone.")
         sys.exit(1)
     print("Android preset requests vibrate only: the offline promise holds.")

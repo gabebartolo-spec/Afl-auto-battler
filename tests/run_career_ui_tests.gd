@@ -302,10 +302,11 @@ func _run() -> void:
 
 	# --- the offline promise and the browser's storage line (P-70, P-71) -----------
 	var promise: Label = current_scene.find_child("OfflinePromise", true, false)
-	_check(promise != null and promise.text == "Plays offline. No ads, no account, nothing sent anywhere.",
+	_check(promise != null and promise.text == "Plays offline. No ads, no account.
+Your career stays on your phone.",
 			"The menu prints the offline promise in the approved words")
 	_check(promise != null and promise.visible and promise.autowrap_mode != TextServer.AUTOWRAP_OFF,
-			"The promise is on screen and wraps on a narrow phone rather than running off")
+			"The promise is on screen as two deliberate lines")
 	_check(not WebStorage.should_ask(false, false) and WebStorage.should_ask(true, false)
 			and not WebStorage.should_ask(true, true),
 			"The browser is asked to keep the save only on the web, and only until it has answered")
