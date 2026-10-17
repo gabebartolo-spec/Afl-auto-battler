@@ -432,6 +432,9 @@ func _run_preseason(reload_at := -1) -> String:
 			if GameState.preseason_stop() == "intra":
 				GameState.sim_intra_match()
 				GameState.preseason["intra"]["seen"] = true
+			if GameState.preseason_stop() == "papers":
+				GameState.papers_say_nothing()
+				GameState.preseason["papers"]["seen"] = true
 			GameState.preseason_step_week()
 			if GameState.preseason_week() == reload_at:
 				GameState.save_career()
@@ -947,8 +950,9 @@ func _test_intra_club() -> void:
 			and str(GameState.preseason_intra()["report"]["stood"]) == str(rep["stood"])
 			and not GameState.sim_intra_match() and not GameState.toggle_intra_invite(str(pool[0]["id"])),
 			"Loaded after it is played, the report is still there and the match cannot be played again")
-	_check(GameState.preseason_advance() == "done" and not GameState.preseason_active(),
-			"From the report, pressing on trains weeks 6 to 8 and leaves Round 1 to play")
+	_check(GameState.preseason_advance() == "papers" and GameState.preseason_active()
+			and GameState.preseason_advance() == "done" and not GameState.preseason_active(),
+			"From the report, pressing on trains weeks 6 to 8, stops at the papers, and then leaves Round 1 to play")
 	# Best side v the rest plays out differently, and one-sidedly.
 	_to_intra()
 	GameState.set_intra_mode("best")
@@ -1519,9 +1523,16 @@ func _test_screens() -> void:
 			"A finger's tap goes back to training")
 	await _frames(tree, 10)
 	scene = tree.current_scene as Control
+	_check(scene != null and scene.name == "PreSeasonScene" and GameState.preseason_stop() == "papers"
+			and GameState.preseason_week() == 8,
+			"The rest of the pre-season is trained and the papers are waiting in week 8")
+	_check(await _tap(scene.find_child("PreSeasonGo", true, false), "On to Round 1 from the papers"),
+			"A finger's tap goes on to Round 1")
+	await _frames(tree, 10)
+	scene = tree.current_scene as Control
 	_check(scene != null and scene.name == "HubScene" and not GameState.preseason_active()
 			and GameState.preseason_week() == 8 and GameState.season.round_index == 0,
-			"The rest of the pre-season is trained and the hub opens at Round 1")
+			"The hub opens at Round 1")
 	_check(scene.find_child("WeekActions", true, false) != null
 			and _label(scene, "SeasonPlanWords").ends_with("base") == (Conditioning.base_of(GameState.fitness_record(CLUB)) != "sound"),
 			"Round 1 is there to play, and the season plan's line carries the base")

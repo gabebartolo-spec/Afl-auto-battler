@@ -200,7 +200,7 @@ const COST_WORDS := {
 	"morale": "(?i)morale", "board": "(?i)board confidence", "trust": "trusts you (a lot |a little )?less",
 	"rest": "misses", "heavy_legs": "Heavy legs", "sore": "breaks down", "expects_game": "expects a game",
 	"start_backing": "expects to be picked", "back_kid": "is promised", "promise_win": "Lose and", "extend_early": "Locked in", "captaincy_swap": "mid-season",
-	"rush_back": "flares", "slow_start": "slowly", "loss_sting": "falls instead",
+	"rush_back": "flares", "slow_start": "slowly", "loss_sting": "falls instead", "on_record": "on the record",
 }
 const SAMPLE_FACTS := {"sore_odds": "about 1 in 6", "run_games": 3, "early_price": "$1m", "more_seasons": "two more seasons"}
 
@@ -231,7 +231,7 @@ func _stakes_in(effects: Array) -> Array:
 			gains.append(op)
 			costs.append(op)
 			continue
-		if op == "slow_start":
+		if op == "slow_start" or op == "on_record":
 			costs.append(op)
 			continue
 		if op == "loss_sting":
