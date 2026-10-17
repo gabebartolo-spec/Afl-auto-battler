@@ -77,7 +77,7 @@ func _test_snapshot() -> void:
 			"His Rising Star, Coaches Awards and best and fairests are kept (%s)" % str(h2))
 	var lines2 := CoachSheet.playing_lines({"games": 263, "goals": 187, "stints": [], "unknown": [], "honours": h2})
 	_check(lines2.has("Brownlow Medal") and lines2.has("2 Coaches Awards") and lines2.has("Rising Star")
-			and lines2.has("2 %s best and fairests" % GameDB.club_name("ADE")),
+			and lines2.has("2 Malcolm Blight Medals"),
 			"His profile names each award in football words (%s)" % str(lines2))
 	_check(CoachPathway.honour_count({"honours": h2}) == 2,
 			"Only a Brownlow or Coleman changes the odds he coaches")

@@ -152,6 +152,9 @@ func _profile_row(row: Dictionary, ground: Array) -> Control:
 	return box
 
 
+const TRADE_OFF_LINE := "Each plan buys an edge and gives something up; the note below says which."
+
+
 # ---------------------------------------------------------------------------
 # How we play
 # ---------------------------------------------------------------------------
@@ -161,6 +164,10 @@ func _how_we_play() -> Control:
 	v.add_child(_head("How we play"))
 	v.add_child(_wrapped("Each plan runs on one of your list's strengths: your side as picked, against every list in the league.",
 			UiKit.SMALL, UiKit.MUTED))
+	# What it costs and what it buys, in one line (P-63).
+	var trade := _wrapped(TRADE_OFF_LINE, UiKit.SMALL, UiKit.TEXT)
+	trade.name = "PlanTradeOff"
+	v.add_child(trade)
 	var ground: Array = GameState.my_squad().ground
 	var profile := GameState.list_profile()
 	var note := _wrapped(CoachReport.plan_summary(GameState.club_plan), UiKit.SMALL, UiKit.TEXT)

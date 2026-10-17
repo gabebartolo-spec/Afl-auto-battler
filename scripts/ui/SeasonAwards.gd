@@ -14,7 +14,7 @@ static func open(host: Control) -> Control:
 		["Brownlow Medal", "Home-and-away votes", aw.get("brownlow", []), "votes"],
 		["Coleman Medal", "Home-and-away goals", aw.get("coleman", []), "goals"],
 		["All-Australian", "The season's team", aw.get("all_australian", []), ""],
-		["Best and fairest", GameDB.club_name(GameState.my_club),
+		[BestAndFairest.award_name(GameState.my_club), GameDB.club_name(GameState.my_club),
 			(aw.get("best_and_fairest", {}) as Dictionary).get(GameState.my_club, []), "bf"],
 	]
 	var state := {"stage": 0, "revealed": false, "vignette": null}

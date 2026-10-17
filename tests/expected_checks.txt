@@ -33,7 +33,7 @@ league 47
 club 199
 match_game 347
 pressure 21
-workload 32
+workload 49
 fitness 39
 match_visual 123
 league_balance 23

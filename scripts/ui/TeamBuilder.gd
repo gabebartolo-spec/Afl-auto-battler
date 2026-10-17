@@ -55,6 +55,7 @@ var _search_field: LineEdit
 ## a profile, nothing moves, and the oval is mirrored - they kick the other way.
 var _list: Array = []
 var _read_only := false
+var _rival := false
 ## Just the oval and the interchange, the right way round: a team that isn't
 ## anyone's opponent (the projected All-Australian team). Set before setup().
 var field_only := false
@@ -78,6 +79,8 @@ var notes := {}
 func setup(side: Dictionary, wide: bool, list: Array = [], read_only := false) -> void:
 	_list = list if not list.is_empty() else GameState.my_list
 	_read_only = read_only
+	# A rival's list: his private state (load, mood) is not the coach's to see.
+	_rival = read_only and not _list.is_empty() and str(_list[0].get("club", "")) not in ["", GameState.my_club]
 	_side = side.duplicate(true)
 	for line in LINES:
 		if not _side.has(line):
@@ -354,7 +357,7 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 				sb.border_width_top = 3
 				sb.border_color = UiKit.team_colour()
 				b.add_theme_stylebox_override(st, sb)
-		if not field_only and Workload.value(p) >= Workload.CARRYING:
+		if not field_only and not _rival and Workload.value(p) >= Workload.CARRYING:
 			# How fresh he is, on the card: no profile needed to see it.
 			var ready := UiKit.lbl(Workload.label(p), UiKit.TINY, UiKit.BAD if Workload.value(p) >= Workload.NEEDS_BREAK else UiKit.MUTED)
 			ready.name = "Readiness_" + id
@@ -386,7 +389,7 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 			third.append(_trial_note(id))
 		if not Ratings.available(p):
 			third.append(_why_out(p))
-		elif Workload.value(p) >= Workload.CARRYING:
+		elif not _rival and Workload.value(p) >= Workload.CARRYING:
 			third.append(Workload.label(p))
 		for t in Traits.of(p):
 			third.append(Traits.label(str(t)))

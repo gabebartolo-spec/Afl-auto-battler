@@ -416,7 +416,7 @@ func _awards_panel() -> Control:
 		var bf := []
 		for r in mine:
 			bf.append("%s (%d)" % [GameState.award_name(r), int(r["bf"])])
-		v.add_child(UiKit.lbl("%s best & fairest" % GameDB.club_name(GameState.my_club), UiKit.BODY, StatsSide.mine_ink(), true))
+		v.add_child(UiKit.lbl(BestAndFairest.heading(GameState.my_club, GameDB.club_name(GameState.my_club)), UiKit.BODY, StatsSide.mine_ink(), true))
 		v.add_child(_small(", ".join(bf)))
 	var aa: Array = aw.get("all_australian", [])
 	if not aa.is_empty():
@@ -544,7 +544,7 @@ func _open_awards_program() -> void:
 			body.add_child(_small("%d. %s (%s) — %d votes" % [i + 1, GameState.award_name(r), GameDB.club_short(str(r["club"])), int(r["coaches"])], str(r["club"])))
 	var mine: Array = (aw.get("best_and_fairest", {}) as Dictionary).get(GameState.my_club, [])
 	if not mine.is_empty():
-		body.add_child(StatsSide.heading("%s best & fairest" % GameDB.club_name(GameState.my_club)))
+		body.add_child(StatsSide.heading(BestAndFairest.heading(GameState.my_club, GameDB.club_name(GameState.my_club))))
 		for i in range(mine.size()):
 			var r: Dictionary = mine[i]
 			body.add_child(_small("%d. %s — %d votes" % [i + 1, GameState.award_name(r), int(r["bf"])]))

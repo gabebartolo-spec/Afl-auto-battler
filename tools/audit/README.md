@@ -38,6 +38,7 @@ way.
 
 ## Audits
 
+- `list_churn_impl` (P-81): 10-season autopilot careers (args `seeds seasons`, default 301 10); one `CHURN` line per club per off-season (delisted, walked, retired, traded out, drafted, traded in, signed; the user club is marked `user 1` and left out), then `SUMMARY`. `python3 tools/audit/list_churn_agg.py --date D --runs IDS --out docs/research/LIST_CHURN_AUDIT_D.md run_*/audit.log` writes the doc, with the real yardstick (8 to 12 list changes a club a year). Dispatch it on `audit.yml`, not locally.
 - `factsgrowth_impl` (#554, G7): a long autopilot career (args `seed club seasons`, default 301 MEL 20); one `FACTS` line a season with `career_facts` rows, its bytes and its share of the save file, then `TIMING` (save and load, facts kept vs emptied, same career) and `SUMMARY`.
 - `traitdecay_impl` (#440): one eight-season career from a seeded upside draft, printing one `DECAY` line a season: the synergies switched on across the league, then the count of players holding each synergy trait, real and generated players apart. `AUDIT_SEED` sets the career seed (default 301), so runs with the same seed pair.
 
