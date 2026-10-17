@@ -28,7 +28,10 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 	UiKit.close_on_outside_tap(box, on_close)
 	var v: VBoxContainer = box["body"]
 
-	var name_l := UiKit.lbl(GameDB.player_display_name(p), 22, UiKit.TEXT, true)
+	# His name in his club's ink (design bible, readability): whose side he is on at a glance.
+	var name_ink := UiKit.club_name_colour(UiKit.club_ink(str(p.get("club", "")))) 			if str(p.get("club", "")) != "" else UiKit.TEXT
+	var name_l := UiKit.lbl(GameDB.player_display_name(p), 22, name_ink, true)
+	name_l.name = "ProfileName"
 	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(name_l)
 	var nickname_row := _identity(v, p)
@@ -182,15 +185,13 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 		hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(hl)
 
-	# What he has done for your club: games, goals, best and fairests, flags.
+	# What the club remembers of him (P-37): his games and goals with you, then
+	# the three facts that matter most, newest first. Read-only.
 	if not GameState.list_player(str(p.get("id", ""))).is_empty():
-		var wu := GameState.with_us_text(p)
-		if wu != "":
+		var remembered := with_us_block(p)
+		if remembered != null:
 			v.add_child(UiKit.spacer(4))
-			var wl := UiKit.lbl(wu, UiKit.BODY, UiKit.TEXT)
-			wl.name = "ProfileWithUs"
-			wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			v.add_child(wl)
+			v.add_child(remembered)
 
 	# The attributes behind the rating: the deepest layer, last.
 	v.add_child(UiKit.spacer(6))
@@ -236,6 +237,33 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 			on_close.call())
 	box["footer"].add_child(close)
 	return overlay
+
+
+## "With us": his games and goals for your club, then up to three remembered
+## facts (Remembered.gd), each on a line of its own, newest first. Null for
+## someone yet to play for you.
+static func with_us_block(p: Dictionary) -> Control:
+	var w := GameState.with_us(p)
+	var head := Remembered.head(w)
+	if head == "":
+		return null
+	var box := UiKit.vbox(3)
+	box.name = "ProfileWithUs"
+	var title := UiKit.lbl("With us", UiKit.BODY,
+			UiKit.club_name_colour(UiKit.club_ink(GameState.my_club)), true)
+	title.name = "WithUsTitle"
+	box.add_child(title)
+	var hl := UiKit.lbl(head, UiKit.BODY, UiKit.TEXT)
+	hl.name = "WithUsHead"
+	box.add_child(hl)
+	var i := 0
+	for line in Remembered.sheet_lines(p, GameState.career_facts, GameState.my_club, w, GameState.LEARN_JOBS):
+		var l := UiKit.lbl(str(line), UiKit.BODY, UiKit.TEXT)
+		l.name = "Remembered_%d" % i
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(l)
+		i += 1
+	return box
 
 
 ## True when every season on his record was at this club.
