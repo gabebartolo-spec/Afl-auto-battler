@@ -1424,14 +1424,14 @@ func _club_ink_all() -> void:
 			if d2 < 25.0:
 				alike.append("%s v %s %.1f" % [h, a, d2])
 	_check(pairs >= 18 * 17 and alike.is_empty(), "Every pairing (%d, home and away) shows two inks 25 or more apart (%s)" % [pairs, str(alike)])
-	var reds := ["ADE", "ESS", "GCS", "MEL", "STK", "SYD"]
+	var reds := ["ESS", "GCS", "MEL", "STK", "SYD"]
 	var red_bad := []
 	for code in codes:
 		var c := str(code)
 		var nm: Color = uk.club_name_colour(uk.club_ink(c))
 		if reds.has(c) != (nm == uk.TEXT) and c != "COL":
 			red_bad.append("%s name %s" % [c, nm.to_html(false)])
-	_check(red_bad.is_empty(), "A red-ink club's name is plain TEXT, every other club's name is its ink (%s)" % str(red_bad))
+	_check(red_bad.is_empty(), "A red-ink club's name is plain TEXT, every other club's name is its ink (Adelaide's is gold since 2026-10-14) (%s)" % str(red_bad))
 
 
 func _pc_break_worst_case(club := "COL") -> void:
