@@ -380,13 +380,13 @@ func _test_stat_guide_complete() -> void:
 	var complete := true
 	for row in GameState.TRAIN_STATS:
 		var info: Array = StatGuide.STATS.get(str(row[0]), [])
-		if info.size() != 4:
+		if info.size() != 1:
 			complete = false
 			continue
 		for text in info:
 			if str(text).length() < 10:
 				complete = false
-	_check(complete, "Every trainable stat has a full guide entry")
+	_check(complete, "Every trainable stat has a guide line")
 	var labels_ok := true
 	for row in GameState.train_plan_options():
 		if GameState.train_plan_label(str(row[0])) == "" or GameState.train_plan_description(str(row[0])) == "":

@@ -76,6 +76,8 @@ func _run() -> void:
 		await _screen_field(row, "training", "", Callable())
 		await _screen_field(row, "forge", "ForgeClubName", _open_club_form)
 		await _screen_field(row, "list", "NicknameField", _open_nickname)
+	await _nickname_line("PC", false, Vector2i(1280, 720))
+	await _nickname_line("phone", true, Vector2i(390, 844))
 
 	load("res://scripts/core/ScreenLayout.gd").force_web_phone = false
 	load("res://scripts/core/ScreenLayout.gd").force_web = false
@@ -261,6 +263,51 @@ func _open_nickname() -> void:
 	if edit != null:
 		await Tap.tap(edit)
 		await _settle()
+
+
+## A nickname reads on one line beside its Change button, also with the field
+## open (director 2026-10-14: JEFFO drawn one letter per line).
+func _nickname_line(label: String, phone: bool, size: Vector2i) -> void:
+	_platform(phone)
+	root.size = size
+	await _settle()
+	_fresh_career()
+	_router.stack = []
+	_router.go("main")
+	await _settle()
+	_router.go("hub")
+	await _settle()
+	_router.go("list")
+	await _settle()
+	var p: Dictionary = {}
+	for q in _db.club_list("COL"):
+		if not _state.list_player(str(q.get("id", ""))).is_empty():
+			p = _state.list_player(str(q["id"]))
+			break
+	_check(not p.is_empty(), "%s nickname: a player of your own to open" % label)
+	if p.is_empty():
+		return
+	_state.set_player_nickname(str(p["id"]), "Jeffo")
+	load("res://scripts/ui/PlayerSheet.gd").open(current_scene, p)
+	await _settle()
+	var nl: Label = current_scene.find_child("NicknameText", true, false)
+	var edit: Button = current_scene.find_child("NicknameEdit", true, false)
+	_check(nl != null and edit != null, "%s nickname: the nickname and its Change button are there" % label)
+	if nl == null or edit == null:
+		return
+	var line: float = nl.get_theme_font("font").get_height(nl.get_theme_font_size("font_size"))
+	_check(nl.size.y < line * 2.0, "%s nickname: one line (%.0f high, a line is %.0f)" % [label, nl.size.y, line])
+	_check(edit.size.y < 70.0 and edit.size.y >= line, "%s nickname: Change stays button-sized (%.0f high)" % [label, edit.size.y])
+	await Tap.tap(edit)
+	await _settle()
+	var field: LineEdit = current_scene.find_child("NicknameField", true, false)
+	_check(field != null and field.visible, "%s nickname: a real tap on Change opens the field" % label)
+	_check(nl.size.y < line * 2.0, "%s nickname: still one line with the field open (%.0f high)" % [label, nl.size.y])
+	_check(edit.text == "Save" and edit.size.y < 70.0, "%s nickname: Save stays button-sized" % label)
+	field.text = "Jeff"
+	await Tap.tap(edit)
+	await _settle()
+	_check(nl.text == "\"Jeff\"" and not field.visible, "%s nickname: Save keeps the new nickname" % label)
 
 
 ## Any other screen with a text field: tap it, keyboard up and down, type.
