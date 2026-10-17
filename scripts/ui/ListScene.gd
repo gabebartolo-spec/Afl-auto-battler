@@ -146,7 +146,10 @@ func _build() -> void:
 
 
 func _shape_panel() -> Control:
-	var left := UiKit.panel(UiKit.PANEL, 12)
+	# On a phone the page's scroll rail takes 20 px of the width; the panel's
+	# padding gives some of it back so the cards keep their full names (the
+	# sweep: "Andy Moniz-Wakefield" needs 116 px, the squeezed card gave 114).
+	var left := UiKit.panel(UiKit.PANEL, 6 if _narrow() else 12)
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	left.custom_minimum_size = Vector2(0, 220)
