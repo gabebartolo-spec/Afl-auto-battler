@@ -215,10 +215,15 @@ func _test_tagger() -> void:
 	var star := _mid("S", 70, 80, 95, 95)
 	_check(Roles.is_tagger(stopper) and Roles.label(stopper) == "Tagger", "A stopper is a tagger")
 	_check(not Roles.is_tagger(star), "A star ball-winner who tackles is not a tagger")
+	# How rare a tagger is, on the data without the hand-set OVR rows.
+	GameDB.skip_ovr_overrides = true
+	GameDB.reload()
 	var n := 0
 	for p in GameDB.players:
 		if Roles.is_tagger(p):
 			n += 1
+	GameDB.skip_ovr_overrides = false
+	GameDB.reload()
 	_check(n >= 8 and n <= 40, "Taggers are a specialist few (%d)" % n)
 	# In a match, a tagger on the ground makes the tag bite harder.
 	var list: Array = GameDB.club_list("COL").duplicate(true)

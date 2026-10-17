@@ -25,6 +25,7 @@ func run() -> void:
 	_test_ovr_tracks_strength()
 	_test_save_recomputes()
 	_test_attr_adjustment()
+	_test_ovr_overrides()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	print("Ratings tests: %d checks, %d failures" % [checks, failures.size()])
@@ -285,3 +286,53 @@ func _test_attr_adjustment() -> void:
 	for j in named:
 		stable = stable and with[j]["attr"] == before[j]
 	_check(stable, "A second rating pass does not apply a correction twice")
+
+
+## Hand-set OVR (data/ovr_overrides.csv): each named player reads his target, his
+## strongest attributes keep their order, and a typo'd row is reported, not lost.
+func _test_ovr_overrides() -> void:
+	_check(GameDB.override_unmatched.is_empty(),
+			"every shipped override row finds his player: %s" % str(GameDB.override_unmatched))
+	var rows := GameDB._read_rows(GameDB.OVR_CSV)
+	_check(rows.size() >= 2, "ovr_overrides.csv has rows")
+	var raw: Array = GameDB._load_players()
+	Ratings.derive_all(raw)
+	for i in range(1, rows.size()):
+		var c: Array = rows[i]
+		if str(c[3]).ends_with("%"):
+			continue
+		var who: Dictionary = _find(c)
+		if who.is_empty():
+			continue
+		_check(int(who["overall"]) == int(c[3]), "%s reads OVR %s, got %d" % [c[2], c[3], int(who["overall"])])
+		_check(int(who["potential"]) >= int(who["overall"]), "%s POT is not below OVR" % c[2])
+		var before := _find_in(raw, c)
+		if not before.is_empty() and int(c[3]) > int(before["overall"]):
+			# Raised: his best attribute is still a best one (a tie at 99 is fine).
+			var top: String = _top3(before["attr"])[0]
+			var mx := 0
+			for k in who["attr"]:
+				mx = maxi(mx, int(who["attr"][k]))
+			_check(int(who["attr"][top]) == mx, "%s keeps his strength (%s): %s" % [c[2], top, str(who["attr"])])
+	# An unmatched row is reported, not lost.
+	GameDB.override_hits = {}
+	_check(GameDB._report_unmatched_overrides().size() >= rows.size() - 1, "unmatched rows are reported")
+	GameDB.reload()
+
+
+func _find(c: Array) -> Dictionary:
+	var r := _find_in(GameDB.players, c)
+	return r if not r.is_empty() else _find_in(GameDB.list_additions, c)
+
+
+func _find_in(list: Array, c: Array) -> Dictionary:
+	for p in list:
+		if p["club"] == str(c[0]) and p["first"] == str(c[1]) and p["last"] == str(c[2]):
+			return p
+	return {}
+
+
+func _top3(a: Dictionary) -> Array:
+	var ks: Array = a.keys()
+	ks.sort_custom(func(x, y): return int(a[x]) > int(a[y]) or (int(a[x]) == int(a[y]) and str(x) < str(y)))
+	return ks.slice(0, 3)
