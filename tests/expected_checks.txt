@@ -24,6 +24,7 @@ training 107
 selection 54
 matchup 96
 matchday 552
+calls 8
 roles 218
 injuries 31
 awards 22

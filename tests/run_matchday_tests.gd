@@ -214,9 +214,9 @@ func _phone_match(sz: Vector2i) -> void:
 	# every one of them is already a name.
 	var tag_sim = _state.pending_sim
 	var opp_side: Array = (m.get("_res")["roster"][1 - int(m.get("_my_side"))] as Array).filter(
-			func(r): return bool(m.call("_taggable_now", tag_sim, r)) and bool(m.call("_listed_midfielder", tag_sim, r)))
+			func(r): return bool(m.call("_taggable_now", tag_sim, r)) and bool(m.call("_can_play_midfield", tag_sim, r)))
 	var named := tag_choices.size() - 1
-	_check((tag_other != null and tag_other.text == "Other midfielder…") or named == opp_side.size(),
+	_check((tag_other != null and tag_other.text == "Other player…") or named == opp_side.size(),
 			"Every listed midfielder is a name or behind Other midfielder (%s: %d of %d named)" % [tag, named, opp_side.size()])
 	if tag_other != null:
 		tag_other.emit_signal("pressed")
@@ -849,14 +849,14 @@ func _tag_targets(sz: Vector2i) -> void:
 			named_ids[str(b.name).trim_prefix("TagPickerGrid_")] = true
 	var listed_ids := {}
 	for id in eligible:
-		if bool(m.call("_listed_midfielder", sim, {"id": id})):
+		if bool(m.call("_can_play_midfield", sim, {"id": id})):
 			listed_ids[id] = true
 	_check(other != null or named_ids.size() == listed_ids.size(),
 			"Every listed midfielder is a name or behind Other midfielder (%s: %d of %d named)" % [tag, named_ids.size(), listed_ids.size()])
 	var pick: Button = null
 	if other != null:
 		var why: String = await Tap.tap(other)
-		_check(why == "" and other.text == "Other midfielder…", "A finger opens Other midfielder (%s: %s %s)" % [tag, other.text, why])
+		_check(why == "" and other.text == "Other player…", "A finger opens Other midfielder (%s: %s %s)" % [tag, other.text, why])
 		await _settle()
 		var sheet: Node = m.find_child("PlayerSheet", true, false)
 		var rows: Array = sheet.find_children("Sheet_*", "Button", true, false) if sheet != null else []
@@ -1212,6 +1212,8 @@ func _one_line_break(sz: Vector2i) -> void:
 	# a tag is picked, and picking one moves nothing.
 	await Tap.tap(tag_row)
 	await _settle()
+	# Loaded, not named: the autoloads are not there when this script compiles.
+	var rt = load("res://scripts/sim/Ratings.gd")
 	var tp: Node = m.find_child("TagPicker", true, false)
 	var names: Array = []
 	var not_listed := []
@@ -1224,7 +1226,7 @@ func _one_line_break(sz: Vector2i) -> void:
 		if pick == null:
 			pick = b
 		var p: Dictionary = sim._on_ground(1 - me, id)
-		if not p.is_empty() and str(p.get("own_role", p.get("role", ""))) != "MID":
+		if not p.is_empty() and not rt.positions(p).has("MID"):
 			not_listed.append(names.back())
 	_check(pick != null and not_listed.is_empty(), "The tag names are their listed midfielders only (%s: %s)" % [tag, str(not_listed)])
 	if them == "MEL":
@@ -1232,17 +1234,19 @@ func _one_line_break(sz: Vector2i) -> void:
 		# midfield second) are both taggable in the sim at half time here.
 		var through := []
 		for p in (sim.squads[1 - me] as Object).ground:
-			if sim.tag_target_ok(1 - me, str(p["id"])) and str(p.get("own_role", p.get("role", ""))) != "MID":
+			if sim.tag_target_ok(1 - me, str(p["id"])) and not rt.positions(p).has("MID"):
 				through.append(str(p["id"]))
 		var offered := through.filter(func(id): return tp.find_child("TagPickerGrid_" + str(id), true, false) != null)
-		_check(not through.is_empty() and offered.is_empty(),
+		# Nobody who cannot play midfield is offered (with the new reading of "can
+		# play midfield" there may be no such man on the ground at all).
+		_check(offered.is_empty(),
 				"A ruck or defender running through the middle is not among the tag names (%s: %d such, %d offered)" % [tag, through.size(), offered.size()])
 		# "Other midfielder..." lists their listed midfielders not already
 		# named, and is not drawn when none is left: nobody running through
 		# the middle is behind it either.
 		var listed_n := 0
 		for r in (m.call("_roster_side", 1 - me) as Array):
-			if bool(m.call("_taggable_now", sim, r)) and bool(m.call("_listed_midfielder", sim, r)):
+			if bool(m.call("_taggable_now", sim, r)) and bool(m.call("_can_play_midfield", sim, r)):
 				listed_n += 1
 		var other: Button = tp.find_child("TagPickerOther", true, false)
 		if other != null:
@@ -1255,7 +1259,7 @@ func _one_line_break(sz: Vector2i) -> void:
 				var rid := str(b.name).trim_prefix("Sheet_")
 				if through.has(rid) or tp.find_child("TagPickerGrid_" + rid, true, false) != null:
 					stray.append(rid)
-			_check(w_other == "" and other.text == "Other midfielder…" and stray.is_empty() and rest.size() == listed_n - names.size(),
+			_check(w_other == "" and other.text == "Other player…" and stray.is_empty() and rest.size() == listed_n - names.size(),
 					"Other midfielder lists only their listed midfielders not already named (%s: %d listed, %d named, %d behind, off %s%s)"
 					% [tag, listed_n, names.size(), rest.size(), str(stray), (", " + w_other) if w_other != "" else ""])
 			m.call("handle_back")
@@ -1629,8 +1633,16 @@ func _main_ruck_picker(sz: Vector2i) -> void:
 			continue
 		var rucks: Array = m.call("_my_rucks", sim)
 		var note: Label = box.find_child("MainRuckNote", true, false)
-		_check(note != null and note.text.begins_with("No main ruck: whoever is in the ruck spot goes up."),
-				"With nobody named, it says the ruck spot decides (%s)" % tag)
+		var best_id := str(rucks[0]["id"])
+		var best_nm: String = db.player_display_name(rucks[0])
+		_check(box.find_child("MainRuckPicker_", true, false) == null and not _any_text(pick, "No main ruck"),
+				"The Main ruck call has no \"No main ruck\" choice (%s)" % tag)
+		var pick_btn: Button = box.find_child("MainRuckPicker_" + best_id, true, false)
+		var other_btn: Button = box.find_child("MainRuckPicker_" + str(rucks[1]["id"]), true, false)
+		_check(pick_btn != null and pick_btn.text.contains("Your assistant's pick") and other_btn != null
+				and not other_btn.text.contains("assistant"), "The assistant's pick, the best Ruck rating, is marked (%s)" % tag)
+		_check(note != null and note.text.begins_with("%s goes up at every stoppage" % best_nm),
+				"With nobody named by the coach, the assistant's pick goes up (%s)" % tag)
 		var b: Button = box.find_child("MainRuckPicker_" + str(rucks[1]["id"]), true, false)
 		var rr := roundi(float((rucks[1]["attr"] as Dictionary).get("ruck", 0.0)))
 		_check(b != null and b.text.contains("Ruck %d" % rr), "His card shows his Ruck rating, %d (%s)" % [rr, tag])
@@ -2949,6 +2961,16 @@ func _sheet_has(body: Dictionary, anim: String, facings: Array) -> bool:
 		if int(info.get("frames", 0)) <= 0:
 			return false
 	return true
+
+
+## True when any button or label under a node says the text.
+func _any_text(node: Node, text: String) -> bool:
+	for n in node.find_children("*", "Control", true, false):
+		if (n is Button or n is Label) and str(n.text).contains(text):
+			return true
+		if n is RichTextLabel and (n as RichTextLabel).get_parsed_text().contains(text):
+			return true
+	return false
 
 
 func _check(condition: bool, message: String) -> void:
