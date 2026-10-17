@@ -411,7 +411,7 @@ const INK_SLOT := {"WBD": 1, "ESS": 1, "COL": -1}
 ## guernsey has no second colour that reads, the second is plain white
 ## (Collingwood is white either way: no hue at all).
 const CLUB_INKS := {
-	"ADE": ["#F0455C", "#FFB81C"],  # red, then gold
+	"ADE": ["#FFC83A", "#F0455C"],  # gold, then red (director 2026-10-14: "why is there no yellow for the crows?"); a gold 14 from West Coast's
 	"BRL": ["#F7CE8A", "#4D90E0"],  # gold, then blue
 	"CAR": ["#6B7CF2", "#F1EEE6"],  # navy lifted to blue, then white
 	"CANB": ["#4FA0F0", "#F5B301"],  # navy lifted to blue, then gold
