@@ -195,14 +195,18 @@ const GAIN_WORDS := {
 	"morale": "(?i)morale", "xp": "development", "board": "(?i)board confidence", "trust": "trusts you (a lot |a little )?more",
 	"fresh": "legs", "promise_win": "Win and", "extend_early": "signs on", "captaincy_swap": "takes the armband",
 	"rush_back": "cleared to play",
+	"new_club_keep": "He stays for",
 }
 const COST_WORDS := {
 	"morale": "(?i)morale", "board": "(?i)board confidence", "trust": "trusts you (a lot |a little )?less",
 	"rest": "misses", "heavy_legs": "Heavy legs", "sore": "breaks down", "expects_game": "expects a game",
 	"start_backing": "expects to be picked", "back_kid": "is promised", "promise_win": "Lose and", "extend_early": "Locked in", "captaincy_swap": "mid-season",
 	"rush_back": "flares", "slow_start": "slowly", "loss_sting": "falls instead",
+	"new_club_keep": "against your cap", "new_club_go": "when this season ends",
 }
-const SAMPLE_FACTS := {"sore_odds": "about 1 in 6", "run_games": 3, "early_price": "$1m", "more_seasons": "two more seasons"}
+const SAMPLE_FACTS := {"sore_odds": "about 1 in 6", "run_games": 3, "early_price": "$1m", "more_seasons": "two more seasons",
+		"new_club": "Tasmania", "keep_seasons": "three more seasons", "keep_price": "$600k", "comp_after": 20,
+		"comp_line": "You receive a draft pick after pick 20, early in the second round."}
 
 
 ## [gains, costs]: the kinds of effect a choice really has (a flag, a note or an
@@ -242,9 +246,9 @@ func _stakes_in(effects: Array) -> Array:
 				gains.append(op)
 			elif d < 0 and not costs.has(op):
 				costs.append(op)
-		elif op in ["xp", "fresh", "promise_win", "extend_early"] and not gains.has(op):
+		elif op in ["xp", "fresh", "promise_win", "extend_early", "new_club_keep"] and not gains.has(op):
 			gains.append(op)
-		if op in ["rest", "heavy_legs", "sore", "expects_game", "start_backing", "back_kid", "promise_win", "extend_early"] and not costs.has(op):
+		if op in ["rest", "heavy_legs", "sore", "expects_game", "start_backing", "back_kid", "promise_win", "extend_early", "new_club_keep", "new_club_go"] and not costs.has(op):
 			costs.append(op)
 	return [gains, costs]
 

@@ -17,6 +17,9 @@ var _logo: TextureRect
 var _pick_real := true
 var _pick_difficulty := "normal"
 var _pick_tutorials := true
+## Canberra joins in 2030 (shown with the feature switch expansion_package).
+var _pick_canberra := false
+var _setup_tight := false
 ## How the next career starts (ARD-M5-016): "redraft" or "real" (real 2026 lists).
 var _pick_start := "redraft"
 var _pick_prospect := false
@@ -253,6 +256,7 @@ func _on_new_career() -> void:
 	_pick_real = GameState.show_real_names
 	_pick_difficulty = GameState.new_career_difficulty()
 	_pick_tutorials = GameState.new_career_tutorials()
+	_pick_canberra = false
 	_pick_prospect = not GameState.forge_player().is_empty()
 	_pick_club = not GameState.forge_club().is_empty()
 	_mode = "setup"
@@ -279,7 +283,10 @@ func _show_setup() -> void:
 	var above := Control.new()
 	above.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_content.add_child(above)
-	var form := UiKit.vbox(UiKit.SECTION)
+	# A fifth choice (Canberra) no longer fits a phone at the usual spacing, and
+	# the button must stay on screen: on a short screen the rows sit closer.
+	_setup_tight = ExpansionBuild.on() and UiKit.view_height(self) < 900.0
+	var form := UiKit.vbox(8 if _setup_tight else UiKit.SECTION)
 	form.name = "NewCareerSetup"
 	form.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	form.custom_minimum_size.x = _column_width(440.0)
@@ -287,7 +294,7 @@ func _show_setup() -> void:
 	var title := UiKit.lbl("New career", UiKit.H1, UiKit.TEXT, true)
 	title.name = "SetupTitle"
 	# A little more under the title than between the sections.
-	title.custom_minimum_size.y = UiKit.H1 * 1.4 + 6
+	title.custom_minimum_size.y = (UiKit.H1 * 1.15) if _setup_tight else (UiKit.H1 * 1.4 + 6)
 	form.add_child(title)
 	form.add_child(_choice("Start", "StartMode", [["redraft", "League redraft"], ["real", "Real 2026 lists"]],
 			_pick_start,
@@ -309,6 +316,14 @@ func _show_setup() -> void:
 			func(k): return ("A short note the first time you open each screen, saying what it shows and how to use it." if k == "on"
 					else "No notes open by themselves. You can change this later in Settings."),
 			func(k): _pick_tutorials = k == "on"))
+	# Canberra, the second new club: a choice made once, here (director,
+	# 2026-10-14). Tasmania joins in 2028 either way.
+	if ExpansionBuild.on():
+		form.add_child(_choice("Canberra", "Canberra", [["out", "19 clubs"], ["in", "Joins in 2030"]],
+				"in" if _pick_canberra else "out",
+				func(k): return ("Tasmania join in 2028 and Canberra in 2030, making 20 clubs. It cannot be changed once the career starts." if k == "in"
+						else "Tasmania join in 2028 and the league stays at 19 clubs. It cannot be changed once the career starts."),
+				func(k): _pick_canberra = k == "in"))
 	# Your Club Forge player, if you made one: he enters this career's first
 	# National Draft like any other prospect.
 	var forged := GameState.forge_player()
@@ -346,7 +361,7 @@ func _show_setup() -> void:
 ## `info` maps the current key to its explanation; `on_pick` records a pick.
 func _choice(title: String, prefix: String, options: Array, current: String,
 		info: Callable, on_pick: Callable) -> VBoxContainer:
-	var v := UiKit.vbox(8)
+	var v := UiKit.vbox(2 if _setup_tight else 8)
 	var head := UiKit.hbox(4)
 	var t := UiKit.lbl(title, UiKit.H2, UiKit.TEXT, true)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -405,6 +420,8 @@ func _start_new_career() -> void:
 	# save replaces it: backing out of Choose your club must not cost the player
 	# the career they had (reset() clears memory only).
 	GameState.reset()
+	if ExpansionBuild.on():
+		GameState.set_canberra(_pick_canberra)
 	# A created club has no real 2026 list, so it only joins a League redraft.
 	if _pick_club and _pick_start != "real":
 		var club := GameState.forge_club()

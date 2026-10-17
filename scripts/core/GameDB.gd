@@ -973,6 +973,7 @@ func _load_clubs() -> Dictionary:
 		d["secondary"] = _hex(d.get("secondary", "#808080"))
 		d["accent"] = _hex(d.get("accent", "#FFD700"))
 		d["enter"] = int(d.get("enter", "2026"))
+		d["enter_data"] = int(d["enter"])
 		out[str(d["code"])] = d
 	return out
 
@@ -980,6 +981,19 @@ func _load_clubs() -> Dictionary:
 ## The year a club first fields a team (2026 for the founding eighteen).
 func enter_year(code: String) -> int:
 	return int(clubs.get(code, {}).get("enter", 2026))
+
+
+## The entry year the data gives a club, whatever this career changed.
+func data_enter_year(code: String) -> int:
+	return int(clubs.get(code, {}).get("enter_data", enter_year(code)))
+
+
+## Change when a club first fields a team, for this career only (a club the
+## career leaves out gets a year that never comes). reload() puts the data's
+## own year back.
+func set_enter_year(code: String, year: int) -> void:
+	if clubs.has(code):
+		(clubs[code] as Dictionary)["enter"] = year
 
 
 ## The clubs active in a given season year, in club order. Fixtures, ladders,
