@@ -53,6 +53,7 @@ func run() -> void:
 	_test_bring_the_heat()
 	_test_defensive_forward()
 	_test_defensive_forward_cards()
+	_test_df_duel_numbers()
 	_test_hot_player_moment()
 	_test_matchups()
 	_test_key_duel_balance()
@@ -3445,6 +3446,40 @@ func _test_press_by_zone() -> void:
 ## on the break come from the constants the match runs on, the card shows the
 ## one attribute the job uses, and the director's requirement holds: a forward
 ## sent still scores, and is a target far less often than the side's others.
+## The Defensive forward's "How it's going" reads the sim's own records.
+func _test_df_duel_numbers() -> void:
+	var seen_pairs := 0
+	var matched := true
+	for seed in [8301, 8302, 8303]:
+		var sim := _sim(seed, "ADE", "MEL")
+		var spare := Matchups.best_interceptor((sim.squads[0] as Squad).ground, 0.0)
+		sim.set_interceptor(0, str(spare.get("id", "")), false)
+		var mine := Matchups.minder_candidates((sim.squads[1] as Squad).ground)
+		var t: Dictionary = (sim.tactics[1] as Dictionary).duplicate()
+		t["spare_accountable"] = true
+		t["spare_minder_id"] = str(mine[0]["id"])
+		sim.set_tactics(1, t)
+		sim.run_quarter()
+		var res: Dictionary = sim.run_quarter()
+		var rid := str(spare["id"])
+		var did := str(mine[0]["id"])
+		var d := MatchNotes.df_duel(res, did, rid)
+		var rec: Array = (sim.roam_pairs as Dictionary).get(rid + "|" + did, [0, 0])
+		var st: Dictionary = sim.player_stats.get(rid, {})
+		matched = matched and d["contests"] == int(rec[0]) and d["df_won"] + d["roamer_won"] == int(rec[0]) 				and d["roamer_intercepts"] == int(st.get("intercepts", 0.0)) 				and d["roamer_rating"] == MatchNotes.rating(st) 				and d["df_rating"] == MatchNotes.rating(sim.player_stats.get(did, {}))
+		# The roamer's pair records never exceed his own roaming contests.
+		var total := 0
+		for k in sim.roam_pairs:
+			if str(k).begins_with(rid + "|"):
+				total += int(sim.roam_pairs[k][0])
+		matched = matched and total <= int(st.get("roam_wins", 0.0)) + int(st.get("roam_losses", 0.0))
+		seen_pairs += total
+	_check(matched and seen_pairs > 0, "Defensive forward duel numbers match the sim's records (%d recorded contests)" % seen_pairs)
+	var lines := MatchNotes.df_duel_lines({"df_id": "x", "roamer_id": "y", "contests": 7, "df_won": 4, "roamer_won": 3,
+			"roamer_intercepts": 6}, "Petty", "Worrell")
+	_check(lines[0] == "Petty won 4 of their 7 contests" and lines[1] == "Worrell: 6 intercepts", "The lines read as the director asked")
+
+
 func _test_defensive_forward_cards() -> void:
 	# Copy-truth: the cost line is built from MINDER_ROAM and MINDER_INVOLVE,
 	# in words (no numbers on the break), and the words follow the constants.

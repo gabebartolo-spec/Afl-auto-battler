@@ -1,5 +1,5 @@
 {
-  "measured_on": "2026-10-06",
+  "measured_on": "2026-10-14",
   "source_run": 37460575183,
   "seconds": {
     "intake": 22,
@@ -26,6 +26,7 @@
     "chronology": 11,
     "coach_market": 105,
     "coach_pathway": 5,
+    "calls": 20,
     "matchday": 66,
     "roles": 12,
     "contracts": 119,
@@ -44,7 +45,11 @@
     "back_nav": 140,
     "family": 15,
     "scroll": 30,
+    "nameink": 10,
     "keyboard": 30,
-    "preseason": 80
+    "preseason": 150,
+    "plan_know": 60,
+    "rowgap": 60,
+    "planpane": 40
   }
 }

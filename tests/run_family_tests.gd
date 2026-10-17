@@ -30,7 +30,16 @@ func _run() -> void:
 	_db = root.get_node("GameDB")
 	_rel = load("res://scripts/core/PlayerRelations.gd")
 	_sheet_script = load("res://scripts/ui/PlayerSheet.gd")
+	# A fixed career, and no generated families in the pools for the sourced
+	# checks below: reset() otherwise draws an unseeded career seed, and a
+	# generated 2027 prospect may be given Jacob a third brother (CI 38555073319).
+	# The generated families have their own checks further down.
+	_state.replay_seed = 2027
 	_state.reset()
+	for pool_arr in [_state.draftee_pool, _db.late_draftees]:
+		for q in pool_arr:
+			q.erase("family")
+			q.erase("family_real_last")
 	root.size = Vector2i(390, 844)
 	_rel.set_rows_for_test(null)
 

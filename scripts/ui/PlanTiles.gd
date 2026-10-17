@@ -57,7 +57,9 @@ static func grid(columns: int, ground: Array, profile: Array, on_pick: Callable 
 		var t := Button.new()
 		t.name = "ClubPlan_%s" % k
 		t.focus_mode = Control.FOCUS_NONE
-		t.custom_minimum_size = Vector2(0, 56)
+		# With plan familiarity on, a plan's tile says how well the side knows it.
+		var known := GameState.plan_known_line(k)
+		t.custom_minimum_size = Vector2(0, 72 if GameState.plan_known_shown() else 56)
 		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		t.tooltip_text = CoachReport.plan_label(k)
 		var face := UiKit.vbox(0)
@@ -74,6 +76,12 @@ static func grid(columns: int, ground: Array, profile: Array, on_pick: Callable 
 		str_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		str_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		face.add_child(str_l)
+		if known != "":
+			var known_l := UiKit.ellipsis(known, 12, UiKit.TEXT)
+			known_l.name = "Known"
+			known_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			known_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			face.add_child(known_l)
 		t.add_child(face)
 		t.pressed.connect(func():
 			GameState.set_club_plan(k)

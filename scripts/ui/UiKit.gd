@@ -411,7 +411,7 @@ const INK_SLOT := {"WBD": 1, "ESS": 1, "COL": -1}
 ## guernsey has no second colour that reads, the second is plain white
 ## (Collingwood is white either way: no hue at all).
 const CLUB_INKS := {
-	"ADE": ["#F0455C", "#FFB81C"],  # red, then gold
+	"ADE": ["#FFC83A", "#F0455C"],  # gold, then red (director 2026-10-14: "why is there no yellow for the crows?"); a gold 14 from West Coast's
 	"BRL": ["#F7CE8A", "#4D90E0"],  # gold, then blue
 	"CAR": ["#6B7CF2", "#F1EEE6"],  # navy lifted to blue, then white
 	"CANB": ["#4FA0F0", "#F5B301"],  # navy lifted to blue, then gold
@@ -641,6 +641,33 @@ static func club_section_body(code: String, content: Control, ink := Color(0, 0,
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	wrap.add_child(content)
 	return wrap
+
+
+## A figure sits next to the name it belongs to (director, 2026-10-14: "having all
+## this space between divorces the number from the source and harms readability").
+## In a row of `name` then `fig`, the name takes a column `name_w` wide (it ellipsises
+## beyond that) instead of stretching, and the figure starts right after it.
+static func near_figure(name_label: Label, fig: Label, name_w := 200.0, fig_w := 0.0) -> void:
+	name_label.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	name_label.custom_minimum_size.x = name_w
+	fig.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	if fig_w > 0.0:
+		fig.custom_minimum_size.x = fig_w
+
+
+## `content` held to a readable width, centred, on a wide screen; the whole width
+## on a phone. The column follows its own width, so a window resize needs no rebuild.
+static func reading_column(content: Control, max_w := 900.0) -> MarginContainer:
+	var m := MarginContainer.new()
+	m.name = "ReadingColumn"
+	m.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	m.add_child(content)
+	m.resized.connect(func():
+		var side := int(maxf(0.0, (m.size.x - max_w) * 0.5))
+		m.add_theme_constant_override("margin_left", side)
+		m.add_theme_constant_override("margin_right", side))
+	return m
 
 
 ## Emphasis roles: weight and size before colour. A person's or thing's name
@@ -1528,11 +1555,19 @@ static func ladder_table(rows: Array, mine: String, width: float, limit := 0,
 	return v
 
 
+const LADDER_CLUB_W := 155.0
+
+
 static func ladder_specs(width: float, full: bool) -> Array:
 	var specs: Array = [
 		{"key": "pos", "title": "#", "w": 26},
 		{"key": "club", "title": "Club", "expand": true},
 	]
+	# Room to spare: the club column stops at a name's width and the figures follow
+	# it, instead of the record sitting a screen away from its club (director,
+	# 2026-10-14).
+	if width > 420.0:
+		specs[1] = {"key": "club", "title": "Club", "w": int(LADDER_CLUB_W), "left": true}
 	if width >= 640.0:
 		specs.append({"key": "p", "title": "P", "w": 28})
 		specs.append({"key": "w", "title": "W", "w": 28})
@@ -1553,8 +1588,11 @@ static func _ladder_header(specs: Array) -> HBoxContainer:
 	var h := hbox(4)
 	for spec in specs:
 		var expand: bool = bool(spec.get("expand", false))
-		h.add_child(_ladder_label(str(spec["title"]), int(spec.get("w", 0)),
-				MUTED, SECONDARY, false, expand))
+		var head := _ladder_label(str(spec["title"]), int(spec.get("w", 0)),
+				MUTED, SECONDARY, false, expand)
+		if bool(spec.get("left", false)):
+			head.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		h.add_child(head)
 	return h
 
 
@@ -1567,7 +1605,11 @@ static func _ladder_data_row(r: Dictionary, pos: int, specs: Array, mine: String
 		var expand: bool = bool(spec.get("expand", false))
 		var w := int(spec.get("w", 0))
 		if key == "club":
-			h.add_child(club_badge(str(r["code"]), SECONDARY, false, true))
+			var cb := club_badge(str(r["code"]), SECONDARY, false, true)
+			if bool(spec.get("left", false)):
+				cb.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+				cb.custom_minimum_size.x = w
+			h.add_child(cb)
 		elif key == "pos":
 			h.add_child(_ladder_label(str(pos), w, col, SECONDARY, is_mine, false))
 		elif key == "rec":
