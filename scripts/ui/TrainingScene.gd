@@ -773,6 +773,7 @@ func _train(player_id: String, key: String, points: int) -> void:
 func _bar(value: int) -> Control:
 	var holder := Control.new()
 	holder.custom_minimum_size = Vector2(0, 8)
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var track := ColorRect.new()
 	track.color = Color(1, 1, 1, 0.10)
@@ -783,6 +784,8 @@ func _bar(value: int) -> Control:
 	fill.set_anchors_preset(Control.PRESET_FULL_RECT)
 	fill.anchor_right = clampf(float(value) / 99.0, 0.0, 1.0)
 	holder.add_child(fill)
+	for bar_part in [track, fill]:
+		bar_part.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return holder
 
 
