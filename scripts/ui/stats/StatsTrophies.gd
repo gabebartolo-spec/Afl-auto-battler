@@ -98,6 +98,12 @@ static func kinds_won(seasons: Array) -> Array:
 	return out
 
 
+## An honour's name as the coach knows it: the club best and fairest carries
+## the club's own medal name (BestAndFairest); the rest keep their league names.
+static func honour_name(key: String, name: String) -> String:
+	return BestAndFairest.award_name(GameState.my_club) if key == "my_bf" else name
+
+
 ## All honours, or one kind of them.
 static func _filter(host: Control, kinds: Array) -> Control:
 	var o := UiKit.option()
@@ -108,7 +114,7 @@ static func _filter(host: Control, kinds: Array) -> Control:
 	o.add_item("All honours", 0)
 	for k in AWARD_KINDS:
 		if kinds.has(str(k[0])):
-			o.add_item(str(k[1]), keys.size())
+			o.add_item(honour_name(str(k[0]), str(k[1])), keys.size())
 			keys.append(str(k[0]))
 	o.select(maxi(0, keys.find(award_filter)))
 	o.item_selected.connect(func(i: int):
@@ -287,7 +293,7 @@ static func player_honours(seasons: Array) -> Array:
 			if str(h[3]) != "":
 				var n := int(r.get(str(h[3]), 0))
 				count = "%d %s" % [n, str(h[4]) if n == 1 else str(h[4]) + "s"]
-			out.append({"key": str(h[0]), "art": str(h[1]), "name": str(h[2]), "id": str(r.get("id", "")),
+			out.append({"key": str(h[0]), "art": str(h[1]), "name": honour_name(str(h[0]), str(h[2])), "id": str(r.get("id", "")),
 					"year": year, "count": count})
 		for id in e.get("my_aa", []):
 			out.append({"key": "all_australian", "art": "all_australian", "name": "All-Australian",

@@ -300,6 +300,45 @@ func _run() -> void:
 	_check(tagline != null and tagline.text == "Build your dynasty.",
 			"The minimal menu uses the approved tagline")
 
+	# --- the offline promise and the browser's storage line (P-70, P-71) -----------
+	var promise: Label = current_scene.find_child("OfflinePromise", true, false)
+	_check(promise != null and promise.text == "Plays offline. No ads, no account.
+Your career stays on your phone.",
+			"The menu prints the offline promise in the approved words")
+	_check(promise != null and promise.visible and promise.autowrap_mode != TextServer.AUTOWRAP_OFF,
+			"The promise is on screen as two deliberate lines")
+	_check(not WebStorage.should_ask(false, false) and WebStorage.should_ask(true, false)
+			and not WebStorage.should_ask(true, true),
+			"The browser is asked to keep the save only on the web, and only until it has answered")
+	_check(WebStorage.is_final("granted") and WebStorage.is_final("refused")
+			and not WebStorage.is_final("pending") and not WebStorage.is_final(""),
+			"A pending or empty answer keeps the question open")
+	_check(WebStorage.notice_due("refused", false) and not WebStorage.notice_due("refused", true)
+			and not WebStorage.notice_due("granted", false) and not WebStorage.notice_due("unsupported", false),
+			"The line is due only when the browser refused and it has not been shown before")
+	_check(current_scene.find_child("StorageNotice", true, false) == null,
+			"No storage line on a desktop or phone menu, nor before the browser answers")
+	_state.set_setting(WebStorage.SHOWN_KEY, false)
+	current_scene.call("_on_storage_answer", "granted")
+	await _settle()
+	_check(current_scene.find_child("StorageNotice", true, false) == null,
+			"A granted request shows no line")
+	current_scene.call("_on_storage_answer", "refused")
+	await _settle()
+	var notice: Label = current_scene.find_child("StorageNotice", true, false)
+	_check(notice != null and notice.text == "Your browser may clear this save when space is short."
+			and bool(_state.get_setting(WebStorage.SHOWN_KEY, false)),
+			"A refusal shows the one plain line and remembers it was shown")
+	_router.to_main_menu(false)
+	await _settle()
+	current_scene.call("_on_storage_answer", "refused")
+	await _settle()
+	_check(current_scene.find_child("StorageNotice", true, false) == null,
+			"The line is not shown again on a later visit")
+	var presets := FileAccess.get_file_as_string("res://export_presets.cfg")
+	_check(presets.contains("user_data_backup/allow=true"),
+			"The Android export turns on the system's own backup of the save")
+
 	# --- settings: appearance and player names apply at once -----------------
 	current_scene.find_child("MenuSettings", true, false).emit_signal("pressed")
 	await _settle()
@@ -682,6 +721,9 @@ func _run() -> void:
 	_check(not digits and not lp_text.to_lower().contains("recommend") and not lp_text.to_lower().contains("should")
 			and not lp_text.to_lower().contains("best choice") and not lp_text.to_lower().contains("suits you"),
 			"The plans and strengths are words, with no advice")
+	var trade_line: Label = hwp.find_child("PlanTradeOff", true, false) if hwp != null else null
+	_check(trade_line != null and trade_line.is_visible_in_tree() and trade_line.text.contains("gives something up"),
+			"How we play says in a line that a plan costs something and buys an edge (P-63)")
 	_check(lp_rows.all(func(b): return (b as Button).size.y >= 44), "Each strength is a thumb-sized tap")
 	if not lp_rows.is_empty():
 		var detail: Label = (lp_rows[0] as Node).get_parent().find_child("Detail", false, false)
@@ -831,7 +873,7 @@ func _run() -> void:
 	await _settle()
 	_check(current_scene.find_child("SimConfirm", true, false) != null and _state.season.round_index == r0,
 			"Sim round asks before playing your match")
-	_check(_screen_text().contains("Play Round %d?" % (r0 + 1)), "The question names the round")
+	_check(_screen_text().contains("Sim Round %d?" % (r0 + 1)), "The question names the round")
 	_router.handle_back(true)
 	await _settle()
 	_check(_router.current() == "hub" and current_scene.find_child("SimConfirm", true, false) == null
@@ -1636,11 +1678,13 @@ func _run() -> void:
 	await _test_season_awards()
 	await _test_back_arrow_taps()
 	await _test_finals_card_taps()
+	await _test_remembered()
 	_test_type_roles()
 	await _test_names_fit()
 	_state.delete_saved_career()
 	await _new_career_keeps_the_save()
 	await _pc_hub_and_list_layout()
+	await _list_shape_fits_phones()
 	print("Career UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
@@ -1665,6 +1709,131 @@ func _test_back_arrow_taps() -> void:
 			why = await Tap.tap(b)
 			await _settle()
 		_check(_router.current() == "hub", "Tapping back on %s gets you out (%s)" % [key, why if why != "" else "ok"])
+
+
+## P-37, the club remembers him (director, 2026-10-18). A seeded Fremantle list:
+## one player with a premiership, a best and fairest, a debut with a goal in it
+## and an injury he came back from; another with only the injury; a third with
+## nothing. The sheet shows the three that matter most, newest first, and the
+## injury waits; the release confirm says the one biggest fact, and a real tap on
+## Release then Cancel leaves him and every fact where they were.
+func _test_remembered() -> void:
+	var sheet_script = load("res://scripts/ui/PlayerSheet.gd")
+	var facts_script = load("res://scripts/sim/CareerFacts.gd")
+	var kit = load("res://scripts/ui/UiKit.gd")
+	_state.reset()
+	_state.career_seed = 7737
+	_state.replay_seed = 7737
+	_state.start_season("FRE", _db.club_list("FRE"))
+	var year: int = _state.season_year
+	var young: Array = _state.my_list.filter(func(q): return float(q.get("age", 30.0)) < 26.0)
+	var star: Dictionary = young[0]
+	var hurt: Dictionary = young[1]
+	var blank: Dictionary = young[2]
+	var star_id := str(star["id"])
+	star["career"] = {"games": 12, "goals": 14, "through": year - 1, "unknown": [],
+			"stints": [["FRE", year - 2, year - 1, 12, 14]]}
+	star["firsts"] = {"debut": {"year": year - 2, "label": "Round 7"}, "goal": {"year": year - 2, "label": "Round 7"}}
+	_state.honour_roll = [{"year": year - 1, "my_club": "FRE", "premier": "", "my_bf": [{"id": star_id}]},
+			{"year": year - 2, "my_club": "FRE", "premier": "FRE", "my_bf": []}]
+	facts_script.add(_state.career_facts, star_id, facts_script.row(year - 1, "Round 3", "injury", "FRE", "", "hamstring"))
+	hurt["career"] = {"games": 5, "goals": 0, "through": year - 1, "unknown": [],
+			"stints": [["FRE", year - 1, year - 1, 5, 0]]}
+	facts_script.add(_state.career_facts, str(hurt["id"]), facts_script.row(year - 1, "Round 3", "injury", "FRE", "", "knee"))
+	blank["career"] = {"games": 0, "goals": 0, "through": year - 1, "unknown": [], "stints": []}
+	blank.erase("firsts")
+	blank.erase("backed")
+	_state.career_facts.erase(str(blank["id"]))
+	_state.season_tally.erase(str(blank["id"]))
+	for q in [star, hurt, blank]:
+		for key in ["injury_weeks", "injury_kind", "suspension_weeks"]:
+			q.erase(key)
+	root.size = Vector2i(390, 844)
+
+	# The sheet: three lines, newest first; the injury does not make the cut.
+	var host := Control.new()
+	host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(host)
+	var sheet: Control = sheet_script.open(host, star)
+	await _settle()
+	var lines := []
+	for i in range(5):
+		var l := sheet.find_child("Remembered_%d" % i, true, false) as Label
+		if l != null:
+			lines.append(l.text)
+	_check(lines == ["Best and fairest, %d." % (year - 1), "Premiership, %d." % (year - 2),
+			"Debuted in Round 7, %d, and kicked his first goal." % (year - 2)],
+			"His sheet has three remembered facts, newest first, and not the injury (%s)" % str(lines))
+	var title := sheet.find_child("WithUsTitle", true, false) as Label
+	var name_l := sheet.find_child("ProfileName", true, false) as Label
+	var ink: Color = kit.club_name_colour(kit.club_ink("FRE"))
+	_check(title != null and title.text == "With us" and title.get_theme_color("font_color").is_equal_approx(ink)
+			and name_l != null and name_l.get_theme_color("font_color").is_equal_approx(ink),
+			"The block and his name are in Fremantle's ink, not grey")
+	sheet.queue_free()
+	var sheet2: Control = sheet_script.open(host, hurt)
+	await _settle()
+	var l2 := sheet2.find_child("Remembered_0", true, false) as Label
+	_check(l2 != null and l2.text == "Knee injury in Round 3, %d; he came back." % (year - 1),
+			"With nothing bigger, the injury he came back from is on his sheet (%s)" % (l2.text if l2 != null else "none"))
+	sheet2.queue_free()
+	var sheet3: Control = sheet_script.open(host, blank)
+	await _settle()
+	_check(sheet3.find_child("WithUsTitle", true, false) == null,
+			"Someone yet to play for you has no With us block")
+	sheet3.queue_free()
+	host.queue_free()
+	await _settle()
+
+	# The release confirm, by a finger.
+	_state.season.round_index = _state.season.fixture.size()
+	_state.open_offseason()
+	for q in [star, hurt, blank]:
+		q["contract_years"] = 1
+		q.erase("retiring")
+		q.erase("resigned")
+	# Room to let one go: a list at its minimum cannot release anyone.
+	for i in range(3):
+		var extra: Dictionary = blank.duplicate(true)
+		extra["id"] = "rem_extra_%d" % i
+		_state.my_list.append(extra)
+	var scene: Control = load("res://scenes/OffseasonScene.tscn").instantiate()
+	root.add_child(scene)
+	await _settle()
+	var facts_before := (_state.career_facts.get(star_id, []) as Array).size()
+	var list_before: int = _state.my_list.size()
+	var row := scene.find_child("Contract_" + star_id, true, false)
+	var release: Button = row.find_child("Release", true, false) if row != null else null
+	var why: String = await Tap.tap(release) if release != null else "no Release button"
+	await _settle()
+	var said := scene.find_child("ReleaseRemembered", true, false) as Control
+	_check(why == "" and said != null and scene.find_child("ReleaseConfirmation", true, false) != null,
+			"A finger on Release opens the confirm (%s)" % why)
+	var said_text: String = (said as Label).text if said is Label else ""
+	_check(said_text == "He was with you for the %d premiership." % (year - 2),
+			"The confirm says the biggest remembered fact (%s)" % said_text)
+	var cancel: Button = scene.find_child("CancelRelease", true, false)
+	var why_c: String = await Tap.tap(cancel) if cancel != null else "no Cancel"
+	await _settle()
+	_check(why_c == "" and scene.find_child("ReleaseConfirmation", true, false) == null
+			and _state.my_list.size() == list_before
+			and (_state.career_facts.get(star_id, []) as Array).size() == facts_before,
+			"A finger on Cancel leaves him on the list and every fact kept (%s)" % why_c)
+	# A player with no past with you gets the same two buttons and no line.
+	var brow := scene.find_child("Contract_" + str(blank["id"]), true, false)
+	var brel: Button = brow.find_child("Release", true, false) if brow != null else null
+	var why_b: String = await Tap.tap(brel) if brel != null else "no Release button"
+	await _settle()
+	_check(why_b == "" and scene.find_child("ConfirmRelease", true, false) != null
+			and scene.find_child("ReleaseRemembered", true, false) == null,
+			"With nothing to remember the confirm is quiet (%s)" % why_b)
+	var go: Button = scene.find_child("ConfirmRelease", true, false)
+	var why_g: String = await Tap.tap(go) if go != null else "no confirm"
+	await _settle()
+	_check(why_g == "" and _state.list_player(str(blank["id"])).is_empty() and _state.my_list.size() == list_before - 1,
+			"A finger on Release player lets him go (%s)" % why_g)
+	scene.queue_free()
+	await _settle()
 
 
 ## The finals cards on a phone: a club on its week off (no match, so no Play match) is shown the
@@ -1780,11 +1949,17 @@ func _test_season_awards() -> void:
 	next.emit_signal("pressed")
 	_check(scene._done, "A tap completes the winner animation without advancing the award")
 	_check(var_to_str(_state.season_awards) == before, "Revealing awards does not mutate votes or results")
+	var seen := ""
 	for i in range(20):
 		if not is_instance_valid(ceremony):
 			break
+		for l in ceremony.find_children("*", "Label", true, false):
+			seen += (l as Label).text + " | "
 		next.emit_signal("pressed")
 		await _settle()
+	# Collingwood's best and fairest is the Copeland Trophy, named where the award is presented (P-54).
+	_check(seen.contains("Copeland Trophy") and not seen.contains("Best and fairest"),
+			"The awards screen presents Collingwood's best and fairest as the Copeland Trophy (%s)" % seen.substr(0, 400))
 	_check(not is_instance_valid(ceremony) and _state.season_awards.get("presentation_seen", false),
 		"Completing awards records viewing and returns to review")
 	_check(_state.save_career(), "Awards viewed state saves")
@@ -2020,3 +2195,102 @@ func _pc_hub_and_list_layout() -> void:
 	var cap_title: Control = cap.find_child("SectionTitle", true, false) if cap != null else null
 	_check(cap_title != null and cap_title.size.x >= 60.0, "The Captaincy label is visible beside the names (%.0f wide)" % (cap_title.size.x if cap_title != null else -1.0))
 	_check(cap != null and cap.size.x < 640.0 and cap.size.y >= 44.0, "My list's Captaincy row is not a bar across the PC window and is thumb high (%.0f x %.0f)" % [cap.size.x if cap != null else -1.0, cap.size.y if cap != null else -1.0])
+
+
+## The Shape pane on My list is reachable on a phone (the screen sweep,
+## 2026-10-18: the board ran to y 1005 on an 844 px screen and the tree had no
+## scroll). Every control in the pane is on screen, or inside a scroll that
+## brings it on screen; a finger's tap on a guernsey at the foot of the oval
+## opens his profile; a swipe that starts on a guernsey scrolls the pane.
+func _list_shape_fits_phones() -> void:
+	for sz in [Vector2i(360, 740), Vector2i(390, 844), Vector2i(412, 915)]:
+		var tag := "%dx%d" % [sz.x, sz.y]
+		root.size = sz
+		_state.reset()
+		_state.start_season("MEL", _db.club_list("MEL"))
+		_router.stack = []
+		_router.go("main")
+		await _settle()
+		_router.go("hub")
+		await _settle()
+		_router.go("list")
+		for i in range(6):
+			await _settle()
+		var win := Rect2(Vector2.ZERO, Vector2(sz))
+		var board: Control = current_scene.find_child("Best22Board", true, false)
+		_check(board != null, "My list's Shape pane shows the board (%s)" % tag)
+		if board == null:
+			continue
+		var stray := []
+		var count := 0
+		for c in board.find_children("*", "Control", true, false):
+			var ctl := c as Control
+			# The boxes that hold the oval and the bench are as tall as their
+			# contents; what a finger meets is the controls inside them.
+			if not ctl.is_visible_in_tree() or ctl.size.x <= 0.0 or ctl.size.y <= 0.0 or ctl is BoxContainer:
+				continue
+			count += 1
+			if win.encloses(ctl.get_global_rect()):
+				continue
+			var sc: ScrollContainer = null
+			var p := ctl.get_parent()
+			while p != null and sc == null:
+				if p is ScrollContainer:
+					sc = p
+				p = p.get_parent()
+			if sc == null:
+				stray.append("%s %s" % [ctl.name, str(ctl.get_global_rect())])
+				continue
+			sc.ensure_control_visible(ctl)
+			await process_frame
+			if not win.encloses(ctl.get_global_rect()):
+				stray.append("%s %s after scrolling" % [ctl.name, str(ctl.get_global_rect())])
+		_check(count > 20 and stray.is_empty(), "Every control in the Shape pane is on screen or a scroll away (%s: %d controls, %d stray, first %s)" % [tag, count, stray.size(), stray.slice(0, 2)])
+		# The foot of the oval and the last bench spot take a finger.
+		var sc2: ScrollContainer = current_scene.find_child("ShapeScroll", true, false)
+		_check(sc2 != null and sc2.get_v_scroll_bar().max_value > sc2.size.y, "The Shape pane scrolls (%s)" % tag)
+		var spot: Control = board.find_child("Spot_FF", true, false)
+		var bench: Control = board.find_child("BenchSpot_4", true, false)
+		_check(spot != null and bench != null, "The full forward and the last bench spot are there (%s)" % tag)
+		if spot == null or bench == null:
+			continue
+		var shown := [""]
+		board.inspect.connect(func(id: String): shown[0] = id)
+		var why: String = await Tap.tap(spot)
+		_check(why == "" and shown[0] != "", "A finger on the full forward at the foot of the oval opens his profile (%s: %s)" % [tag, why])
+		current_scene.call("_close_profile")
+		await _settle()
+		if sz.x != 390:
+			continue
+		# A swipe that begins on a guernsey scrolls the pane and opens nobody.
+		sc2 = current_scene.find_child("ShapeScroll", true, false)
+		board = current_scene.find_child("Best22Board", true, false)
+		var from: Control = board.find_child("Spot_C", true, false)
+		sc2.scroll_vertical = 0
+		await process_frame
+		var opened := [false]
+		board.inspect.connect(func(_id: String): opened[0] = true)
+		var a := from.get_global_rect().get_center()
+		var t := InputEventScreenTouch.new()
+		t.index = 0
+		t.position = a
+		t.pressed = true
+		Input.parse_input_event(t)
+		Input.flush_buffered_events()
+		for step in range(1, 9):
+			var d := InputEventScreenDrag.new()
+			d.index = 0
+			d.position = a + Vector2(0, -30.0 * step)
+			d.relative = Vector2(0, -30.0)
+			Input.parse_input_event(d)
+			Input.flush_buffered_events()
+			await process_frame
+		var up := InputEventScreenTouch.new()
+		up.index = 0
+		up.position = a + Vector2(0, -240.0)
+		up.pressed = false
+		Input.parse_input_event(up)
+		Input.flush_buffered_events()
+		await _settle()
+		_check(sc2.scroll_vertical > 100 and not opened[0], "A swipe starting on a guernsey scrolls the Shape pane and opens nobody (%s: scrolled %d)" % [tag, sc2.scroll_vertical])
+

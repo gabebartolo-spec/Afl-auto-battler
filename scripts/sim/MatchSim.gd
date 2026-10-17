@@ -60,6 +60,10 @@ var interceptor_changes: Array = []
 ## forward id -> {"side": attacking side, "contests": [[q, defender id,
 ## forward marked, goal from it]]}.
 var duel_log := {}
+## The loose defender against the player he met in a roaming contest:
+## "roamer id|target id" -> [contests, won by the roamer]. A record only; the
+## contests are decided as before (Defensive forward detail at the breaks).
+var roam_pairs := {}
 ## Match-ups changed during the match: [{"q", "side" (defending), "fwd", "def"}].
 var duel_changes: Array = []
 ## The calls a side's coach has made himself (coach_interceptor, coach_matchup,
@@ -944,7 +948,7 @@ func _tag_parts(side: int) -> Array:
 	var theirs := 0.0
 	var ours := 0.0
 	var tagged := _on_ground(side, _tag_id(1 - side))
-	if not tagged.is_empty() and taggable(tagged):
+	if not tagged.is_empty() and can_be_tagged(tagged):
 		theirs = (1.0 - _tag_share(1 - side)) * _mid_value(tagged, n_centre, n_mids)
 	if _tag_id(side) != "" and not _on_ground(1 - side, _tag_id(side)).is_empty():
 		var t = tagger_of(side)
@@ -1018,6 +1022,19 @@ static func disposal_efficiency(st: Dictionary) -> int:
 	if d <= 0.0:
 		return 0
 	return int(round(100.0 * float(st.get("effective_disposals", 0.0)) / d))
+
+
+## A roaming contest decided: the roamer's win or loss, and against whom.
+func _roam_note(roamer: Dictionary, target, won: bool) -> void:
+	_p(roamer, "roam_wins" if won else "roam_losses")
+	if target == null or (target is Dictionary and (target as Dictionary).is_empty()):
+		return
+	var key := "%s|%s" % [str(roamer.get("id", "")), str(target.get("id", ""))]
+	var rec: Array = roam_pairs.get(key, [0, 0])
+	rec[0] = int(rec[0]) + 1
+	if won:
+		rec[1] = int(rec[1]) + 1
+	roam_pairs[key] = rec
 
 
 func _p(player, key: String, n := 1.0) -> void:
@@ -1282,7 +1299,7 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String, ctx: Diction
 	# A Crumber lives at the feet of the pack: he is there when it spills.
 	if purpose == "crumb" and _trait(p, "crumber"):
 		out *= CRUMBER_AT_FEET
-	if id == str(ctx["their_tag"]) and taggable(p) and (carrying or purpose == "shooter" or purpose == "crumb"):
+	if id == str(ctx["their_tag"]) and can_be_tagged(p) and (carrying or purpose == "shooter" or purpose == "crumb"):
 		out *= float(ctx["tag_share"])
 	# Our tagger is playing the man, not the ball.
 	if carrying and id == str(ctx["tagger"]):
@@ -2340,7 +2357,7 @@ func _general_aerial_contest(side: int, mark_fp: float, carrier) -> Dictionary:
 				infringement["offender"], infringement["recipient"],
 				str(infringement["cause"]), str(infringement["label"]))
 		if roaming:
-			_p(roamer, "roam_wins" if free_side == opp else "roam_losses")
+			_roam_note(roamer, target, free_side == opp)
 		return {"outcome": "free", "fp": mark, "actor": infringement["recipient"],
 				"free_side": free_side}
 
@@ -2363,7 +2380,7 @@ func _general_aerial_contest(side: int, mark_fp: float, carrier) -> Dictionary:
 		mev["from_id"] = "" if carrier == null else str(carrier.get("id", ""))
 		if roaming:
 			mev["roaming_interceptor_id"] = str(roamer.get("id", ""))
-			_p(roamer, "roam_losses")
+			_roam_note(roamer, target, false)
 		return {"outcome": "mark", "fp": mark_fp, "actor": target}
 
 	var spoil_p := clampf(GENERAL_SPOIL_BASE
@@ -2387,10 +2404,10 @@ func _general_aerial_contest(side: int, mark_fp: float, carrier) -> Dictionary:
 		if roaming:
 			sev["roaming_interceptor"] = defender == roamer
 			if defender == roamer:
-				_p(roamer, "roam_wins")
+				_roam_note(roamer, target, true)
 		return {"outcome": "loose", "fp": mark_fp, "actor": defender}
 	if roaming:
-		_p(roamer, "roam_losses")
+		_roam_note(roamer, target, false)
 	return {}
 
 
@@ -2954,6 +2971,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	var late := false
 	var roamer := _roaming_interceptor(opp)
 	var roam_shift := 0.0
+	var roam_target = shooter
 	if not roamer.is_empty() and str(roamer.get("id", "")) != str(defender.get("id", "")):
 		var u := aerial_rng.randf()
 		if u < _roam_chance(opp):
@@ -2976,7 +2994,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 				infringement["offender"], infringement["recipient"],
 				str(infringement["cause"]), str(infringement["label"]))
 		if roaming:
-			_p(roamer, "roam_wins" if free_side == opp else "roam_losses")
+			_roam_note(roamer, shooter, free_side == opp)
 		return {"outcome": "free", "fp": mark_fp, "actor": infringement["recipient"],
 				"free_side": free_side}
 
@@ -3031,7 +3049,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 			mev["against_id"] = str((matched if not matched.is_empty() else defender).get("id", ""))
 		if roaming:
 			mev["roaming_interceptor_id"] = str(roamer.get("id", ""))
-			_p(roamer, "roam_losses")
+			_roam_note(roamer, shooter, false)
 	var spoil_edge := 0.05 if defender != null and _trait(defender, "interceptor") else 0.0
 	var spoil_read := dfn.def_intercept
 	if not matched.is_empty():
@@ -3051,7 +3069,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		_t(opp, "spoils")
 		_p(spoiler, "spoils")
 		if roaming and spoiler == roamer:
-			_p(roamer, "roam_wins")
+			_roam_note(roamer, shooter, true)
 	if rng.randf() < float(T["one_percenter_share"]):
 		_t(opp, "one_percenters")
 		_p(_one_percenter(opp), "one_percenters")
@@ -3085,7 +3103,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 			goal_p *= 1.0 + (0.15 if marked else 0.08) * gap
 		behind_p *= 1.0 + 0.05 * gap
 		if roaming and not marked:
-			_p(roamer, "roam_losses")
+			_roam_note(roamer, roam_target, false)
 	# Beaten in the air by his direct opponent, a key forward rarely gets the
 	# shot himself: the ball spills or the defender clears it.
 	if not matched.is_empty() and not marked:
@@ -3587,6 +3605,7 @@ func begin_quarter() -> void:
 	tactics_history.append({
 		"quarter": current_quarter,
 		"plans": [(tactics[0] as Dictionary).duplicate(), (tactics[1] as Dictionary).duplicate()],
+		"rotations": [str(rotation_policy[0]), str(rotation_policy[1])],
 	})
 	_q_active = true
 	_q_i = 0
@@ -3941,6 +3960,7 @@ func result() -> Dictionary:
 		"moments": moments.duplicate(true),
 		"interchanges": interchanges.duplicate(),
 		"duels": duel_log.duplicate(true),
+		"roam_pairs": roam_pairs.duplicate(true),
 		"duel_changes": duel_changes.duplicate(true),
 		"matchups": duels.duplicate(true),
 		"interceptor": interceptor.duplicate(),
@@ -4203,10 +4223,10 @@ func _drop_tag_on(id: String) -> void:
 func tag_target_ok(owner: int, id: String) -> bool:
 	var g := _on_ground(owner, id)
 	if not g.is_empty():
-		return midfielder_on_ground(g)
+		return can_be_tagged(g)
 	for p in (squads[owner] as Squad).bench:
 		if str(p["id"]) == id:
-			return midfielder_on_ground(p)
+			return can_be_tagged(p)
 	return false
 
 
@@ -4273,9 +4293,14 @@ func _auto_rotate(side: int) -> void:
 	var policy: Dictionary = ROTATION_POLICIES.get(rotation_policy[side], ROTATION_POLICIES["normal"])
 	var worst := -1
 	var worst_e := 101.0
+	var named_tagger := str((tactics[side] as Dictionary).get("tagger_id", "")) if _tag_id(side) != "" else ""
 	for i in range(sq.ground.size()):
 		var p: Dictionary = sq.ground[i]
 		if str(_held.get(str(p["id"]), "")) == "keep":
+			continue
+		# The tagger the coach named stays on the ground while his tag is on
+		# (director, 2026-10-14); he still tires, and injuries still apply.
+		if named_tagger != "" and str(p["id"]) == named_tagger:
 			continue
 		var e := float(energy.get(str(p["id"]), 100.0))
 		var line := float(policy["star"]) if int(p["overall"]) >= STAR_OVR else float(policy["role"])
@@ -5279,9 +5304,18 @@ func _lost_quarter(side: int, q: int) -> bool:
 	return pts.call(side) < pts.call(1 - side)
 
 
-## A tag is a midfield job: only a midfielder (centre or wing) can be tagged.
+## A tag is a midfield job: only a midfielder (centre or wing) is picked for
+## one by the AI and the match moments.
 static func taggable(p: Dictionary) -> bool:
 	return midfielder_on_ground(p)
+
+
+## What the coach may tag: anyone who can play midfield, by his first or
+## second position, wherever he lines up today (director, 2026-10-14: a
+## mid/forward like Rankine could not be tagged). A ruck or defender with no
+## midfield position still cannot.
+static func can_be_tagged(p: Dictionary) -> bool:
+	return Ratings.positions(p).has("MID")
 
 
 ## Playing in the midfield today and a midfielder by position. The match-day
