@@ -258,6 +258,7 @@ static func attr_bar(key: String, label: String, value: float) -> Control:
 	h.add_child(l)
 	var holder := Control.new()
 	holder.custom_minimum_size = Vector2(70, 9)
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var bar := ColorRect.new()
 	bar.position = Vector2.ZERO
@@ -269,6 +270,8 @@ static func attr_bar(key: String, label: String, value: float) -> Control:
 	fill.size = Vector2(70.0 * clampf(value / 99.0, 0.0, 1.0), 7)
 	fill.color = attr_colour(value)
 	holder.add_child(fill)
+	for bar_part in [bar, fill]:
+		bar_part.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_child(holder)
 	var n := UiKit.lbl(str(int(round(value))), UiKit.SMALL, UiKit.TEXT)
 	n.custom_minimum_size = Vector2(26, 0)
@@ -338,12 +341,16 @@ static func _identity(v: VBoxContainer, p: Dictionary) -> Control:
 	row.name = "ProfileNickname"
 	var nl := UiKit.lbl("\"%s\"" % nick if nick != "" else "", UiKit.BODY, UiKit.MUTED)
 	nl.name = "NicknameText"
+	# One line, never a letter per line: the open field must not squeeze it.
+	nl.autowrap_mode = TextServer.AUTOWRAP_OFF
+	nl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(nl)
 	var mine := not GameState.list_player(str(p.get("id", ""))).is_empty()
 	if mine:
 		var add_text := "Add a nickname"
 		var edit := UiKit.btn(add_text if nick == "" else "Change", UiKit.SMALL)
 		edit.name = "NicknameEdit"
+		edit.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		if nick == "":
 			# No nickname yet: a full-width outline button at the foot, not a chip.
 			edit.custom_minimum_size = Vector2(0, 48)
@@ -355,6 +362,8 @@ static func _identity(v: VBoxContainer, p: Dictionary) -> Control:
 		field.max_length = GameState.NICKNAME_MAX
 		field.visible = false
 		field.custom_minimum_size = Vector2(180, 0)
+		field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		field.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		if nick == "":
 			# The field opens above the button.
 			var stack := UiKit.vbox(6)
