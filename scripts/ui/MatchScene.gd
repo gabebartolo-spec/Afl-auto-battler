@@ -728,17 +728,39 @@ func _show_coach_box() -> void:
 	var plan_known := UiKit.lbl("", UiKit.SECONDARY, UiKit.TEXT, true)
 	plan_known.name = "PlanKnown"
 	plan_known.visible = false
-	var plan_note := NameInk.rich(UiKit.SMALL, UiKit.MUTED)
+	# The plan under the buttons, in short separate lines: what it does, what
+	# it gains and costs, what it beats, and who makes it work.
+	var plan_note := UiKit.vbox(3)
 	plan_note.name = "PlanNote"
-	plan_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var my_ground: Array = (sim.squads[_my_side] as Squad).ground
 	var sync_note := func(key: String) -> void:
-		var t := CoachReport.plan_summary(key)
+		for c in plan_note.get_children():
+			plan_note.remove_child(c)
+			c.queue_free()
+		var d := CoachReport.plan_parts(key)
+		var does := UiKit.lbl(str(d["does"]), UiKit.BODY, UiKit.TEXT, true)
+		does.name = "PlanDoes"
+		does.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		plan_note.add_child(does)
+		for part in [["gain", "Gain:", "PlanGain"], ["cost", "Cost:", "PlanCost"]]:
+			if d.has(part[0]):
+				plan_note.add_child(_plan_row(str(part[1]), str(d[part[0]]), str(part[2])))
+		if d.has("beats"):
+			var beats := UiKit.lbl(str(d["beats"]), UiKit.SECONDARY, UiKit.TEXT)
+			beats.name = "PlanBeats"
+			beats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			plan_note.add_child(beats)
 		# Who makes it work: the plan's upside rests on them (PlanFit).
-		var fit := GameState.plan_fit_line(my_ground, key)
-		if fit != "":
-			t += " " + fit
-		NameInk.set_line(plan_note, t, _names())
+		var fit := GameState.plan_fit_short(my_ground, key)
+		if not fit.is_empty():
+			var who := UiKit.vbox(0)
+			who.name = "PlanWho"
+			var judged := _say(str(fit["judged"]), UiKit.SECONDARY, UiKit.TEXT)
+			judged.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			who.add_child(judged)
+			who.add_child(_plan_row("Best for it:", str(fit["names"]), "PlanBest"))
+			plan_note.add_child(UiKit.spacer(2))
+			plan_note.add_child(who)
 		# How well the side knows it (plan familiarity): a decision, so at full strength.
 		var known := GameState.plan_known_line(key)
 		plan_known.text = known
@@ -894,14 +916,10 @@ func _show_coach_box() -> void:
 	# The rest of the calls, all in view (director, 2026-10-09: no "More
 	# calls" button).
 	var more: VBoxContainer = col_c
-	var syn_line := _synergy_line()
-	var syn_label: Label = null
-	if syn_line != "":
-		var sl := UiKit.lbl(syn_line, UiKit.SMALL, UiKit.MUTED)
-		sl.set_meta("break_unit", true)
-		sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		more.add_child(sl)
-		syn_label = sl
+	var syn_label: Control = _synergy_block()
+	if syn_label != null:
+		syn_label.set_meta("break_unit", true)
+		more.add_child(syn_label)
 
 	var mine := _roster_side(_my_side)
 
@@ -997,11 +1015,10 @@ func _show_coach_box() -> void:
 	# yours and theirs, share a column, so every column fits a 720-unit
 	# screen.
 	var tail: VBoxContainer = col_b
-	var pep_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+	var pep_note := UiKit.vbox(3)
 	pep_note.name = "PepNote"
-	pep_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var sync_pep := func(key: String) -> void:
-		pep_note.text = CoachReport.pep_summary(key)
+		_fill_note_lines(pep_note, CoachReport.pep_summary(key))
 	# Four talks: a two-column grid of their full names, which fits a 360 phone
 	# and the PC column alike (one row of four ran off a phone).
 	var pep := _choice_grid("PepPicker", PEP_TALKS, calls, "pep", 2, sync_pep)
@@ -1012,11 +1029,10 @@ func _show_coach_box() -> void:
 	var rot_opts := []
 	for k in MatchSim.ROTATION_POLICIES:
 		rot_opts.append([str(k), str(ROTATION_SHORT.get(k, MatchSim.ROTATION_POLICIES[k]["label"]))])
-	var rot_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+	var rot_note := UiKit.vbox(3)
 	rot_note.name = "RotationNote"
-	rot_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var sync_rot := func(key: String) -> void:
-		rot_note.text = str(MatchSim.ROTATION_POLICIES[key]["text"])
+		_fill_note_lines(rot_note, str(MatchSim.ROTATION_POLICIES[key]["text"]))
 	var rot := _segmented("RotationPicker", rot_opts, calls, "rotation", sync_rot)
 	var rot_block := _call_block("Rotations", rot)
 	rot_block.name = "RotationsBlock"
@@ -1273,9 +1289,9 @@ func _mount_one_line(c: Dictionary) -> void:
 		# Its spacer and its own heading: the sheet or the pane is headed already.
 		for i in range(mini(2, mu.get_child_count())):
 			(mu.get_child(i) as Control).visible = false
-	body.call("plan", [take.call("PlanPicker", true), take.call("PlanNote"), c["syn"]])
-	body.call("pep", [take.call("PepPicker", true), take.call("PepNote")])
-	body.call("rot", [take.call("RotationsBlock"), take.call("RotationNote")])
+	body.call("plan", [take.call("PlanPicker", true), take.call("PlanNote"), _calls_record("gameplan"), c["syn"]])
+	body.call("pep", [take.call("PepPicker", true), take.call("PepNote"), _calls_record("pep")])
+	body.call("rot", [take.call("RotationsBlock"), take.call("RotationNote"), _calls_record("rotation")])
 	body.call("tag", [fact, take.call("TagPicker", true), who_wb if wide else who_line, take.call("TagNote")])
 	body.call("mu", [mu])
 	body.call("minder", [take.call("MinderBlock")])
@@ -1938,14 +1954,107 @@ func _break_answers() -> Dictionary:
 	return out
 
 
-func _synergy_line() -> String:
+## A "Gain:" / "Cost:" style row: the marker bold, the sentence beside it, both
+## in full ink (the card-stakes pattern).
+func _plan_row(mark: String, text: String, node_name: String) -> Control:
+	var item := UiKit.hbox(6)
+	item.name = node_name
+	var mk := UiKit.lbl(mark, UiKit.SECONDARY, UiKit.TEXT, true)
+	mk.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	mk.autowrap_mode = TextServer.AUTOWRAP_OFF
+	item.add_child(mk)
+	var l := _say(text, UiKit.SECONDARY, UiKit.TEXT)
+	l.name = "Text"
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	item.add_child(l)
+	return item
+
+
+## A call's words as short separate lines in full ink: the first bold, then one
+## line for each clause ("; " and ": " break a line).
+func _fill_note_lines(into: VBoxContainer, text: String) -> void:
+	for c in into.get_children():
+		into.remove_child(c)
+		c.queue_free()
+	var bits := text.replace(": ", "|").replace("; ", "|").split("|", false)
+	for i in range(bits.size()):
+		var piece := str(bits[i]).strip_edges()
+		piece = piece.substr(0, 1).to_upper() + piece.substr(1)
+		var l := UiKit.lbl(piece, UiKit.BODY if i == 0 else UiKit.SECONDARY, UiKit.TEXT, i == 0)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		into.add_child(l)
+
+
+## The calls so far this match, one line a quarter played, under a call's words:
+## "Q1  Demons: Defensive press  ·  Crows: Attack corridor". Game plans are
+## shown for both clubs (the break already tells you theirs). Pep talks and
+## rotations of the other club are hidden from the coach, so those show only
+## yours. Nothing before the first bounce.
+func _calls_record(kind: String) -> Control:
+	var hist: Array = GameState.pending_sim.tactics_history
+	if hist.is_empty():
+		return null
+	var v := UiKit.vbox(3)
+	v.name = "CallsRecord_" + kind
+	v.add_child(UiKit.spacer(6))
+	v.add_child(UiKit.lbl("Calls so far", UiKit.SECONDARY, UiKit.TEXT, true))
+	for e in hist:
+		var plans: Array = e["plans"]
+		var side_words := func(side: int) -> String:
+			if kind == "gameplan":
+				return CoachReport.plan_label(str((plans[side] as Dictionary).get("gameplan", "balanced")))
+			if kind == "pep":
+				return CoachReport.pep_label(str((plans[side] as Dictionary).get("pep", "steady")))
+			var rot := str((e.get("rotations", ["normal", "normal"]) as Array)[side])
+			return str(ROTATION_SHORT.get(rot, rot))
+		var sides: Array = [_my_side, 1 - _my_side] if kind == "gameplan" else [_my_side]
+		var row := HFlowContainer.new()
+		row.add_theme_constant_override("h_separation", 0)
+		row.name = "CallsRecordRow_Q%d" % int(e["quarter"])
+		var qn := UiKit.lbl("Q%d  " % int(e["quarter"]), UiKit.SECONDARY, UiKit.TEXT, true)
+		qn.autowrap_mode = TextServer.AUTOWRAP_OFF
+		row.add_child(qn)
+		for i in range(sides.size()):
+			var side: int = sides[i]
+			var code := str((sim_squad_code(side)))
+			if i > 0:
+				var dot := UiKit.lbl("  ·  ", UiKit.SECONDARY, UiKit.TEXT)
+				dot.autowrap_mode = TextServer.AUTOWRAP_OFF
+				row.add_child(dot)
+			var nm := UiKit.lbl(GameDB.club_short(code) + ": ", UiKit.SECONDARY,
+					UiKit.club_name_colour(UiKit.club_ink(code)), true)
+			nm.name = "ClubName%d" % i
+			nm.autowrap_mode = TextServer.AUTOWRAP_OFF
+			row.add_child(nm)
+			var w := UiKit.lbl(str(side_words.call(side)), UiKit.SECONDARY, UiKit.TEXT)
+			w.name = "CallWords%d" % i
+			w.autowrap_mode = TextServer.AUTOWRAP_OFF
+			row.add_child(w)
+		v.add_child(row)
+	return v
+
+
+func sim_squad_code(side: int) -> String:
+	return str((GameState.pending_sim.squads[side] as Squad).code)
+
+
+func _synergy_names(keys: Array) -> String:
+	var out: PackedStringArray = []
+	for k in keys:
+		out.append(Traits.with_effect(str(k)))
+	return ", ".join(out) if not out.is_empty() else "none"
+
+
+## The two sides' synergies, a block of their own under a heading: yours, then theirs.
+func _synergy_block() -> Control:
 	var syn: Array = GameState.pending_sim.synergies
-	var names := func(keys: Array) -> String:
-		var out: PackedStringArray = []
-		for k in keys:
-			out.append(Traits.with_effect(str(k)))
-		return ", ".join(out) if not out.is_empty() else "none"
-	return "Your synergies: %s. Theirs: %s." % [names.call(syn[_my_side]), names.call(syn[1 - _my_side])]
+	var v := UiKit.vbox(3)
+	v.name = "SynergyBlock"
+	v.add_child(UiKit.lbl("Synergies", UiKit.SECONDARY, UiKit.TEXT, true))
+	v.add_child(_plan_row("Yours:", _synergy_names(syn[_my_side]), "SynYours"))
+	v.add_child(_plan_row("Theirs:", _synergy_names(syn[1 - _my_side]), "SynTheirs"))
+	return v
 
 
 ## The opposition's plan in the quarter just played ("" before the bounce).
