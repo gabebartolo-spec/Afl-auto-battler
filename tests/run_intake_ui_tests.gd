@@ -110,10 +110,25 @@ func _run() -> void:
 			"The draft order says where a bought pick came from: %s" % (_line_text(via_node) if via_node else "-"))
 	_check(via_node is RichTextLabel and str((via_node as RichTextLabel).text).contains("[color=#"),
 			"The player in that line wears his club's ink")
-	var own_node: Control = ui.find_child("OwnPick", true, false)
+	var own_node: Control = null
+	for c in ui.find_children("OwnPick", "Control", true, false):
+		if own_node == null and _line_text(c).begins_with("Your own, "):
+			own_node = c
 	_check(own_node != null and _line_text(own_node).begins_with("Your own, ")
 			and _line_text(own_node).ends_with("on the ladder"),
 			"Your own pick says so and where the club finished: %s" % (_line_text(own_node) if own_node else "-"))
+	# One ink for every provenance line (lead review): own and traded alike, and a
+	# rival's own pick says so too, so no row of the order is left without one.
+	_check(_ink(via_node) == _text_ink() and _ink(own_node) == _text_ink(),
+			"Own and traded picks read in the same ink, not quieter for being your own")
+	var round_picks: int = (draft.pick_rounds as Array).count(draft.current_round())
+	var story_rows := ui.find_children("ViaPick", "Control", true, false).size()
+	story_rows += ui.find_children("OwnPick", "Control", true, false).size()
+	story_rows += ui.find_children("CompPick", "Control", true, false).size()
+	_check(round_picks > 0 and story_rows == round_picks,
+			"Every row of the draft order says whose pick it is and where it came from (%d lines, %d rows)" % [story_rows, round_picks])
+	var rival_own := ui.find_children("OwnPick", "Control", true, false).filter(func(c): return _line_text(c).contains("'s own"))
+	_check(not rival_own.is_empty(), "A rival's own pick reads \"Club's own\" (%d rows)" % rival_own.size())
 	var squad_tab: Button = ui.find_child("Tab_squad", true, false)
 	if squad_tab == null:
 		squad_tab = ui.find_child("SideTab_squad", true, false)
@@ -349,10 +364,23 @@ func _pick_order_and_untouchable_ui() -> void:
 	await _settle()
 	var line: Control = hub.find_child("DraftPickLine", true, false)
 	_check(line != null and (line as Label).text == _state.pick_order_line()
-			and (line as Label).text.begins_with("If the season ended today, your first pick would be No. "),
+			and (line as Label).text.begins_with("Your first pick today: No. "),
 			"In the last rounds the hub says where your first pick would fall: %s" % ((line as Label).text if line else "-"))
 	hub.queue_free()
 	await _settle()
+	# One line, never an orphaned "No. 11." on the next, at 360, 390 and 412.
+	for width in [360, 390, 412]:
+		root.size = Vector2i(width, 844)
+		hub = load("res://scenes/HubScene.tscn").instantiate()
+		root.add_child(hub)
+		await _settle()
+		line = hub.find_child("DraftPickLine", true, false)
+		_check(line is Label and (line as Label).get_line_count() == 1,
+				"The hub's pick line is one line at %d wide: %s" % [width,
+				"%d lines" % (line as Label).get_line_count() if line is Label else "-"])
+		hub.queue_free()
+		await _settle()
+	root.size = Vector2i(390, 844)
 
 	# My list: open a player, tap the mark, see it on his row, tap it off.
 	var player: Dictionary = (_state.my_list as Array)[3]
@@ -377,6 +405,9 @@ func _pick_order_and_untouchable_ui() -> void:
 	await _settle()
 	var mark: Button = ls.find_child("Untouchable", true, false)
 	_check(mark != null and mark.text == "Mark untouchable", "His profile offers Mark untouchable")
+	var what: Control = ls.find_child("Detail_Untouchable", true, false)
+	_check(what != null and _ink(what) == _text_ink() and what.get_parent() == mark.get_parent(),
+			"What the mark does is a fact in full ink, in the block with the button, not under Ratings")
 	if mark != null:
 		await _press(mark, "Mark untouchable")
 		await _settle()
@@ -393,6 +424,18 @@ func _pick_order_and_untouchable_ui() -> void:
 			"A second tap takes the mark off, and the row loses it")
 	ls.queue_free()
 	await _settle()
+
+
+## UiKit's body ink (loaded when asked: UiKit needs the GameDB autoload).
+func _text_ink() -> Color:
+	return load("res://scripts/ui/UiKit.gd").TEXT
+
+
+## The ink a line is set in, plain or with names in ink.
+func _ink(c: Control) -> Color:
+	if c is RichTextLabel:
+		return (c as RichTextLabel).get_theme_color("default_color")
+	return c.get_theme_color("font_color")
 
 
 ## The words of a line, whether a plain label or one with names in ink.

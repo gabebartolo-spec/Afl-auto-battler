@@ -1696,11 +1696,11 @@ func _refresh_order() -> void:
 			var why := UiKit.ellipsis("Compensation for losing %s" % str(comp.get("name", "a free agent")), UiKit.SMALL, UiKit.TEXT)
 			why.name = "CompPick"
 			v.add_child(why)
-		elif _draft.intake_mode and index < _draft.pick_origin.size() and (str(_draft.pick_origin[index]) != code or mine):
-			# How the club got this pick: its own, or from whom and for what.
+		elif _draft.intake_mode and index < _draft.pick_origin.size():
+			# How the club got this pick, on every row: its own, or from whom and for what.
 			var traded := str(_draft.pick_origin[index]) != code
 			var story := _story_line(GameState.pick_story(GameState.season_year,
-					int(_draft.pick_rounds[index]), str(_draft.pick_origin[index])), traded)
+					int(_draft.pick_rounds[index]), str(_draft.pick_origin[index])))
 			story.name = "ViaPick" if traded else "OwnPick"
 			v.add_child(story)
 		elif index < _draft.pick_origin.size() and str(_draft.pick_origin[index]) != code:
@@ -1835,11 +1835,11 @@ func _on_finish() -> void:
 
 
 ## How a pick was got, in a line that wraps; the players it names wear their
-## club's ink. A traded pick reads in full ink, your own quieter.
-func _story_line(text: String, traded: bool) -> Control:
+## club's ink. One ink for every line, own or traded: both are facts to read.
+func _story_line(text: String) -> Control:
 	if _name_index.is_empty() and GameState.season != null:
 		_name_index = NameInk.from_lists(GameState.season.lists)
-	var l := NameInk.label(text, _name_index, UiKit.SMALL, UiKit.TEXT if traded else UiKit.MUTED)
+	var l := NameInk.label(text, _name_index, UiKit.SMALL, UiKit.TEXT)
 	if l is Label:
 		(l as Label).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1862,7 +1862,6 @@ func _my_picks() -> void:
 		if str(_draft.pick_sequence[index]) != _club:
 			continue
 		var comp := _draft.comp_at(index)
-		var traded := str(_draft.pick_origin[index]) != _club
 		var story := ("Compensation for losing %s" % str(comp.get("name", "a free agent"))) if not comp.is_empty() else GameState.pick_story(GameState.season_year, int(_draft.pick_rounds[index]), str(_draft.pick_origin[index]))
 		var taken := ""
 		if index < _draft.pick_index:
@@ -1872,7 +1871,7 @@ func _my_picks() -> void:
 		row.name = "MyPick_%d" % (index + 1)
 		row.add_child(UiKit.lbl("No. %d  ·  Round %d%s" % [index + 1, int(_draft.pick_rounds[index]),
 				("  ·  " + taken) if taken != "" else ""], UiKit.BODY, UiKit.TEXT, true))
-		var line := _story_line(story, traded or not comp.is_empty())
+		var line := _story_line(story)
 		line.name = "MyPickStory_%d" % (index + 1)
 		row.add_child(line)
 		box.add_child(row)

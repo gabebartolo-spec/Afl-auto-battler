@@ -6170,7 +6170,7 @@ func pick_order_line() -> String:
 			if pick_owner_of(year, rnd, str(origin)) != my_club:
 				continue
 			var at := draft_spot(year, rnd, str(origin))
-			var lead := "Your first pick is" if season.is_regular_done() else "If the season ended today, your first pick would be"
+			var lead := "Your first pick:" if season.is_regular_done() else "Your first pick today:"
 			var line := "%s No. %d" % [lead, at]
 			if str(origin) != my_club:
 				line += ", %s's" % GameDB.club_name(str(origin))
@@ -6191,6 +6191,8 @@ func set_untouchable(id: String, on: bool) -> void:
 		return
 	if on:
 		untouchable[id] = true
+		# Off the trade table too, so taking the mark off lets him be tabled again.
+		trade_table.erase(id)
 		for o in trade_offers:
 			if str(o["status"]) == "open" and (o["take"] as Array).has(id) and not bool(o.get("request", false)):
 				o["status"] = "off"

@@ -805,9 +805,8 @@ func _draft_picks(body: VBoxContainer, code: String, chosen: Array, prefix: Stri
 		b.pressed.connect(_toggle.bind(chosen, id))
 		body.add_child(b)
 		# How the club got it: its own, or from whom and for what.
-		var traded := str(pk["origin"]) != code
 		var story := _para(GameState.pick_story(int(pk["year"]), int(pk["round"]), str(pk["origin"])),
-				12, UiKit.TEXT if traded else UiKit.MUTED)
+				12, UiKit.TEXT)
 		story.name = "PickStory_" + id.replace(":", "_")
 		body.add_child(story)
 

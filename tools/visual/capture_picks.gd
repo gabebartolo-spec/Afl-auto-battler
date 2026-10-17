@@ -64,15 +64,12 @@ func _run() -> void:
 
 	# 1. The hub in the last rounds: where the first pick would fall today.
 	var season = state.season
-	season.round_index = season.fixture.size() - 3
-	for code in season.ladder:
-		var row: Dictionary = season.ladder[code]
-		row["p"] = season.round_index
-		row["w"] = 6 + (hash(code) % 9)
-		row["l"] = season.round_index - int(row["w"])
-		row["pf"] = 1500 + int(row["w"]) * 40
-		row["pa"] = 1700 - int(row["w"]) * 30
-	season.recalc_ladder()
+	# Played for real, so the ladder and the form line are true (a faked round leaves
+	# "Form: Steady, no games yet" at round 22).
+	while season.round_index < season.fixture.size() - 3:
+		state.advance()
+	state.backing_talk = {}
+	state.media_conference = {}   # the press question and sit-down is not what this capture shows
 	var hub = load("res://scenes/HubScene.tscn").instantiate()
 	root.add_child(hub)
 	await _frames(10)
@@ -85,7 +82,8 @@ func _run() -> void:
 	await _frames()
 
 	# 2. The off-season: trades that leave a story on the picks.
-	season.round_index = season.fixture.size()
+	while not season.is_regular_done():
+		state.advance()
 	state.open_offseason()
 	state.pick_owner = {}
 	state.pick_got = {}

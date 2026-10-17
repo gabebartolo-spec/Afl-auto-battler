@@ -1871,6 +1871,22 @@ func _test_untouchable() -> void:
 	var table := GameState.put_on_trade_table(first)
 	_check(not bool(table["ok"]) and str(table["reason"]).contains("untouchable"),
 			"An untouchable player does not go on the trade table: %s" % str(table["reason"]))
+	# A player already tabled: marking takes him off the table, so after the mark
+	# comes off he can be tabled again and the offers return (W7 review).
+	GameState.set_untouchable(first, false)
+	GameState.trade_offers = []
+	GameState.trade_table = []
+	var tabled_id := str(GameState.my_list[0]["id"])
+	var first_go := GameState.put_on_trade_table(tabled_id)
+	_check(bool(first_go["ok"]), "A player goes on the trade table: %s" % str(first_go["reason"]))
+	GameState.set_untouchable(tabled_id, true)
+	_check(not GameState.trade_table.has(tabled_id), "Marking a tabled player takes him off the table")
+	GameState.set_untouchable(tabled_id, false)
+	var second_go := GameState.put_on_trade_table(tabled_id)
+	_check(bool(second_go["ok"]) and (int(first_go["offers"]) == 0 or int(second_go["offers"]) > 0),
+			"After the mark comes off he can be tabled again, with offers (%d then %d): %s" % [
+			int(first_go["offers"]), int(second_go["offers"]), str(second_go["reason"])])
+	GameState.set_untouchable(first, true)
 	# He asked out himself: his request is still heard.
 	var rivals := GameDB.active_clubs(GameState.season_year).filter(func(c): return c != me)
 	GameState.trade_requests = {first: {"club": me, "why": "home", "to": rivals}}
@@ -1899,7 +1915,7 @@ func _test_pick_order_line() -> void:
 	_check(GameState.pick_order_line() == "", "Before the last six rounds the ladder says nothing about the draft")
 	s.round_index = total - GameState.PICK_LINE_ROUNDS
 	var line := GameState.pick_order_line()
-	_check(line.begins_with("If the season ended today, your first pick would be No. ") and line.ends_with("."),
+	_check(line.begins_with("Your first pick today: No. ") and line.ends_with("."),
 			"From the last six rounds it says where your first pick would fall: %s" % line)
 	# Today's ladder only: put you last, then first, and the pick follows.
 	var n := s.ladder.size()
@@ -1920,7 +1936,7 @@ func _test_pick_order_line() -> void:
 	_check(not lc.contains("best") and not lc.contains("should") and not lc.contains("tank") and not lc.contains("lose"),
 			"The line gives no advice")
 	s.round_index = total
-	_check(GameState.pick_order_line().begins_with("Your first pick is No. "), "Once the home-and-away is done the pick is settled: %s" % GameState.pick_order_line())
+	_check(GameState.pick_order_line().begins_with("Your first pick: No. "), "Once the home-and-away is done the pick is settled: %s" % GameState.pick_order_line())
 	GameState.pick_owner = {}
 
 
