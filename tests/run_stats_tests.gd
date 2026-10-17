@@ -869,6 +869,29 @@ func _ladder(sz: Vector2i) -> void:
 		_check(season.club_results(mine).size() == 0 or row_text.contains("".join(PackedStringArray((season.club_results(mine) as Array).slice(-5)))),
 				"...and the last five results as letters (%s)" % tag)
 
+	# The sort headers are thumb high on a phone (44 px; the sweep, 2026-10-18:
+	# they were 40) with the columns no wider than before, and unchanged on a PC.
+	var short_heads := []
+	var header_w := 0.0
+	for b in s.find_child("LadderHeader", true, false).get_children():
+		if not b is Button:
+			continue
+		if (b as Control).size.y < (44.0 if sz.x < 900 else 40.0):
+			short_heads.append("%s %.0f" % [b.name, (b as Control).size.y])
+		header_w += (b as Control).size.x
+	_check(short_heads.is_empty(), "Ladder sort headers are %s px tall (%s: short %s)" % ["at least 44" if sz.x < 900 else "40", tag, str(short_heads)])
+	var short_rows := []
+	for b in s.find_children("Club_*", "Button", true, false):
+		if (b as Control).size.y < (44.0 if sz.x < 900 else 32.0):
+			short_rows.append("%s %.0f" % [b.name, (b as Control).size.y])
+	_check(short_rows.is_empty() and not _row_codes(s).is_empty(), "Ladder rows are %s px tall (%s: short %s)" % ["at least 44" if sz.x < 900 else "at least 32", tag, str(short_rows.slice(0, 3))])
+	if sz.x < 900:
+		_check(header_w <= sz.x, "...and the header row still fits the screen (%s: %.0f px)" % [tag, header_w])
+		# A finger on the narrowest header, the "#" column, takes the tap and
+		# puts the ladder back in its true order.
+		var pos_why: String = await Tap.tap(s.find_child("Sort_pos", true, false))
+		_check(pos_why == "", "A finger on the # header (24 px wide, 44 tall) reaches it (%s: %s)" % [tag, pos_why])
+
 	# A wide screen: the table is as wide as its columns, at the left beside the
 	# toggles, and the toggles are compact groups rather than bars across the window.
 	if sz.x >= 900:
@@ -1049,9 +1072,9 @@ func _table_recipe(s: Node, tag: String, with_pos: bool) -> void:
 	var rows := s.find_children("Club_*", "Button", true, false)
 	var tall := true
 	for b in rows:
-		if int(b.size.y) != (32 if root.size.x >= 900 else 40):
+		if int(b.size.y) != (32 if root.size.x >= 900 else 44):
 			tall = false
-	_check(tall and not rows.is_empty(), "Rows are 32 px on a wide screen and a thumb-sized 40 px on a phone (%s)" % tag)
+	_check(tall and not rows.is_empty(), "Rows are 32 px on a wide screen and a thumb-sized 44 px on a phone (%s)" % tag)
 	# Your club's row is in your colour instead of its band.
 	var kit = load("res://scripts/ui/UiKit.gd")
 	var mine := str(_state.my_club)
@@ -1694,7 +1717,7 @@ func _trophies() -> void:
 			groups.append([str(g.name).trim_prefix("PlayerGroup_"), who.text if who else "", hon])
 		_check(groups.size() == 2 and groups[0][0] == ids[0] and groups[1][0] == ids[2],
 				"Your players' honours by player, the most decorated first, none from elsewhere (%s: %s)" % [tag, str(groups)])
-		_check(groups.size() == 2 and groups[0][2] == ["Brownlow Medal %d" % year, "Best and fairest %d" % (year - 1)]
+		_check(groups.size() == 2 and groups[0][2] == ["Brownlow Medal %d" % year, "Copeland Trophy %d" % (year - 1)]
 				and groups[1][2] == ["All-Australian %d" % year],
 				"Each player's honours sit under him, newest first (%s)" % tag)
 		_check(groups.size() == 2 and groups[0][1] == str(_state.award_name({"id": ids[0]})),
@@ -1792,7 +1815,7 @@ func _trophies() -> void:
 	var listed := []
 	for i in range(opt.item_count if opt != null else 0):
 		listed.append(opt.get_item_text(i))
-	_check(listed == ["All honours", "Premierships", "Minor premierships", "Brownlow Medal", "All-Australian", "Best and fairest"],
+	_check(listed == ["All honours", "Premierships", "Minor premierships", "Brownlow Medal", "All-Australian", "Copeland Trophy"],
 			"The filter lists only the kinds of honour won (%s)" % str(listed))
 	_check(opt != null and (await Tap.tap(opt)) == "", "The filter takes a tap")
 	await _settle()

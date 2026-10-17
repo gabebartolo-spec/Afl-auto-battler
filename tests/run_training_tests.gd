@@ -49,6 +49,9 @@ func _training_hero() -> void:
 			var scene: Control = load("res://scenes/TrainingScene.tscn").instantiate()
 			root.add_child(scene)
 			await _settle()
+			var trade: Label = scene.find_child("TrainingTradeOff", true, false)
+			_check(trade != null and trade.is_visible_in_tree() and trade.text.contains("costs more as a stat climbs"),
+					"%s: Training says in a line what a plan costs and what it buys (P-63)" % tag)
 			var hero: TextureRect = scene.find_child("TrainingHero", true, false)
 			var tex: Texture2D = hero.texture if hero != null else null
 			_check(tex != null and tex.resource_path == "res://assets/ui/models/training_gear.png"

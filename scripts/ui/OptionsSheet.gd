@@ -47,9 +47,9 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 				"on" if GameState.haptics_on() else "off",
 				"A light buzz when you press a button, and a firmer one when a result lands.",
 				func(k): GameState.set_haptics_on(k == "on"))
-	_row(v, "Ask before playing a round for me", "SettingsSimConfirm", [["on", "On"], ["off", "Off"]],
+	_row(v, "Ask before simming the week for me", "SettingsSimConfirm", [["on", "On"], ["off", "Off"]],
 			"on" if GameState.confirm_sim_round() else "off",
-			"Play round plays out your own match without you. With this on, it asks first.",
+			"Sim the week plays out your own match without you. With this on, it asks first.",
 			func(k): GameState.set_confirm_sim_round(k == "on"))
 	_row(v, "Match speed", "SettingsSpeed", SPEED_OPTIONS,
 			str(int(GameState.match_speed())), "How fast a match you watch starts. You can change it during the game.",

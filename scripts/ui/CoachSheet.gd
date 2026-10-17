@@ -109,8 +109,7 @@ static func playing_lines(played: Dictionary) -> Array:
 	var bnf: Dictionary = h.get("bnf", {})
 	for club in bnf:
 		var n := int(bnf[club])
-		out.append(("%s best and fairest" if n == 1 else "%d %s best and fairests") % (
-				[GameDB.club_name(str(club))] if n == 1 else [n, GameDB.club_name(str(club))]))
+		out.append(BestAndFairest.count_line(str(club), GameDB.club_name(str(club)), n))
 	return out
 
 

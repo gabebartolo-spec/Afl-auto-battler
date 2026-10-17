@@ -432,6 +432,7 @@ const FOCUS_ROLES := {
 
 ## The three play-through calls (director, 2026-10-07): [heading, his job,
 ## what it does, with nobody picked, the spot it works from].
+const FOCUS_ORDER := ["focus_fwd", "focus_mid", "focus_def"]  # forward, midfield, back: the order everywhere the coach reads them
 const FOCUS_SLOT_TEXT := {
 	"focus_mid": ["Midfield pillar", "our midfield pillar",
 			"the ball goes to him more often through the midfield",

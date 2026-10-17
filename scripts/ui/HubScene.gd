@@ -92,7 +92,7 @@ func _show_weekly_loop_intro() -> void:
 	v.add_child(UiKit.heading("Your week", UiKit.TITLE))
 	for line in [
 		"This is home base. Check the next opponent, then use Team to pick the side and Coaching if you want to change how you play.",
-		"Play match when you want the live coaching calls. Play round plays the week out for you quickly; the match itself is the same either way.",
+		"Play match when you want the live coaching calls. Sim the week plays the round out for you quickly; the match itself is the same either way.",
 		"After the game, review what happened and change selection or training only when you have a reason. There is no weekly checklist to clear.",
 	]:
 		var l := UiKit.lbl(line, 14, UiKit.TEXT)
@@ -345,6 +345,13 @@ func _standing_card() -> Control:
 		var tl := UiKit.lbl(str(outlook["line"]), UiKit.SECONDARY, UiKit.MUTED)
 		tl.name = "MyTeamOutlook"
 		cv.add_child(tl)
+	# The last rounds on: where your first pick falls if the season ended today.
+	var pick_line := GameState.pick_order_line()
+	if pick_line != "":
+		var pl := UiKit.lbl(pick_line, UiKit.SECONDARY, UiKit.TEXT)
+		pl.name = "DraftPickLine"
+		pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		cv.add_child(pl)
 	var form := GameState.club_form_info(GameState.my_club)
 	cv.add_child(_form_row(form))
 	var last := _last_match_button()
@@ -748,9 +755,9 @@ func _tribunal_card() -> Control:
 			sanction = "MRO fine"
 		var stage := str(row.get("stage", "tribunal"))
 		var hearing := "Appeals Board" if stage == "appeal" else "Tribunal"
-		var line: Control = NameLink.line("%s — %s. %s case: %s." % [
-				name, sanction, hearing, str(row.get("case", "Difficult"))],
-				{name: str(row.get("id", ""))} if not p.is_empty() else {}, 13, UiKit.TEXT)
+		var line := NameInk.label("%s — %s. %s case: %s." % [
+				name, sanction, hearing, str(row.get("case", "Difficult"))], _league_names(), 13, UiKit.TEXT, true)
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		line.name = "TribunalLine"
 		v.add_child(line)
 		var status := UiKit.lbl("Brownlow: ineligible unless the %s succeeds." % (
@@ -842,7 +849,7 @@ func _week_actions(season: Season) -> Control:
 ## Play round (the quick sim of the week), with its long press for the
 ## play-ahead menu.
 func _sim_round_button() -> Button:
-	var sim := _nav_button("Play round", _on_sim_round_pressed)
+	var sim := _nav_button("Sim the week", _on_sim_round_pressed)
 	sim.name = "SimRound"
 	_wire_long_press(sim)
 	return sim
@@ -909,6 +916,13 @@ func _footer(season: Season, with_sim := true) -> Control:
 					sb.content_margin_left = 4
 					sb.content_margin_right = 4
 					b.add_theme_stylebox_override(state, sb)
+		# Each button is at least as wide as its own label, so the row's spare
+		# width is shared out beyond that and none is cut short ("Sim the we...").
+		var sb_n: StyleBox = b.get_theme_stylebox("normal")
+		var pad := sb_n.get_margin(SIDE_LEFT) + sb_n.get_margin(SIDE_RIGHT) if sb_n != null else 16.0
+		var font: Font = b.get_theme_font("font")
+		var fs: int = b.get_theme_font_size("font_size")
+		b.custom_minimum_size.x = ceilf(font.get_string_size(b.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + pad) + 1.0
 		row.add_child(b)
 	return row
 
@@ -1137,11 +1151,11 @@ func _on_sim_round_pressed() -> void:
 	_sim_confirm = box["overlay"]
 	_sim_confirm.name = "SimConfirm"
 	var v: VBoxContainer = box["body"]
-	v.add_child(UiKit.heading("Play %s?" % str(m["label"]), UiKit.H1))
+	v.add_child(UiKit.heading("Sim %s?" % str(m["label"]), UiKit.H1))
 	var why := UiKit.lbl("Your match will be played out without you.", UiKit.BODY, UiKit.TEXT)
 	why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(why)
-	var go := UiKit.btn("Play round", UiKit.NAME, true)
+	var go := UiKit.btn("Sim the week", UiKit.NAME, true)
 	go.name = "SimConfirmGo"
 	go.custom_minimum_size = Vector2(0, 48)
 	go.pressed.connect(func():
