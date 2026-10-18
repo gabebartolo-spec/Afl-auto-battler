@@ -113,7 +113,10 @@ func _sim(known0: Dictionary, known1: Dictionary, plan0: String, plan1: String, 
 func _test_switch_off() -> void:
 	PreSeason.reload()
 	_career(false)
-	_check(not Features.on("preseason"), "The pre-season switch ships off")
+	# The switch ships ON since 1.0.1; this test forces it off to prove the game
+	# without the pre-season is the game as it was.
+	Features.set_on("preseason", false)
+	_check(not Features.on("preseason"), "The pre-season switch can be turned off for a run")
 	GameState.set_club_plan("attacking")
 	GameState._refresh_coach_tactics()
 	_check(GameState.plan_known.is_empty() and CoachEffects.known.is_empty()
@@ -138,6 +141,7 @@ func _test_switch_off() -> void:
 		GameState.advance()
 	_check(GameState.plan_known.is_empty() and GameState.plan_idle.is_empty(),
 			"Three rounds on, still nothing kept: the game is as it was")
+	Features.set_on("preseason", true)
 
 
 func _test_rules() -> void:
