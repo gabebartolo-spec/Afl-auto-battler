@@ -1,5 +1,7 @@
 # Brainstorm: design bible (2026-10-09, big)
 
+*Superseded on decision transparency by bible §4 (director, 2026-10-18); see docs/research/DECISION_TRANSPARENCY_AUDIT_2026-10-18.md.*
+
 Project: Aussie Rules Dynasties. Tested against the philosophy in CLAUDE.md.
 ROADMAP.md, docs/DESIGN.md and several core scripts were not readable in this
 session, so roadmap and scope checks are incomplete.
