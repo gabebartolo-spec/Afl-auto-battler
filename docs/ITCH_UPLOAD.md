@@ -76,7 +76,7 @@ Send back: phone model, browser (Chrome or Safari) and what felt wrong.
 Tell testers to send you four things, by whatever channel you choose (a message, an email, a form;
 nothing about how to reach you is stored in the game or the repo):
 
-1. **Build**: the small grey line at the bottom of the main menu, for example "Build 0.1.0 (a1b2c3d)".
+1. **Build**: the small grey line at the bottom of the main menu, for example "Build 0.1.13 (a1b2c3d)".
    Settings shows the same line as the version. It says exactly which upload they played.
 2. **Device and browser**: for example "Pixel 8, Chrome" or "iPhone 14, Safari" or "Windows, Edge".
 3. **What happened**: what they tapped, what they expected, what they saw. A screenshot helps.
@@ -91,6 +91,8 @@ Upload the new zip, then delete the old upload so only one file is marked to pla
 caching, so if a tester still sees the old build, ask them to hard-refresh (Ctrl+Shift+R, or on a
 phone close the tab and reopen the link) and check the build label on the main menu). Testers get the new build on their next load. Saves from
 the older build keep loading.
+
+**Version number.** The version comes from `project.godot` `config/version` (the menu and Settings read it, and the Android and Windows exports use it); nothing else holds a copy, and `tools/check_version.py` fails CI if one appears. Bump it with `python3 -I tools/bump_version.py` in its own PR before a build. The butler `--userversion` is `<version>-<sha7>` (for example `0.1.13-60a1bd4`), and the devlog title is `Build <version> (<sha7>): ...`.
 
 ## Known issues
 

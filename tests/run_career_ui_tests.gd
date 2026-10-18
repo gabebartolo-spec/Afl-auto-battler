@@ -1708,6 +1708,11 @@ Your career stays on your phone.",
 			and current_scene.find_child("OptionsNewCareer", true, false) != null
 			and current_scene.find_child("OptionsVersion", true, false) != null,
 			"Settings in a career has speed, main menu, New career and version")
+	var ver_label: Label = current_scene.find_child("OptionsVersion", true, false) as Label
+	var project_version := str(ProjectSettings.get_setting("application/config/version", ""))
+	_check(ver_label != null and project_version != ""
+			and ver_label.text.begins_with("Version " + project_version),
+			"Settings shows the version read from project.godot config/version (%s)" % project_version)
 	var dials_line: Label = current_scene.find_child("OptionsCareerDials", true, false)
 	_check(dials_line != null and dials_line.visible
 			and dials_line.text == "This career: Patient board · Cut-throat rivals."

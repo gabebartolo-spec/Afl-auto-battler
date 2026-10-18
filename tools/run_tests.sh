@@ -190,6 +190,16 @@ else
 	summary+=("| intake_harness | FAIL | see log |")
 fi
 
+echo "== One version (project.godot config/version is the only copy)"
+if python3 tools/test_check_version.py > "$LOG_DIR/one_version.log" 2>&1 && python3 -I tools/check_version.py >> "$LOG_DIR/one_version.log" 2>&1; then
+	summary+=("| one_version | pass | |")
+else
+	tail -15 "$LOG_DIR/one_version.log"
+	note_error "tools/check_version.py: a second copy of the build number (see tools/bump_version.py)"
+	failed=1
+	summary+=("| one_version | FAIL | see log |")
+fi
+
 echo "== Offline promise (Android preset requests vibrate only)"
 if python3 tools/test_android_permissions.py > "$LOG_DIR/offline_promise.log" 2>&1 		&& python3 tools/check_android_permissions.py >> "$LOG_DIR/offline_promise.log" 2>&1; then
 	summary+=("| offline_promise | pass | |")
