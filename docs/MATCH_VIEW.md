@@ -136,6 +136,35 @@ narrower, keeps its heavy overlaps within 130% of Balanced's, its file-of-three
 frames within 2 points and no file longer than Balanced's longest, on the same
 events.
 
+Two calls are also marked on the grass, faintly, in the side's colour, under the
+lines and the players (PitchView `_draw_marks`), because the busy players round
+the ball (leads, carrier, pack) crowd it on every call and the shape alone can
+read as a swarm or a clump:
+
+- **Attack corridor**: a shade down the corridor its lanes use (the outermost
+  lane, 14.25 m, plus a disc either side of the centre line), from the side's
+  defensive 50 to the goal square at full strength (its soft ends lie beyond
+  them), while the side has the ball in play.
+- **Win contest**: at a ball-up or throw-in, a ring planted on the contest spot
+  from the umpire's call (the ball dead in a tackle or a pack) to the clearance,
+  its edge just outside the pack's 8 m ring (the ring plus a disc, so the ring's
+  players do not cover it); it never follows the ball in. Under this call the
+  ball-up is where the ball is when the umpire calls it (not the logged spot, which
+  could be 18 m off), so the ball sits inside the ring from the call; the ball-up
+  keeps its time. In open play the same
+  ring round the ball at the midfield's 10.5 m, on the ball while it moves at a
+  player's pace; when the ball goes faster than a sprint (a kick or handball in
+  flight) the ring stays where it was and eases out, and eases back in where the
+  ball comes down, so nothing drags across the ground. It comes in only once the
+  ball has been in hand 0.4 s (a quicker touch gets no ring) and, once on, shows
+  at least 0.4 s. A faint pad of the colour inside, the rim a light tint of it.
+
+Both are laid at the press wash's faint strength (0.3 at half, 0.15) and ease
+in and out over half a second. Where the press wash lies a marking only tops it
+up to that strength, never adds on top, so under a full-strength hunting press
+it gives way; the press itself is unchanged. They draw only: no player moves
+for them (`tests/test_match_marks.gd`).
+
 The feed marks a plan when it starts ("Fremantle: Win contest is on until half
 time."), when it carries on over a break and when it ends, and a short call
 when it runs out ("Fremantle: Throw numbers at it ends."). A short call's start
@@ -194,6 +223,9 @@ and the match, its log and the result are the same as watching
   walking draw-apart, the visible share of each side's discs, line widths and
   the corridor's lanes, the boundary and bench margins, the Win contest pack and
   its ring, the draw order), and measures each call against Balanced.
+- `tests/test_match_marks.gd` (suite `match_marks`) holds the two markings on the
+  grass: when each shows, its strength and fades, the press wash rule, under
+  the discs, absent for every other call and the other side, and no player moved.
 - `tests/test_match_visual.gd` (in `tools/run_tests.sh`) covers:
   - the log, score and stats are unchanged after playback;
   - no event is mutated;
