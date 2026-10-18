@@ -186,9 +186,12 @@ func _run() -> void:
 	_check(ui.find_child("PlayerDetail", true, false) != null, "A prospect's details open")
 	_check(draft.count() == count_before and draft.pick_history == hist_before, "Inspecting a prospect signs nobody")
 	var ovr: Control = ui.find_child("DetailOVR", true, false)
-	var scout := DraftScouting.projection(prospect, draft.user_club, draft.seed,
+	# Loaded here, not named: DraftScouting reaches GameDB, which does not exist yet
+	# when this script compiles (an autoload class named at compile time hangs the suite).
+	var scouting: GDScript = load("res://scripts/sim/DraftScouting.gd")
+	var scout: Dictionary = scouting.projection(prospect, draft.user_club, draft.seed,
 			draft.scouting_mult_for(draft.user_club))
-	_check(ovr != null and (ovr.get_child(0) as Label).text == DraftScouting.range_text(scout["overall"])
+	_check(ovr != null and (ovr.get_child(0) as Label).text == scouting.range_text(scout["overall"])
 			and (ovr.get_child(1) as Label).text == "Projected OVR",
 			"His projected OVR is shown as a scouting range")
 	_check(ui.find_child("DetailAllRatings", true, false) == null,
