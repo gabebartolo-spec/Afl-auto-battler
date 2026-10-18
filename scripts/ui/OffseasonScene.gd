@@ -6,10 +6,10 @@ var _name_index := {}
 var _root: VBoxContainer
 var _tab := "contracts"
 var _notice := ""
-## The rival club a notice gives the reason of (a free agent who chose it):
-## its name wears the club's ink and the line is not a success (P-18).
+## A notice that gives a reason (a free agent who turned you down or chose a
+## rival, P-18) reads as text, not a success, with the rival's name in its ink.
 var _notice_club := ""
-var _notice_club_text := ""   # the notice it belongs to: any other notice stays as it was
+var _notice_club_text := ""   # the reason notice it belongs to: any other notice stays as it was
 var _trade_club := ""
 var _mine: Array = []     # your player and pick ids in the trade
 var _theirs: Array = []   # theirs
@@ -75,7 +75,7 @@ func _build() -> void:
 	else:
 		hv.add_child(_para("Leave one of your best 23 unsigned and he tests free agency: your offer stands at his asking price, but rivals can beat it. Other players re-sign for two seasons if the cap allows.", 12, UiKit.MUTED))
 	if _notice != "":
-		var said := _why_para(_notice, _notice_club, 13, UiKit.TEXT) if _notice_club != "" and _notice == _notice_club_text \
+		var said := _why_para(_notice, _notice_club, 13, UiKit.TEXT) if _notice_club_text != "" and _notice == _notice_club_text \
 				else _para(_notice, 13, UiKit.GOOD)
 		said.name = "OffseasonNotice"
 		hv.add_child(said)
@@ -89,6 +89,7 @@ func _build() -> void:
 			_tab = str(t[0])
 			_notice = ""
 			_notice_club = ""
+			_notice_club_text = ""
 			_choosing_club = false
 			_build())
 		tabs.add_child(b)
@@ -502,8 +503,8 @@ func _make_offer(salary: int, years: int) -> void:
 		return
 	_close_talks()
 	_notice = str(r["reason"])
-	_notice_club = str(r.get("club", "")) if r.has("code") else ""
-	_notice_club_text = _notice
+	_notice_club = str(r.get("club", ""))
+	_notice_club_text = _notice if r.has("code") else ""
 	_build()
 
 

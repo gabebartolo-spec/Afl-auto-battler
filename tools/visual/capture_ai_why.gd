@@ -1,6 +1,8 @@
 extends SceneTree
-## Review capture for P-18 ("the other club says why"): the trade screen with a
-## rival's refusal and its one-line reason, dark. Needs a real renderer:
+## Review capture for P-18 ("the other club says why"), dark: the trade screen
+## with a rival's refusal and its reason; the off-season wrap's free-agency
+## lines (your low offers in for the best free agents, rivals outbid you);
+## the draft board's line after you opened a prospect and a rival took him. Needs a real renderer:
 ##   godot --path . --rendering-method gl_compatibility --script tools/visual/capture_ai_why.gd
 ## Environment: CAP_DIR (folder for the pngs, default "."), CAP_CLUB (default
 ## "FRE"), CAP_RIVAL (default "SYD"), CAP_W / CAP_H (default 390 x 844).
@@ -91,4 +93,41 @@ func _run() -> void:
 	if line != null:
 		await _scroll_to(off, line, int(size.y * 0.45))
 	await _shot("%s/aiwhy_trade_%dx%d.png" % [dir, size.x, size.y])
+	off.queue_free()
+	# Free agency: your offer at his lowest for the best free agents, then the
+	# market closes and the wrap says why the ones you lost went elsewhere.
+	var fas: Array = state.free_agents.duplicate()
+	fas.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+	for fa in fas.slice(0, 6):
+		var years := int(Contracts.wants(fa)["years"])
+		state._add_offer(fa, club, {"salary": Contracts.lowest(fa, years), "years": years},
+				state.fa_role(fa, club), state._finish_t(club))
+	state._close_free_agency()
+	print("lost: ", state.fa_lost_lines())
+	state.season_wrap = {"year": state.season_year, "ins": [], "outs": [], "staff": [], "trades": [],
+			"league_coaches": [], "goal": "", "reason": "", "seen": false}
+	var hub = load("res://scenes/HubScene.tscn").instantiate()
+	root.add_child(hub)
+	await _frames(10)
+	if hub.find_child("SeasonWrap", true, false) == null:
+		hub.call("_show_season_wrap")
+		await _frames(6)
+	await _shot("%s/aiwhy_wrap_%dx%d.png" % [dir, size.x, size.y])
+	hub.queue_free()
+	# The draft board: open the top prospect, pick another, the rivals go.
+	state.reset()
+	state.draft = load("res://scripts/sim/Draft.gd").new(db.all_players_sorted(), db.active_clubs(2026).duplicate(), 4242)
+	var ds = load("res://scenes/DraftScene.tscn").instantiate()
+	root.add_child(ds)
+	ds.call("_on_club_chosen", club)
+	await _frames(10)
+	var rows: Array = state.draft.board("", "", "", "overall", true)
+	ds.call("_open_player", str(rows[0]["id"]))
+	await _frames(4)
+	ds.call("_close_player")
+	ds.call("_on_pick", rows[1])
+	await _frames(10)
+	var why: Control = ds.find_child("RivalWhyLine", true, false)
+	print("draft line: ", why.get_meta("plain", "") if why != null and why.has_meta("plain") else "(none)")
+	await _shot("%s/aiwhy_draft_%dx%d.png" % [dir, size.x, size.y])
 	quit()
