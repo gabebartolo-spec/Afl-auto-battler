@@ -1,0 +1,7 @@
+*.txt text eol=lf
+*.sh text eol=lf
+*.gd text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+# One research doc mixes CRLF and lone CR line ends; leave it exactly as committed.
+docs/research/STYLE08_LIGHT_MODE_INVENTORY.md -text

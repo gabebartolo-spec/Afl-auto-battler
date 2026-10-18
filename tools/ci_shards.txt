@@ -4,15 +4,18 @@
 # one shard; tools/check_ci_shards.sh checks that on every CI run, so a new
 # suite cannot quietly skip CI.
 #
-# Rebalanced from all 37 suite durations in completed run 37460575183
-# (2026-10-06). Previous suite totals: 347, 489, 778, 734, 768 seconds.
-# Longest-first allocation keeps the same five jobs and every suite once;
-# estimated totals on that run: 603, 603, 604, 603, 603 seconds.
-# This removes about 174 seconds from the longest shard's suite workload.
-# Setup, import, queue time and runner variation are additional costs.
-# Re-measure after CI: these estimates are not a wall-clock guarantee.
-1: match_game pressure league intake chronology ratings back_nav family keyboard nameink international
-2: match_visual ai matchup awards assets roles intake_ui stats story
-3: career contracts injuries coaches training save draft_ui preseason
-4: league_balance calibration finals matchday expansion draft selection coach_pathway scroll plan_know planpane rowgap namelink trainrep
-5: club balance match_motion coach_market career_ui achievements workload fitness coach_effects potential calls
+# Planned from the real per-suite seconds of main run 39119858455 (2026-10-18,
+# all 53 suites, matchday included; tools/ci_suite_timings.json). Longest-first,
+# with league_balance placed last on the lightest shard because pull requests
+# do not run it (only main pushes do). Estimated suite seconds per shard:
+#   pull request: 1,041 1,041 1,039 1,038 1,038   (the old slowest shard took 1,902)
+#   main push:    shard 1 adds league_balance (157): 1,194
+# Setup, import and runner variation come on top; the test job prints each
+# shard's observed time and warns past 135% of the mean. A new suite with no
+# timing yet: add about 60 seconds for it to tools/ci_suite_timings.json and
+# put it on the lightest shard; re-plan from a fresh main run when it drifts.
+1: match_visual preseason plan_know calibration league match_motion trainrep intake assets potential coach_pathway league_balance
+2: career contracts injuries career_ui expansion rowgap roles intake_ui calls nameink ratings
+3: save coach_market matchup draft_ui pressure awards achievements coach_effects namelink
+4: match_game matchday international coaches finals stats workload keyboard fitness family
+5: story back_nav club balance ai draft training scroll chronology selection planpane

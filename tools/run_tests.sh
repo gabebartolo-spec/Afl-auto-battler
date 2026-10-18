@@ -29,6 +29,7 @@ SUITE_TIMEOUT="${SUITE_TIMEOUT:-900}"
 EXPECTED_CHECKS="${EXPECTED_CHECKS:-tests/expected_checks.txt}"
 FLOOR_DELTAS="${FLOOR_DELTAS:-tests/floor_deltas}"
 # SUITES_ONLY=1 skips the dataset, export and harness steps after the suites.
+# SKIP_VERSION_CHECK=1 leaves out the build-number check (CI runs it once, in plan).
 # EXTRAS_ONLY=1 runs only those steps (and the harness self-test), no suites.
 # CI splits the work this way: shards run SUITES_ONLY, one job runs EXTRAS_ONLY.
 SUITES_ONLY="${SUITES_ONLY:-0}"
@@ -179,6 +180,8 @@ else
 	summary+=("| intake_harness | FAIL | see log |")
 fi
 
+# CI runs the build-number check once, in the plan job, and sets SKIP_VERSION_CHECK=1 here.
+if [ "${SKIP_VERSION_CHECK:-0}" != 1 ]; then
 echo "== One version (project.godot config/version is the only copy)"
 if python3 tools/test_check_version.py > "$LOG_DIR/one_version.log" 2>&1 && python3 -I tools/check_version.py >> "$LOG_DIR/one_version.log" 2>&1; then
 	summary+=("| one_version | pass | |")
@@ -187,6 +190,7 @@ else
 	note_error "tools/check_version.py: a second copy of the build number (see tools/bump_version.py)"
 	failed=1
 	summary+=("| one_version | FAIL | see log |")
+fi
 fi
 
 echo "== Offline promise (Android preset requests vibrate only)"
