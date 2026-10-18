@@ -233,8 +233,10 @@ func _test_difficulty() -> void:
 			and int(DifficultyDials.step("board_patience", "fair")["poor_seasons_before_warning"]) == 1
 			and int(DifficultyDials.step("board_patience", "fair")["poor_season_below"]) == ClubLife.WARN_LINE,
 			"The middle steps are what the game played before the dials")
-	# An old career (saved with only easy / normal / hard) plays on the matching pair.
-	var expect := {"easy": ["patient", "easygoing"], "normal": ["fair", "shrewd"], "hard": ["ruthless", "cutthroat"]}
+	# An old career (saved with only easy / normal / hard) keeps its board: the
+	# old difficulty never touched the board, so every old save gets the middle
+	# step (Fair). Only the rivals follow the old difficulty.
+	var expect := {"easy": ["fair", "easygoing"], "normal": ["fair", "shrewd"], "hard": ["fair", "cutthroat"]}
 	var mapped := true
 	for level in expect:
 		var old := CareerSave.read(GameState.save_path)
@@ -246,7 +248,7 @@ func _test_difficulty() -> void:
 		GameState.rival_recruiting = "shrewd"
 		mapped = mapped and GameState.load_career() and GameState.board_patience == expect[level][0] \
 				and GameState.rival_recruiting == expect[level][1]
-	_check(mapped, "An old Easy / Normal / Hard save loads on the matching pair of dials")
+	_check(mapped, "An old Easy / Normal / Hard save keeps the Fair board and takes the matching rivals")
 	var odd := CareerSave.read(GameState.save_path)
 	odd["board_patience"] = "gone"
 	odd["rival_recruiting"] = 7
@@ -257,8 +259,8 @@ func _test_difficulty() -> void:
 	GameState.set_setting("board_patience", "")
 	GameState.set_setting("rival_recruiting", "")
 	GameState.set_setting("difficulty", "hard")
-	_check(GameState.new_career_dial("board_patience") == "ruthless" and GameState.new_career_dial("rival_recruiting") == "cutthroat",
-			"An old menu setting starts the next career on the matching pair")
+	_check(GameState.new_career_dial("board_patience") == "fair" and GameState.new_career_dial("rival_recruiting") == "cutthroat",
+			"An old menu setting starts the next career on the Fair board and the matching rivals")
 	GameState.set_setting("difficulty", "normal")
 	_menu("fair", "shrewd")
 

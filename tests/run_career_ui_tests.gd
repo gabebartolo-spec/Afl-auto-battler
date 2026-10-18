@@ -1672,6 +1672,10 @@ Your career stays on your phone.",
 	await _settle()
 	var hub_settings: Button = current_scene.find_child("HubSettings", true, false)
 	_check(hub_settings != null and hub_settings.size.y >= 44, "Settings is on the hub's top bar")
+	var board_was: String = _state.board_patience
+	var rivals_was: String = _state.rival_recruiting
+	_state.board_patience = "patient"
+	_state.rival_recruiting = "cutthroat"
 	if hub_settings != null:
 		hub_settings.emit_signal("pressed")
 		await _settle()
@@ -1680,6 +1684,13 @@ Your career stays on your phone.",
 			and current_scene.find_child("OptionsNewCareer", true, false) != null
 			and current_scene.find_child("OptionsVersion", true, false) != null,
 			"Settings in a career has speed, main menu, New career and version")
+	var dials_line: Label = current_scene.find_child("OptionsCareerDials", true, false)
+	_check(dials_line != null and dials_line.visible
+			and dials_line.text == "This career: Patient board · Cut-throat rivals."
+			and not dials_line.text.contains("%"),
+			"Settings shows the career's two dial steps in one read-only line")
+	_state.board_patience = board_was
+	_state.rival_recruiting = rivals_was
 	if eight != null:
 		eight.emit_signal("pressed")
 		await _settle()

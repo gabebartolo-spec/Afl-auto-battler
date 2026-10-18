@@ -59,7 +59,9 @@ static func text(dial: String, key: String) -> String:
 	return str(step(dial, key).get("text", ""))
 
 
-## The pair an old Easy / Normal / Hard career played on: {dial: step}.
+## The pair an old Easy / Normal / Hard save loads on: {dial: step}. Every old
+## save gets the Fair board (the old setting never touched the board); only the
+## rivals follow the old setting.
 static func from_legacy(difficulty: String) -> Dictionary:
 	var legacy: Dictionary = data().get("legacy", {})
 	var pair: Array = legacy.get(difficulty, legacy.get("normal", [default_key(BOARD), default_key(RIVALS)]))

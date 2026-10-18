@@ -574,10 +574,6 @@ func _show_news() -> void:
 	_news_overlay.name = "NewsFeed"
 	var v: VBoxContainer = box["body"]
 	v.add_child(UiKit.heading("League news", UiKit.H1))
-	for dial in DifficultyDials.DIALS:
-		var dl := UiKit.lbl(GameState.dial_line(dial), 12, UiKit.MUTED)
-		dl.name = "Dial_" + dial
-		v.add_child(dl)
 	var last_when := ""
 	for item in GameState.news:
 		var when := "%d  %s" % [int(item["year"]), str(item["when"])]

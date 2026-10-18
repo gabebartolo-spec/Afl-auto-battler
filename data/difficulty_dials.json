@@ -1,5 +1,5 @@
 {
-	"_note": "The two difficulty dials chosen at New career (P-20). Every size is the director's to set in playtest; the middle step of each dial is what the game played before the dials existed. Difficulty never changes how players develop and gives the rival clubs no hidden information or rating boost. board_patience: poor_seasons_before_warning is how many poor seasons the board puts up with before it warns you (the one that brings the warning counts); poor_season_below is the board confidence (0-100) under which a season ends poor. After a warning, the next poor season is the sacking. rival_recruiting: trade_margin is how much better off a rival must be to trade with you (0.04 is 4 per cent over fair value). legacy maps the old Easy / Normal / Hard careers to the matching pair.",
+	"_note": "The two difficulty dials chosen at New career (P-20). Every size is the director's to set in playtest; the middle step of each dial is what the game played before the dials existed. Difficulty never changes how players develop and gives the rival clubs no hidden information or rating boost. board_patience: poor_seasons_before_warning is how many poor seasons the board puts up with before it warns you (the one that brings the warning counts); poor_season_below is the board confidence (0-100) under which a season ends poor. After a warning, the next poor season is the sacking. rival_recruiting: trade_margin is how much better off a rival must be to trade with you (0.04 is 4 per cent over fair value). legacy maps an old save, which had one Easy / Normal / Hard setting, to its two dials: the old setting never touched the board, so every old save gets the middle board (Fair) and only the rivals follow the old setting.",
 	"board_patience": {
 		"title": "Board patience",
 		"default": "fair",
@@ -48,8 +48,8 @@
 		}
 	},
 	"legacy": {
-		"easy": ["patient", "easygoing"],
+		"easy": ["fair", "easygoing"],
 		"normal": ["fair", "shrewd"],
-		"hard": ["ruthless", "cutthroat"]
+		"hard": ["fair", "cutthroat"]
 	}
 }

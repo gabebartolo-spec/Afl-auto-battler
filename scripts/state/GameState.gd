@@ -856,7 +856,8 @@ func load_career() -> bool:
 	my_matchups = state.get("my_matchups", {})
 	last_side = state.get("last_side", [])
 	# A career saved before the dials has only "difficulty" (easy, normal,
-	# hard): it plays on the matching pair.
+	# hard): it keeps the Fair board (the old setting never touched the board)
+	# and its rivals follow the old setting.
 	var legacy := DifficultyDials.from_legacy(str(state.get("difficulty", "normal")))
 	board_patience = DifficultyDials.normalize(DifficultyDials.BOARD,
 			str(state.get("board_patience", legacy[DifficultyDials.BOARD])))
@@ -8398,9 +8399,12 @@ func career_dial(dial: String) -> String:
 	return board_patience if dial == DifficultyDials.BOARD else rival_recruiting
 
 
-## "Board patience: Fair" - one read-only line for a dial.
-func dial_line(dial: String) -> String:
-	return "%s: %s" % [DifficultyDials.title(dial), DifficultyDials.label(dial, career_dial(dial))]
+## The one read-only line Settings shows for this career's two dials:
+## "This career: Fair board · Shrewd rivals." (step names, no numbers).
+func career_dials_line() -> String:
+	return "This career: %s board · %s rivals." % [
+			DifficultyDials.label(DifficultyDials.BOARD, board_patience),
+			DifficultyDials.label(DifficultyDials.RIVALS, rival_recruiting)]
 
 
 ## First-visit menu tips (director, 2026-10-07): chosen at New career, kept
@@ -8434,7 +8438,7 @@ func set_tutorials_on(on: bool) -> void:
 
 
 ## The step of a dial the next New Career starts on (a menu setting). A
-## device that only ever chose Easy, Normal or Hard starts on the matching pair.
+## device that only ever chose Easy, Normal or Hard starts on the Fair board and the matching rivals.
 func new_career_dial(dial: String) -> String:
 	var saved := str(get_setting(dial, ""))
 	if saved == "":

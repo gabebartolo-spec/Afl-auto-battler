@@ -421,7 +421,8 @@ with the career. Each has three steps; the sizes behind them are in
 Fair and Shrewd are the middle steps (what the game played before the dials).
 Players develop by the same rules on every step, and rival clubs get no hidden
 information or rating boost. A career saved before the dials (Easy, Normal or
-Hard) plays on the matching pair.
+Hard) keeps the Fair board, as the old setting never touched the board, and its
+rivals follow the old setting (Easygoing, Shrewd, Cut-throat).
 
 ## League news
 
