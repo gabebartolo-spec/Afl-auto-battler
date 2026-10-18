@@ -371,7 +371,8 @@ func _standing_card() -> Control:
 	if GameState.board_goal_text() != "":
 		var conf := GameState.board_confidence()
 		var warned := bool(GameState.board.get("warned", false))
-		if warned or conf < ClubLife.WARN_LINE:
+		# The board's own line for a poor season (Ruthless sets it higher).
+		if warned or conf < int(GameState.difficulty_rules()["poor_season_below"]):
 			var board_l := UiKit.lbl("Board: %s  ·  %s%s" % [GameState.board_state(), GameState.board_goal_text(),
 					"  (final warning)" if warned else ""], UiKit.SMALL, UiKit.BAD)
 			board_l.name = "BoardLine"
@@ -574,7 +575,6 @@ func _show_news() -> void:
 	_news_overlay.name = "NewsFeed"
 	var v: VBoxContainer = box["body"]
 	v.add_child(UiKit.heading("League news", UiKit.H1))
-	v.add_child(UiKit.lbl("Difficulty: %s" % str(GameState.difficulty_rules()["label"]), 12, UiKit.MUTED))
 	var last_when := ""
 	for item in GameState.news:
 		var when := "%d  %s" % [int(item["year"]), str(item["when"])]

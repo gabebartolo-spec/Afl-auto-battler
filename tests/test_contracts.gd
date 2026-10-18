@@ -32,6 +32,7 @@ func run() -> void:
 	_test_future_picks()
 	_test_mixed_packages()
 	_test_trade_market()
+	_test_rival_recruiting_dial()
 	_test_pick_provenance()
 	_test_untouchable()
 	_test_pick_order_line()
@@ -1494,6 +1495,39 @@ func _test_seeded_market_repeats() -> void:
 		_to_offseason()
 		logs.append(JSON.stringify(GameState.offseason_log) + JSON.stringify(GameState.trade_requests))
 	_check(logs[0] == logs[1], "The same seed trades the same way twice")
+
+
+## Rival recruiting: the dial sets how much better off a rival must be to
+## trade with you. In a seeded off-season one real offer is accepted by an
+## Easygoing club and refused by a Cut-throat one, and no offer goes the other way.
+func _test_rival_recruiting_dial() -> void:
+	GameState.set_new_career_dial("rival_recruiting", "shrewd")
+	_new_season()
+	_to_offseason()
+	_check(GameState.offseason_open(), "The off-season is open for the rival dial's trade fixture")
+	var rival := "COL"
+	var mine: Array = GameState.my_list.duplicate()
+	var theirs: Array = (GameState.season.lists[rival] as Array).duplicate()
+	var found := ""
+	var backwards := 0
+	var asked := 0
+	for m in mine:
+		for t in theirs:
+			GameState.rival_recruiting = "easygoing"
+			var easy := bool(GameState.evaluate_trade(rival, [str(m["id"])], [str(t["id"])])["ok"])
+			GameState.rival_recruiting = "cutthroat"
+			var hard := bool(GameState.evaluate_trade(rival, [str(m["id"])], [str(t["id"])])["ok"])
+			asked += 1
+			if hard and not easy:
+				backwards += 1
+			if easy and not hard and found == "":
+				found = "%s for %s" % [str(m["name"]), str(t["name"])]
+		if found != "" and asked > 200:
+			break
+	GameState.rival_recruiting = "shrewd"
+	_check(found != "", "One offer to %s is accepted by Easygoing rivals and refused by Cut-throat ones (%d offers asked)" % [rival, asked])
+	_check(backwards == 0, "No offer is refused by Easygoing rivals yet accepted by Cut-throat ones (%d)" % backwards)
+	GameState.set_new_career_dial("rival_recruiting", "shrewd")
 
 
 func _test_trade_market() -> void:

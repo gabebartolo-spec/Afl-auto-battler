@@ -28,6 +28,7 @@ func run() -> void:
 	_test_firsts_goals()
 	_test_first_goal_candidates()
 	_test_sacking()
+	_test_board_patience()
 	_test_team_form()
 	_test_board_confidence()
 	_test_coaching_hub()
@@ -492,6 +493,67 @@ func _test_sacking() -> void:
 	else:
 		print("SKIP: GEE won the flag, so the warning never comes")
 		print("SKIP: GEE won the flag, so the sacking never comes")
+
+
+## Board patience: how many poor seasons the board puts up with before it
+## warns you and then moves on you. The same poor career is warned in a
+## different season on Patient and on Ruthless.
+func _test_board_patience() -> void:
+	var patient := DifficultyDials.step("board_patience", "patient")
+	var fair := DifficultyDials.step("board_patience", "fair")
+	var ruthless := DifficultyDials.step("board_patience", "ruthless")
+	# The rule on its own: a poor season under each step, then the next.
+	var p1 := ClubLife.season_end(10, false, false, 0, patient)
+	var p2 := ClubLife.season_end(10, false, bool(p1["warned"]), int(p1["poor_seasons"]), patient)
+	var p3 := ClubLife.season_end(10, false, bool(p2["warned"]), int(p2["poor_seasons"]), patient)
+	_check(not bool(p1["warned"]) and not bool(p1["sacked"]) and int(p1["confidence"]) == 10
+			and bool(p2["warned"]) and not bool(p2["sacked"]) and int(p2["confidence"]) >= 35
+			and bool(p3["sacked"]), "Patient: the first poor season is forgiven, the second warns, the third sacks")
+	var f1 := ClubLife.season_end(10, false, false, 0, fair)
+	var f2 := ClubLife.season_end(10, false, bool(f1["warned"]), int(f1["poor_seasons"]), fair)
+	_check(bool(f1["warned"]) and not bool(f1["sacked"]) and bool(f2["sacked"]),
+			"Fair: the first poor season warns and the second sacks, as before the dials")
+	_check(ClubLife.season_end(34, false, false, 0, fair)["warned"] == false
+			and ClubLife.season_end(34, false, false, 0, ruthless)["warned"] == true,
+			"Ruthless counts a season that only scrapes by as poor; Fair does not")
+	var met := ClubLife.season_end(60, true, true, 2, patient)
+	_check(not bool(met["warned"]) and int(met["poor_seasons"]) == 0,
+			"A season that meets the goal clears the warning and the count")
+	# The same poor career through the real season end, seeded.
+	var warned_in := {}
+	var sacked_in := {}
+	for step in ["patient", "fair", "ruthless"]:
+		GameState.set_new_career_dial("board_patience", step)
+		GameState.reset()
+		GameState.start_season("GEE", GameDB.club_list("GEE"))
+		warned_in[step] = 0
+		sacked_in[step] = 0
+		for n in range(1, 5):
+			GameState.board["goal"] = {"key": "top4", "text": "Finish in the top four", "pos": 0}
+			GameState.board["confidence"] = 10
+			GameState._board_season_end()
+			if int(warned_in[step]) == 0 and bool(GameState.board.get("warned", false)):
+				warned_in[step] = n
+			if GameState.is_sacked():
+				sacked_in[step] = n
+				break
+	_check(int(warned_in["patient"]) == 2 and int(sacked_in["patient"]) == 3
+			and int(warned_in["ruthless"]) == 1 and int(sacked_in["ruthless"]) == 2
+			and int(warned_in["fair"]) == 1 and int(sacked_in["fair"]) == 2,
+			"The same poor career is warned in season 2 on Patient and season 1 on Ruthless (warned %s, sacked %s)" % [str(warned_in), str(sacked_in)])
+	# Patient said so in the board's words, and the count survives a save.
+	GameState.set_new_career_dial("board_patience", "patient")
+	GameState.reset()
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	GameState.board["goal"] = {"key": "top4", "text": "Finish in the top four", "pos": 0}
+	GameState.board["confidence"] = 10
+	GameState._board_season_end()
+	_check(GameState.board_why() == "The board is losing patience." and int(GameState.board.get("poor_seasons", 0)) == 1,
+			"A forgiven poor season is reported in the board's words: %s" % GameState.board_why())
+	_check(GameState.save_career() and GameState.load_career() and int(GameState.board.get("poor_seasons", 0)) == 1
+			and GameState.board_patience == "patient", "The count of poor seasons and the dial survive a save")
+	GameState.set_new_career_dial("board_patience", "fair")
+	GameState.delete_saved_career()
 
 
 ## Team form: bounded, saturating, quick to turn, neutral by default, and

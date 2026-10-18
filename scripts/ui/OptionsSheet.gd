@@ -154,6 +154,13 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 		confirm.add_child(row)
 		v.add_child(confirm)
 
+	if in_career:
+		# Read-only: the two dials are chosen at New career and kept with the career.
+		v.add_child(UiKit.spacer(UiKit.GAP))
+		var dials := UiKit.detail(GameState.career_dials_line())
+		dials.name = "OptionsCareerDials"
+		v.add_child(dials)
+
 	v.add_child(UiKit.spacer(UiKit.GAP))
 	var ver := UiKit.lbl("Version %s" % BuildInfo.label(),
 			UiKit.SMALL, UiKit.MUTED)

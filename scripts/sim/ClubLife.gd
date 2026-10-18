@@ -7,7 +7,8 @@ extends RefCounted
 ## (a top-four list must finish top four; a bottom list must win seven).
 ## Results move its confidence (0-100). Miss the goal and it drops sharply;
 ## finish a season under WARN_LINE and you get a final warning, do it again
-## and you are sacked.
+## and you are sacked. How many poor seasons the board puts up with before
+## the warning is the board-patience dial (season_end, data/difficulty_dials.json).
 ##
 ## Morale (0-100, 70 is settled): playing and winning lift it, being left out
 ## while fit drags it down - stars most. It nudges match form (+/-3%) and an
@@ -84,15 +85,18 @@ static func after_match(confidence: int, margin: int, steps := [2, -2], losses_i
 	return {"confidence": c, "delta": c - confidence}
 
 
-## The board's mood in words; the number stays behind the scenes.
-static func board_state(confidence: int) -> String:
+## The board's mood in words; the number stays behind the scenes. `line` is
+## the confidence under which a season ends poor (the board dial's
+## poor_season_below): under it the board is "In trouble"; the default is the
+## Fair line.
+static func board_state(confidence: int, line := WARN_LINE) -> String:
 	if confidence >= 80:
 		return "Very secure"
 	if confidence >= 62:
 		return "Secure"
 	if confidence >= 45:
 		return "Stable"
-	if confidence >= WARN_LINE:
+	if confidence >= line:
 		return "Under pressure"
 	return "In trouble"
 
@@ -121,6 +125,35 @@ static func after_season(confidence: int, met: bool, premier: bool) -> int:
 	if premier:
 		c += 30
 	return clampi(c, 0, 100)
+
+
+## What the board does at the end of a season, by how patient it is
+## (DifficultyDials.step("board_patience", ...)). `conf` is the confidence
+## after the season (after_season). A season is poor when it ends under the
+## step's poor_season_below. The board warns you on the poor season that
+## reaches poor_seasons_before_warning, and the next poor season after the
+## warning is the sacking; a season that meets the goal clears both.
+## Returns {"confidence", "warned", "sacked", "poor_seasons", "verdict"}.
+static func season_end(conf: int, met: bool, warned: bool, poor_seasons: int, patience: Dictionary) -> Dictionary:
+	var verdict := "The board is delighted." if met else "The board is disappointed."
+	var sacked := false
+	var poor_n := poor_seasons
+	var c := conf
+	if conf < int(patience.get("poor_season_below", WARN_LINE)):
+		poor_n += 1
+		if warned:
+			sacked = true
+			verdict = "The board has sacked you."
+		elif poor_n >= int(patience.get("poor_seasons_before_warning", 1)):
+			warned = true
+			c = maxi(conf, WARN_LINE + 5)
+			verdict = "Final warning: miss again next year and you are gone."
+		else:
+			verdict = "The board is losing patience."
+	elif met:
+		warned = false
+		poor_n = 0
+	return {"confidence": c, "warned": warned, "sacked": sacked, "poor_seasons": poor_n, "verdict": verdict}
 
 
 static func morale(p: Dictionary) -> int:
