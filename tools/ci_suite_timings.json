@@ -54,6 +54,7 @@
     "plan_know": 60,
     "rowgap": 60,
     "planpane": 40,
-    "namelink": 30
+    "namelink": 30,
+    "match_marks": 41
   }
 }
