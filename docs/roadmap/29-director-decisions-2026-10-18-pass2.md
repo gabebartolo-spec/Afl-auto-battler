@@ -13,7 +13,7 @@ later one wins. Nothing here edits the bible. P-12 (chapter 28) stays the first 
 | 3 | People remembered | Yes | P-37, P-38, P-39, P-40, P-41, P-42, P-44, P-45 (P-43 below) |
 | 4 | The draft and the off-season | Yes | P-46, P-47, P-48, P-49, P-50 (skip P-51; P-52 below) |
 | 5 | History and the league | Yes | P-53, P-54, P-55, P-56 (skip P-58, P-59; P-57 below) |
-| 6 | Fewer taps, nothing hidden | Yes | P-60, P-61, P-62, P-63, P-64, P-65, P-66, P-67 (skip P-68, P-69) |
+| 6 | Fewer taps, nothing hidden | Yes | P-60, P-61, P-63, P-64, P-65, P-66, P-67 (skip P-68, P-69). P-62 "intent on the button, never odds" was built (#780) and REVERSED the same evening by his transparency rulings (ch. 30 rows 27-28, bible §4: every gate shows the odds as percentages); its lint tools/check_player_facing_odds.py was retired |
 | 7 | Trust, saves and the store | Yes | P-70, P-71, P-72, P-73, P-74 (skip P-75) |
 | 8 | Audits that protect the fun | Yes | P-76, P-77, P-78, P-79, P-80, P-81 |
 | 9 | P-52 carnival week and mid-season rookie draft | "Yes, carnival first" | P-52: the under-18 carnival week first, the rookie draft after; W7 review |
