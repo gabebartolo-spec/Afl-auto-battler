@@ -144,7 +144,7 @@ Started on the director's direction, ahead of the §1.11 gate. The director aske
   - the real rucks and centre-square midfielders, in club colours, jog into their set-up, and anyone running on empty arrives last;
   - the umpire walks in and bounces the ball, and the rucks go up;
   - it freezes at the top of the contest, with a flash and the key names.
-- **The call:** it slides up over the frozen frame with one or two commentary lines in words and no numbers (how the stoppages have gone, who is out on their feet), then MatchSim's own options. Choosing fades the scene back into the match.
+- **The call:** it slides up over the frozen frame with one or two commentary lines in words and no numbers (how the stoppages have gone, who is out on their feet), then MatchSim's own options, each stating its upside, downside, size and odds in football words and never which is better (bible §4, director 2026-10-18). Choosing fades the scene back into the match.
 - **Authority:** it is presentation only. It reads MatchSim's state (players on the ground, energy, clearances and hit-outs) and MatchSim resolves the call. There is no second simulation.
 - **Tests:** `run_matchday_tests.gd` `_bounce_close_up` covers the following:
   - MatchSim raises the call;
