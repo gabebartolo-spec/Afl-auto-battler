@@ -336,7 +336,7 @@ func _match_report(rep: Dictionary, prefix: String, pool: Array) -> Control:
 		# A practice match: each club's name in its own ink, the score right after it.
 		var ink: Color = UiKit.TEXT
 		if prefix == "Practice":
-			ink = UiKit.club_ink(GameState.my_club if side == 0 else str(rep.get("opponent", "")))
+			ink = UiKit.club_name_colour(UiKit.club_ink(GameState.my_club if side == 0 else str(rep.get("opponent", ""))))
 		var nm := UiKit.lbl(str(names[side]), UiKit.NAME, ink, true)
 		nm.name = prefix + "Side_%d" % side
 		nm.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -416,7 +416,7 @@ func _practice_setup() -> Control:
 	for side in [[GameState.my_club, "PracticeHome", "Home"], [opp, "PracticeAway", "Away"]]:
 		var teams := UiKit.hbox(10)
 		teams.add_child(UiKit.club_marker(str(side[0]), 28.0))
-		var nm := UiKit.lbl(GameDB.club_name(str(side[0])), UiKit.NAME, UiKit.club_ink(str(side[0])), true)
+		var nm := UiKit.lbl(GameDB.club_name(str(side[0])), UiKit.NAME, UiKit.club_name_colour(UiKit.club_ink(str(side[0]))), true)
 		nm.name = str(side[1])
 		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -533,7 +533,7 @@ func _club_rule() -> Control:
 func _report_head(text: String) -> Control:
 	var v := UiKit.vbox(4)
 	v.add_child(_club_rule())
-	v.add_child(UiKit.lbl(text, UiKit.HEADING, UiKit.club_ink(GameState.my_club), true))
+	v.add_child(UiKit.lbl(text, UiKit.HEADING, UiKit.club_name_colour(UiKit.club_ink(GameState.my_club)), true))
 	return v
 
 
@@ -841,7 +841,7 @@ func _runner(id: String, place: String, node_name: String) -> Control:
 		h.add_child(fig)
 	# His name wears his club's colour, and where he plays sits beside it.
 	var n := UiKit.lbl(GameDB.player_display_name(p) if not p.is_empty() else "A player who has left",
-			UiKit.NAME, UiKit.club_ink(GameState.my_club), true)
+			UiKit.NAME, UiKit.club_name_colour(UiKit.club_ink(GameState.my_club)), true)
 	n.name = node_name
 	n.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	n.size_flags_vertical = Control.SIZE_SHRINK_CENTER
