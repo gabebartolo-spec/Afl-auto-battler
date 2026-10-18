@@ -19,7 +19,7 @@ const RULE_INSET := 8
 static func ink(code: String) -> Color:
 	if code == "" or not GameDB.clubs.has(code):
 		return UiKit.TEXT
-	return UiKit.score_colour(code)
+	return UiKit.club_name_colour(UiKit.score_colour(code))
 
 
 ## Your club's colour as ink (a section heading), else TEXT.

@@ -189,7 +189,7 @@ func _inked(node: Node, home: String, away: String, tag: String) -> void:
 		_check(names.size() >= 2, "%s: side %d lists goalkickers and best-rated players (%d)" % [tag, side, names.size()])
 		var plain := []
 		for n in names:
-			if (n as Label).get_theme_color("font_color") != (inks[side] as Color):
+			if (n as Label).get_theme_color("font_color") != load("res://scripts/ui/UiKit.gd").club_name_colour(inks[side] as Color):
 				plain.append((n as Label).text)
 		_check(plain.is_empty(), "%s: every player name for side %d is in his club's ink (not: %s)" % [tag, side, str(plain)])
 
