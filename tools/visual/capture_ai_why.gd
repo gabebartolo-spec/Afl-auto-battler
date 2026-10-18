@@ -96,11 +96,12 @@ func _run() -> void:
 	off.queue_free()
 	# Free agency: your offer at his lowest for the best free agents, then the
 	# market closes and the wrap says why the ones you lost went elsewhere.
+	var CT = load("res://scripts/sim/Contracts.gd")   # loaded late: autoloads come first
 	var fas: Array = state.free_agents.duplicate()
 	fas.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
 	for fa in fas.slice(0, 6):
-		var years := int(Contracts.wants(fa)["years"])
-		state._add_offer(fa, club, {"salary": Contracts.lowest(fa, years), "years": years},
+		var years := int(CT.wants(fa)["years"])
+		state._add_offer(fa, club, {"salary": CT.lowest(fa, years), "years": years},
 				state.fa_role(fa, club), state._finish_t(club))
 	state._close_free_agency()
 	print("lost: ", state.fa_lost_lines())
