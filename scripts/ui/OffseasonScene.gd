@@ -6,6 +6,10 @@ var _name_index := {}
 var _root: VBoxContainer
 var _tab := "contracts"
 var _notice := ""
+## A notice that gives a reason (a free agent who turned you down or chose a
+## rival, P-18) reads as text, not a success, with the rival's name in its ink.
+var _notice_club := ""
+var _notice_club_text := ""   # the reason notice it belongs to: any other notice stays as it was
 var _trade_club := ""
 var _mine: Array = []     # your player and pick ids in the trade
 var _theirs: Array = []   # theirs
@@ -71,7 +75,10 @@ func _build() -> void:
 	else:
 		hv.add_child(_para("Leave one of your best 23 unsigned and he tests free agency: your offer stands at his asking price, but rivals can beat it. Other players re-sign for two seasons if the cap allows.", 12, UiKit.MUTED))
 	if _notice != "":
-		hv.add_child(_para(_notice, 13, UiKit.GOOD))
+		var said := _why_para(_notice, _notice_club, 13, UiKit.TEXT) if _notice_club_text != "" and _notice == _notice_club_text \
+				else _para(_notice, 13, UiKit.GOOD)
+		said.name = "OffseasonNotice"
+		hv.add_child(said)
 	var tabs := UiKit.hbox(4)
 	_root.add_child(tabs)
 	for t in [["contracts", "Contracts"], ["agents", "Agents"], ["trade", "Trade"], ["budget", "Budget"]]:
@@ -81,6 +88,8 @@ func _build() -> void:
 		b.pressed.connect(func():
 			_tab = str(t[0])
 			_notice = ""
+			_notice_club = ""
+			_notice_club_text = ""
 			_choosing_club = false
 			_build())
 		tabs.add_child(b)
@@ -494,6 +503,8 @@ func _make_offer(salary: int, years: int) -> void:
 		return
 	_close_talks()
 	_notice = str(r["reason"])
+	_notice_club = str(r.get("club", ""))
+	_notice_club_text = _notice if r.has("code") else ""
 	_build()
 
 
@@ -619,9 +630,13 @@ func _trade(body: VBoxContainer) -> void:
 	var empty := _mine.is_empty() or _theirs.is_empty()
 	var shopping := _mine.size() == 1 and _theirs.is_empty()
 	var prompt := "Add what you want back, or put it on the trade table." if shopping else "Put something on each side."
-	var answer := _para(prompt if empty else str(verdict["reason"]), 14,
-			UiKit.GOOD if bool(verdict["ok"]) else UiKit.MUTED)
+	# Their answer in one line, with the reason their decision took (P-18);
+	# the club's name wears its ink, and a refusal reads as text, not grey.
+	var answer := _para(prompt, 14, UiKit.MUTED) if empty else \
+			_why_para(str(verdict["reason"]), _trade_club, 14, UiKit.GOOD if bool(verdict["ok"]) else UiKit.TEXT)
 	answer.name = "TradeVerdict"
+	if not empty:
+		answer.set_meta("code", str(verdict.get("code", "")))
 	body.add_child(answer)
 	if not empty and not bool(verdict["ok"]):
 		var counter := _counter_for(_trade_club, _mine, _theirs)
@@ -936,6 +951,17 @@ func _names() -> Dictionary:
 	if _name_index.is_empty() and GameState.season != null:
 		_name_index = NameInk.from_lists(GameState.season.lists)
 	return _name_index
+
+
+## A line naming a rival club: the club's name in its ink, players' names in
+## theirs (NameInk).
+func _why_para(text: String, club: String, size: int, colour: Color) -> Control:
+	var index: Dictionary = _names().duplicate()
+	if club != "":
+		index[GameDB.club_name(club)] = club
+	var l := NameInk.label(text, index, size, colour)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return l
 
 
 func _para(text: String, size: int, colour: Color) -> Control:

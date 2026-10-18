@@ -119,6 +119,7 @@ func _run() -> void:
 	await _test_phone_browser_never_wide()
 	await _test_stage()
 	await _test_league_draft_stays_instant()
+	await _test_rival_why()
 	print("Draft UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
 
@@ -1266,5 +1267,44 @@ func _test_league_draft_stays_instant() -> void:
 			and status != null and status.text == want,
 			"League Draft: no stage and no replay, the board lands at once (%s)" % (status.text if status else "-"))
 	feel.test_motion = false
+	ui.queue_free()
+	await _settle()
+
+
+## P-18: open a prospect's sheet with a real tap, draft someone else, and the
+## rival picks that follow say, in one line under the board, why a club took
+## or passed on him, with the club's name in its ink. Opening no one: no line.
+func _test_rival_why() -> void:
+	root.size = Vector2i(390, 844)
+	_state.reset()
+	_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(),
+			_db.active_clubs(2026).duplicate(), 4242)
+	var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
+	root.add_child(ui)
+	ui.call("_on_club_chosen", "FRE")
+	await _settle()
+	_check(ui.find_child("RivalWhyLine", true, false) == null, "No reason line before you have opened anyone")
+	var rows: Array = _state.draft.board("", "", "", "overall", true)
+	var wanted: Dictionary = rows[0]
+	var inspect: Button = ui.find_child("Inspect_" + str(wanted["id"]), true, false)
+	var why_tap: String = await Tap.tap(inspect)
+	await _settle()
+	_check(why_tap == "" and _state.draft.wanted().has(str(wanted["id"])),
+			"A real tap on a prospect opens his sheet and he counts as wanted (%s)" % why_tap)
+	ui.call("_close_player")
+	await _settle()
+	ui.call("_on_pick", rows[1])
+	await _settle()
+	var line: Control = ui.find_child("RivalWhyLine", true, false)
+	var plain := str(line.get_meta("plain", "")) if line != null and line.has_meta("plain") else ""
+	var rival_named := false
+	for c in _state.draft.clubs:
+		if plain.begins_with(str(_db.club_name(c)) + " "):
+			rival_named = true
+	_check(line is RichTextLabel and (line as RichTextLabel).text.contains("[color=") and rival_named
+			and plain.contains(_db.player_display_name(wanted)) and not plain.contains("{"),
+			"After the rival picks, one line says why a club took or passed on him, the club in its ink (%s)" % plain)
+	_check(line != null and line.is_visible_in_tree() and line.get_global_rect().size.y < 80.0,
+			"The reason is one short line on the phone, not a card")
 	ui.queue_free()
 	await _settle()
