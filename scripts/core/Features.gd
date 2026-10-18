@@ -17,7 +17,7 @@ extends RefCounted
 ## Otherwise it is OFF: every exported build, every test suite that does not
 ## ask for it, and a plain editor run.
 ##
-## Switches:
+## Switches (international_prospects ships ON since 2026-10-18; preseason, speccy_front, training_report ship off):
 ##   preseason   the eight-week pre-season between the wrap and Round 1
 ##               (PreSeason.gd, PreSeasonScene), and everything built on it
 ##               for patch 0.2.0 (the pre-season match comes next).
