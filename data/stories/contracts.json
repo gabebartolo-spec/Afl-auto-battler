@@ -34,7 +34,7 @@
 			{
 				"key": "wait",
 				"label": "Wait for the off-season",
-				"note": "No commitment yet. He'll ask for what he's worth then: less if his form drops, more if he improves.",
+				"note": "No premium now. {wait_price}",
 				"effects": [
 					{
 						"op": "morale",

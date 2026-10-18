@@ -99,13 +99,13 @@ static func _build(host: Control, box: Dictionary, state: Dictionary, done: Call
 	chart.custom_minimum_size = Vector2(0, 190 if bool(state["wide"]) else 128)
 	var cap := UiKit.lbl("Dotted is your plan. Solid is the legs you get.", UiKit.SMALL, UiKit.MUTED)
 	cap.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var dept := UiKit.lbl("Your high-performance department (%s) sets how high the peak goes and how close to time it lands." % 			ClubBudget.level_label(level), UiKit.SMALL, UiKit.MUTED)
+	var dept := UiKit.lbl(Conditioning.department_line(level), UiKit.SMALL, UiKit.MUTED)
 	dept.name = "SeasonPlanDepartment"
 	dept.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var plans := UiKit.vbox(8)
 	plans.name = "SeasonPlans"
 	for key in Conditioning.PLANS:
-		plans.add_child(_plan_row(host, box, state, done, str(key), draft, open_now))
+		plans.add_child(_plan_row(host, box, state, done, str(key), draft, open_now, level))
 	if bool(state["wide"]):
 		# A PC: the line and its words on the left, the four plans beside it.
 		var cols := UiKit.hbox(20)
@@ -175,7 +175,7 @@ static func _build(host: Control, box: Dictionary, state: Dictionary, done: Call
 ## One plan: its name, what it does, one tap to pick it. The chosen one is
 ## outlined. Locked, it is read-only and the plan in force is marked.
 static func _plan_row(host: Control, box: Dictionary, state: Dictionary, done: Callable,
-		key: String, draft: String, open_now: bool) -> Control:
+		key: String, draft: String, open_now: bool, level: int) -> Control:
 	var on := key == draft
 	var row := PanelContainer.new()
 	row.name = "PlanRow_" + key
@@ -192,7 +192,9 @@ static func _plan_row(host: Control, box: Dictionary, state: Dictionary, done: C
 	var t := UiKit.lbl(title, UiKit.BODY, UiKit.TEXT if on or open_now else UiKit.MUTED, true)
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(t)
-	var e := UiKit.lbl(str(Conditioning.PLAN_EFFECT[key]), UiKit.SMALL, UiKit.MUTED)
+	# Its upside, its downside and the odds, at your department's level.
+	var e := UiKit.lbl(Conditioning.plan_effect(key, level), UiKit.SMALL, UiKit.MUTED)
+	e.name = "PlanEffect_" + key
 	e.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	e.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(e)

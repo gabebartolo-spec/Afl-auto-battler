@@ -83,7 +83,9 @@ const PLAYER_FACTS := ["name", "first", "age", "games", "fit", "selected", "over
 		# finished in the time trial ("best", "worst" or ""), what he is injured with.
 		"new_here", "trial_place", "injury_kind",
 		# International prospects (international.json): who he is, and where he is in his career.
-		"intl", "intl_region", "from", "demonym", "home_club", "seasons_listed", "goals"]
+		"intl", "intl_region", "from", "demonym", "home_club", "seasons_listed", "goals",
+		# The extension card: what waiting for the off-season can cost (ClubLife.wait_words).
+		"wait_price"]
 ## Facts about the club and the week (GameState._story_club_facts).
 const CLUB_FACTS := ["club", "opp", "round", "year", "losing_run", "winning_run", "ladder",
 		"board", "fit_count", "run_games", "finals_week", "captain_name", "vice_name", "vice_id",

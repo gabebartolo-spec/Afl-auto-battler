@@ -5667,7 +5667,7 @@ func offer_contract(player_id: String, salary: int, years: int) -> Dictionary:
 			out["ok"] = true
 			out["reason"] = "%s re-signs for %d season%s at %s." % [name, years, "" if years == 1 else "s", Contracts.money(salary)]
 		"counter":
-			talks["failed"] = int(talks.get("failed", 0)) + (2 if bool(reply["insult"]) else 1)
+			talks["failed"] = int(talks.get("failed", 0)) + (Contracts.INSULT_STRIKES if bool(reply["insult"]) else 1)
 			talks["counter"] = int(reply["salary"])
 			talks["years"] = years
 			p["talks"] = talks
@@ -5678,7 +5678,7 @@ func offer_contract(player_id: String, salary: int, years: int) -> Dictionary:
 			p["talks"] = talks
 			out["reason"] = "Talks have broken down: %s will test free agency." % name
 	if bool(reply["insult"]):
-		ClubLife.add_morale(p, -5)
+		ClubLife.add_morale(p, -Contracts.INSULT_MORALE)
 	mark_dirty()
 	return out
 
@@ -6098,7 +6098,7 @@ func offer_free_agent(player_id: String, salary: int, years: int) -> Dictionary:
 	if str(reply["answer"]) != "accept":
 		var out := {"ok": false, "answer": str(reply["answer"]), "salary": int(reply["salary"])}
 		if str(reply["answer"]) == "counter":
-			talks["failed"] = int(talks.get("failed", 0)) + (2 if bool(reply["insult"]) else 1)
+			talks["failed"] = int(talks.get("failed", 0)) + (Contracts.INSULT_STRIKES if bool(reply["insult"]) else 1)
 			talks["counter"] = int(reply["salary"])
 			talks["years"] = years
 			p["talks"] = talks

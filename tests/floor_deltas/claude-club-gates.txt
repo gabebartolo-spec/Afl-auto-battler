@@ -1,0 +1,3 @@
+fitness +25
+contracts +5
+club +2

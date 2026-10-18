@@ -314,6 +314,9 @@ static func player_fact(gs, p: Dictionary, selected: bool, i: Dictionary, fit_ra
 	out["home_club"] = str(p.get("draft_team", ""))
 	out["seasons_listed"] = int(gs.season_year) - int(p.get("drafted_year", int(gs.season_year) - 99))
 	out["goals"] = career_goals
+	# What waiting on an early extension can cost: the rise training can still
+	# bring his price this season (read on a copy: the ceiling marks the player).
+	out["wait_price"] = ClubLife.wait_words(p, gs.season_ceiling(p.duplicate()))
 	# The result of his role trial, for the card that reports it.
 	var tr: Dictionary = gs.trial_result
 	if not tr.is_empty() and str(tr.get("id", "")) == id:
