@@ -41,6 +41,9 @@ func run() -> void:
 	_test_unproven_potential()
 	_test_opposition_pot()
 	_test_money_copy()
+	_test_trade_reasons()
+	_test_free_agent_reasons()
+	_test_market_reasons_change_nothing()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	print("Contracts tests: %d checks, %d failures" % [checks, failures.size()])
@@ -2064,3 +2067,220 @@ func _test_opposition_pot() -> void:
 	_check(fw > vw, "The range narrows with time in the league (%d new vs %d long-serving)" % [fw, vw])
 	_check(GameState.pot_view(fresh)["text"] == fv["text"], "The read is stable while you look at him")
 	GameState.reset()
+
+
+## P-18: every trade verdict carries the reason code of the branch it took,
+## and the line is that code's sentence.
+func _test_trade_reasons() -> void:
+	var AR = load("res://scripts/sim/AiReasons.gd")
+	GameDB.reload()
+	# Lists trimmed to 39 so the list limits never decide.
+	var base: Array = GameDB.club_list("COL").slice(0, 39)
+	var ctx := {"phase": "building", "name": "Collingwood", "names": {"t_weak": "Weak Link"}}
+	var mine: Array = GameDB.club_list("GEE").slice(0, 38)
+	# A value gap: a starter for a pick that buys nothing.
+	var starter := _with(base[3], {"id": "t_starter", "overall": 80, "potential": 80, "age": 27.0})
+	var club: Array = base.duplicate()
+	club.append(starter)
+	var dud_pick := {"pick": true, "id": "pick:x", "year": 2099, "round": 4, "positions": [[999, 1.0]]}
+	var v := Contracts.evaluate_trade(club, [starter], [dud_pick], 99999999, mine, 99999999, 0.0, ctx)
+	_check(str(v.get("code", "")) == "trade_value_gap"
+			and str(v["reason"]) == "Collingwood said no: they would be giving up more than they get back.",
+			"A big value gap is refused on value, in words (%s)" % str(v.get("reason", "")))
+	# A newcomer who wouldn't get a game.
+	var weak := _with(base[5], {"id": "t_weak", "overall": 35, "potential": 36, "age": 30.0, "role2": ""})
+	v = Contracts.evaluate_trade(club, [starter], [weak], 99999999, mine + [weak], 99999999, 0.0, ctx)
+	_check(str(v.get("code", "")) == "trade_no_game"
+			and str(v["reason"]) == "Collingwood said no: Weak Link wouldn't get a game in their side.",
+			"A newcomer who wouldn't get a game is the reason given (%s)" % str(v.get("reason", "")))
+	# A rebuilder keeps its young cornerstone.
+	var prospect := _with(base[2], {"id": "t_prospect", "overall": 66, "potential": 90, "age": 20.0})
+	var club_kid: Array = base.duplicate()
+	club_kid.append(prospect)
+	var reb := {"phase": "rebuilding", "name": "Collingwood", "names": {"t_prospect": "Kid Prospect"}}
+	v = Contracts.evaluate_trade(club_kid, [prospect], [starter], 99999999, mine + [starter], 99999999, 0.0, reb)
+	_check(str(v.get("code", "")) == "trade_rebuild_future"
+			and str(v["reason"]) == "Collingwood said no: they are rebuilding, and Kid Prospect is part of their future.",
+			"A rebuilder keeps its young cornerstone, and says so (%s)" % str(v.get("reason", "")))
+	# The rules: their cap, a list over the limit, nothing on one side.
+	v = Contracts.evaluate_trade(club, [base[0]], [starter], 1, mine, 99999999, 0.0, ctx)
+	_check(str(v.get("code", "")) == "trade_their_cap" and str(v["reason"]) == "Collingwood said no: they can't fit the salary under their cap.",
+			"Their cap is the reason when it is (%s)" % str(v.get("reason", "")))
+	v = Contracts.evaluate_trade(club, [], [starter], 99999999, mine, 99999999, 0.0, ctx)
+	_check(str(v.get("code", "")) == "trade_empty", "An empty side has its own reason")
+	# Walk real offers: no verdict without a known reason, and the reason is
+	# the code's sentence; the value branches line up with the values.
+	_new_season()
+	_to_offseason()
+	var rival := "CAR"
+	var seen := {}
+	var all_ok := true
+	var branch_ok := true
+	var bad := ""
+	var mine_list: Array = GameState.my_list.duplicate()
+	var theirs: Array = (GameState.season.lists[rival] as Array).duplicate()
+	for i in range(0, mini(mine_list.size(), 30), 3):
+		for j in range(0, mini(theirs.size(), 30), 3):
+			var r := GameState.evaluate_trade(rival, [str(mine_list[i]["id"])], [str(theirs[j]["id"])])
+			var code := str(r.get("code", ""))
+			seen[code] = true
+			if code == "" or not bool(AR.has(code)) or str(r.get("reason", "")) == "" or str(r["reason"]).contains("{"):
+				all_ok = false
+				bad = str(r)
+			if code == "trade_accept" and not bool(r["ok"]):
+				branch_ok = false
+			if code == "trade_value_close" and float(r["in"]) < 0.9 * float(r["out"]):
+				branch_ok = false
+			if code == "trade_value_gap" and float(r["in"]) >= 0.9 * float(r["out"]):
+				branch_ok = false
+	_check(all_ok, "Every trade answer carries a known reason code and its sentence %s" % bad)
+	_check(branch_ok and seen.has("trade_accept") and (seen.has("trade_value_gap") or seen.has("trade_no_game")),
+			"Accepted and refused offers each carry the branch they took (%s)" % str(seen.keys()))
+	# A counter carries the refusal it answers.
+	# (Mirrors the counter fixture in _test_trade_market: Collingwood, matched by rank.)
+	var col := (GameState.season.lists["COL"] as Array).duplicate()
+	col.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+	var ours := GameState.my_list.duplicate()
+	ours.sort_custom(func(a, b): return int(a["overall"]) < int(b["overall"]))
+	var counters := 0
+	var counter_ok := true
+	for k in [4, 6, 8, 10, 12, 14]:
+		var r := GameState.evaluate_trade("COL", [str(ours[k]["id"])], [str(col[k]["id"])])
+		if bool(r["ok"]) or not r.has("in"):
+			continue
+		var c := GameState.trade_counter("COL", [str(ours[k]["id"])], [str(col[k]["id"])])
+		if c.is_empty():
+			continue
+		counters += 1
+		counter_ok = counter_ok and str(c.get("code", "")) == str(r.get("code", "")) and str(c["code"]) != ""
+	_check(counters > 0 and counter_ok, "A counter carries the reason code of the refusal it answers (%d)" % counters)
+	var twice := GameState.evaluate_trade(rival, [str(mine_list[0]["id"]), str(mine_list[0]["id"])], [str(theirs[0]["id"])])
+	_check(str(twice.get("code", "")) == "trade_twice" and str(twice["reason"]) == "Each player or pick can only go in once.",
+			"A player put in twice has its own reason")
+
+
+## P-18: a free agent who chooses another club says why, from the branch his
+## choice took.
+func _test_free_agent_reasons() -> void:
+	var AR = load("res://scripts/sim/AiReasons.gd")
+	var p: Dictionary = GameDB.club_list("GEE")[0]
+	var wanted := int(Contracts.wants(p)["years"])
+	var base := {"club": "CAR", "salary": 600000, "years": wanted, "role": "bench", "finish_t": 0.5}
+	var pairs := [
+		["fa_money", _with(base, {"salary": 900000})],
+		["fa_role", _with(base, {"role": "ground"})],
+		["fa_club", _with(base, {"finish_t": 0.0})],
+		["fa_push", _with(base, {"amb": 1.0})],
+	]
+	var all_ok := true
+	var bad := ""
+	for pr in pairs:
+		var w := Contracts.prefers_why(p, pr[1], base)
+		var l := Contracts.prefers_why(p, base, pr[1])
+		if not (bool(w[0]) and str(w[1]) == str(pr[0]) and not bool(l[0]) and str(l[1]) == str(pr[0])):
+			all_ok = false
+			bad += " %s:%s/%s" % [pr[0], str(w), str(l)]
+	if wanted > 1:
+		var short := _with(base, {"years": 1})
+		var w2 := Contracts.prefers_why(p, base, short)
+		all_ok = all_ok and bool(w2[0]) and str(w2[1]) == "fa_security"
+	var same := Contracts.prefers_why(p, base, base.duplicate())
+	_check(all_ok and not bool(same[0]) and str(same[1]) == "fa_first",
+			"Each part of his choice gives its own reason, either way round, and a dead heat goes to the first offer%s" % bad)
+	var agree := true
+	for pr in pairs:
+		agree = agree and bool(Contracts.prefers_why(p, pr[1], base)[0]) == Contracts.prefers(p, pr[1], base) \
+				and bool(Contracts.prefers_why(p, base, pr[1])[0]) == Contracts.prefers(p, base, pr[1])
+	_check(agree, "His reason comes from the same comparison as his choice")
+	var t := Contracts.free_agent_terms(p, {"in_best22": false, "rivals": 1})
+	_check(str(t["code"]) == "fa_wants_senior_football" and bool(AR.has(str(t["code"]))),
+			"Turning you down for senior football has its reason code")
+	# Through the market: your final offer at his lowest against a rival's
+	# far bigger one. He chooses the rival, and the line says it paid more.
+	_new_season()
+	_to_offseason()
+	var me := GameState.my_club
+	GameState.salary_cap += 10000000
+	var target := {}
+	for fa in GameState.free_agents:
+		if GameState.fa_role(fa, me) == "ground" and (target.is_empty() or int(fa["overall"]) > int(target["overall"])):
+			target = fa
+	_check(not target.is_empty(), "A free agent who would start for you is on the market")
+	if target.is_empty():
+		return
+	var id := str(target["id"])
+	var years := int(Contracts.wants(target)["years"])
+	var low := Contracts.lowest(target, years)
+	var rival := ""
+	for code in GameState.season.lists:
+		if code != me and code != str(target.get("released_by", "")) and (GameState.season.lists[code] as Array).size() < Contracts.MAX_LIST:
+			rival = str(code)
+			break
+	target["offers"] = [{"club": rival, "salary": low + 20 * Contracts.SALARY_STEP, "years": years, "role": "ground", "finish_t": 0.5}]
+	target["market_round"] = Contracts.FA_ROUNDS - 1
+	target["talks"] = {}
+	var r := GameState.offer_free_agent(id, low, years)
+	var name := GameDB.player_display_name(target)
+	_check(str(r.get("answer", "")) == "lost" and str(r.get("code", "")) == "fa_money" and str(r.get("club", "")) == rival
+			and str(r["reason"]) == "%s paid more: %s took the bigger offer." % [GameDB.club_name(rival), name],
+			"Outbid on money: the line names the club and says it paid more (%s)" % str(r.get("reason", "")))
+	# Your offer no longer fits your cap when he decides: that is the reason.
+	var fa2 := {}
+	for fa in GameState.free_agents:
+		if fa != target:
+			fa2 = fa
+			break
+	if not fa2.is_empty():
+		fa2["offers"] = [{"club": rival, "salary": Contracts.SENIOR_MIN_2027, "years": 1, "role": "depth", "finish_t": 0.5},
+				{"club": me, "salary": GameState.cap_room() + Contracts.SALARY_STEP, "years": 1, "role": "ground", "finish_t": 0.5}]
+		var went := GameState._decide_fa(fa2)
+		_check(went == rival and GameState.fa_last_why == "fa_your_cap",
+				"Your offer past your cap room when he decides: the reason is your cap (%s, %s)" % [went, GameState.fa_last_why])
+
+
+## P-18: the reasons are read from what the market decided, never decided
+## themselves. The same seeded off-season, your offers in for free agents,
+## signs the same players for the same money with reasons on and off; the
+## reasons reach the off-season wrap's lines, and nothing new is saved.
+func _test_market_reasons_change_nothing() -> void:
+	var runs := []
+	var lost := []
+	var keys := []
+	for on in [true, false]:
+		AiReasons.enabled = on
+		GameState.reset()
+		GameState.career_seed = 4712
+		GameState.replay_seed = 4712
+		GameState.start_season("GEE", GameDB.club_list("GEE"))
+		_to_offseason()
+		GameState.open_offseason()
+		var me := GameState.my_club
+		var n := 0
+		for fa in GameState.free_agents:
+			if n >= 8:
+				break
+			var years := int(Contracts.wants(fa)["years"])
+			GameState._add_offer(fa, me, {"salary": Contracts.lowest(fa, years), "years": years},
+					GameState.fa_role(fa, me), GameState._finish_t(me))
+			n += 1
+		GameState._close_free_agency()
+		var lists := {}
+		for code in GameState.season.lists:
+			lists[code] = (GameState.season.lists[code] as Array).map(func(q): return [str(q["id"]), int(q.get("salary", 0)), int(q.get("contract_years", 0))])
+		runs.append(JSON.stringify(lists) + JSON.stringify(GameState.offseason_log))
+		lost.append(GameState.fa_lost_lines())
+		GameState.save_career()
+		keys.append(JSON.stringify(CareerSave.read(GameState.save_path).keys()))
+	AiReasons.enabled = true
+	_check(runs.size() == 2 and runs[0] == runs[1],
+			"The same seeded market signs the same players for the same money with the reasons on and off")
+	var lines: Array = lost[0]
+	var words_ok := not lines.is_empty()
+	for l in lines:
+		words_ok = words_ok and str(l["text"]) != "" and not str(l["text"]).contains("{") 				and str(l["text"]).contains(GameDB.club_name(str(l["club"])))
+	_check(words_ok and (lost[1] as Array).is_empty(),
+			"Free agents you were after who went elsewhere each have a line naming the club; none with reasons off (%d)" % lines.size())
+	_check(keys[0] == keys[1] and not str(keys[0]).contains("fa_lost") and not str(keys[0]).contains("fa_last_why"),
+			"The reasons add nothing to the save")
+	GameState.reset()
+	_check(GameState.fa_lost.is_empty(), "A new career starts with no free-agency reasons")

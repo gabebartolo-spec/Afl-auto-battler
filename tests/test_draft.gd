@@ -30,6 +30,8 @@ func run() -> void:
 	_test_asset_valuation()
 	_test_combine_scouting()
 	_test_scouted_league_board()
+	_test_rival_says_why()
+	_test_draft_reasons_change_nothing()
 	GameState.replay_seed = 0
 	print("Draft tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -866,3 +868,138 @@ func _test_finished_list_reachability() -> void:
 			break
 	_check(r.release_for_room(any_id) and r._forced_role(mr) == "RUCK",
 			"Release reopens it and the place left must go to a ruck")
+
+
+## A fake player already on a club's list, for the P-18 fixtures.
+func _held(id: String, role: String, ovr := 60) -> Dictionary:
+	return {"id": id, "name": id, "last": id, "club": "ORIGINAL", "role": role, "overall": ovr,
+		"value": 1, "age": 25.0}
+
+
+## P-18: a rival that passes on, or takes, a prospect you opened says why, and
+## the reason is the branch its pick took.
+func _test_rival_says_why() -> void:
+	var AR = load("res://scripts/sim/AiReasons.gd")
+	var name_of := func(q: Dictionary) -> String: return str(q.get("name", ""))
+	# The two-ruck rule: with two places left and no ruck, Carlton must take a
+	# ruck, so it passes on the best defender in the draft.
+	var d := Draft.new(_pool(), ["CAR", "GEE"], 123)
+	d.wanted()["player_0"] = true
+	for i in range(8):
+		(d.club_lists["CAR"] as Array).append(_held("held_%d" % i, ["DEF", "MID", "FWD"][i % 3]))
+	var why := {}
+	var got := d._best_ai_pick("CAR", why)
+	_check(str(got.get("role", "")) == "RUCK" and str(why.get("player_0", "")) == "draft_must_ruck",
+			"Two places left and no ruck: Carlton takes a ruck and its reason is the two-ruck rule (%s)" % str(why))
+	var e := {"pick": 9, "club": "CAR", "player_id": "player_0", "other_id": str(got.get("id", "")), "code": "draft_must_ruck", "gap": ""}
+	_check(d.wanted_line(e, name_of) == "Carlton passed on Player 0: they had to take a ruck, and every list needs two.",
+			"The two-ruck sentence names the club and the player: " + d.wanted_line(e, name_of))
+	# His price: a prospect the club can't afford is passed on for the cap.
+	d = Draft.new(_pool(), ["CAR", "GEE"], 123)
+	for q in d.pool:
+		if str(q["id"]) == "player_0":
+			q["value"] = d.budget + 1
+	d.wanted()["player_0"] = true
+	why = {}
+	d._best_ai_pick("CAR", why)
+	_check(str(why.get("player_0", "")) == "draft_cap", "A prospect the club can't afford is passed on for the cap (%s)" % str(why))
+	# Six defenders already: Carlton is stocked and goes elsewhere.
+	d = Draft.new(_pool(), ["CAR", "GEE"], 123)
+	d.wanted()["player_0"] = true
+	for i in range(6):
+		(d.club_lists["CAR"] as Array).append(_held("def_%d" % i, "DEF"))
+	why = {}
+	got = d._best_ai_pick("CAR", why)
+	_check(str(got.get("id", "")) != "player_0" and str(why.get("player_0", "")) == "draft_stocked",
+			"Six defenders on the list: the best defender is passed on as stocked (%s)" % str(why))
+	e = {"pick": 3, "club": "CAR", "player_id": "player_0", "other_id": str(got.get("id", "")), "code": "draft_stocked", "gap": ""}
+	_check(d.wanted_line(e, name_of).begins_with("Carlton passed on Player 0: they are well stocked with defenders and went for Player "),
+			"The stocked sentence says the position in words: " + d.wanted_line(e, name_of))
+	# Three rucks already: a fourth is no use.
+	d = Draft.new(_pool(), ["CAR", "GEE"], 123)
+	d.wanted()["player_2"] = true
+	for i in range(3):
+		(d.club_lists["CAR"] as Array).append(_held("ruck_%d" % i, "RUCK"))
+	why = {}
+	d._best_ai_pick("CAR", why)
+	_check(str(why.get("player_2", "")) == "draft_ruck_full", "Three rucks on the list: the best ruck is passed on (%s)" % str(why))
+	# A first-choice ruck already: a second star ruck would sit behind him.
+	d = Draft.new(_pool(), ["CAR", "GEE"], 123)
+	d.wanted()["player_2"] = true
+	(d.club_lists["CAR"] as Array).append(_held("ruck_star", "RUCK", 72))
+	why = {}
+	d._best_ai_pick("CAR", why)
+	_check(str(why.get("player_2", "")) == "draft_first_ruck", "A first-choice ruck on the list: a star ruck is passed on (%s)" % str(why))
+	# The pick itself, and every reason on a whole draft where you opened everyone.
+	d = Draft.new(_pool(), ["CAR", "GEE"], 123)
+	for q in d.pool:
+		d.wanted()[str(q["id"])] = true
+	why = {}
+	got = d._best_ai_pick("CAR", why)
+	_check(str(why.get(str(got.get("id", "")), "")).begins_with("draft_took"), "The prospect taken carries a reason too (%s)" % str(why.get(str(got.get("id", "")), "")))
+	_check(why.size() == d.pool.size(), "Every prospect on the board gets a reason (%d of %d)" % [why.size(), d.pool.size()])
+	d = Draft.new(_pool(), ["CAR", "GEE"], 789)
+	for q in d.pool:
+		d.wanted()[str(q["id"])] = true
+	var me := str(d.draft_order[1])
+	d.start_for_user(me)
+	var guard := 0
+	while not d.is_finished() and guard < 40:
+		guard += 1
+		if d.is_user_turn():
+			d.pick(d.board("", "", "", "overall", true)[0])
+		d.auto_until_user_turn()
+	var all_known := not d.wanted_news().is_empty()
+	var bad := ""
+	for n in d.wanted_news():
+		var line := d.wanted_line(n, name_of)
+		if not bool(AR.has(str(n["code"]))) or line == "" or line.contains("{"):
+			all_known = false
+			bad = str(n)
+	_check(all_known, "Every rival pick in a whole draft gives a known reason for each prospect you opened (%d lines) %s" % [d.wanted_news().size(), bad])
+	var first: Dictionary = d.wanted_news()[0] if not d.wanted_news().is_empty() else {}
+	_check(not first.is_empty() and str(first["gap"]) == "one pick before yours",
+			"The first rival pick came one pick before yours, and says so (%s)" % str(first.get("gap", "")))
+	_check(Draft.gap_words(2) == "two picks before yours" and Draft.gap_words(12) == "12 picks before yours",
+			"Picks before yours in words")
+	# Opened no one: no reasons at all.
+	d = Draft.new(_pool(), ["CAR", "GEE"], 789)
+	d.start_for_user(str(d.draft_order[1]))
+	_check(d.wanted_news().is_empty(), "A coach who opened no one hears no reasons")
+
+
+## P-18: the reasons are read, never decided. The same seeded draft makes the
+## same picks with every prospect opened, with none, and with reasons off; and
+## what you opened is never written to a save.
+func _test_draft_reasons_change_nothing() -> void:
+	var runs := []
+	var news := []
+	var saved := {}
+	for mode in ["all", "none", "off"]:
+		AiReasons.enabled = mode != "off"
+		var d := Draft.new(_pool(), ["CAR", "GEE"], 789)
+		if mode != "none":
+			for q in d.pool:
+				d.wanted()[str(q["id"])] = true
+		d.start_for_user(str(d.draft_order[1]))
+		var guard := 0
+		while not d.is_finished() and guard < 40:
+			guard += 1
+			if d.is_user_turn():
+				d.pick(d.board("", "", "", "overall", true)[0])
+			d.auto_until_user_turn()
+		var lists := {}
+		for code in d.club_lists:
+			lists[code] = (d.club_lists[code] as Array).map(func(q): return str(q["id"]))
+		runs.append(JSON.stringify(d.pick_history) + JSON.stringify(lists))
+		news.append(d.wanted_news().size())
+		if mode == "all":
+			saved = CareerSave.object_vars(d)
+	AiReasons.enabled = true
+	_check(runs[0] == runs[1] and runs[1] == runs[2],
+			"The same seeded draft picks the same players with every prospect opened, none, and reasons off")
+	_check(int(news[0]) > 0 and int(news[1]) == 0 and int(news[2]) == 0,
+			"Reasons come only for prospects you opened, and none with reasons off (%s)" % str(news))
+	var leaked := saved.keys().filter(func(k): return str(k).contains("wanted") or str(k) == "_session")
+	_check(not saved.is_empty() and leaked.is_empty(),
+			"What you opened on the board is not written to a save (%s)" % str(leaked))
