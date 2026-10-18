@@ -9,7 +9,7 @@ from check_version import problems
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PROJECT = (ROOT / "project.godot").read_text(encoding="utf-8")
 PRESETS = (ROOT / "export_presets.cfg").read_text(encoding="utf-8")
-MAJOR_MINOR = ".".join(re.search(r'(?m)^config/version="(\d+\.\d+)\.\d+"', PROJECT).group(1).split("."))
+MAJOR_MINOR = re.search(r'(?m)^config/version="(\d+\.\d+)\.\d+"', PROJECT).group(1)
 SCRIPTS = {p.name: p.read_text(encoding="utf-8", errors="replace") for p in (ROOT / "scripts").rglob("*.gd")}
 
 
@@ -18,11 +18,11 @@ class VersionGateTests(unittest.TestCase):
         self.assertEqual(problems(PROJECT, PRESETS, SCRIPTS), [])
 
     def test_planted_literal_in_a_script_fails(self):
-        planted = dict(SCRIPTS, **{"Planted.gd": 'var v := "Version 0.1.0"\n'})
+        planted = dict(SCRIPTS, **{"Planted.gd": 'var v := "Version %s.0"\n' % MAJOR_MINOR})
         self.assertTrue(problems(PROJECT, PRESETS, planted))
 
     def test_planted_current_version_in_a_script_fails(self):
-        planted = dict(SCRIPTS, **{"Planted.gd": 'var v := "0.1.99"\n'})
+        planted = dict(SCRIPTS, **{"Planted.gd": 'var v := "%s.99"\n' % MAJOR_MINOR})
         self.assertTrue(problems(PROJECT, PRESETS, planted))
 
     def test_hard_coded_android_name_fails(self):
