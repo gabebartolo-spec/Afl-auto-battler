@@ -26,7 +26,7 @@
 						"d": 2
 					}
 				],
-				"note": "It takes a session out of the week.",
+				"note": "It gives up the session that training brings.",
 				"result": "The players spend the afternoon on the wards."
 			},
 			{
@@ -46,7 +46,7 @@
 				"result": "You keep the players on the track."
 			}
 		],
-		"stakes": "A visit takes a session out of the week."
+		"stakes": "Sending a group gives up the session that training brings."
 	},
 	{
 		"id": "community_country_clinic",

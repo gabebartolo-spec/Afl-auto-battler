@@ -8859,9 +8859,9 @@ func _my_result(results: Array) -> Dictionary:
 	return {}
 
 
-## A "small chance the morale falls instead" (story card): lose the final it was
-## set for, and one roll from the save's seed says whether the side's morale falls
-## (by the card's size) rather than lifts.
+## A finals card's sting: lose the final it was set for, and one roll from the
+## save's seed says whether the side's morale also falls (by the card's size), on
+## top of the lift the card already gave.
 func _settle_loss_sting(res: Dictionary) -> void:
 	if res.is_empty() or not res.has("tag") or season == null:
 		return
@@ -8913,7 +8913,7 @@ func _board_after_round(results: Array) -> void:
 	var opp := str(res["away"]) if side == 0 else str(res["home"])
 	board["why"] = ClubLife.match_reason(goal, GameDB.club_name(opp), margin, losing_streak)
 	if bool(board.get("promise", false)):
-		conf = clampi(conf + (8 if margin > 0 else -10), 0, 100)
+		conf = clampi(conf + (StoryEngine.PROMISE_WIN_UP if margin > 0 else -StoryEngine.PROMISE_WIN_DOWN), 0, 100)
 		board.erase("promise")
 		board["why"] = ("You promised the board a win over %s, and delivered." if margin > 0
 				else "You promised the board a win over %s, and did not deliver.") % GameDB.club_name(opp)
@@ -8947,7 +8947,7 @@ func _board_after_round(results: Array) -> void:
 			ClubLife.add_morale(p, -CoachEffects.softened(Backing.STING, float(soft.get(pid, 0.0))))
 			Trust.change(relations, Trust.player_key(pid), ClubStories.BROKEN_RUN_TRUST,
 					"You broke your word on his run of games", season_year, last_label)
-			_culture_move(my_club, "together", -2, "You broke your word on a player's run of games")
+			_culture_move(my_club, "together", -StoryEngine.BROKEN_TOGETHER, "You broke your word on a player's run of games")
 		p.erase("expects_game")
 	# A player promised a game (a talk, or a kid given his chance): leaving
 	# him out fit sours it. Once: the promise ends with the round.
@@ -8959,7 +8959,7 @@ func _board_after_round(results: Array) -> void:
 				ClubLife.add_morale(p, -CoachEffects.softened(sting, float(soft.get(str(p["id"]), 0.0))))
 				Trust.change(relations, Trust.player_key(str(p["id"])), ClubStories.BROKEN_PROMISE_TRUST,
 						"You promised him a game and left him out", season_year, last_label)
-				_culture_move(my_club, "together", -2, "You promised a player a game and left him out")
+				_culture_move(my_club, "together", -StoryEngine.BROKEN_TOGETHER, "You promised a player a game and left him out")
 	_after_match_talks(played, int(res.get("round", season.round_index)))
 
 
