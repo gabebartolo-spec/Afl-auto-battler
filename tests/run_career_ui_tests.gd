@@ -612,6 +612,10 @@ Your career stays on your phone.",
 	_check(note != null and note.visible and note.text == DifficultyDials.text("board_patience", "fair")
 			and rival_note != null and rival_note.visible and rival_note.text == DifficultyDials.text("rival_recruiting", "shrewd"),
 			"Each dial starts on its middle step and says what it means in one sentence")
+	var every_trade := true
+	for key in DifficultyDials.order("rival_recruiting"):
+		every_trade = every_trade and DifficultyDials.text("rival_recruiting", key).contains("trade")
+	_check(every_trade, "Every rival recruiting sentence says it is about trades")
 	if ruthless_btn != null:
 		ruthless_btn.emit_signal("pressed")
 		await _settle()
@@ -1674,6 +1678,26 @@ Your career stays on your phone.",
 	_check(hub_settings != null and hub_settings.size.y >= 44, "Settings is on the hub's top bar")
 	var board_was: String = _state.board_patience
 	var rivals_was: String = _state.rival_recruiting
+	# The hub's board line follows the board's own line for a poor season: at
+	# confidence 35 a Ruthless board (line 40) is worried, a Fair one (line 30) is not.
+	var conf_was: int = _state.board_confidence()
+	var warned_was: bool = bool(_state.board.get("warned", false))
+	_state.board["confidence"] = 35
+	_state.board["warned"] = false
+	_state.board_patience = "ruthless"
+	_router.go("hub")
+	await _settle()
+	var ruthless_line: Label = current_scene.find_child("BoardLine", true, false)
+	var ruthless_text := ruthless_line.text if ruthless_line != null else ""
+	_state.board_patience = "fair"
+	_router.go("hub")
+	await _settle()
+	var fair_line: Label = current_scene.find_child("BoardLine", true, false)
+	_check(ruthless_text.begins_with("Board: In trouble") and fair_line == null,
+			"On Ruthless a coach at 35 is told the board is worried; on Fair he is not (ruthless '%s', fair %s)" % [ruthless_text, "shown" if fair_line != null else "none"])
+	_state.board["confidence"] = conf_was
+	_state.board["warned"] = warned_was
+	hub_settings = current_scene.find_child("HubSettings", true, false)
 	_state.board_patience = "patient"
 	_state.rival_recruiting = "cutthroat"
 	if hub_settings != null:

@@ -85,15 +85,18 @@ static func after_match(confidence: int, margin: int, steps := [2, -2], losses_i
 	return {"confidence": c, "delta": c - confidence}
 
 
-## The board's mood in words; the number stays behind the scenes.
-static func board_state(confidence: int) -> String:
+## The board's mood in words; the number stays behind the scenes. `line` is
+## the confidence under which a season ends poor (the board dial's
+## poor_season_below): under it the board is "In trouble"; the default is the
+## Fair line.
+static func board_state(confidence: int, line := WARN_LINE) -> String:
 	if confidence >= 80:
 		return "Very secure"
 	if confidence >= 62:
 		return "Secure"
 	if confidence >= 45:
 		return "Stable"
-	if confidence >= WARN_LINE:
+	if confidence >= line:
 		return "Under pressure"
 	return "In trouble"
 

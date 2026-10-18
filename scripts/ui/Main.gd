@@ -6,6 +6,9 @@ extends Control
 
 var _pitch: PitchView
 var _content: VBoxContainer
+## The setup's "Choose your club" button lives under the scrolling choices, so it
+## stays in thumb reach however many choices the setup has.
+var _footer: VBoxContainer
 var _mode := "home"                 # "home" | "setup"
 var _help_panel: PanelContainer
 var _confirm_overlay: Control
@@ -117,7 +120,11 @@ func _ready() -> void:
 	add_child(margin)
 	_content = UiKit.vbox(12)
 	_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	margin.add_child(UiKit.scroll(_content))
+	var shell := UiKit.vbox(12)
+	margin.add_child(shell)
+	shell.add_child(UiKit.scroll(_content))
+	_footer = UiKit.vbox(0)
+	shell.add_child(_footer)
 	get_viewport().size_changed.connect(func():
 		if not UiKit.keyboard_resize(self):
 			_render())
@@ -151,10 +158,12 @@ func _on_storage_answer(got: String) -> void:
 
 
 func _render() -> void:
+	UiKit.clear(_footer)
 	if _mode == "setup":
 		_show_setup()
 	else:
 		_show_home()
+	_footer.visible = _mode == "setup"
 	_layout()
 
 
@@ -370,16 +379,18 @@ func _show_setup() -> void:
 				"in" if _pick_club else "out",
 				func(_k): return "It joins the competition as an extra club and drafts its list in the League Draft like everyone else. Choose it as your club next, or coach against it.",
 				func(k): _pick_club = k == "in"))
-	# The button follows the choices closely, set just apart from them.
-	var cta := MarginContainer.new()
-	cta.add_theme_constant_override("margin_top", 6)
-	form.add_child(cta)
+	# The button sits under the scrolling choices, always on screen: with the two
+	# dials the setup is taller than a phone, and the button was below the fold.
 	var start := UiKit.btn("Choose your club", UiKit.H2, true)
 	start.name = "StartCareer"
-	start.custom_minimum_size.y = 52
+	start.custom_minimum_size = Vector2(_column_width(440.0), 52)
+	start.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	start.disabled = not GameDB.loaded
 	start.pressed.connect(_on_start)
+	var cta := MarginContainer.new()
+	cta.add_theme_constant_override("margin_top", 6)
 	cta.add_child(start)
+	_footer.add_child(cta)
 	var below := Control.new()
 	below.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	below.size_flags_stretch_ratio = SETUP_BELOW

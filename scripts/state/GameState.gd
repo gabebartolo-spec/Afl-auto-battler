@@ -8711,7 +8711,7 @@ func board_confidence() -> int:
 
 ## The board's mood in words (ClubLife.board_state), and why it last moved.
 func board_state() -> String:
-	return ClubLife.board_state(board_confidence())
+	return ClubLife.board_state(board_confidence(), int(difficulty_rules()["poor_season_below"]))
 
 
 func board_why() -> String:
