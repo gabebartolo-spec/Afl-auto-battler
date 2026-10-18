@@ -1,5 +1,7 @@
 # Aussie Rules Dynasties — Design Audit against the Roadmap Philosophy
 
+*Superseded on decision transparency by bible §4 (director, 2026-10-18); see docs/research/DECISION_TRANSPARENCY_AUDIT_2026-10-18.md.*
+
 *29 September 2026. Audited: `main` at bfc2ea3 (includes #87–#92). Read-only: no game code or roadmap changes were made for this audit.*
 
 *Open, unmerged PRs are noted where they change the picture:*
