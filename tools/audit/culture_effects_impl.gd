@@ -1,7 +1,13 @@
 extends RefCounted
 ## Club culture's effects (small), on against off: does culture tilt the league
-## or snowball it? Args after the impl name: seed club seasons on (`culture_effects_impl 1 MEL 10 1`;
-## on = 0 turns the effects off, nothing else changes).
+## or snowball it? Args after the impl name: seed club seasons on [force]
+## (`culture_effects_impl 1 MEL 10 1 elite,very,rebuild`; on = 0 turns the effects off,
+## nothing else changes; force pins your club's three strands to those bands at the
+## start of every season, so a paired on/off run measures one known culture).
+##
+## With force, each ROW also prints your club: new injuries, mean morale at the end
+## of the season, and the mean rating gained by its under-22s and first-season
+## draftees (the players a patient club brings on).
 ##
 ## Per season prints one ROW: the spread (standard deviation) of wins across the clubs, new injuries
 ## across the league, mean morale of every list, the mean re-sign floor of your list, and how the
@@ -52,6 +58,7 @@ func run() -> void:
 	var club := str(args[2]) if args.size() > 2 else "MEL"
 	var seasons := int(args[3]) if args.size() > 3 else 10
 	var on := (int(args[4]) if args.size() > 4 else 1) == 1
+	var force: PackedStringArray = str(args[5]).split(",") if args.size() > 5 else PackedStringArray()
 	GameState.reset()
 	GameState.show_real_names = false
 	GameState.career_seed = seed
@@ -75,9 +82,21 @@ func run() -> void:
 	var seen := {}
 	var prev_culture := {}
 	var inj := 0
+	var mine_rows := []
 	for s in range(seasons):
 		var year := GameState.season_year
 		inj = 0
+		var my_inj := 0
+		if force.size() == 3:
+			for i in range(3):
+				var strand := str(Culture.STRANDS[i][0])
+				for b in Culture.BANDS[strand]:
+					if str(b[1]) == force[i]:
+						GameState.relations[Culture.key(GameState.my_club, strand)] = {"t": int(b[0]) + 25 if int(b[0]) > -100 else -80, "log": []}
+		var young_start := {}
+		for p in GameState.my_list:
+			if Culture.young_for_growth(p, year):
+				young_start[str(p["id"])] = int(p.get("overall", 0))
 		while not GameState.season.is_season_over() and not GameState.is_sacked():
 			if GameState.week_event_pending():
 				GameState.resolve_week_event(0)
@@ -85,6 +104,23 @@ func run() -> void:
 				GameState.skip_media_conference()
 			GameState.advance()
 			inj += GameState.last_injuries.size()
+			for e in GameState.last_injuries:
+				if str((e as Dictionary).get("club", "")) == GameState.my_club:
+					my_inj += 1
+		if force.size() == 3:
+			var gain := 0.0
+			var n := 0
+			for p in GameState.my_list:
+				if young_start.has(str(p["id"])):
+					gain += float(int(p.get("overall", 0)) - int(young_start[str(p["id"])]))
+					n += 1
+			var mm := 0.0
+			for p in GameState.my_list:
+				mm += float(ClubLife.morale(p))
+			mm /= float(maxi(1, GameState.my_list.size()))
+			mine_rows.append([my_inj, mm, gain / float(maxi(1, n))])
+			print("MINE seed %d on %d year %d | bands %s | my injuries %d | my morale %.2f | young rating gain %.2f (%d players)" % [
+					seed, 1 if on else 0, year, ",".join(force), my_inj, mm, gain / float(maxi(1, n)), n])
 		var wins := _wins()
 		if not prev_culture.is_empty():
 			var codes: Array = prev_culture.keys()
@@ -148,6 +184,13 @@ func run() -> void:
 		for x in xs:
 			t += float(x)
 		return t / float(maxi(1, xs.size()))
+	if not mine_rows.is_empty():
+		var a := [0.0, 0.0, 0.0]
+		for r in mine_rows:
+			for i in range(3):
+				a[i] += float(r[i]) / float(mine_rows.size())
+		print("MINESUM seed %d on %d %s | my injuries a season %.2f | my morale %.2f | young rating gain a season %.2f" % [
+				seed, 1 if on else 0, club, a[0], a[1], a[2]])
 	print("SUMMARY seed %d on %d %s | win spread %.2f | injuries a season %.1f | morale %.2f | re-sign floor %.0f | top-minus-bottom third next-year wins %.2f | free agents signed %d, to pushing clubs %d (%.0f%%) against %.0f%% of clubs" % [
 			seed, 1 if on else 0, club, mean.call(spreads), mean.call(injuries_all), mean.call(morales), mean.call(floors),
 			mean.call(snow), signed_total, signed_push, 100.0 * float(signed_push) / float(maxi(1, signed_total)),

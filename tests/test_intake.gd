@@ -20,6 +20,7 @@ func run() -> void:
 	_test_projection_model()
 	_test_intake_draft_flow()
 	_test_list_cap_skip()
+	_test_draft_rules()
 	_test_career_rollover()
 	_test_class_tiers()
 	_test_retirement_talk()
@@ -137,10 +138,10 @@ func _test_intake_draft_flow() -> void:
 	_check(draft.target_size == 2, "Rounds are inferred from pool size (6 over 4 clubs)")
 	_check(draft.pick_sequence.size() == 6, "Pick sequence truncates to the pool")
 	_check(str(draft.draft_order[0]) == "A", "The reversed-ladder order is respected")
-	var expected := ["A", "B", "C", "D", "D", "C"]
+	var expected := ["A", "B", "C", "D", "A", "B"]
 	for i in range(6):
 		_check(str(draft.pick_sequence[i]) == expected[i],
-				"Snake round two starts with the last club of round one")
+				"Round two runs in the same order as round one, worst club first")
 	_check(not draft.is_valid(), "An unfinished intake draft is not valid yet")
 	_check(draft.budget > 100000, "The intake cap is a formality")
 	draft.start_for_user("A")
@@ -148,7 +149,9 @@ func _test_intake_draft_flow() -> void:
 	var best = draft.board("", "", "", "overall", true)[0]
 	_check(draft.pick(best), "The user signs the top prospect on their turn")
 	_check(draft.has(str(best["id"])), "The user's selection is on their list")
-	# AI fills B..D and then round two for D and C; A's turn never comes again.
+	# AI fills B..D, then round two starts again with A.
+	_check(draft.is_user_turn() and draft.current_club() == "A", "Round two starts with the same club again")
+	_check(draft.pick(draft.board("", "", "", "overall", true)[0]), "The user signs again in round two")
 	_check(draft.is_finished(), "The draft concludes when the pool runs dry")
 	_check(draft.remaining_pool() == 0, "No prospect is left undrafted")
 	_check(draft.pick_history.size() == 6, "Every pick is logged")
@@ -159,8 +162,8 @@ func _test_intake_draft_flow() -> void:
 		if draft.has(str(p["id"])):
 			owner_ids[str(p["id"])] = true
 	_check(owner_ids.size() == 6, "Ownership is complete and unique")
-	_check(draft.count_for("D") == 2 and draft.count_for("A") == 1,
-			"Truncated snake gives the last clubs the extra rookie")
+	_check(draft.count_for("A") == 2 and draft.count_for("B") == 2 and draft.count_for("D") == 1,
+			"The truncated last round goes to the clubs that pick first")
 
 
 func _test_list_cap_skip() -> void:
@@ -171,12 +174,107 @@ func _test_list_cap_skip() -> void:
 	_check(draft.current_club() == "B", "A full club's turn is skipped, not stalled")
 	var best = draft.board("", "", "", "overall", true)[0]
 	_check(draft.pick(best), "The next non-capped club gets its turn")
+	# The extra round comes back to B; the coach takes his second player.
+	_check(draft.is_user_turn(), "The draft runs on to another round while prospects remain")
+	_check(draft.pick(draft.board("", "", "", "overall", true)[0]), "B signs again")
 	_check(draft.is_finished(), "The intake finishes even with a full club in the order")
 	_check(draft.count_for("A") == 0, "The capped club signs nobody")
-	_check(draft.count_for("B") + draft.count_for("C") + draft.count_for("D") == 3,
-			"Every scheduled pick after the skip is filled")
-	_check(draft.remaining_pool() == 1,
-			"The prospect the full club passed on stays available for next year")
+	_check(draft.count_for("B") + draft.count_for("C") + draft.count_for("D") == 4,
+			"Every prospect is signed by a club with room")
+	_check(draft.remaining_pool() == 0,
+			"The prospect the full club passed on goes to a club with room: nobody is wasted")
+
+
+func _blank(code_list: Array, sizes: Dictionary, n: int, counts: Dictionary = {}) -> Draft:
+	return Draft.build_intake(_tiny_pool(n), code_list, code_list, 5, sizes, counts)
+
+
+func _test_draft_rules() -> void:
+	# Same order every round, worst club first.
+	var d := _blank(["A", "B", "C", "D"], {"A": 0, "B": 0, "C": 0, "D": 0}, 8)
+	var seq := ""
+	for c in d.pick_sequence:
+		seq += str(c)
+	_check(seq == "ABCDABCD", "National Draft order repeats every round (%s)" % seq)
+	_check(d.upcoming_picks("A", 0) == [1, 5], "Upcoming picks follow the same order every round")
+	# The draft runs until lists are full: full clubs pass, the rest keep picking.
+	var full := Ratings.LIST_SIZE
+	var e := _blank(["A", "B", "C", "D"], {"A": full, "B": full, "C": 0, "D": 0}, 10)
+	e.start_for_user("")
+	_check(e.is_finished() and e.remaining_pool() == 0, "Clubs with room take every prospect the full clubs pass on")
+	_check(e.count_for("A") == 0 and e.count_for("B") == 0 and e.count_for("C") + e.count_for("D") == 10,
+			"Full clubs sign nobody; the others sign all ten (C %d, D %d)" % [e.count_for("C"), e.count_for("D")])
+	var last_no := 0
+	var rising := true
+	for entry in e.pick_history:
+		rising = rising and int(entry["pick"]) > last_no
+		last_no = int(entry["pick"])
+	_check(e.pick_history.size() == 10 and rising and last_no <= e.pick_sequence.size(), "Extra rounds keep the pick numbers in order")
+	# A list stops at the limit even when the class is larger.
+	var f := _blank(["A", "B"], {"A": full - 2, "B": full - 1}, 12)
+	f.start_for_user("")
+	_check(f.count_for("A") == 2 and f.count_for("B") == 1 and f.remaining_pool() == 9,
+			"No list goes over %d (A %d, B %d, left %d)" % [full, f.count_for("A"), f.count_for("B"), f.remaining_pool()])
+	# Passing.
+	var g := _blank(["A", "B", "C"], {"A": 40, "B": 36, "C": 36}, 9)
+	g.start_for_user("A")
+	_check(g.pass_block_reason() == "", "A coach with a full-sized list may pass")
+	_check(g.user_pass(), "The coach passes")
+	_check(g.is_finished() and g.count_for("A") == 0 and g.remaining_pool() == 0,
+			"A passed coach is skipped for the rest of the draft; the others take the class")
+	var low := _blank(["A", "B"], {"A": Prospects.MIN_LIST - 2, "B": 40}, 4)
+	low.start_for_user("A")
+	_check(low.pass_block_reason().contains("needs at least %d" % Prospects.MIN_LIST), "Passing under the minimum list says why: %s" % low.pass_block_reason())
+	_check(not low.user_pass() and low.is_user_turn(), "Passing is refused under the minimum list")
+	# Pick for me: one pick, the assistant's choice.
+	var h := _blank(["A", "B", "C"], {"A": 40, "B": 40, "C": 40}, 9)
+	h.start_for_user("A")
+	var expect := str(h._best_ai_pick("A")["id"])
+	_check(h.pick_for_me(), "Pick for me signs a player")
+	_check(h.count_for("A") == 1 and str(h.list()[0]["id"]) == expect, "Pick for me takes the assistant's best available, once")
+	_check(h.is_user_turn(), "After one pick it is your turn again in round two")
+	# Rucks: AI stops at two, a third late or as a project, never a fourth.
+	var r := _blank(["A", "B"], {"A": 40, "B": 40}, 6, {"A": {"RUCK": 2, "MID": 10, "DEF": 14, "FWD": 14}, "B": {"RUCK": 3, "MID": 10, "DEF": 14, "FWD": 13}})
+	var raw := {"potential": 70, "overall": 60}
+	_check(is_equal_approx(r._intake_ruck_need("A", raw), Draft.INTAKE_RUCK_THIRD), "A third ruck early is marked down")
+	_check(is_equal_approx(r._intake_ruck_need("A", {"potential": 85, "overall": 60}), Draft.INTAKE_COVERED), "A third ruck who is a clear project is not")
+	_check(r._intake_ruck_need("B", raw) == 0.0, "A fourth ruck is never wanted")
+	# Save and load in the middle; an old save without the new fields.
+	var s1 := _blank(["A", "B", "C", "D"], {"A": 38, "B": full, "C": 36, "D": 40}, 14)
+	s1.start_for_user("A")
+	s1.pick(s1.board("", "", "", "overall", true)[0])
+	var saved := CareerSave.object_vars(s1)
+	var live_sig := _finish_sig(s1)
+	var s2 := Draft.new([], [], 0)
+	CareerSave.apply_vars(s2, saved)
+	_check(_finish_sig(s2) == live_sig, "A draft saved mid-way finishes identically after loading")
+	var old_vars := saved.duplicate()
+	old_vars.erase("passed_clubs")
+	var s4 := Draft.new([], [], 0)
+	CareerSave.apply_vars(s4, old_vars)
+	_check(_finish_sig(s4) == live_sig, "A save from before the draft rules loads and finishes the same way")
+	# Win-now clubs value an older star for the seasons he plays.
+	var gawn: Dictionary = GameDB.player_by_id("MEL_11")
+	var heeney: Dictionary = GameDB.player_by_id("SYD_5")
+	if not gawn.is_empty():
+		var dd := Draft.new([gawn, heeney], ["A", "B"], 1)
+		_check(dd.horizon_worth(gawn, "now") > 85.0, "A win-now club values a 35-year-old star near his rating (%.1f)" % dd.horizon_worth(gawn, "now"))
+		_check(dd.horizon_worth(gawn, "build") < 70.0, "A building club still discounts him (%.1f)" % dd.horizon_worth(gawn, "build"))
+		_check(absf(dd.horizon_worth(heeney, "now") - 88.8) < 1.0, "A 30-year-old's win-now worth is unchanged (%.1f)" % dd.horizon_worth(heeney, "now"))
+
+
+func _finish_sig(d: Draft) -> String:
+	var guard := 0
+	while not d.is_finished() and guard < 200:
+		guard += 1
+		if d.is_user_turn():
+			d.pick_for_me()
+		else:
+			d.auto_until_user_turn()
+	var parts := []
+	for e in d.pick_history:
+		parts.append("%d:%s:%s" % [int(e["pick"]), str(e["club"]), str(e["player_id"])])
+	return ",".join(parts)
 
 
 func _tiny_pool(n: int) -> Array:
@@ -610,7 +708,8 @@ func _test_custom_prospect() -> void:
 		cls_ovr.append_array(Prospects.generate_class(GameState.season_year, cs).map(func(x): return int(x["overall"])))
 	_check(int(ovr[0]) >= int(cls_ovr.min()) - 2 and int(ovr[-1]) <= int(cls_ovr.max()) + 2,
 			"Custom prospects stay inside a class's power band (%d-%d vs %d-%d)" % [ovr[0], ovr[-1], cls_ovr.min(), cls_ovr.max()])
-	_check(int(ovr[40]) >= 45, "Even a modest one is a usable role-player prospect (10th percentile OVR %d)" % ovr[40])
+	# Draft-night ratings run at DRAFT_NIGHT_SCALE of the old curve (director 2026-10-14), so a modest one starts in the high 30s.
+	_check(int(ovr[40]) >= 36, "Even a modest one is a usable role-player prospect (10th percentile OVR %d)" % ovr[40])
 	_check(stars > 8 and stars < 140 and gen < 20,
 			"A star is uncommon and a generational ceiling rare (%d of 400 at POT 85+, %d at 92+)" % [stars, gen])
 
@@ -771,10 +870,12 @@ func _test_real_lists_start() -> void:
 	var untried: Array = GameDB.club_additions("GEE")
 	var all_ok := untried.size() == 12
 	for q in untried:
-		if int(q.get("gm", 0)) != 0 or not q.has("potential") or not ["RUCK", "MID", "DEF", "FWD"].has(str(q["role"])):
+		# Listed players who have played AFL before are rated on that record
+		# (stats_year); the rest have no game and are prospects.
+		if (int(q.get("gm", 0)) != 0) != q.has("stats_year") or not q.has("potential") or not ["RUCK", "MID", "DEF", "FWD"].has(str(q["role"])):
 			all_ok = false
 	_check(all_ok,
-			"A club's listed players without a 2026 game are there, rated as prospects, each with a position")
+			"A club's listed players without a 2026 game are there, rated as prospects or on their last record, each with a position")
 	var kept := 0
 	for code in active:
 		kept += (GameState.league_lists[code] as Array).size()

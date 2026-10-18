@@ -58,10 +58,37 @@ const GAP_PULL := [[21.0, 0.30], [24.0, 0.22], [28.0, 0.15]]
 ## at the next rollover, whatever his age.
 const REHAB_PULL := 0.9
 const MIN_STEP := 2.0
+
+## Youth pace (director, 2026-10-13: "slow the kids down to match real AFL"; settled 2026-10-14 as a lower draft-night rating, the climb at the old pace 1.0).
+## The yearly development step by age: [oldest age, lowest, highest]. Rolled
+## fresh each off-season (Prospects.age_player); `outlook` uses the middle.
+const AGE_STEP := [[20.0, 2.5, 6.0], [23.0, 1.0, 4.0], [27.0, 0.0, 2.0],
+		[30.0, -1.0, 1.0], [33.0, -3.0, 0.0], [99.0, -6.0, -1.5]]
+## Growth up to this age is scaled by the two paces below; decline, training,
+## the rehab year and breakouts are not. 1.0 is the old pace.
+const YOUTH_PACE_UNTIL := 24.0
+## Multiplies the age-band step when it is a gain.
+## (static var, not const, only so tools/audit/growth_curve_impl.gd can try arms in one run.)
+static var YOUTH_STEP_PACE := 1.0
+## Multiplies the share of the gap to POT closed in one off-season.
+static var YOUTH_GAP_PACE := 1.0
 ## Past 30 a player comes back from an injury season less of the way: the
 ## rehab pull eases this much per year, never below REHAB_PULL_FLOOR of it.
 const REHAB_AGE_EASE := 0.12
 const REHAB_PULL_FLOOR := 0.4
+
+
+## The age-band step for a player turning `age`: `roll` in 0..1 picks a point
+## in the band (0.5 is the middle). A gain up to YOUTH_PACE_UNTIL is slowed.
+static func age_step(age: float, roll: float) -> float:
+	var d := 0.0
+	for band in AGE_STEP:
+		if age <= float(band[0]):
+			d = lerpf(float(band[1]), float(band[2]), roll)
+			break
+	if d > 0.0 and age <= YOUTH_PACE_UNTIL:
+		d *= YOUTH_STEP_PACE
+	return d
 
 
 static func rehab_pull(age: float) -> float:
@@ -146,17 +173,22 @@ static func set_override(p: Dictionary, pot: int) -> void:
 		p["rehab"] = true
 
 
+## The share of the gap to POT closed in one off-season at this age.
+static func gap_pull(age: float) -> float:
+	for band in GAP_PULL:
+		if age <= float(band[0]):
+			var pull := float(band[1])
+			return pull * YOUTH_GAP_PACE if age <= YOUTH_PACE_UNTIL else pull
+	return 0.0
+
+
 ## How far a player's rating moves toward POT in one off-season. Positive
 ## only; decline with age is handled by the caller. Consumes the rehab flag.
 static func growth(p: Dictionary, age: float) -> float:
 	var gap := float(int(p.get("potential", p.get("overall", 0))) - int(p.get("overall", 0)))
 	if gap <= 0.0:
 		return 0.0
-	var pull := 0.0
-	for band in GAP_PULL:
-		if age <= float(band[0]):
-			pull = float(band[1])
-			break
+	var pull := gap_pull(age)
 	if bool(p.get("rehab", false)):
 		pull = maxf(pull, rehab_pull(age))
 		p.erase("rehab")
@@ -184,30 +216,14 @@ static func outlook(p: Dictionary, years: int) -> Array:
 	for t in range(years):
 		out.append([r, alive])
 		age += 1.0
-		var d := 0.0
-		if age <= 20.0:
-			d = 4.25
-		elif age <= 23.0:
-			d = 2.5
-		elif age <= 27.0:
-			d = 1.0
-		elif age <= 30.0:
-			d = 0.0
-		elif age <= 33.0:
-			d = -1.5
-		else:
-			d = -3.75
+		var d := age_step(age, 0.5)
 		if age <= 25.0 and r < 55.0:
 			d += 1.0
 		if age <= 23.0 and r >= 80.0:
 			d += 1.0
 		var gap := pot - r
 		if gap > 0.0:
-			var pull := 0.0
-			for band in GAP_PULL:
-				if age <= float(band[0]):
-					pull = float(band[1])
-					break
+			var pull := gap_pull(age)
 			if rehab:
 				pull = maxf(pull, rehab_pull(age))
 			if pull > 0.0:
@@ -289,6 +305,7 @@ static func _draftee_potential(p: Dictionary, rng: RandomNumberGenerator) -> flo
 	# A strong or weak generated class moves its best prospects' ceilings
 	# (Prospects.CLASS_TIERS); the per-player roll still makes busts.
 	room += float(p.get("class_ceiling", 0.0))
+	room += float(p.get("night_drop", 0.0))  # a lower draft-night rating keeps the same ceiling
 	return float(int(p.get("overall", 50))) + room + rng.randf_range(-3.0, 3.0)
 
 

@@ -3,11 +3,12 @@ extends SceneTree
 ## look: the card as it asks, then after its first answer. Seeded; never
 ## touches a real save.
 ##   godot --path . --script tools/visual/capture_story_card.gd -- --out PREFIX \
-##       [--cards training_kid_pushing,health_pulled_up_sore] [--club COL] [--seed 2031] [--size 390x844]
-## Writes <prefix>_<card>_card.png and <prefix>_<card>_answered.png for each card.
+##       [--cards training_kid_pushing,health_pulled_up_sore] [--club COL] [--seed 2031] [--size 390x844] [--choice 0]
+## Writes <prefix>_<card>_card.png and <prefix>_<card>_answered<choice>.png for each card.
 
 var W := 390
 var H := 844
+var CHOICE := 0
 
 
 func _initialize() -> void:
@@ -31,6 +32,7 @@ func _run() -> void:
 			"--cards": ids = str(cli[i + 1])
 			"--club": club = str(cli[i + 1])
 			"--seed": seed = int(cli[i + 1])
+			"--choice": CHOICE = int(cli[i + 1])
 			"--size":
 				var wh := str(cli[i + 1]).split("x")
 				W = int(wh[0])
@@ -81,9 +83,34 @@ func _run() -> void:
 						who = q
 				gs.losing_streak = 3
 				gs.season_log = gs.season_log
+			# The papers go after the poorest recent form among the fit players picked, as the game does.
+			if str(tid) == "media_in_the_papers":
+				var low := 99999.0
+				var side: Dictionary = gs.current_side()
+				for q in gs.my_list:
+					var last: Array = (gs.form_log.get(str(q["id"]), {}) as Dictionary).get("last", [])
+					var picked := false
+					for k in side:
+						if k != "BENCH" and (side[k] as Array).has(str(q["id"])):
+							picked = true
+					if last.size() < 3 or not picked or int(q.get("injury_weeks", 0)) > 0:
+						continue
+					var avg := 0.0
+					for x in last:
+						avg += float(x)
+					avg /= float(last.size())
+					if avg < low:
+						low = avg
+						who = q
 			for q in gs.my_list:
 				if str(tid).contains("kid") and float(q.get("age", 30.0)) < float(who.get("age", 30.0)):
 					who = q
+			# A role card is about a player who has a second position.
+			if str(tid) == "media_papers_again":
+				for q in gs.my_list:
+					if load("res://scripts/state/ClubStories.gd").trial_role(q) != "":
+						who = q
+						break
 		var e: Dictionary = gs.story_card(str(tid), who)
 		if e.is_empty():
 			push_error("capture_story_card: no card %s for this career" % tid)
@@ -95,13 +122,18 @@ func _run() -> void:
 		await _show_card(scene)
 		await _frames(30)
 		root.get_viewport().get_texture().get_image().save_png("%s_%s_card.png" % [out, tid])
-		var b = scene.find_child("Event_0", true, false)
+		var whoid := str(who.get("id", ""))
+		if str(tid) == "media_papers_again" and whoid != "":
+			print("ROLE before: home ", who.get("role", ""), " line ", gs._line_of(gs.current_side(), whoid), " trial ", gs.role_trial)
+		var b = scene.find_child("Event_%d" % CHOICE, true, false)
 		if b != null:
 			b.emit_signal("pressed")
+		if str(tid) == "media_papers_again" and whoid != "":
+			print("ROLE after: line ", gs._line_of(gs.current_side(), whoid), " trial ", gs.role_trial)
 		await _frames(60)
 		await _show_card(scene)
 		await _frames(30)
-		root.get_viewport().get_texture().get_image().save_png("%s_%s_answered.png" % [out, tid])
+		root.get_viewport().get_texture().get_image().save_png("%s_%s_answered%d.png" % [out, tid, CHOICE])
 		scene.queue_free()
 		await _frames(2)
 	quit()
@@ -116,4 +148,4 @@ func _show_card(scene: Control) -> void:
 		n = n.get_parent()
 	if n != null:
 		(n as ScrollContainer).ensure_control_visible(card)
-	await _frames(6)
+	await _frames(40)

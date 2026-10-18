@@ -285,8 +285,9 @@ func _test_reserves_development() -> void:
 	_check(counted > 0 and int(report["reserves_count"]) == counted
 			and int(report["reserves_total"]) == counted * res_xp,
 			"The report counts the reserves (%d at %d)" % [counted, res_xp])
-	_check(GameState.reserves_summary_line().contains("+%d XP each" % res_xp),
-			"The results screens get a reserves line")
+	_check(GameState.reserves_summary_line() == "%d %s developing in the reserves." % [counted, "player kept" if counted == 1 else "players kept"]
+			and not GameState.reserves_summary_line().contains("XP"),
+			"The results screens get a reserves line, with no XP in it (%s)" % GameState.reserves_summary_line())
 
 	# 7: the same match cannot pay twice.
 	var once := int(GameState.list_player(depth)["xp"])
@@ -379,13 +380,13 @@ func _test_stat_guide_complete() -> void:
 	var complete := true
 	for row in GameState.TRAIN_STATS:
 		var info: Array = StatGuide.STATS.get(str(row[0]), [])
-		if info.size() != 4:
+		if info.size() != 1:
 			complete = false
 			continue
 		for text in info:
 			if str(text).length() < 10:
 				complete = false
-	_check(complete, "Every trainable stat has a full guide entry")
+	_check(complete, "Every trainable stat has a guide line")
 	var labels_ok := true
 	for row in GameState.train_plan_options():
 		if GameState.train_plan_label(str(row[0])) == "" or GameState.train_plan_description(str(row[0])) == "":

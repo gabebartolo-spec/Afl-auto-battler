@@ -14,14 +14,19 @@ extends RefCounted
 ## move in small steps; the reasons are facts about the club in football
 ## words, never a verdict on a player's character.
 ##
-## Effects (director, 2026-10-13: small, then measure), sizes in
-## data/culture_effects.json, the same rule for every club:
-##   Standards   - how fast legs recover between games (Workload.advance_week)
+## Effects (director, 2026-10-13: small, then measure, both ways; 2026-10-18:
+## build them, and a patient club brings its young on), sizes in
+## data/culture_effects.json, the same rule for every club, applied in GameState:
+##   Standards    - how fast legs recover between games (Workload.advance_week)
 ##   Togetherness - how much being left out of the side costs a fit player's
 ##                  morale (ClubLife.morale_after_match)
-##   Ambition    - the price a player will re-sign for, and a free agent's
-##                  weighing of the club's offer (Contracts)
+##   Ambition     - winning now: the price a player will re-sign for, and a free
+##                  agent's weighing of the club's offer (Contracts); patient or
+##                  rebuilding: how fast under-22s and first-season draftees
+##                  develop (match XP, GameState._club_xp)
 ## A band in the middle does nothing; the screen says what each active band does.
+## Effects move the odds of a season, never its certainty: each is a small tilt
+## on a lever the game already has.
 
 const STRANDS := [["standards", "Standards"], ["together", "Togetherness"], ["ambition", "Ambition"]]
 ## The most one moment moves a strand, either way.
@@ -124,9 +129,59 @@ static func change(rel: Dictionary, club: String, strand: String, d: int, why: S
 	return Trust.change(rel, key(club, strand), clampi(d, -STEP_MAX, STEP_MAX), why, year, when)
 
 
-## The reasons, newest first: [{"y", "w", "d", "why"}].
+## The reasons, newest first: [{"y", "w", "d", "why"}]. A run that an older
+## save logged again each week it stood (a bye, or finals weeks the club sat
+## out) reads as the one run it was; the save itself is left as it is.
 static func reasons(rel: Dictionary, club: String, strand: String) -> Array:
-	return Trust.reasons(rel, key(club, strand))
+	var out := []
+	var last := {}
+	var log: Array = Trust.reasons(rel, key(club, strand))
+	log.reverse()
+	for r in log:
+		var why := str(r.get("why", ""))
+		var run := run_length(why)
+		if run > 0:
+			if last.has(why) and _same_run(last[why], r, run):
+				continue
+			last[why] = r
+		out.append(r)
+	out.reverse()
+	return out
+
+
+## From this round on a run still stands when the finals start (every season
+## has at least 22 rounds, and the longest first mark is five games).
+const LATE_ROUND := 21
+
+
+## The games in the run a reason names ("A run of four losses": 4), else 0.
+static func run_length(why: String) -> int:
+	for n in LOSING_RUNS:
+		if why == str(run_step(int(n), 0)[2]):
+			return int(n)
+	for n in WINNING_RUNS:
+		if why == str(run_step(0, int(n))[2]):
+			return int(n)
+	return 0
+
+
+## Is `r` the run already told by `prev`? A run of `run` games can only be
+## reached again `run` + 1 rounds later (it has to break first), and never
+## twice within one finals series.
+static func _same_run(prev: Dictionary, r: Dictionary, run: int) -> bool:
+	if int(prev.get("y", 0)) != int(r.get("y", 0)):
+		return false
+	var a := _round_of(str(prev.get("w", "")))
+	var b := _round_of(str(r.get("w", "")))
+	if a > 0 and b > 0:
+		return b - a <= run
+	# A final after a round: the same run only if that round closed the club's
+	# home-and-away season (an earlier run would have had to break first).
+	return b == 0 and (a == 0 or a >= LATE_ROUND)
+
+
+static func _round_of(when: String) -> int:
+	return int(when.trim_prefix("Round ")) if when.begins_with("Round ") else 0
 
 
 ## One reason as a line: "Round 6, 2027. A run of four losses. Togetherness fell."
@@ -236,8 +291,6 @@ static func _distinct_sorted(years: Array) -> Array:
 	return out
 
 
-## What a strand reads when no band is named: nothing yet, or which way its
-## latest move went (so it never contradicts the reason below it).
 const EFFECTS_PATH := "res://data/culture_effects.json"
 static var _effects := {}
 
@@ -262,7 +315,15 @@ static func club_effect(rel: Dictionary, club: String, kind: String, strand: Str
 
 ## Which strand each kind of effect belongs to.
 const KIND_STRAND := {"recovery": "standards", "sting": "together",
-		"resign_floor": "ambition", "free_agent_score": "ambition"}
+		"resign_floor": "ambition", "free_agent_score": "ambition", "young_growth": "ambition"}
+
+
+## Does a patient club's young-player effect reach this player: under the
+## table's age (under-22s), or in his first season on a list after the draft.
+static func young_for_growth(p: Dictionary, season_year: int) -> bool:
+	if float(p.get("age", 25.0)) < float(effects().get("young_age_below", 22)):
+		return true
+	return p.has("drafted_year") and season_year - int(p["drafted_year"]) <= int(effects().get("draftee_seasons", 1))
 
 
 ## What an active band does, in football words, from the applied number: "" in
@@ -284,6 +345,9 @@ static func effect_line(strand: String, t: int) -> String:
 			return "Players take a missed game %s %s." % ["a little" if absf(x) <= float(little["sting"]) else "much",
 					"better" if x > 0.0 else "worse"]
 		"ambition":
+			var y := effect_of("young_growth", strand, band)
+			if y != 0.0:
+				return "Young players come on %s quicker here." % ("a little" if absf(y) <= float(little["young_growth"]) else "much")
 			var r := effect_of("resign_floor", strand, band)
 			var f := effect_of("free_agent_score", strand, band)
 			if r == 0.0 and f == 0.0:
@@ -308,13 +372,17 @@ static func moves_line(strand: String) -> String:
 
 
 ## One event as a line, the year shown beside it: "Round 10: a run of four losses. Togetherness fell."
+## / "Semi Finals: a run of four losses. Togetherness fell."
 static func event_text(strand_label: String, r: Dictionary) -> String:
 	var why := str(r.get("why", "")).strip_edges().trim_suffix(".")
 	var w := str(r.get("w", ""))
-	var lead := (w + ": " + why.substr(0, 1).to_lower() + why.substr(1)) if w.begins_with("Round") else why
+	# The week is named for anything that happened in one: a round, or a final.
+	var lead := (w + ": " + why.substr(0, 1).to_lower() + why.substr(1)) if w != "" and w != "Off-season" else why
 	return "%s. %s %s." % [lead, strand_label, "rose" if int(r.get("d", 0)) > 0 else "fell"]
 
 
+## What a strand reads when no band is named: nothing yet, or which way its
+## latest move went (so it never contradicts the reason below it).
 static func quiet_words(latest: int, has_reasons: bool) -> String:
 	if not has_reasons:
 		return "Nothing stands out yet"

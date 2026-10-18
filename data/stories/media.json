@@ -1,7 +1,6 @@
 [
 	{
 		"id": "media_in_the_papers",
-		"private": true,
 		"category": "media",
 		"cooldown": 40,
 		"subject_cooldown": 30,
@@ -10,24 +9,25 @@
 			"where": {
 				"fit": true,
 				"selected": true,
-				"discipline_max": 40
+				"form_games_min": 3
 			},
-			"pick": "lowest:discipline"
+			"pick": "lowest:form"
 		},
 		"title": [
-			"{name} is in the papers"
+			"The papers want {name} dropped"
 		],
 		"text": [
-			"An off-field incident has made the back page. The board is watching how you handle it."
+			"Gary Haddon has {name} on the back page after a poor few weeks and says he should make way. {first} has averaged a Player rating of {form} over his last three games. Players who started as a {role_word} this year average a Player rating of {role_avg}."
 		],
 		"unanswered": {
-			"board": -4,
-			"text": "You say nothing. The board wanted an answer."
+			"trust": -2,
+			"why": "You said nothing when the papers went after him",
+			"text": "You say nothing. {first} reads the back page on his own."
 		},
 		"choices": [
 			{
 				"key": "suspend",
-				"label": "Stand him down for a week",
+				"label": "Rest him this week",
 				"effects": [
 					{
 						"op": "rest"
@@ -39,18 +39,14 @@
 					{
 						"op": "trust",
 						"d": -6,
-						"why": "You stood him down over the papers story"
-					},
-					{
-						"op": "board",
-						"d": 4
+						"why": "You dropped him after the papers pushed"
 					}
 				],
-				"result": "{name} is stood down for a week. The board approves."
+				"result": "{name} sits out this week."
 			},
 			{
 				"key": "back",
-				"label": "Back your player",
+				"label": "Keep him in",
 				"effects": [
 					{
 						"op": "morale",
@@ -59,18 +55,14 @@
 					{
 						"op": "trust",
 						"d": 10,
-						"why": "You backed him when he was in the papers"
-					},
-					{
-						"op": "board",
-						"d": -4
+						"why": "You kept him in when the papers wanted him out"
 					},
 					{
 						"op": "flag",
 						"name": "backed_in_papers"
 					}
 				],
-				"result": "You back {name}. The board is not impressed."
+				"result": "{name} stays in the side."
 			}
 		],
 		"arc": "papers",
@@ -328,10 +320,10 @@
 			"pick": "random"
 		},
 		"title": [
-			"{name} wants to speak to the group"
+			"{name} wants to front the group"
 		],
 		"text": [
-			"You backed him through the papers story. He wants to front his teammates about it."
+			"You kept {name} in when the papers wanted him out. He asks for five minutes with the group at the review to answer the papers' story himself."
 		],
 		"choices": [
 			{
@@ -339,32 +331,46 @@
 				"label": "Let him front the group",
 				"effects": [
 					{
-						"op": "morale",
-						"d": 3,
-						"who": "others"
-					},
-					{
 						"op": "trust",
 						"d": 4,
-						"why": "You let him front the group"
+						"why": "You let him front the group",
+						"line": "He trusts you more."
 					},
 					{
-						"op": "board",
-						"d": 2
+						"op": "delegate",
+						"held": [
+							{
+								"op": "morale",
+								"d": 3,
+								"who": "others"
+							}
+						],
+						"failed": [
+							{
+								"op": "morale",
+								"d": -3,
+								"who": "others"
+							}
+						],
+						"held_result": "{name} takes the group through it and they hear him out.",
+						"failed_result": "It does not land with the group."
 					}
 				],
-				"result": "{name} speaks to the group. It goes well."
+				"result": "",
+				"rule": "The group listens to a player with Leadership {holds_at} or more, or {holds_trust_at} or more if he trusts you. {name}: Leadership {leadership}."
 			},
 			{
 				"key": "private",
 				"label": "Keep it between you two",
 				"effects": [
 					{
-						"op": "morale",
-						"d": 2
+						"op": "trust",
+						"d": -2,
+						"why": "You kept it between you two when he asked for the group",
+						"line": "He trusts you a little less."
 					}
 				],
-				"result": "It stays between you and {name}."
+				"result": "You talk it through with {name} alone."
 			}
 		],
 		"arc": "papers",
@@ -375,80 +381,175 @@
 			"within": 15
 		},
 		"cooldown": 0,
-		"subject_cooldown": 0,
-		"private": true
+		"subject_cooldown": 0
 	},
 	{
 		"id": "media_papers_again",
 		"category": "media",
+		"weight": 2,
 		"subject": {
 			"kind": "player",
 			"where": {
 				"fit": true,
-				"discipline_max": 45
+				"starting": true,
+				"has_role2": true,
+				"form_low": true
 			},
 			"pick": "random"
 		},
 		"title": [
-			"{name} is back in the papers"
+			"They say {name} is in the wrong spot"
 		],
 		"text": [
-			"Second time this year. Gary Haddon wants to know if you still back him."
+			"A former player on the radio says {name} should be playing as a {trial_word}. {first} wants to know if you will try it."
 		],
 		"choices": [
 			{
 				"key": "stand",
-				"label": "Stand by him again",
+				"label": "Leave him where he is",
 				"effects": [
 					{
 						"op": "trust",
-						"d": 6,
-						"why": "You stood by him a second time"
-					},
-					{
-						"op": "board",
-						"d": -6
+						"d": -4,
+						"why": "You said no when he asked to try the move"
 					}
 				],
-				"result": "You back {name} again. The board is furious."
+				"result": "{name} stays in his role."
 			},
 			{
 				"key": "down",
-				"label": "Stand him down this time",
+				"label": "Try him as a {trial_word}",
 				"effects": [
 					{
-						"op": "rest"
+						"op": "role_trial",
+						"weeks": 3
 					},
 					{
 						"op": "trust",
-						"d": -10,
-						"why": "You stood him down the second time"
+						"d": 4,
+						"why": "You tried him in the role he asked about"
+					}
+				],
+				"result": "You try {name} as a {trial_word}."
+			}
+		],
+		"cooldown": 40,
+		"subject_cooldown": 30,
+		"unanswered": {
+			"trust": -2,
+			"why": "You said nothing when he asked about the move",
+			"text": "You say nothing. {first} is left waiting for an answer."
+		}
+	},
+	{
+		"category": "media",
+		"scripted": true,
+		"cooldown": 0,
+		"subject_cooldown": 0,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"id": "media_trial_worked",
+		"title": [
+			"{name} passed his trial as a {trial_word}"
+		],
+		"text": [
+			"{first} averaged a Player rating of {trial_avg} as a {trial_word} over the three games. Players who started as a {trial_word} this year average a Player rating of {trial_par}. {trial_tail}"
+		],
+		"choices": [
+			{
+				"key": "ok",
+				"label": "Good to hear",
+				"effects": [],
+				"result": "{name} is back in his usual spot."
+			}
+		]
+	},
+	{
+		"category": "media",
+		"scripted": true,
+		"cooldown": 0,
+		"subject_cooldown": 0,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"id": "media_trial_not_yet",
+		"title": [
+			"{name}'s trial as a {trial_word} is over"
+		],
+		"text": [
+			"{first} averaged a Player rating of {trial_avg} as a {trial_word} over the three games. Players who started as a {trial_word} this year average a Player rating of {trial_par}. {trial_tail}"
+		],
+		"choices": [
+			{
+				"key": "ok",
+				"label": "Fair enough",
+				"effects": [],
+				"result": "{name} is back in his usual spot."
+			}
+		]
+	},
+	{
+		"id": "gf_week",
+		"category": "media",
+		"phase": [
+			"finals"
+		],
+		"subject": {
+			"kind": "club"
+		},
+		"when": {
+			"finals_week": 5
+		},
+		"priority": true,
+		"weight": 1,
+		"cooldown": 60,
+		"title": [
+			"Grand Final week"
+		],
+		"text": [
+			"The Brownlow on Monday, media day, the parade on Friday. Somewhere in there, you have to train."
+		],
+		"choices": [
+			{
+				"key": "all",
+				"label": "Do all of it",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 6,
+						"who": "all"
+					},
+					{
+						"op": "heavy_legs",
+						"who": "side"
+					}
+				],
+				"result": "The players soak up every minute, and they're tired by Friday."
+			},
+			{
+				"key": "min",
+				"label": "The bare minimum",
+				"effects": [
+					{
+						"op": "fresh",
+						"who": "side"
 					},
 					{
 						"op": "board",
-						"d": 5
-					},
-					{
-						"op": "morale",
-						"d": -8
+						"d": -2
 					}
 				],
-				"result": "{name} is stood down."
+				"result": "In and out of the parade, no Brownlow. The sponsors grumble to the board."
 			}
-		],
-		"arc": "papers",
-		"beat": "end",
-		"needs": {
-			"flag": "backed_in_papers",
-			"after": 3,
-			"within": 15
-		},
-		"cooldown": 0,
-		"subject_cooldown": 0,
-		"private": true,
-		"unanswered": {
-			"board": -4,
-			"text": "You say nothing. The board wanted an answer."
-		}
+		]
 	}
 ]

@@ -46,21 +46,27 @@ static func grid(columns: int, ground: Array, profile: Array, on_pick: Callable 
 			var on: bool = str(k) == GameState.club_plan
 			var t: Button = tiles[k]
 			UiKit.paint_choice(t, on)
-			(t.find_child("Plan", true, false) as Label).add_theme_color_override("font_color", UiKit.TEXT if on else Color(UiKit.TEXT, 0.9))
-			(t.find_child("Strength", true, false) as Label).add_theme_color_override("font_color", UiKit.MUTED)
+			# The chosen plan is bold; the others are regular. The strength it
+			# runs on is a fact the choice rests on, so it is TEXT, not MUTED.
+			var pl := t.find_child("Plan", true, false) as Label
+			pl.add_theme_color_override("font_color", UiKit.TEXT if on else Color(UiKit.TEXT, 0.9))
+			pl.add_theme_font_override("font", UiKit.BOLD if on else UiKit.FONT)
+			(t.find_child("Strength", true, false) as Label).add_theme_color_override("font_color", UiKit.TEXT if on else Color(UiKit.TEXT, 0.75))
 	for key in GameState.CLUB_PLANS:
 		var k := str(key)
 		var t := Button.new()
 		t.name = "ClubPlan_%s" % k
 		t.focus_mode = Control.FOCUS_NONE
-		t.custom_minimum_size = Vector2(0, 56)
+		# With plan familiarity on, a plan's tile says how well the side knows it.
+		var known := GameState.plan_known_line(k)
+		t.custom_minimum_size = Vector2(0, 72 if GameState.plan_known_shown() else 56)
 		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		t.tooltip_text = CoachReport.plan_label(k)
 		var face := UiKit.vbox(0)
 		face.alignment = BoxContainer.ALIGNMENT_CENTER
 		face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var name_l := UiKit.ellipsis(CoachReport.plan_label(k), 14, UiKit.TEXT, true)
+		var name_l := UiKit.ellipsis(CoachReport.plan_label(k), 14, UiKit.TEXT)
 		name_l.name = "Plan"
 		name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -70,6 +76,12 @@ static func grid(columns: int, ground: Array, profile: Array, on_pick: Callable 
 		str_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		str_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		face.add_child(str_l)
+		if known != "":
+			var known_l := UiKit.ellipsis(known, 12, UiKit.TEXT)
+			known_l.name = "Known"
+			known_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			known_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			face.add_child(known_l)
 		t.add_child(face)
 		t.pressed.connect(func():
 			GameState.set_club_plan(k)

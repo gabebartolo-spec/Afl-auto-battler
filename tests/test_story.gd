@@ -29,11 +29,18 @@ func run() -> void:
 	_test_validator_catches()
 	_test_folded_sizes()
 	_test_hints_in_words()
+	_test_choice_stakes_are_stated()
 	_test_trust_rules()
 	_test_engine_rules()
 	_test_arcs()
 	_test_finals_and_big_weeks()
 	_test_private_cards()
+	_test_papers_cards_are_football()
+	_test_role_trial()
+	_test_trial_injury()
+	_test_trial_result()
+	_test_role_card_shape()
+	_test_role_trial_save()
 	_test_ten_seasons()
 	_test_trust_in_play()
 	_test_stories_never_move_the_dice()
@@ -49,14 +56,18 @@ func run() -> void:
 	_test_culture_headline()
 	_test_culture_order_and_tails()
 	_test_culture_sentences()
+	_test_culture_runs_once()
 	_test_culture_copy_is_true()
 	_test_culture_effects()
+	_test_culture_effects_fixture()
 	_test_captain_cards()
 	_test_group_words_are_sentence_case()
 	_test_captain_cards_in_play()
 	_test_captain_from_the_start()
 	_test_time_trial_names()
 	_test_vacancy_is_filled()
+	var finals_cards = load("res://tests/test_finals_cards.gd").new()
+	finals_cards.run(self)
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	GameState.stories_on = true
@@ -166,7 +177,8 @@ func _test_hints_in_words() -> void:
 		var card := GameState.story_card(str(t["id"]), p if str(t["subject"].get("kind", "")) == "player" else {})
 		for o in card["options"]:
 			var d := str(o["detail"])
-			if d == "" or numbers.search(d) != null or d.contains("{"):
+			# A scripted result card has one button and no effects to describe.
+			if (d == "" and not bool(t.get("scripted", false))) or numbers.search(d) != null or d.contains("{"):
 				bad.append("%s/%s: %s" % [t["id"], o["key"], d])
 		if str(card["title"]).contains("{") or str(card["text"]).contains("{"):
 			bad.append("%s: %s" % [t["id"], card["title"]])
@@ -174,6 +186,200 @@ func _test_hints_in_words() -> void:
 	var heavy := GameState.story_card("training_extra_session")
 	_check(str(heavy["options"][0]["detail"]).contains("development") and str(heavy["options"][0]["detail"]).contains("Heavy legs"),
 			"The heavy session's hint names both sides of it (%s)" % heavy["options"][0]["detail"])
+
+
+## Copy truth for the lines under a choice: every mechanical effect of every
+## choice appears in them, a gain on the Gain line and a cost on the Cost line,
+## gains first; and no line names an effect the choice lacks. What each effect
+## is worth to the coach is read straight off the effects here, apart from the
+## engine's own wording, so the lines cannot drift from what the choice does.
+const GAIN_WORDS := {
+	"morale": "(?i)morale", "xp": "development", "board": "(?i)board confidence", "trust": "trusts you (a lot |a little )?more",
+	"fresh": "legs", "promise_win": "Win and", "extend_early": "signs on", "captaincy_swap": "takes the armband",
+	"rush_back": "cleared to play",
+}
+const COST_WORDS := {
+	"morale": "(?i)morale", "board": "(?i)board confidence", "trust": "trusts you (a lot |a little )?less",
+	"rest": "misses", "heavy_legs": "Heavy legs", "sore": "breaks down", "expects_game": "expects a game",
+	"start_backing": "expects to be picked", "back_kid": "is promised", "promise_win": "Lose and", "extend_early": "Locked in", "captaincy_swap": "mid-season",
+	"rush_back": "flares", "slow_start": "slowly", "loss_sting": "falls instead",
+}
+const SAMPLE_FACTS := {"sore_odds": "about 1 in 6", "run_games": 3, "early_price": "$1m", "more_seasons": "two more seasons"}
+
+
+## [gains, costs]: the kinds of effect a choice really has (a flag, a note or an
+## explanation moves nothing the coach feels and is in neither).
+func _stakes_in(effects: Array) -> Array:
+	var gains := []
+	var costs := []
+	for e in effects:
+		var op := str(e.get("op", ""))
+		var d := int(e.get("d", 0))
+		if op == "delegate":
+			for side in ["held", "failed"]:
+				var inner := _stakes_in(e.get(side, []))
+				for k in inner[0]:
+					if not gains.has(k):
+						gains.append(k)
+				for k in inner[1]:
+					if not costs.has(k):
+						costs.append(k)
+			continue
+		if op == "captaincy_swap":
+			gains.append(op)
+			costs.append_array([op, "morale", "trust"])
+			continue
+		if op == "rush_back":
+			gains.append(op)
+			costs.append(op)
+			continue
+		if op == "slow_start":
+			costs.append(op)
+			continue
+		if op == "loss_sting":
+			costs.append_array([op, "morale"])
+			continue
+		if op in ["morale", "board", "trust"]:
+			if d > 0 and not gains.has(op):
+				gains.append(op)
+			elif d < 0 and not costs.has(op):
+				costs.append(op)
+		elif op in ["xp", "fresh", "promise_win", "extend_early"] and not gains.has(op):
+			gains.append(op)
+		if op in ["rest", "heavy_legs", "sore", "expects_game", "start_backing", "back_kid", "promise_win", "extend_early"] and not costs.has(op):
+			costs.append(op)
+	return [gains, costs]
+
+
+## What is wrong with these lines for these effects ([] when they are true).
+func _stakes_problems(effects: Array, lines: PackedStringArray) -> Array:
+	var problems := []
+	var want := _stakes_in(effects)
+	var gain_line := ""
+	var cost_line := ""
+	var order := []
+	for l in lines:
+		if l.begins_with("Gain: "):
+			gain_line = l
+			order.append("gain")
+		elif l.begins_with("Cost: "):
+			cost_line = l
+			order.append("cost")
+		elif l.begins_with("As it stands the group"):
+			pass
+		else:
+			problems.append("a line without its marker (%s)" % l)
+	if order == ["cost", "gain"]:
+		problems.append("costs before gains")
+	for side in 2:
+		var table: Dictionary = GAIN_WORDS if side == 0 else COST_WORDS
+		var line := gain_line if side == 0 else cost_line
+		var label := "gain" if side == 0 else "cost"
+		for kind in table:
+			var named := RegEx.create_from_string(str(table[kind])).search(line) != null
+			var has: bool = (want[side] as Array).has(kind)
+			if named and not has and not (kind == "board" and (want[side] as Array).has("promise_win")):
+				problems.append("%s line names %s which the effects do not contain" % [label, kind])
+			if has and not named:
+				problems.append("%s line leaves out %s" % [label, kind])
+	for l in lines:
+		if l.contains("{") or l.contains("}") or RegEx.create_from_string("[+-][0-9]|XP").search(l) != null:
+			problems.append("leaves a brace or a coefficient in the words")
+	if (want[0] as Array).is_empty() and (want[1] as Array).is_empty() and not lines.is_empty():
+		problems.append("states something where the choice does nothing")
+	return problems
+
+
+func _test_choice_stakes_are_stated() -> void:
+	_start()
+	var p: Dictionary = GameState.my_list[4]
+	var bad := []
+	var mechanical := 0
+	var shown := 0
+	var choices := 0
+	var both := 0
+	var nothing := []
+	for t in StoryDeck.all():
+		var card := GameState.story_card(str(t["id"]), p if str(t["subject"].get("kind", "")) == "player" else {})
+		for o in card["options"]:
+			choices += 1
+			var effects: Array = o["effects"]
+			var lines := StoryEngine.stakes_lines(effects, card["facts"])
+			var want := _stakes_in(effects)
+			if not (want[0] as Array).is_empty() or not (want[1] as Array).is_empty():
+				mechanical += 1
+			else:
+				nothing.append("%s/%s" % [t["id"], o["key"]])
+			if not lines.is_empty():
+				shown += 1
+			if lines.size() == 2:
+				both += 1
+			for problem in _stakes_problems(effects, lines):
+				bad.append("%s/%s %s (%s)" % [t["id"], o["key"], problem, " ".join(lines)])
+	_check(bad.is_empty(), "Every effect of every choice is in its lines, gains and costs, and no line names one it lacks: %s" % " | ".join(PackedStringArray(bad.slice(0, 8))))
+	_check(mechanical >= 100 and shown == mechanical and both >= 20, "A line under every choice that does something, none under the rest (%d of %d choices, %d with a gain and a cost)" % [shown, choices, both])
+	print("Choices that do nothing mechanical (%d): %s" % [nothing.size(), ", ".join(PackedStringArray(nothing))])
+	# The check itself must bite: a missing line, a gain or cost on the wrong line, a false one and a leftover brace are caught.
+	var heavy := [{"op": "heavy_legs", "who": "all"}, {"op": "xp", "d": 6}]
+	var good := PackedStringArray(["Gain: Some extra development for everyone.", "Cost: Heavy legs on game day, and more soft-tissue risk."])
+	_check(_stakes_problems(heavy, good).is_empty(), "The check passes the true lines for a gain and a cost")
+	_check(not _stakes_problems(heavy, PackedStringArray([good[1]])).is_empty(), "The check catches a gain left out")
+	_check(not _stakes_problems(heavy, PackedStringArray([good[0]])).is_empty(), "The check catches a cost left out")
+	_check(not _stakes_problems(heavy, PackedStringArray(["Gain: Heavy legs on game day.", "Cost: Some extra development."])).is_empty(), "The check catches a gain and a cost on the wrong lines")
+	_check(not _stakes_problems([{"op": "morale", "d": -5}], PackedStringArray([])).is_empty(), "The check catches a morale drop with no line")
+	_check(not _stakes_problems([{"op": "morale", "d": 5}], PackedStringArray(["Gain: His morale goes up.", "Cost: He misses this week's game."])).is_empty(), "The check catches a cost the effects lack")
+	_check(not _stakes_problems([{"op": "sore"}], PackedStringArray(["Cost: He breaks down: {sore_odds} chance."])).is_empty(), "The check catches an unfilled brace")
+	_check(not _stakes_problems([{"op": "flag"}], PackedStringArray(["Gain: His morale goes up."])).is_empty(), "The check catches a line on a choice that does nothing")
+	_check(not _stakes_problems(heavy, PackedStringArray([good[1], good[0]])).is_empty(), "The check catches costs before gains")
+	# Every effect line names the thing that moves; no mood word stands in for it.
+	var vague := RegEx.create_from_string("(?i)\\b(lift|lifts|flat|stings|sours|thrilled|a bit off|likes it|won't like)\\b")
+	var nouns := {"morale": "orale", "xp": "development", "board": "Board confidence", "trust": "trusts you", "rest": "game",
+			"sore": "sore", "fresh": "legs", "heavy_legs": "legs", "expects_game": "game", "start_backing": "games",
+			"promise_win": "board confidence", "extend_early": "a season"}
+	var unnamed := []
+	for t in StoryDeck.all():
+		for c in t["choices"]:
+			for e in c.get("effects", []):
+				var op := str(e.get("op", ""))
+				if not nouns.has(op):
+					continue
+				var w := StoryEngine.describe({"effects": [e]}, SAMPLE_FACTS)
+				if w == "" or not w.contains(str(nouns[op])) or vague.search(w) != null:
+					unnamed.append("%s/%s %s: %s" % [t["id"], c["key"], op, w])
+	_check(unnamed.is_empty(), "Every effect line names the thing that moves, with no vague mood word: %s" % " | ".join(PackedStringArray(unnamed.slice(0, 6))))
+	# No card line, the captain's "leave it to him" lines included (standing either way), uses a mood word for an effect.
+	var vague_lines := []
+	for t in StoryDeck.all():
+		for c in t["choices"]:
+			for holds in [true, false]:
+				var f := SAMPLE_FACTS.duplicate()
+				f["delegate_holds"] = holds
+				f["name"] = "Sam"
+				f["vice_name"] = "Joe"
+				f["kid_name"] = "Kid"
+				f["trial_word"] = "midfielder"
+				f["trial_home"] = "defender"
+				var txt := " ".join(StoryEngine.stakes_lines(c.get("effects", []), f))
+				if vague.search(txt) != null or txt.contains("{"):
+					vague_lines.append("%s/%s: %s" % [t["id"], c["key"], txt])
+	_check(vague_lines.is_empty(), "No card line uses lift or flat or a brace, delegate lines included: %s" % " | ".join(PackedStringArray(vague_lines.slice(0, 4))))
+	# The lines read the effects and change none.
+	var before := JSON.stringify(heavy)
+	StoryEngine.stakes_lines(heavy, {})
+	_check(JSON.stringify(heavy) == before, "Wording the stakes leaves the effects as they were")
+	# No card repeats under its heading what the lines under its buttons say.
+	var repeats := []
+	for t in StoryDeck.all():
+		var st := str(t.get("stakes", ""))
+		if st == "":
+			continue
+		var all_lines := ""
+		for c in t["choices"]:
+			all_lines += " ".join(StoryEngine.stakes_lines(c.get("effects", []), SAMPLE_FACTS))
+		for kw in ["breaks down", "heavy legs", "expects a game", "promise breaks", "lose and"]:
+			if st.to_lower().contains(kw) and all_lines.to_lower().contains(kw):
+				repeats.append("%s (%s)" % [t["id"], kw])
+	_check(repeats.is_empty(), "A card's own stakes line never repeats the lines under its choices: %s" % " | ".join(PackedStringArray(repeats)))
 
 
 # --- Trust ---------------------------------------------------------------------
@@ -376,8 +582,8 @@ func _test_private_cards() -> void:
 	_start()
 	var private := StoryDeck.all().filter(func(t): return bool(t.get("private", false)))
 	_check(not StoryDeck.by_id(StoryDeck.all(), "media_in_the_papers").is_empty()
-			and bool(StoryDeck.by_id(StoryDeck.all(), "media_in_the_papers").get("private", false)),
-			"The papers card is marked private")
+			and not bool(StoryDeck.by_id(StoryDeck.all(), "media_in_the_papers").get("private", false)),
+			"The papers card is about his football, so it is not private")
 	var ctx := ClubStories.context(GameState)
 	(ctx["club"] as Dictionary)["losing_run"] = 5  # so a card that waits on a losing run can be reached
 	var leaks := []
@@ -493,10 +699,10 @@ func _test_trust_in_play() -> void:
 	GameState.week_event = GameState.story_card("media_in_the_papers", p)
 	var hint := str(GameState.week_event["options"][1]["detail"])
 	var out := GameState.resolve_week_event(1)
-	_check(hint.contains("His trust in you rises"), "The choice says what it does to his trust (%s)" % hint)
-	_check(Trust.value(GameState.relations, key) == 10 and out.contains("His trust in you rose"),
+	_check(hint.contains("He trusts you"), "The choice says what it does to his trust (%s)" % hint)
+	_check(Trust.value(GameState.relations, key) == 10 and out.contains("He trusts you more"),
 			"Backing him in the papers: his trust rises, and the result says so (%s)" % out)
-	_check(str(Trust.reasons(GameState.relations, key)[0]["why"]) == "You backed him when he was in the papers",
+	_check(str(Trust.reasons(GameState.relations, key)[0]["why"]) == "You kept him in when the papers wanted him out",
 			"The reason is kept in plain words")
 	# A promise broken after the match costs trust, with its reason.
 	var sulk: Dictionary = GameState.my_list[25]
@@ -523,7 +729,7 @@ func _test_trust_in_play() -> void:
 	Trust.change(GameState.relations, Trust.player_key(str(fan["id"])), 15, "t", 2027, "Round 1")
 	fan["morale"] = 30
 	var card := GameState.story_card("selection_unhappy", fan)
-	_check(str(card["options"][0]["detail"]).contains("It means more coming from you"),
+	_check(str(card["options"][0]["detail"]).contains("counts for more because he trusts you"),
 			"A talk with a player who trusts you says it lands harder")
 	GameState.week_event = card
 	GameState.resolve_week_event(0)
@@ -627,6 +833,449 @@ func _test_old_save() -> void:
 	_check(tid_ok, "The old card is redrawn from the deck (%s)" % str(GameState.week_events.map(func(c): return c.get("key", ""))))
 	GameState.advance()
 	_check(GameState.season.round_index >= 1, "...and the season plays on")
+
+
+# --- The papers arc as football (2026-10-13) --------------------------------------
+
+## A starter with a second position he is not already picked in, fit.
+func _trial_candidate() -> Dictionary:
+	for f in ClubStories.player_facts(GameState):
+		if bool(f["starting"]) and bool(f["fit"]) and bool(f["has_role2"]):
+			return GameState.list_player(str(f["id"]))
+	return {}
+
+
+func _test_papers_cards_are_football() -> void:
+	_start()
+	GameState.show_real_names = true
+	_run_on(4)
+	var ctx := ClubStories.context(GameState)
+	var real_named := 0
+	for f in ctx["players"]:
+		if bool(f["real_named"]):
+			real_named += 1
+	_check(real_named > 10, "The test list is shown under real names (%d)" % real_named)
+	for id in ["media_in_the_papers", "media_papers_again", "media_papers_fronts_group"]:
+		var t := StoryDeck.by_id(StoryDeck.all(), id)
+		_check(not bool(t.get("private", false)), "%s is not private" % id)
+		var st := StoryEngine.new_state()
+		var needs: Dictionary = t.get("needs", {})
+		if not needs.is_empty():
+			for f in ctx["players"]:
+				var pid := str(f["id"])
+				st["flags"][pid] = {str(needs["flag"]): 100 - int(needs.get("after", 1))}
+				st["arcs"][str(t["arc"]) + "|" + pid] = {"state": "open", "until": 200}
+		var ctx_id := ctx
+		if id == "media_papers_again":
+			# The form rule has its own test; here only that real names are not shut out.
+			ctx_id = ctx.duplicate(true)
+			for f in ctx_id["players"]:
+				f["form_low"] = true
+		var who := StoryEngine.eligible_subject(t, ctx_id, st, 100, RandomNumberGenerator.new())
+		_check(not who.is_empty() and bool(who["real_named"]),
+				"%s can come up for a player shown under his real name" % id)
+		if id == "media_in_the_papers" and not who.is_empty():
+			# The one asked about has the poorest recent form among the fit players picked.
+			var lowest := 9999
+			for f in ctx["players"]:
+				if bool(f["fit"]) and bool(f["selected"]) and int(f["form_games"]) >= 3:
+					lowest = mini(lowest, int(f["form"]))
+			_check(int(who["form"]) == lowest and int(who["form_games"]) >= 3,
+					"The papers go after the poorest recent form (%d, lowest %d)" % [int(who["form"]), lowest])
+		if id == "media_papers_again" and not who.is_empty():
+			_check(bool(who["has_role2"]) and bool(who["starting"]),
+					"The role card only picks a starter who has a second position")
+	# No second position, no role card.
+	var none := ClubStories.player_fact(GameState, {"id": "x", "role": "MID", "role2": "", "overall": 60}, true, {}, 1, 0)
+	_check(not bool(none["has_role2"]), "A player with no second position is not offered the role card")
+	# The cards' own effects.
+	# Each effect follows from the story (director, 2026-10-14): he asked about the move,
+	# so trying it earns his trust and refusing costs it; nothing about the board or his mood.
+	# The dropped card: no board in it either (director, 2026-10-14); resting him costs trust and morale,
+	# keeping him in earns trust, silence costs trust.
+	var rest := _choice("media_in_the_papers", "suspend")
+	var keep := _choice("media_in_the_papers", "back")
+	var drop := StoryDeck.by_id(StoryDeck.all(), "media_in_the_papers")
+	_check(_effect(rest, "board").is_empty() and _effect(keep, "board").is_empty()
+			and int(_effect(rest, "trust").get("d", 0)) < 0 and int(_effect(rest, "morale").get("d", 0)) < 0
+			and int(_effect(keep, "trust").get("d", 0)) > 0 and not str(drop["text"][0]).contains("board"),
+			"The dropped card has no board effect or board line: resting him costs trust and morale, keeping him earns trust")
+	_check(int((drop["unanswered"] as Dictionary).get("trust", 0)) < 0 and int((drop["unanswered"] as Dictionary).get("board", 0)) == 0,
+			"Silence on the dropped card costs his trust, not the board's confidence")
+	_check(_effect(keep, "flag").get("name", "") == "backed_in_papers", "Keeping him in still opens the follow-up")
+	var down := _choice("media_papers_again", "down")
+	var stand := _choice("media_papers_again", "stand")
+	_check(int(_effect(down, "role_trial").get("weeks", 0)) == 3 and int(_effect(down, "trust").get("d", 0)) > 0
+			and _effect(down, "morale").is_empty() and _effect(down, "board").is_empty(),
+			"Trying him in the role he asked about: a three-game trial and more trust, no morale or board effect")
+	_check(int(_effect(stand, "trust").get("d", 0)) < 0 and _effect(stand, "board").is_empty() and _effect(stand, "morale").is_empty(),
+			"Leaving him where he is costs his trust and nothing else")
+	var again := StoryDeck.by_id(StoryDeck.all(), "media_papers_again")
+	_check(int((again["unanswered"] as Dictionary).get("trust", 0)) < 0 and int((again["unanswered"] as Dictionary).get("board", 0)) == 0,
+			"Saying nothing on the role card costs his trust, not the board's confidence")
+	var front := _choice("media_papers_fronts_group", "front")
+	var priv := _choice("media_papers_fronts_group", "private")
+	_check(_effect(front, "board").is_empty() and _effect(priv, "board").is_empty()
+			and int(_effect(front, "trust").get("d", 0)) > 0 and int(_effect(priv, "trust").get("d", 0)) < 0
+			and _effect(priv, "morale").is_empty() and not _effect(front, "delegate").is_empty(),
+			"Fronting the group is a risk on the room (it depends on whether the group listens to him); keeping it private gains nothing and costs his trust")
+	var dg := _effect(front, "delegate")
+	_check(int(((dg["held"] as Array)[0] as Dictionary)["d"]) > 0 and int(((dg["failed"] as Array)[0] as Dictionary)["d"]) < 0,
+			"...the room's morale rises if the group listens and falls if it does not")
+	GameState.show_real_names = false
+
+
+func _line_in(sel: Dictionary, id: String) -> String:
+	for k in ["RUCK", "MID", "WING", "DEF", "FWD", "BENCH"]:
+		if (sel.get(k, []) as Array).has(id):
+			return k
+	return ""
+
+
+func _role_on_ground(id: String) -> String:
+	for g in GameState.my_squad().ground:
+		if str(g["id"]) == id:
+			return str(g["role"])
+	return ""
+
+
+## The trial: three games he plays in the new position, then home (director,
+## 2026-10-13). Only moving HIM by hand ends it early; other swaps do not.
+func _test_role_trial() -> void:
+	_start()
+	var p := _trial_candidate()
+	_check(not p.is_empty(), "A starter with a second position exists on the test list")
+	if p.is_empty():
+		return
+	var id := str(p["id"])
+	var role2 := ClubStories.trial_role(p)
+	var home_line := _line_in(GameState.current_side(), id)
+	# Auto-pick: he plays his second position for three games, then goes back.
+	var said := GameState.start_role_trial(p, 3)
+	_check(said.contains("plays as a") and said.contains("three games") and said.contains("then goes back"),
+			"The trial says where and for how long: %s" % said)
+	_check(GameState.my_selection().is_empty() and (GameState.season.selections[GameState.my_club] as Dictionary).has("TRIAL"),
+			"Under the auto-pick the trial rides with the selection, and the side is still the auto-pick")
+	_check(_role_on_ground(id) == role2, "The auto-pick plays him in %s" % role2)
+	var left: Array = []
+	for r in range(3):
+		left.append(int(GameState.role_trial.get("left", -1)))
+		GameState.advance()
+	_check(left == [3, 2, 1] and GameState.role_trial.is_empty(),
+			"The trial runs exactly three games, then it is over (%s)" % str(left))
+	_check(not (GameState.season.selections[GameState.my_club] as Dictionary).has("TRIAL"),
+			"...and nothing is left on the selection")
+	_check(_line_in(GameState.current_side(), id) == home_line, "...and the auto-pick has him back in %s" % home_line)
+	# Moving HIM by hand ends it, auto case: he stays where your side puts him.
+	_start()
+	p = _trial_candidate()
+	id = str(p["id"])
+	role2 = ClubStories.trial_role(p)
+	GameState.start_role_trial(p, 3)
+	var side: Dictionary = GameState.current_side()
+	var line := _line_in(side, id)
+	_check(line == role2 or (line == "WING" and role2 == "MID"), "The team sheet shows him in %s (%s)" % [role2, line])
+	var moved_him := _bench_him(side, id)
+	GameState.set_selection(moved_him)
+	_check(GameState.role_trial.is_empty(), "Moving him by hand ends the trial")
+	_check(_line_in(GameState.my_selection(), id) == "BENCH", "...and he stays where your side puts him")
+	# Swapping two OTHER players keeps the trial on, auto case (qa T9); at the end he is home.
+	_start()
+	p = _trial_candidate()
+	id = str(p["id"])
+	role2 = ClubStories.trial_role(p)
+	home_line = _line_in(GameState.current_side(), id)
+	GameState.start_role_trial(p, 3)
+	side = GameState.current_side()
+	var bench: Array = side["BENCH"]
+	var other_line := "FWD" if _line_in(side, id) != "FWD" else "DEF"
+	var a := str((side[other_line] as Array)[0])
+	var b := str(bench[0])
+	(side[other_line] as Array)[0] = b
+	bench[0] = a
+	GameState.set_selection(side)
+	_check(not GameState.role_trial.is_empty() and int(GameState.role_trial["left"]) == 3,
+			"Swapping two other players does not end the trial (auto)")
+	for r in range(3):
+		GameState.advance()
+	_check(GameState.role_trial.is_empty() and _line_in(GameState.my_selection(), id) == home_line,
+			"...and after three games he is back in %s, not stuck in the new role (%s)" % [home_line, _line_in(GameState.my_selection(), id)])
+	# Named side: other swaps keep it on and he goes home after three (qa T10).
+	_start()
+	GameState.set_selection(GameState.current_side())
+	p = _trial_candidate()
+	id = str(p["id"])
+	role2 = ClubStories.trial_role(p)
+	home_line = _line_in(GameState.my_selection(), id)
+	GameState.start_role_trial(p, 3)
+	var moved := _line_in(GameState.my_selection(), id)
+	_check(moved == role2 or (moved == "WING" and role2 == "MID"), "A named side moves him into %s (%s)" % [role2, moved])
+	_check(_role_on_ground(id) == role2, "...and the match side has him there")
+	side = GameState.my_selection()
+	other_line = "FWD" if _line_in(side, id) != "FWD" else "DEF"
+	a = str((side[other_line] as Array)[0])
+	b = str((side["BENCH"] as Array)[0])
+	(side[other_line] as Array)[0] = b
+	(side["BENCH"] as Array)[0] = a
+	GameState.set_selection(side)
+	_check(not GameState.role_trial.is_empty(), "Swapping other players does not end it (named)")
+	for r in range(3):
+		GameState.advance()
+	_check(GameState.role_trial.is_empty() and _line_in(GameState.my_selection(), id) == home_line,
+			"Named: three games later he is home in %s (%s)" % [home_line, _line_in(GameState.my_selection(), id)])
+	# Named side, you move him yourself: it ends and your side stays as you made it.
+	_start()
+	GameState.set_selection(GameState.current_side())
+	p = _trial_candidate()
+	id = str(p["id"])
+	GameState.start_role_trial(p, 3)
+	GameState.set_selection(_bench_him(GameState.my_selection(), id))
+	_check(GameState.role_trial.is_empty(), "Moving him yourself ends the trial (named)")
+	var mine_json := JSON.stringify(GameState.my_selection(), "", true)
+	GameState.advance()
+	GameState.advance()
+	GameState.advance()
+	_check(JSON.stringify(GameState.my_selection(), "", true) == mine_json, "Your side is never rewritten after you picked it")
+	# A player with no second position gets no trial and no change.
+	_start()
+	var plain: Dictionary = GameState.my_list[0].duplicate()
+	plain["role2"] = ""
+	plain["learned"] = []
+	plain["unicorn"] = false
+	if ClubStories.trial_role(plain) == "":
+		_check(GameState.start_role_trial(plain, 3) == "" and GameState.role_trial.is_empty(),
+				"No second position, no trial")
+
+
+## Take him off the ground and put him on the bench of a side.
+func _bench_him(side: Dictionary, id: String) -> Dictionary:
+	var s := side.duplicate(true)
+	for k in ["RUCK", "MID", "WING", "DEF", "FWD"]:
+		s[k] = (s.get(k, []) as Array).filter(func(x): return str(x) != id)
+	(s["BENCH"] as Array).append(id)
+	return s
+
+
+## Games he misses injured do not count (qa T4).
+func _test_trial_injury() -> void:
+	_start()
+	var p := _trial_candidate()
+	var id := str(p["id"])
+	GameState.start_role_trial(p, 3)
+	GameState.advance()
+	_check(int(GameState.role_trial["left"]) == 2, "One game played, two left")
+	p["injury_weeks"] = 2
+	GameState.advance()
+	GameState.advance()
+	var inj := GameState.list_player(id)
+	_check(not GameState.role_trial.is_empty() and int(GameState.role_trial["left"]) == 2,
+			"Two games missed injured do not count (left %s)" % str(GameState.role_trial.get("left", "none")))
+	_check((GameState.role_trial.get("ratings", []) as Array).size() == 1, "...and only the game he played has a rating")
+	inj["injury_weeks"] = 0
+	GameState.advance()
+	GameState.advance()
+	_check(GameState.role_trial.is_empty(), "Back fit, two more games end it")
+
+
+## The result: his average against the league's for the position, then a card
+## (director, 2026-10-13); a pass starts his training with three weeks done.
+func _test_trial_result() -> void:
+	for pass_it in [true, false]:
+		_start()
+		_run_on(3)
+		var p := _trial_candidate()
+		var id := str(p["id"])
+		var role2 := ClubStories.trial_role(p)
+		GameState.start_role_trial(p, 3)
+		GameState.advance()
+		GameState.advance()
+		GameState.pos_ratings[role2] = [0, 1] if pass_it else [9999, 1]
+		GameState.advance()
+		_check(not GameState.week_events.is_empty()
+				and str(GameState.week_events[0]["tid"]) == ("media_trial_worked" if pass_it else "media_trial_not_yet"),
+				"The result comes as the first card of the next week (%s)" % (str(GameState.week_events[0]["tid"]) if not GameState.week_events.is_empty() else "none"))
+		if GameState.week_events.is_empty():
+			continue
+		var card: Dictionary = GameState.week_events[0]
+		var f: Dictionary = card["facts"]
+		_check(GameState.trial_result.is_empty(), "The result is dealt once")
+		_check((int(f["trial_avg"]) >= int(f["trial_par"])) == pass_it, "Passing means at or above the position average")
+		var job := GameState.learn_job_for(p, role2)
+		var player := GameState.list_player(id)
+		var started := GameState.project_job(player) == job and job != ""
+		if pass_it:
+			_check(started == (job != ""), "A pass starts training when the position has a job")
+			if started:
+				_check(int(player["project"]["weeks"]) == 3 and str(player["train_plan"]) == "learn_" + job,
+						"...three weeks banked, in the learning project")
+		else:
+			_check(GameState.project_job(player) == "", "A fail starts no training")
+		var t := str(card["text"])
+		_check(t.contains("averaged a Player rating of %d as a %s" % [int(f["trial_avg"]), str(f["trial_word"])])
+				and t.contains("who started as a %s this year average a Player rating of %d" % [str(f["trial_word"]), int(f["trial_par"])]),
+				"The card shows both numbers in words: %s" % t)
+		_check(t.contains("three weeks already banked") == started, "...and says whether training starts: %s" % t)
+	# The league's position averages fill from every club's starters.
+	_start()
+	_run_on(3)
+	for role in ["MID", "DEF", "FWD", "RUCK"]:
+		_check(GameState.position_average(role) > 20, "The league has an average rating for %s (%d)" % [role, GameState.position_average(role)])
+
+
+## Card 2 shape (director, 2026-10-13): a fit starter with a second position
+## whose form is in the bottom half of the side; the position is named on the
+## card and on the button. Never offered for a player already picked there.
+func _test_role_card_shape() -> void:
+	_start()
+	_run_on(5)
+	_test_front_group_words()
+	# The dropped card shows what his form has been and what a starter in his position averages.
+	var pc := GameState.story_card("media_in_the_papers", _trial_candidate())
+	var pf: Dictionary = pc["facts"]
+	_check(int(pf["role_avg"]) > 0 and str(pc["text"]).contains("averaged a Player rating of %d over his last three games" % int(pf["form"]))
+			and str(pc["text"]).contains("this year average a Player rating of %d" % int(pf["role_avg"])),
+			"The dropped card states his form and the position average: %s" % str(pc["text"]))
+	var ctx := ClubStories.context(GameState)
+	var t := StoryDeck.by_id(StoryDeck.all(), "media_papers_again")
+	var starters := []
+	for f in ctx["players"]:
+		if bool(f["starting"]) and int(f["form_games"]) >= 3:
+			starters.append(f)
+	var low := 0
+	for f in starters:
+		if bool(f["form_low"]):
+			low += 1
+	_check(low >= starters.size() / 2 - 1 and low <= starters.size() / 2 + 1,
+			"About half the starters are in the bottom half of the form (%d of %d)" % [low, starters.size()])
+	var who := StoryEngine.eligible_subject(t, ctx, StoryEngine.new_state(), 100, RandomNumberGenerator.new())
+	_check(who.is_empty() or (bool(who["form_low"]) and bool(who["has_role2"]) and bool(who["starting"])),
+			"The role card only comes up for a role-two starter in the bottom half of the form")
+	var high := ctx.duplicate(true)
+	for f in high["players"]:
+		f["form_low"] = false
+	_check(StoryEngine.eligible_subject(t, high, StoryEngine.new_state(), 100, RandomNumberGenerator.new()).is_empty(),
+			"Nobody in the bottom half: the card does not appear")
+	# Named on the card and the button; he is named too.
+	var p := _trial_candidate()
+	var word := CoachPathway.position_word({"pos": ClubStories.trial_role(p)})
+	var card := GameState.story_card("media_papers_again", p)
+	_check(str(card["text"]).contains("playing as a " + word) and str(card["text"]).contains(GameDB.player_display_name(p).split(" ")[0] + " wants to know"),
+			"The body names the position and who wants to know: %s" % str(card["text"]))
+	_check(not str(card["text"]).contains("He wants to know"), "...not 'He'")
+	_check(str((card["options"] as Array)[1]["label"]) == "Try him as a " + word, "The button reads 'Try him as a %s'" % word)
+	var detail := str((card["options"] as Array)[1]["detail"])
+	_check(detail.contains("plays as a " + word) and detail.contains("goes back to being a "), "...and so does its Gain line, naming where he goes back to: %s" % detail)
+	# Already picked in his second position (qa T12): no card, no trial.
+	_start()
+	GameState.set_selection(GameState.current_side())
+	p = _trial_candidate()
+	var id := str(p["id"])
+	var role2 := ClubStories.trial_role(p)
+	var sel := GameState.my_selection()
+	GameState._move_in_sel(sel, id, role2)
+	GameState.set_selection(sel)
+	var fx := {}
+	for f in ClubStories.player_facts(GameState):
+		if str(f["id"]) == id:
+			fx = f
+	_check(not fx.is_empty() and not bool(fx["has_role2"]), "A player already picked in his second position is not offered the card")
+	_check(GameState.start_role_trial(GameState.list_player(id), 3) == "", "...and a trial there does nothing")
+	# Benched between the card and the answer (qa T14): nothing changes, no cost.
+	_start()
+	GameState.set_selection(GameState.current_side())
+	p = _trial_candidate()
+	id = str(p["id"])
+	var e := GameState.story_card("media_papers_again", p)
+	GameState.week_events = [e]
+	GameState.set_selection(_bench_him(GameState.my_selection(), id))
+	var board0 := GameState.board_confidence()
+	var morale0 := ClubLife.morale(GameState.list_player(id))
+	var key := Trust.player_key(id)
+	var trust0 := Trust.value(GameState.relations, key)
+	var out := GameState.resolve_card(0, 1)
+	_check(GameState.role_trial.is_empty() and out.contains("nothing changes") and GameState.board_confidence() == board0
+			and ClubLife.morale(GameState.list_player(id)) == morale0 and Trust.value(GameState.relations, key) == trust0,
+			"Benched before the answer: no trial and no trust, morale or board cost (%s)" % out)
+	# Saying nothing costs his trust (not the board), and the card says so.
+	_start()
+	p = _trial_candidate()
+	id = str(p["id"])
+	var quiet := GameState.story_card("media_papers_again", p)
+	_check(str((quiet["unanswered"] as Dictionary)["hint"]).contains("trusts you a little less"), "The silence hint names the trust cost: %s" % str(quiet["unanswered"]["hint"]))
+	GameState.week_events = [quiet]
+	var b2 := GameState.board_confidence()
+	var t2 := Trust.value(GameState.relations, Trust.player_key(id))
+	GameState._settle_week_event()
+	_check(Trust.value(GameState.relations, Trust.player_key(id)) < t2 and GameState.board_confidence() == b2,
+			"Unanswered, the role card costs his trust and leaves the board alone")
+	# He leaves the list mid-trial (qa T5): the trial clears, no stale note.
+	_start()
+	p = _trial_candidate()
+	id = str(p["id"])
+	GameState.start_role_trial(p, 3)
+	GameState.my_list = GameState.my_list.filter(func(q): return str(q["id"]) != id)
+	GameState.advance()
+	_check(GameState.role_trial.is_empty() and not (GameState.season.selections[GameState.my_club] as Dictionary).has("TRIAL"),
+			"A player who leaves the list mid-trial clears the trial and its note")
+
+
+## Card 3's two sizes of trust read differently (qa 11).
+func _test_front_group_words() -> void:
+	var card := GameState.story_card("media_papers_fronts_group", GameState.my_list[0] if GameState.season != null else {})
+	if card.is_empty():
+		return
+	var d0 := str((card["options"] as Array)[0]["detail"])
+	var d1 := str((card["options"] as Array)[1]["detail"])
+	_check(d0.contains("trusts you more") and d0.contains("morale up a little") and d0.contains("morale down a little") and d0.contains("the group") and d1.contains("a little less"),
+			"Card 3's trust lines differ in size: '%s' / '%s'" % [d0, d1])
+
+
+## Save in the middle of a trial and reload: the same trial, the same games.
+func _test_role_trial_save() -> void:
+	for named in [false, true]:
+		GameState.reset()
+		GameState.career_seed = SUITE_SEED
+		GameState.replay_seed = SUITE_SEED
+		GameState.start_season("GEE", GameDB.club_list("GEE"))
+		_run_on(2)
+		if named:
+			GameState.set_selection(GameState.current_side())
+		var p := _trial_candidate()
+		if p.is_empty():
+			_check(false, "A trial candidate exists for the save test")
+			continue
+		GameState.start_role_trial(p, 3)
+		GameState.advance()
+		_check(GameState.save_career(), "Mid-trial save (%s)" % ("named" if named else "auto"))
+		var trial_before := JSON.stringify(GameState.role_trial, "", true)
+		var sel_before := JSON.stringify(GameState.season.selections[GameState.my_club], "", true)
+		var straight := _trial_run(4, str(p["id"]))
+		_check(GameState.load_career(), "Mid-trial load")
+		_check(JSON.stringify(GameState.role_trial, "", true) == trial_before and GameState.role_trial.size() > 0,
+				"The trial survives a reload (%s)" % trial_before)
+		_check(JSON.stringify(GameState.season.selections[GameState.my_club], "", true) == sel_before,
+				"...and so does the side it wrote")
+		var reloaded := _trial_run(4, str(p["id"]))
+		_check(straight == reloaded, "Reload and carry on equals playing straight through\n%s\n%s" % [
+				",".join(straight), ",".join(reloaded)])
+		_check(GameState.role_trial.is_empty(), "...and the trial has ended")
+	# An older save has no trial key at all.
+	GameState.save_career()
+	var state := CareerSave.read(GameState.save_path)
+	state.erase("role_trial")
+	state.erase("trial_result")
+	state.erase("pos_ratings")
+	CareerSave.write(state, GameState._save_meta(), GameState.save_path)
+	_check(GameState.load_career() and GameState.role_trial.is_empty(), "A save without the trial key loads with none")
+
+
+func _trial_run(rounds: int, id: String) -> PackedStringArray:
+	var out: PackedStringArray = []
+	for r in range(rounds):
+		out.append("%d/%s/%s" % [int(GameState.role_trial.get("left", 0)), _role_on_ground(id),
+				str(GameState.last_match.get("score", []))])
+		GameState.advance()
+	return out
 
 
 # --- Leadership (P2-1) --------------------------------------------------------
@@ -1067,8 +1716,8 @@ func _test_captain_cards() -> void:
 
 func _test_group_words_are_sentence_case() -> void:
 	var words := StoryEngine._morale_words(-3, "all") + " " + StoryEngine._morale_words(-8, "others") + " " + StoryEngine._morale_words(-3, "side")
-	_check(words.contains("The whole list is a little flat about it.") and words.contains("The rest of the group takes it hard.")
-			and words.contains("The side is a little flat about it."), "A group's mood line is in sentence case (%s)" % words)
+	_check(words.contains("Morale down a little across the whole list.") and words.contains("Morale down in the rest of the group.")
+			and words.contains("Morale down a little across the side."), "A group's mood line is in sentence case and names morale (%s)" % words)
 
 
 ## The paths a normal career rarely walks: a captain who can't settle a dispute, a stale
@@ -1326,6 +1975,12 @@ func _test_culture() -> void:
 		if any:
 			moved_clubs += 1
 	_check(moved_clubs >= 12 and values.size() >= 4, "Most clubs have a culture after a season, and they differ (%d clubs, %d values)" % [moved_clubs, values.size()])
+	var repeats := PackedStringArray()
+	for code in GameState.season.lists:
+		var raw: Array = (rel2.get(Culture.key(str(code), "together"), {}) as Dictionary).get("log", [])
+		if Culture.reasons(rel2, str(code), "together").size() != raw.size():
+			repeats.append(str(code))
+	_check(repeats.is_empty(), "Through a whole season no club's run is logged twice (%s)" % ", ".join(repeats))
 	var again := JSON.stringify(rel2)
 	GameState._culture_season()
 	_check(JSON.stringify(GameState.relations) == again, "Closing the season twice moves nothing")
@@ -1556,7 +2211,7 @@ func ", at + 5) - at)
 		if FileAccess.get_file_as_string(f).contains("Culture.club_effect("):
 			effect_readers.append(f.get_file())
 	_check(effect_readers == ["GameState.gd"], "Only GameState applies a culture effect (%s)" % ", ".join(effect_readers))
-	for kind in ["recovery", "sting", "resign_floor", "free_agent_score"]:
+	for kind in ["recovery", "sting", "resign_floor", "free_agent_score", "young_growth"]:
 		_check(gs.contains("culture_effect(") and gs.contains("\"%s\")" % kind), "Culture's %s effect is applied" % kind)
 	for st in ["standards", "together", "ambition"]:
 		_check(Culture.moves_line(st) != "", "%s says what moves it" % st)
@@ -1590,23 +2245,42 @@ func _test_culture_effects() -> void:
 		_check(not bands.has("mid"), "%s: the middle band does nothing" % kind)
 		for k in bands:
 			_check(absf(float(bands[k])) <= float(fx["little_max"][kind]) * 2.0, "%s %s is small" % [kind, k])
-	# The screen's line says exactly the applied size and direction.
+	# The screen's line says exactly the applied size and direction, and nothing
+	# where nothing is applied.
 	for strand in ["standards", "together", "ambition"]:
 		for t in [-60, -20, 0, 20, 60]:
 			var line := Culture.effect_line(strand, t)
 			var band := Culture.band_key(strand, t)
-			var kind := {"standards": "recovery", "together": "sting", "ambition": "resign_floor"}[strand]
-			var x := Culture.effect_of(kind, strand, band)
+			var x := 0.0
+			for kind in Culture.KIND_STRAND:
+				if Culture.KIND_STRAND[kind] == strand:
+					x += absf(Culture.effect_of(kind, strand, band))
 			if x == 0.0:
 				_check(line == "", "%s %d: no line when it does nothing" % [strand, t])
 			else:
 				_check(line.contains("a little") or line.contains("keen"), "%s %d: size in words (%s)" % [strand, t, line])
+				_check(not line.contains("%") and not line.contains("0."), "%s %d: no number on the line (%s)" % [strand, t, line])
 				if strand != "ambition":
-					_check(line.contains("faster") or line.contains("better") if x > 0.0 else line.contains("slower") or line.contains("worse"),
+					var kind := "recovery" if strand == "standards" else "sting"
+					var up := Culture.effect_of(kind, strand, band) > 0.0
+					_check(line.contains("faster") or line.contains("better") if up else line.contains("slower") or line.contains("worse"),
 							"%s %d: direction matches (%s)" % [strand, t, line])
 	_check(Culture.effect_line("standards", 20) == "Players recover a little faster between games.", "Standards, good band")
 	_check(Culture.effect_line("standards", -50) == "Players recover a little slower between games.", "Standards, slack band")
-	_check(Culture.effect_line("ambition", -50) == "", "A rebuild is not a fault: no effect")
+	_check(Culture.effect_line("together", -50) == "Players take a missed game a little worse.", "Togetherness, divided band")
+	_check(Culture.effect_line("ambition", 20) == "Players are a little more willing to stay and to join.", "Ambition, pushing to win now")
+	# Director, 2026-10-18: a patient club brings its young on; veterans' asks are not lower there.
+	_check(Culture.effect_line("ambition", -20) == "Young players come on a little quicker here."
+			and Culture.effect_line("ambition", -50) == "Young players come on a little quicker here.", "Ambition, patient and rebuilding")
+	for band in ["patient", "rebuild"]:
+		_check(Culture.effect_of("resign_floor", "ambition", band) == 0.0 and Culture.effect_of("free_agent_score", "ambition", band) == 0.0,
+				"A %s club gets no re-sign or free-agent tilt" % band)
+	_check(Culture.effect_of("young_growth", "ambition", "patient") == 0.03 and Culture.effect_of("young_growth", "ambition", "rebuild") == 0.05
+			and Culture.effect_of("young_growth", "ambition", "now") == 0.0, "Young players: 3% patient, 5% rebuild, nothing winning now")
+	# Who counts as young: under 22, or a draftee in his first season on a list.
+	_check(Culture.young_for_growth({"age": 21.5}, 2028) and not Culture.young_for_growth({"age": 22.0}, 2028), "Under-22s, not 22-year-olds")
+	_check(Culture.young_for_growth({"age": 24.0, "drafted_year": 2027}, 2028) and not Culture.young_for_growth({"age": 24.0, "drafted_year": 2026}, 2028),
+			"A mature-age draftee in his first season counts; in his second he does not")
 	# Standards: legs recover by the applied share.
 	var a := {"id": "x1", "age": 25.0, "attr": {"durability": 70.0}, "workload": 60.0}
 	var b := a.duplicate(true)
@@ -1645,9 +2319,91 @@ func _test_culture_effects() -> void:
 		Culture.change(GameState.relations, code, "standards", 6, "x", GameState.season_year, "Round 2")
 		Culture.change(GameState.relations, code, "standards", 6, "x", GameState.season_year, "Round 3")
 	_check(GameState.culture_effect("GEE", "recovery") == 0.03 and GameState.culture_effect("COL", "recovery") == 0.03, "Every club gets the same size for the same band")
+	# Re-signing: a rival pushing to win now keeps him cheaper by the same rule as yours.
+	for code in ["GEE", "COL"]:
+		GameState.relations[Culture.key(code, "ambition")] = {"t": 60, "log": []}
+	var vet: Dictionary = GameState.season.lists["COL"][0]
+	var cut2 := int(round(float(Contracts.lowest(vet, 2)) * 0.02))
+	_check(GameState.culture_resign_discount("COL", vet, 2) == cut2 and GameState.culture_resign_discount("GEE", vet, 2) == cut2 and cut2 > 0,
+			"All in: the same re-sign discount at your club and a rival's (%d)" % cut2)
+	_check(FileAccess.get_file_as_string("res://scripts/state/GameState.gd").contains("Contracts.lowest(p, years) - culture_resign_discount(code, p, years)"),
+			"Rivals re-sign at the culture floor too")
+	# Development: a rebuilding club's young players earn 5% more XP on the same game; a veteran does not.
+	GameState.relations[Culture.key("GEE", "ambition")] = {"t": -60, "log": []}
+	var kid := {"id": "k", "age": 19.0, "overall": 60}
+	var old := {"id": "o", "age": 29.0, "overall": 70}
+	var on_kid: int = GameState._club_xp("GEE", kid, 40, {}, true)
+	var on_old: int = GameState._club_xp("GEE", old, 40, {}, true)
+	GameState.culture_effects_on = false
+	var off_kid: int = GameState._club_xp("GEE", kid, 40, {}, true)
+	var off_old: int = GameState._club_xp("GEE", old, 40, {}, true)
+	GameState.culture_effects_on = true
+	_check(on_kid == int(round(float(off_kid) * 1.05)) and on_kid > off_kid and on_old == off_old,
+			"Rebuilding: a 19-year-old earns 5%% more from the same game, a 29-year-old the same (%d v %d; %d v %d)" % [on_kid, off_kid, on_old, off_old])
 	GameState.culture_effects_on = false
 	_check(GameState.culture_effect("GEE", "recovery") == 0.0, "Off means off")
 	GameState.culture_effects_on = true
+
+
+## The player-effect fixture: one seeded stretch of Melbourne's season played
+## twice, culture's effects on and off, with Melbourne's culture set to a
+## well-run, very tight, rebuilding group. Everything else is the same seed. The
+## sheet predicts fresher legs, players who take being left out better, and
+## young players earning more development; each shows, and the size is printed.
+const FIXTURE_ROUNDS := 8
+
+
+func _culture_fixture_run(on: bool) -> Dictionary:
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.culture_effects_on = on
+	GameState.start_season("MEL", GameDB.club_list("MEL"))
+	GameState.relations[Culture.key("MEL", "standards")] = {"t": 70, "log": []}
+	GameState.relations[Culture.key("MEL", "together")] = {"t": 70, "log": []}
+	GameState.relations[Culture.key("MEL", "ambition")] = {"t": -70, "log": []}
+	var load_sum := 0.0
+	var young_xp := 0
+	var young_ids := {}
+	for p in GameState.my_list:
+		if Culture.young_for_growth(p, GameState.season_year):
+			young_ids[str(p["id"])] = true
+	for r in range(FIXTURE_ROUNDS):
+		if GameState.week_event_pending():
+			GameState.resolve_week_event(0)
+		if GameState.media_conference_pending():
+			GameState.skip_media_conference()
+		GameState.advance()
+		var w := 0.0
+		for p in GameState.my_list:
+			w += Workload.value(p)
+		load_sum += w / float(GameState.my_list.size())
+		for row in GameState.last_training_report.get("rows", []):
+			if young_ids.has(str(row["id"])):
+				young_xp += int(row["xp"])
+	var morale := 0.0
+	for p in GameState.my_list:
+		morale += float(ClubLife.morale(p))
+	var bands := "%s/%s/%s" % [Culture.band_key("standards", Culture.value(GameState.relations, "MEL", "standards")),
+			Culture.band_key("together", Culture.value(GameState.relations, "MEL", "together")),
+			Culture.band_key("ambition", Culture.value(GameState.relations, "MEL", "ambition"))]
+	GameState.culture_effects_on = true
+	return {"load": load_sum / float(FIXTURE_ROUNDS), "morale": morale / float(GameState.my_list.size()),
+			"young_xp": young_xp, "young": young_ids.size(), "bands": bands}
+
+
+func _test_culture_effects_fixture() -> void:
+	var off := _culture_fixture_run(false)
+	var on := _culture_fixture_run(true)
+	print("Culture fixture (Melbourne, %d rounds, seed %d): load %.2f v %.2f off | morale %.2f v %.2f off | young XP %d v %d off (%d young players) | bands %s" % [
+			FIXTURE_ROUNDS, SUITE_SEED, float(on["load"]), float(off["load"]), float(on["morale"]), float(off["morale"]),
+			int(on["young_xp"]), int(off["young_xp"]), int(on["young"]), str(on["bands"])])
+	_check(str(on["bands"]) == "elite/very/rebuild" and str(off["bands"]) == "elite/very/rebuild",
+			"The fixture's culture holds for the stretch (%s, %s)" % [on["bands"], off["bands"]])
+	_check(float(on["load"]) < float(off["load"]), "A well-run group carries less load in its legs (%.2f v %.2f)" % [on["load"], off["load"]])
+	_check(float(on["morale"]) > float(off["morale"]), "A very tight group ends the stretch happier (%.2f v %.2f)" % [on["morale"], off["morale"]])
+	_check(float(on["young_xp"]) > float(off["young_xp"]) * 1.02,
+			"A rebuilding club's young players earn more development (%d v %d)" % [on["young_xp"], off["young_xp"]])
 
 
 func _test_culture_sentences() -> void:
@@ -1665,6 +2421,74 @@ func _test_culture_sentences() -> void:
 			and "Played finals in 2026 and 2027." in texts and "Five wins in a row in 2025 and 2026." in texts,
 			"Reasons read as football sentences with the time at the end (%s)" % " | ".join(texts))
 	_check(Culture.group_text("Togetherness", g[0]).contains("2027"), "The newest year leads (%s)" % texts[0])
+
+
+## A run of losses or wins is one row: logged the week it reaches its mark, by
+## the club that played; an older save's repeats read as one.
+func _test_culture_runs_once() -> void:
+	var four := str(Culture.run_step(4, 0)[2])
+	var five := str(Culture.run_step(0, 5)[2])
+	var rel := {}
+	for w in ["Round 24", "Wildcard Round", "Qualifying & Elimination Finals", "Semi Finals", "Grand Final"]:
+		Culture.change(rel, "GEE", "together", -3, four, 2027, w)
+	var told := Culture.reasons(rel, "GEE", "together")
+	_check(told.size() == 1 and str(told[0]["w"]) == "Round 24", "A run logged again through the finals reads as one row (%d)" % told.size())
+	_check(((rel[Culture.key("GEE", "together")] as Dictionary)["log"] as Array).size() == 5, "The save keeps what it holds")
+	rel = {}
+	Culture.change(rel, "GEE", "together", 3, five, 2027, "Round 9")
+	Culture.change(rel, "GEE", "together", 3, five, 2027, "Round 10")
+	Culture.change(rel, "GEE", "together", -3, four, 2027, "Round 3")
+	Culture.change(rel, "GEE", "together", -3, four, 2027, "Round 15")
+	Culture.change(rel, "GEE", "together", -3, four, 2027, "Semi Finals")
+	Culture.change(rel, "GEE", "together", -3, four, 2028, "Round 4")
+	var rows := PackedStringArray()
+	for r in Culture.reasons(rel, "GEE", "together"):
+		rows.append("%d %s %s" % [int(r["y"]), str(r["w"]), str(r["why"])])
+	_check(" | ".join(rows) == "2028 Round 4 %s | 2027 Semi Finals %s | 2027 Round 15 %s | 2027 Round 3 %s | 2027 Round 9 %s" % [four, four, four, four, five],
+			"A bye week's repeat goes; a second run later in the year, a run that ends in a final and next year's all stay (%s)" % " | ".join(rows))
+	_check(Culture.event_text("Togetherness", {"w": "Semi Finals", "why": four, "d": -3}) == "Semi Finals: a run of four losses. Togetherness fell."
+			and Culture.event_text("Togetherness", {"w": "Off-season", "why": "Played finals", "d": 3}) == "Played finals. Togetherness rose.",
+			"A run that reaches its mark in a final names the final; an off-season reason names no week")
+	_check(Culture.run_length(four) == 4 and Culture.run_length(str(Culture.run_step(8, 0)[2])) == 8 and Culture.run_length(five) == 5
+			and Culture.run_length("Played finals") == 0, "Only a run's reason counts as a run")
+	# In the game: the club that played reaches the mark once; a week it sits out adds nothing.
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var rivals := []
+	for code in GameState.season.lists:
+		if str(code) != "GEE":
+			rivals.append(str(code))
+	var rounds := []
+	for i in range(8):
+		rounds.append([{"home": "GEE", "away": rivals[i], "score": [50, 80]}])
+	var key := Culture.key("GEE", "together")
+	var count := func() -> int:
+		return ((GameState.relations.get(key, {}) as Dictionary).get("log", []) as Array).size()
+	GameState.season.results = rounds.slice(0, 4)
+	GameState.last_label = "Round 4"
+	GameState._culture_week(rounds[3])
+	var first: int = count.call()
+	GameState.last_label = "Round 5"
+	GameState._culture_week([{"home": rivals[9], "away": rivals[10], "score": [70, 60]}])
+	GameState.last_label = "Round 6"
+	GameState._culture_week([])
+	var after_idle: int = count.call()
+	var shown := Culture.reasons(GameState.relations, "GEE", "together")
+	_check(first == 1 and after_idle == 1 and shown.size() == 1 and str(shown[0]["w"]) == "Round 4" and str(shown[0]["why"]) == four,
+			"Four losses in a row is logged once, in its round; a bye and a week out add nothing (%d, %d)" % [first, after_idle])
+	GameState.season.results = rounds.slice(0, 5)
+	GameState.last_label = "Round 7"
+	GameState._culture_week(rounds[4])
+	_check(count.call() == 1, "A fifth loss in a row is the same run")
+	GameState.season.results = rounds
+	GameState.last_label = "Round 10"
+	GameState._culture_week(rounds[7])
+	shown = Culture.reasons(GameState.relations, "GEE", "together")
+	_check(count.call() == 2 and shown.size() == 2 and str(shown[0]["why"]) == str(Culture.run_step(8, 0)[2]) and str(shown[0]["w"]) == "Round 10",
+			"The run is told again only when it reaches eight")
+	GameState.reset()
 
 
 # --- A result that names players (the time trial) --------------------------------

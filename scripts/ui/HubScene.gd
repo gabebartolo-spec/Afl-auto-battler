@@ -1,6 +1,7 @@
 extends Control
 ## Season hub: your next match, the ladder snapshot, and the round controls.
 
+var _name_index := {}
 var _settled := false   # the hub has shown once this visit; no more entrances
 ## Where your club sat the last time the hub showed it (this run of the game
 ## only; presentation, never saved): {"key": season instance, "pos": n}.
@@ -34,6 +35,12 @@ func _ready() -> void:
 	if GameState.season == null:
 		Router.replace("main")
 		return
+	# A pre-season is running: it has its own screen until Round 1 is next.
+	# The off-season wrap is read here first.
+	if GameState.preseason_active() and not GameState.needs_season_wrap():
+		Router.replace("preseason")
+		return
+	_warm_pre_match.call_deferred()
 
 	add_child(ClubBackdrop.new().setup(GameState.my_club).live())
 	var margin := MarginContainer.new()
@@ -85,7 +92,7 @@ func _show_weekly_loop_intro() -> void:
 	v.add_child(UiKit.heading("Your week", UiKit.TITLE))
 	for line in [
 		"This is home base. Check the next opponent, then use Team to pick the side and Coaching if you want to change how you play.",
-		"Play match when you want the live coaching calls. Play round plays the week out for you quickly; the match itself is the same either way.",
+		"Play match when you want the live coaching calls. Sim the week plays the round out for you quickly; the match itself is the same either way.",
 		"After the game, review what happened and change selection or training only when you have a reason. There is no weekly checklist to clear.",
 	]:
 		var l := UiKit.lbl(line, 14, UiKit.TEXT)
@@ -168,17 +175,22 @@ func _show_season_wrap() -> void:
 		var why := UiKit.lbl(str(w.get("reason", "")), 14, UiKit.MUTED)
 		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(why)
-	var go := UiKit.btn("Begin season", UiKit.BODY, true)
+	# With a pre-season to come, the wrap leads into it; a career saved at the
+	# wrap before pre-seasons existed begins its season as it always did.
+	var to_preseason: bool = GameState.preseason_active()
+	var go := UiKit.btn("Start the pre-season" if to_preseason else "Begin season", UiKit.BODY, true)
 	go.name = "BeginSeason"
 	go.custom_minimum_size.y = 48
 	go.pressed.connect(func():
 		GameState.begin_season_from_wrap()
-		overlay.queue_free())
+		overlay.queue_free()
+		if to_preseason:
+			Router.replace("preseason"))
 	(box["footer"] as VBoxContainer).add_child(go)
 
 
 func _on_resize() -> void:
-	if not is_inside_tree() or GameState.season == null:
+	if not is_inside_tree() or GameState.season == null or UiKit.keyboard_resize(self):
 		return
 	_build()
 
@@ -193,6 +205,7 @@ func _narrow() -> bool:
 
 func _build() -> void:
 	UiKit.clear(_root)
+	_name_index = {}
 	GameState.ensure_finals()
 	var season: Season = GameState.season
 	var settings := UiKit.btn("Settings", 14)
@@ -214,6 +227,8 @@ func _build() -> void:
 	var week := _week_section(season)
 	var ladder := _ladder_section(season)
 	if _narrow():
+		if TrainingReport.hub_due(GameState):
+			page.add_child(TrainingReportSheet.hub_card(self, _go_retrain))
 		page.add_child(week)
 		page.add_child(UiKit.rule())
 		page.add_child(_standing_card())
@@ -226,6 +241,8 @@ func _build() -> void:
 		var left := UiKit.vbox(UiKit.SECTION)
 		left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cols.add_child(left)
+		if TrainingReport.hub_due(GameState):
+			left.add_child(TrainingReportSheet.hub_card(self, _go_retrain))
 		left.add_child(week)
 		left.add_child(UiKit.rule())
 		left.add_child(_standing_card())
@@ -261,6 +278,12 @@ func _build() -> void:
 		foot.add_child(row)
 	# Motion plays once per visit, not on every rebuild after an answer.
 	_settled = true
+
+
+## From the training report: Training, at that player's choice.
+func _go_retrain(id: String) -> void:
+	TrainingScene.open_player_id = id
+	Router.go("training")
 
 
 ## "Round 4", a finals week, or the season.
@@ -332,6 +355,13 @@ func _standing_card() -> Control:
 		var tl := UiKit.lbl(str(outlook["line"]), UiKit.SECONDARY, UiKit.MUTED)
 		tl.name = "MyTeamOutlook"
 		cv.add_child(tl)
+	# The last rounds on: where your first pick falls if the season ended today.
+	var pick_line := GameState.pick_order_line()
+	if pick_line != "":
+		var pl := UiKit.lbl(pick_line, UiKit.SECONDARY, UiKit.TEXT)
+		pl.name = "DraftPickLine"
+		pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		cv.add_child(pl)
 	var form := GameState.club_form_info(GameState.my_club)
 	cv.add_child(_form_row(form))
 	var last := _last_match_button()
@@ -382,29 +412,27 @@ func _event_card(index: int) -> Control:
 	card.name = "WeekEvent" if index == 0 else "WeekEvent_%d" % index
 	var v := UiKit.vbox(6)
 	card.add_child(v)
-	v.add_child(UiKit.lbl(str(e.get("title", "")), UiKit.BODY, UiKit.TEXT, true))
+	v.add_child(NameInk.label(str(e.get("title", "")), _league_names(), UiKit.BODY, UiKit.TEXT, true))
 	if not bool(e.get("resolved", false)):
-		var t := UiKit.lbl(str(e.get("text", "")), 12, UiKit.TEXT)
+		var t := NameInk.label(str(e.get("text", "")), _league_names(), 12, UiKit.TEXT)
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(t)
-		# What's at risk, in one line; the buttons carry the choice and the
-		# outcome shows after the pick.
-		var stakes := PackedStringArray()
+		# What an authored stakes line adds, then what happens if he says
+		# nothing, apart from the choices. Full-strength text: it is what a
+		# coach decides on.
 		if str(e.get("stakes", "")) != "":
-			stakes.append(str(e["stakes"]))
-		var silence := str((e.get("unanswered", {}) as Dictionary).get("hint", ""))
-		if silence != "":
-			stakes.append(silence)
-		if not stakes.is_empty():
-			var sk := UiKit.lbl(" ".join(stakes), UiKit.SMALL, UiKit.MUTED)
+			var sk := NameInk.label(str(e["stakes"]), _league_names(), UiKit.SECONDARY, UiKit.TEXT)
 			sk.name = "EventStakes_%d" % index
 			sk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(sk)
+		var silence := str((e.get("unanswered", {}) as Dictionary).get("hint", ""))
+		if silence != "":
+			var sl := NameInk.label(silence, _league_names(), UiKit.SECONDARY, UiKit.TEXT)
+			sl.name = "EventSilence_%d" % index
+			sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(sl)
 		var opts: Array = e.get("options", [])
-		# A card that says what each choice does (the captain's cards) puts that line under
-		# its button, so the stakes are in front of the player before the pick.
-		var notes := bool(e.get("choice_notes", false))
-		var row: BoxContainer = UiKit.vbox(10 if notes else 4) if _narrow() else UiKit.hbox(8 if notes else 6)
+		var row: BoxContainer = UiKit.vbox(22) if _narrow() else UiKit.hbox(8)
 		v.add_child(row)
 		for i in range(opts.size()):
 			var o: Dictionary = opts[i]
@@ -412,28 +440,61 @@ func _event_card(index: int) -> Control:
 			b.name = "Event_%d" % i
 			b.custom_minimum_size = Vector2(0, 48)
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			if not _narrow():
+				# Side by side, every choice gets an equal share and wraps its own words.
+				b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				b.custom_minimum_size = Vector2(0, 48)
 			b.pressed.connect(func():
 				GameState.resolve_card(index, i)
 				_build())
-			if notes and str(o.get("detail", "")) != "":
-				var cell := UiKit.vbox(3)
-				cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				cell.add_child(b)
-				var line := UiKit.lbl(str(o["detail"]), UiKit.SMALL, UiKit.MUTED)
-				line.name = "EventNote_%d" % i
-				line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-				cell.add_child(line)
-				# The exact rule behind that line is one deliberate tap away.
-				if str(o.get("rule", "")) != "":
-					var more := UiKit.text_action("See the rule", UiKit.SMALL)
-					more.name = "EventRule_%d" % i
-					more.alignment = HORIZONTAL_ALIGNMENT_LEFT
-					var rule_text := str(o["rule"])
-					more.pressed.connect(func(): _show_rule(rule_text))
-					cell.add_child(more)
-				row.add_child(cell)
-			else:
+			# What this answer does, worded from its own effects: gains first,
+			# then costs, one plain line each (a choice that does nothing
+			# mechanical shows nothing under it). Same text, same weight on
+			# every choice.
+			var lines := StoryEngine.stakes_lines(o.get("effects", []), e.get("facts", {}))
+			var rule_text := str(o.get("rule", ""))
+			if lines.is_empty() and rule_text == "":
 				row.add_child(b)
+				continue
+			var col := UiKit.vbox(3)
+			col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			col.add_child(b)
+			for line in lines:
+				var mark := ""
+				var kind := "Note"
+				if line.begins_with(StoryEngine.GAIN_MARK):
+					mark = "Gain:"
+					kind = "Gain"
+				elif line.begins_with(StoryEngine.COST_MARK):
+					mark = "Cost:"
+					kind = "Cost"
+				var cl := NameInk.label(line.substr(mark.length()).strip_edges() if mark != "" else line, _league_names(), UiKit.SECONDARY, UiKit.TEXT)
+				cl.name = "Event%s_%d_%d" % [kind, index, i]
+				cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				if mark == "":
+					col.add_child(cl)
+					continue
+				# The marker is bold (weight, not colour); the sentence stays regular.
+				var item := UiKit.hbox(6)
+				var mk := UiKit.lbl(mark, UiKit.SECONDARY, UiKit.TEXT, true)
+				mk.name = "Event%sMark_%d_%d" % [kind, index, i]
+
+				mk.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+				mk.autowrap_mode = TextServer.AUTOWRAP_OFF
+				mk.custom_minimum_size = Vector2(40, 0)
+				item.add_child(mk)
+				cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				item.add_child(cl)
+				col.add_child(item)
+			# The exact rule behind a line is one deliberate tap away.
+			if rule_text != "":
+				var more := UiKit.text_action("See the rule", UiKit.SMALL)
+				more.name = "EventRule_%d" % i
+				more.alignment = HORIZONTAL_ALIGNMENT_LEFT
+				more.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+				more.pressed.connect(func(): _show_rule(rule_text))
+				col.add_child(more)
+			row.add_child(col)
 	else:
 		v.add_child(UiKit.lbl(str(e.get("outcome", "")), 13, UiKit.GOOD))
 	return card
@@ -478,6 +539,15 @@ func _sacked_card() -> Control:
 	return card
 
 
+## Every club's players by name, from the season's lists (they follow trades),
+## so a name in a sentence wears his club's colour (NameInk). Built once per
+## build of the hub; a name two clubs share is left plain.
+func _league_names() -> Dictionary:
+	if _name_index.is_empty() and GameState.season != null:
+		_name_index = NameInk.from_lists(GameState.season.lists)
+	return _name_index
+
+
 ## The latest league headlines; More opens the whole feed.
 func _news_card() -> Control:
 	var card := HBoxContainer.new()
@@ -511,7 +581,7 @@ func _show_news() -> void:
 		if when != last_when:
 			v.add_child(UiKit.lbl(when, UiKit.SECONDARY, UiKit.EMPH, true))
 			last_when = when
-		var l := UiKit.lbl(str(item["text"]), UiKit.SECONDARY, UiKit.TEXT)
+		var l := NameInk.label(str(item["text"]), _league_names(), UiKit.SECONDARY, UiKit.TEXT)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l)
 	var ok := UiKit.btn("Close", UiKit.NAME, true)
@@ -608,11 +678,21 @@ func _week_section(season: Season) -> Control:
 		var their := GameState.club_form_info(opp)
 		# Named: under the poster an unnamed "4th on the ladder" read as yours.
 		# "Form:" like your own line below, so the two read as parallel facts.
-		var standing := UiKit.lbl("%s are %s on the ladder  ·  %s" % [
-				GameDB.club_short(opp), GameState.ordinal(GameState.club_position(opp)),
-				GameState.form_line(their)], UiKit.SECONDARY, UiKit.MUTED)
-		standing.name = "OppFormLine"
-		nv.add_child(standing)
+		# Before the opponent's first game the ladder and form say nothing yet:
+		# last year's finish instead (nothing at all in a first season).
+		var standing_text := ""
+		if str(their["last"]) == "":
+			var fin := GameState.last_finish_of(opp)
+			if fin > 0:
+				standing_text = "%s finished %s last year" % [GameDB.club_short(opp), GameState.ordinal(fin)]
+		else:
+			standing_text = "%s are %s on the ladder  ·  %s" % [
+					GameDB.club_short(opp), GameState.ordinal(GameState.club_position(opp)),
+					GameState.form_line(their)]
+		if standing_text != "":
+			var standing := UiKit.lbl(standing_text, UiKit.SECONDARY, UiKit.MUTED)
+			standing.name = "OppFormLine"
+			nv.add_child(standing)
 		# Their list: the club's guernsey and name, then its line (TeamRating).
 		var their_list := GameState.team_outlook(opp)
 		if not their_list.is_empty():
@@ -635,11 +715,11 @@ func _week_section(season: Season) -> Control:
 		# rest follow in body copy, so three lines are not three equals.
 		for i in range(facts.size()):
 			var f: Dictionary = facts[i]
-			var fl := UiKit.lbl(str(f["text"]), UiKit.NAME if i == 0 else UiKit.BODY, UiKit.TEXT, i == 0)
+			var fl := NameInk.label(str(f["text"]), _league_names(), UiKit.NAME if i == 0 else UiKit.BODY, UiKit.TEXT, i == 0)
 			fl.name = "Fact_%d" % i
 			nv.add_child(fl)
 		for i in range(notes.size()):
-			var nl := UiKit.lbl(str(notes[i]["text"]), UiKit.BODY,
+			var nl := NameInk.label(str(notes[i]["text"]), _league_names(), UiKit.BODY,
 					UiKit.BAD if str(notes[i].get("key", "")) == "own_injury" else UiKit.TEXT)
 			nl.name = "OwnNote_%d" % i
 			nv.add_child(nl)
@@ -685,8 +765,8 @@ func _tribunal_card() -> Control:
 			sanction = "MRO fine"
 		var stage := str(row.get("stage", "tribunal"))
 		var hearing := "Appeals Board" if stage == "appeal" else "Tribunal"
-		var line := UiKit.lbl("%s — %s. %s case: %s." % [
-				name, sanction, hearing, str(row.get("case", "Difficult"))], 13, UiKit.TEXT, true)
+		var line := NameInk.label("%s — %s. %s case: %s." % [
+				name, sanction, hearing, str(row.get("case", "Difficult"))], _league_names(), 13, UiKit.TEXT, true)
 		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(line)
 		var status := UiKit.lbl("Brownlow: ineligible unless the %s succeeds." % (
@@ -754,7 +834,7 @@ func _week_actions(season: Season) -> Control:
 	elif _upcoming_match().is_empty() and GameState.my_finals_status() == "bye":
 		# Still alive: sim only this week, never past your own final.
 		buttons.append(_nav_button("Team", func(): Router.go("selection")))
-		buttons.append(_nav_button("Play %s" % _finals_label(), _on_sim_round, true))
+		buttons.append(_nav_button(_finals_play_label(), _on_sim_round, true))
 	elif _upcoming_match().is_empty():
 		# Out of the finals, the league still plays them week by week: each
 		# week's results come up before the next, and the rest of the series
@@ -762,7 +842,7 @@ func _week_actions(season: Season) -> Control:
 		var skip := _nav_button("Play to Grand Final", _on_sim_to_end)
 		skip.name = "SimToGrandFinal"
 		buttons.append(skip)
-		var week := _nav_button("Play %s" % _finals_label(), _on_sim_round, true)
+		var week := _nav_button(_finals_play_label(), _on_sim_round, true)
 		week.name = "SimFinalsWeek"
 		buttons.append(week)
 	else:
@@ -778,7 +858,7 @@ func _week_actions(season: Season) -> Control:
 ## Play round (the quick sim of the week), with its long press for the
 ## play-ahead menu.
 func _sim_round_button() -> Button:
-	var sim := _nav_button("Play round", _on_sim_round_pressed)
+	var sim := _nav_button("Sim the week", _on_sim_round_pressed)
 	sim.name = "SimRound"
 	_wire_long_press(sim)
 	return sim
@@ -845,6 +925,13 @@ func _footer(season: Season, with_sim := true) -> Control:
 					sb.content_margin_left = 4
 					sb.content_margin_right = 4
 					b.add_theme_stylebox_override(state, sb)
+		# Each button is at least as wide as its own label, so the row's spare
+		# width is shared out beyond that and none is cut short ("Sim the we...").
+		var sb_n: StyleBox = b.get_theme_stylebox("normal")
+		var pad := sb_n.get_margin(SIDE_LEFT) + sb_n.get_margin(SIDE_RIGHT) if sb_n != null else 16.0
+		var font: Font = b.get_theme_font("font")
+		var fs: int = b.get_theme_font_size("font_size")
+		b.custom_minimum_size.x = ceilf(font.get_string_size(b.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + pad) + 1.0
 		row.add_child(b)
 	return row
 
@@ -943,6 +1030,14 @@ func _nav_button(text: String, cb: Callable, primary := false) -> Button:
 	return b
 
 
+## The button that plays the week: short enough for half a phone's width beside Team
+## ("Play Wildcard Round" ran off the edge at 390).
+func _finals_play_label() -> String:
+	var w := int(GameState.season.finals.get("week", 1))
+	return ["Play the wildcard", "Play the finals", "Play semi finals",
+			"Play the prelims", "Play Grand Final"][clampi(w - 1, 0, 4)]
+
+
 func _finals_label() -> String:
 	var w := int(GameState.season.finals.get("week", 1))
 	return ["Wildcard Round", "Qualifying & Elimination", "Semi Finals",
@@ -960,6 +1055,19 @@ func _regular_bye(season: Season) -> bool:
 ## The match you are about to play, or {} if you have none coming up
 ## (missed the finals, or already eliminated). Unified across the home and
 ## away season and the finals so the hub card and the buttons can share it.
+## While the hub sits idle, paint what the banner scene will need on its first frame
+## (the crowd), so Play match doesn't freeze for it. Looks the same; nothing is drawn.
+func _warm_pre_match() -> void:
+	await get_tree().create_timer(1.2).timeout
+	if not is_inside_tree() or not GameState.vignettes_on():
+		return
+	var m := _upcoming_match()
+	if m.is_empty():
+		return
+	var mine := GameState.my_club
+	PreMatchVignette.warm(mine, str(m["away"]) if str(m["home"]) == mine else str(m["home"]))
+
+
 func _upcoming_match() -> Dictionary:
 	var season: Season = GameState.season
 	if season == null or season.is_season_over():
@@ -1052,11 +1160,11 @@ func _on_sim_round_pressed() -> void:
 	_sim_confirm = box["overlay"]
 	_sim_confirm.name = "SimConfirm"
 	var v: VBoxContainer = box["body"]
-	v.add_child(UiKit.heading("Play %s?" % str(m["label"]), UiKit.H1))
+	v.add_child(UiKit.heading("Sim %s?" % str(m["label"]), UiKit.H1))
 	var why := UiKit.lbl("Your match will be played out without you.", UiKit.BODY, UiKit.TEXT)
 	why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(why)
-	var go := UiKit.btn("Play round", UiKit.NAME, true)
+	var go := UiKit.btn("Sim the week", UiKit.NAME, true)
 	go.name = "SimConfirmGo"
 	go.custom_minimum_size = Vector2(0, 48)
 	go.pressed.connect(func():
@@ -1201,6 +1309,8 @@ func _close_finals() -> void:
 func handle_back() -> bool:
 	if _pre_match != null:
 		return true     # the side is on its way out
+	if TrainingReportSheet.close_top(self):
+		return true
 	var plan_sheet := get_node_or_null("SeasonPlanSheet")
 	if plan_sheet != null and is_instance_valid(plan_sheet) and not plan_sheet.is_queued_for_deletion():
 		plan_sheet.queue_free()
@@ -1289,41 +1399,82 @@ func _show_media_conference() -> void:
 		return
 	if _media_overlay != null and is_instance_valid(_media_overlay):
 		return
-	var box := UiKit.modal_box(self, 560.0, 0.0)
+	# A PC (director, 2026-10-14: "post match interview screen is so small"): the
+	# sheet takes most of the screen, the press room on the left, the question and
+	# the answers in a column on the right. A phone keeps the stacked sheet.
+	var vw := UiKit.view_width(self)
+	var vh := UiKit.view_height(self)
+	var wide := ScreenLayout.roomy(vw, vh)
+	var box := UiKit.modal_box(self, vw * 0.88 if wide else 560.0, vh * 0.88 if wide else 0.0)
 	_media_overlay = box["overlay"]
 	_media_overlay.name = "MediaConference"
 	var v: VBoxContainer = box["body"]
-	# Vignettes off (Settings): no stage, the question straight away.
+	var footer: VBoxContainer = box["footer"]
+	# The room's picture keeps its proportions: a fixed ratio on a PC, the
+	# phone's strip otherwise.
+	var stage: Control = null
 	var scene: MediaConferenceVignette = null
-	if GameState.vignettes_on():
-		var stage := Control.new()
+	var answers: VBoxContainer = footer
+	var prompt := UiKit.vbox(10 if wide else 6)
+	var row: HBoxContainer = null
+	if wide:
+		row = UiKit.hbox(24)
+		row.name = "MediaRow"
+		v.add_child(row)
+		answers = UiKit.vbox(16)
+		answers.name = "MediaAnswers"
+		answers.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		answers.add_child(prompt)
+		# Vignettes off (Settings): no stage, the column fills the sheet.
+		if GameState.vignettes_on():
+			var stage_w := minf(vw * 0.88 * 0.56, (vh * 0.88 - 60.0) * 1.6)
+			stage = Control.new()
+			stage.name = "MediaConferenceStage"
+			stage.custom_minimum_size = Vector2(stage_w, stage_w / 1.6)
+			stage.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			stage.clip_contents = true
+			row.add_child(stage)
+			scene = MediaConferenceVignette.open(stage, GameState.my_club)
+		row.add_child(answers)
+		footer.visible = false
+	elif GameState.vignettes_on():
+		stage = Control.new()
 		stage.name = "MediaConferenceStage"
-		stage.custom_minimum_size = Vector2(0, minf(300.0, get_viewport_rect().size.y * 0.38))
+		stage.custom_minimum_size = Vector2(0, minf(300.0, vh * 0.38))
 		v.add_child(stage)
 		scene = MediaConferenceVignette.open(stage, GameState.my_club)
-	var prompt := UiKit.vbox(6)
+	if not wide:
+		v.add_child(prompt)
 	prompt.visible = scene == null
-	v.add_child(prompt)
-	var by := UiKit.lbl(str(GameState.media_conference.get("by", "Journalist")), UiKit.SMALL, UiKit.MUTED, true)
+	var by := UiKit.lbl(str(GameState.media_conference.get("by", "Journalist")),
+			UiKit.H2 if wide else UiKit.SMALL, UiKit.MUTED, true)
 	by.name = "MediaByline"
 	prompt.add_child(by)
-	var q := UiKit.lbl(str(GameState.media_conference.get("question", "")), 16, UiKit.TEXT)
+	var q := NameInk.label(str(GameState.media_conference.get("question", "")), _league_names(), UiKit.H1 if wide else 16, UiKit.TEXT, wide)
 	q.name = "MediaQuestion"
 	q.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	prompt.add_child(q)
-	var footer: VBoxContainer = box["footer"]
-	footer.visible = false
 	var opts: Array = GameState.media_conference.get("options", [])
 	# Each answer and its line are one group, clearly apart from the next.
-	footer.add_theme_constant_override("separation", 15)
+	var group_gap := 16 if wide else 15
+	if wide:
+		answers.add_theme_constant_override("separation", group_gap)
+	else:
+		footer.add_theme_constant_override("separation", group_gap)
+		footer.visible = false
+	var shown_items: Array = [prompt]
 	for i in range(opts.size()):
-		var group := UiKit.vbox(3)
+		var group := UiKit.vbox(4 if wide else 3)
 		group.name = "MediaAnswerGroup_%d" % i
-		footer.add_child(group)
-		var b := UiKit.btn(str((opts[i] as Dictionary).get("label", "")), 15)
+		group.visible = scene == null
+		answers.add_child(group)
+		shown_items.append(group)
+		var b := UiKit.btn(str((opts[i] as Dictionary).get("label", "")), UiKit.H2 if wide else 15)
 		b.name = "MediaAnswer_%d" % i
-		b.custom_minimum_size = Vector2(0, 48)
+		b.custom_minimum_size = Vector2(0, 56 if wide else 48)
 		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		NameInk.dress_button(b, _league_names())
 		var choice := i
 		b.pressed.connect(func():
 			GameState.resolve_media_conference(choice)
@@ -1331,27 +1482,36 @@ func _show_media_conference() -> void:
 			_media_overlay = null
 			_build())
 		group.add_child(b)
-		# What the answer does, under it: the board, the players, no numbers.
-		var effect := UiKit.lbl(MediaConference.effect_line(opts[i]), UiKit.SMALL, UiKit.MUTED)
+		# What the answer does, under it: the board, the players, no numbers. In
+		# the page's own ink, not faint grey: the coach is deciding on it.
+		var effect := NameInk.label(MediaConference.effect_line(opts[i]), _league_names(), UiKit.BODY if wide else UiKit.SMALL, UiKit.TEXT)
 		effect.name = "MediaAnswerLine_%d" % i
 		effect.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		group.add_child(effect)
 	var skip := UiKit.btn("Skip press conference", 14)
 	skip.name = "MediaSkip"
-	skip.flat = true
-	skip.custom_minimum_size = Vector2(0, 44)
+	if wide:
+		skip.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		skip.custom_minimum_size = Vector2(240, 44)
+		skip.visible = scene == null
+		answers.add_child(skip)
+		shown_items.append(skip)
+	else:
+		skip.flat = true
+		skip.custom_minimum_size = Vector2(0, 44)
+		footer.add_child(skip)
 	skip.pressed.connect(func():
 		GameState.skip_media_conference()
 		_media_overlay.queue_free()
 		_media_overlay = null
 		_build())
-	footer.add_child(skip)
 	if scene == null:
-		footer.visible = true
+		footer.visible = not wide
 		return
 	scene.ready_for_question.connect(func():
-		prompt.visible = true
-		footer.visible = true)
+		for it in shown_items:
+			(it as Control).visible = true
+		footer.visible = not wide)
 
 
 func _show_results(results: Array) -> void:
@@ -1384,6 +1544,15 @@ func _show_results(results: Array) -> void:
 	if GameState.season.is_season_over():
 		v.add_child(UiKit.ellipsis("Premiers: %s" % GameDB.club_name(GameState.premier()),
 				18, UiKit.TEXT, true))
+	var medal := {}
+	for r in results:
+		if medal.is_empty():
+			medal = GameState.norm_smith_for(r)
+	if not medal.is_empty():
+		var ml := UiKit.lbl(str(medal["text"]), UiKit.BODY, UiKit.TEXT, true)
+		ml.name = "NormSmithMedal"
+		ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(ml)
 	if not others.is_empty():
 		v.add_child(UiKit.spacer(UiKit.GAP))
 		v.add_child(UiKit.lbl("Other results" if others.size() < results.size() else "Results",
@@ -1426,11 +1595,22 @@ func _my_result(v: VBoxContainer, res: Dictionary) -> void:
 	# FL-006: editorial flavour, only when the match's facts support it - quiet
 	# text under the facts, never coloured like a result.
 	var line := Headlines.for_match(res, me)
+	var turned := ComebackTelling.turn_line(res, me)
+	# The turn sentence says the comeback or the lost lead in full, so the headline that states
+	# the same ("From 29 points down at quarter time.", "Led by 37 at half-time.") is dropped.
+	if turned != "" and (line.begins_with("From ") or line.begins_with("Led by ")):
+		line = ""
 	if line != "":
 		var hl := UiKit.lbl(line, UiKit.BODY, UiKit.MUTED)
 		hl.name = "MyHeadline"
 		hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(hl)
+	# The quarter that turned a comeback win or a lost lead, and who did it.
+	if turned != "":
+		var tl := UiKit.lbl(turned, UiKit.BODY, UiKit.MUTED)
+		tl.name = "MyTurn"
+		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(tl)
 	var best := MatchNotes.standouts(res, me, 1)
 	if not best.is_empty():
 		var bl := UiKit.ellipsis("Best: %s %s  ·  %s" % [str(best[0]["name"]),

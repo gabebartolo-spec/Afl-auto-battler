@@ -14,7 +14,7 @@ static func open(host: Control) -> Control:
 		["Brownlow Medal", "Home-and-away votes", aw.get("brownlow", []), "votes"],
 		["Coleman Medal", "Home-and-away goals", aw.get("coleman", []), "goals"],
 		["All-Australian", "The season's team", aw.get("all_australian", []), ""],
-		["Best and fairest", GameDB.club_name(GameState.my_club),
+		[BestAndFairest.award_name(GameState.my_club), GameDB.club_name(GameState.my_club),
 			(aw.get("best_and_fairest", {}) as Dictionary).get(GameState.my_club, []), "bf"],
 	]
 	var state := {"stage": 0, "revealed": false, "vignette": null}
@@ -36,7 +36,7 @@ static func open(host: Control) -> Control:
 		UiKit.clear(body)
 		state["vignette"] = null
 		var stage: Array = stages[int(state["stage"])]
-		body.add_child(UiKit.lbl(str(stage[0]), 22, UiKit.TEXT, true))
+		body.add_child(UiKit.lbl(str(stage[0]), 22, StatsSide.mine_ink(), true))
 		body.add_child(_words(str(stage[1]), UiKit.MUTED))
 		var rows: Array = stage[2]
 		var metric := str(stage[3])
@@ -52,11 +52,13 @@ static func open(host: Control) -> Control:
 				if str(row.get("club", "")) == GameState.my_club:
 					mine += 1
 			body.add_child(_words("%d %s %s selected." % [mine, GameDB.club_name(GameState.my_club),
-					"player" if mine == 1 else "players"], UiKit.TEXT))
+					"player" if mine == 1 else "players"], StatsSide.mine_ink(), 15, true))
 			for row in rows:
 				var line := "%s · %s · %s" % [GameState.award_name(row),
 					GameDB.club_short(str(row.get("club", ""))), str({"RUCK": "Ruck", "MID": "Midfield", "DEF": "Defence", "FWD": "Forward", "BENCH": "Interchange"}.get(str(row.get("slot", "")), ""))]
-				body.add_child(_words(line, UiKit.TEXT))
+				# Each in his club's colour where it reads; yours in bold.
+				var club_code := str(row.get("club", ""))
+				body.add_child(_words(line, StatsSide.ink(club_code), 15, club_code == GameState.my_club))
 		else:
 			# The stored order already includes the engine's tiebreak. Do not
 			# invent shared medals by looking only at a tied displayed total.
@@ -74,15 +76,17 @@ static func open(host: Control) -> Control:
 						jumper = int(p.get("num", 0))
 				scene.setup_winner(code, jumper, str(winner.get("id", "")))
 				state["vignette"] = scene
-			body.add_child(_words(GameState.award_name(winner), UiKit.TEXT, 24))
+			# The winner leads, in his club's colour where it reads.
+			body.add_child(_words(GameState.award_name(winner), StatsSide.ink(code), 24, true))
 			body.add_child(_words("%s · %d %s" % [GameDB.club_name(code), int(winner.get(metric, 0)),
-					"goals" if metric == "goals" else "votes"], UiKit.MUTED))
+					"goals" if metric == "goals" else "votes"], UiKit.TEXT))
 			if metric != "goals" and rows.size() > 1:
-				body.add_child(_words("Final placings", UiKit.MUTED))
+				body.add_child(_words("Final placings", UiKit.TEXT, 15, true))
 				for i in range(1, mini(5, rows.size())):
 					var row: Dictionary = rows[i]
+					var rc := str(row.get("club", ""))
 					body.add_child(_words("%d. %s · %d votes" % [i + 1, GameState.award_name(row),
-							int(row.get(metric, 0))], UiKit.TEXT))
+							int(row.get(metric, 0))], StatsSide.ink(rc), 15, rc == GameState.my_club))
 		var last := int(state["stage"]) == stages.size() - 1
 		next.text = "Season review" if last else "Next award"
 		var animation = state["vignette"]
@@ -107,7 +111,7 @@ static func open(host: Control) -> Control:
 	build.call()
 	return overlay
 
-static func _words(text: String, colour: Color, font_size := 15) -> Label:
-	var label := UiKit.lbl(text, font_size, colour)
+static func _words(text: String, colour: Color, font_size := 15, bold := false) -> Label:
+	var label := UiKit.lbl(text, font_size, colour, bold)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return label

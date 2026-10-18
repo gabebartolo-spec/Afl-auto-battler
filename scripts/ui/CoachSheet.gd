@@ -101,15 +101,15 @@ static func playing_lines(played: Dictionary) -> Array:
 		out.append(draft)
 	var h: Dictionary = played.get("honours", {})
 	for pair in [["brownlow", "Brownlow Medal", "Brownlow Medals"], ["coleman", "Coleman Medal", "Coleman Medals"],
-			["coaches", "Coaches Award", "Coaches Awards"], ["rising_star", "Rising Star", ""]]:
+			["coaches", "Coaches Award", "Coaches Awards"], ["rising_star", "Rising Star", ""],
+			["norm_smith", "Norm Smith Medal", "Norm Smith Medals"]]:
 		var n := int(h.get(pair[0], 0))
 		if n > 0:
 			out.append(str(pair[1]) if n == 1 or str(pair[2]) == "" else "%d %s" % [n, pair[2]])
 	var bnf: Dictionary = h.get("bnf", {})
 	for club in bnf:
 		var n := int(bnf[club])
-		out.append(("%s best and fairest" if n == 1 else "%d %s best and fairests") % (
-				[GameDB.club_name(str(club))] if n == 1 else [n, GameDB.club_name(str(club))]))
+		out.append(BestAndFairest.count_line(str(club), GameDB.club_name(str(club)), n))
 	return out
 
 

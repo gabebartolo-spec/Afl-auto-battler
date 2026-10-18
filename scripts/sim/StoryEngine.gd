@@ -68,14 +68,16 @@ static func pick_week(deck: Array, ctx: Dictionary, story: Dictionary) -> Array:
 	lapse_arcs(story, w)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("story|%d|%d|%d" % [int(ctx.get("seed", 0)), int(ctx.get("year", 0)), int(ctx.get("week", 0))])
-	var quiet := rng.randf() >= EVENT_CHANCE
+	# September always has something to say (finals weeks); the rest of the year is as quiet as it was.
+	var quiet := rng.randf() >= EVENT_CHANCE and str(ctx.get("phase", "regular")) != "finals"
 	var out := []
 	var first := _pick_one(deck, ctx, story, rng, w, quiet, "", "")
 	if first.is_empty():
 		return out
 	out.append(first)
 	_record_pick(story, first, w)
-	if bool(ctx.get("big", false)) and rng.randf() < SECOND_CHANCE:
+	var second_chance := 1.0 if int((ctx.get("club", {}) as Dictionary).get("finals_week", 0)) == 5 else SECOND_CHANCE
+	if bool(ctx.get("big", false)) and rng.randf() < second_chance:
 		var second := _pick_one(deck, ctx, story, rng, w, false, str(first["category"]), str(first.get("player_id", "")))
 		if not second.is_empty():
 			out.append(second)
@@ -93,6 +95,11 @@ static func _pick_one(deck: Array, ctx: Dictionary, story: Dictionary, rng: Rand
 		if subj.is_empty():
 			continue
 		tiers[tier(t)].append([t, subj])
+	# A priority card (the Grand Final week's, a week off's) comes before the older ones.
+	for name in TIERS:
+		var first: Array = (tiers[name] as Array).filter(func(c): return bool(c[0].get("priority", false)))
+		if not first.is_empty():
+			tiers[name] = first
 	for name in TIERS:
 		if name != "beat" and quiet:
 			break
@@ -123,14 +130,20 @@ static func tier(t: Dictionary) -> String:
 static func eligible_subject(t: Dictionary, ctx: Dictionary, story: Dictionary, w: int,
 		rng: RandomNumberGenerator, skip_pid := "") -> Dictionary:
 	var id := str(t["id"])
+	if bool(t.get("scripted", false)):
+		return {}   # dealt by the game itself (the result of a role trial), never drawn
 	if not (t.get("phase", ["regular"]) as Array).has(str(ctx.get("phase", "regular"))):
+		return {}
+	# A week off in the finals: only the cards written for it.
+	if bool((ctx.get("club", {}) as Dictionary).get("finals_bye", false)) and not bool(t.get("bye", false)):
 		return {}
 	if w - int(story["last"].get(id, NEVER)) < int(t.get("cooldown", 0)):
 		return {}
 	var per := int(t.get("per_season", 0))
 	if per > 0 and int(story["season"].get(id, 0)) >= per:
 		return {}
-	if category_count(story, str(t["category"]), w) >= DIVERSITY_MAX:
+	# A priority card (September's) is not held back by the mix of the last five weeks.
+	if category_count(story, str(t["category"]), w) >= DIVERSITY_MAX and not bool(t.get("priority", false)):
 		return {}
 	var club: Dictionary = ctx.get("club", {})
 	if not meets(club, t.get("when", {}), story["flags"].get("club", {})):
@@ -201,8 +214,14 @@ static func meets(facts: Dictionary, cond: Dictionary, flags: Dictionary) -> boo
 			var n := int(facts.get(key.trim_suffix("_every"), 0))
 			if n <= 0 or n % maxi(1, int(v)) != 0:
 				return false
-		elif str(facts.get(key, "")) != str(v):
-			return false
+		else:
+			# A number in a card (JSON reads 5 as 5.0) equals the same number in a fact.
+			var have = facts.get(key, "")
+			if (v is float or v is int) and (have is float or have is int):
+				if float(have) != float(v):
+					return false
+			elif str(have) != str(v):
+				return false
 	return true
 
 
@@ -258,14 +277,16 @@ static func build(deck: Array, t: Dictionary, subj: Dictionary, club: Dictionary
 	var texts: Array = t["text"]
 	var options := []
 	for c in t["choices"]:
+		if not meets(facts, c.get("when", {}), {}):
+			continue
 		var detail := " ".join(PackedStringArray([describe(c, facts), fill(str(c.get("note", "")), facts)])).strip_edges()
 		options.append({"key": str(c["key"]), "label": fill(str(c["label"]), facts), "detail": detail,
 				"rule": fill(str(c.get("rule", "")), facts),
 				"effects": (c.get("effects", []) as Array).duplicate(true), "result": fill(str(c.get("result", "")), facts)})
 	var card := {"key": str(t["id"]), "tid": str(t["id"]), "story": true, "category": str(t["category"]),
 			"default": int(t.get("default", -1)), "week": w, "facts": facts,
-			"title": fill(str(titles[rng.randi_range(0, titles.size() - 1)]), facts),
-			"text": fill(str(texts[rng.randi_range(0, texts.size() - 1)]), facts),
+			"title": variant(titles, facts, rng),
+			"text": variant(texts, facts, rng),
 			"options": options}
 	if str(t.get("stakes", "")) != "":
 		card["stakes"] = fill(str(t["stakes"]), facts)
@@ -282,7 +303,37 @@ static func build(deck: Array, t: Dictionary, subj: Dictionary, club: Dictionary
 	if cost != 0:
 		card["unanswered"] = {"board": cost, "text": fill(str(un.get("text", "")), facts),
 				"hint": "Say nothing: %s" % _board_words(cost).to_lower()}
+	# Saying nothing can cost the player's trust instead (a card about what he asked for).
+	var trust_cost := int(un.get("trust", 0))
+	if trust_cost != 0 and player:
+		card["unanswered"] = {"trust": trust_cost, "why": fill(str(un.get("why", "")), facts),
+				"text": fill(str(un.get("text", "")), facts),
+				"hint": "Say nothing: %s" % _lower_first(_trust_words(trust_cost))}
 	return card
+
+
+## One of a card's title or text variants. A variant may be a case,
+## {"when": {facts}, "text": "..."}: the first case whose facts hold is the one
+## (the card says what is true this week); else one plain line, chosen by the
+## story stream as it always was.
+static func variant(list: Array, facts: Dictionary, rng: RandomNumberGenerator) -> String:
+	var pick := rng.randi_range(0, list.size() - 1)
+	for v in list:
+		if v is Dictionary and meets(facts, (v as Dictionary).get("when", {}), {}):
+			return fill(str((v as Dictionary).get("text", "")), facts)
+	var plain := list.filter(func(v): return not (v is Dictionary))
+	if plain.is_empty():
+		return ""
+	return fill(str(list[pick] if not (list[pick] is Dictionary) else plain[0]), facts)
+
+
+## A small chance that was written on a card, rolled once from the save's
+## seed, the year, the week and the card, so the same save gives the same
+## answer however often it is reloaded.
+static func risk_hit(seed: int, year: int, week: int, key: String, chance: int) -> bool:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("risk|%d|%d|%d|%s" % [seed, year, week, key])
+	return rng.randi_range(1, 100) <= chance
 
 
 ## How long an arc waits for its next beat: the longest window of its
@@ -392,13 +443,97 @@ static func name_list(names: Array) -> String:
 static func describe(c: Dictionary, facts: Dictionary) -> String:
 	var out: PackedStringArray = []
 	for e in c.get("effects", []):
-		var s := _effect_words(e, facts)
+		var s := _trial_words(e) if str(e.get("op", "")) == "role_trial" else _effect_words(e, facts)
 		if s != "":
 			out.append(fill(s, facts))
 	return " ".join(out)
 
 
+## What a choice does, as the coach weighs it: what he gains, then what it
+## costs, each its own short line behind a plain marker, from the very effects
+## that will apply, so the line cannot drift from the mechanic and a new card
+## gets it for free. A morale drop is a cost. Words only; a figure appears
+## where the coach needs it to decide (the odds of a breakdown, the price of
+## an early deal, a run of games). A cost that only happens if the coach later
+## breaks a promise or the dice fall wrong says so. Effects that change
+## nothing the coach feels (a flag, a note) show nothing; no lines at all when
+## a choice does nothing mechanical.
+const GAIN_MARK := "Gain: "
+const COST_MARK := "Cost: "
+
+
+static func stakes_lines(effects: Array, facts: Dictionary) -> PackedStringArray:
+	var gains: PackedStringArray = []
+	var costs: PackedStringArray = []
+	var notes: PackedStringArray = []
+	for e in effects:
+		for part in _effect_parts(e, facts):
+			var s := fill(str(part[1]), facts)
+			var into: PackedStringArray = notes if str(part[0]) == "note" else (gains if str(part[0]) == "gain" else costs)
+			if not into.has(s):
+				into.append(s)
+	var out: PackedStringArray = []
+	if not notes.is_empty():
+		out.append(" ".join(notes))
+	if not gains.is_empty():
+		out.append(GAIN_MARK + " ".join(gains))
+	if not costs.is_empty():
+		out.append(COST_MARK + " ".join(costs))
+	return out
+
+
+## The one effect-phrase function: [kind, words] for each thing an effect does
+## ("gain" or "cost"); an effect that moves nothing the coach feels gives none.
+static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
+	var op := str(e.get("op", ""))
+	var d := effect_d(e, facts)
+	match op:
+		"delegate":
+			# Left to the captain: where the group stands now, then what each
+			# outcome does, each under its own gain or cost.
+			var parts: Array = [["note", _standing_words(facts)]]
+			for pair in [["held", "If the group listens, "], ["failed", "If it doesn't, "]]:
+				for ne in e.get(pair[0], []):
+					for np in _effect_parts(ne, facts):
+						parts.append([np[0], pair[1] + _lower_first(str(np[1]))])
+			return parts
+		"captaincy_swap":
+			return [["gain", SWAP_GAIN], ["cost", SWAP_COST]]
+		"rush_back":
+			return [["gain", RUSH_GAIN], ["cost", RUSH_COST]]
+		"promise_win":
+			return [["gain", PROMISE_WIN_GAIN], ["cost", PROMISE_WIN_COST]]
+		"extend_early":
+			return [["gain", EXTEND_GAIN], ["cost", EXTEND_COST]]
+		"role_trial":
+			return [["gain", _trial_words(e)]]
+	var kind := ""
+	match op:
+		"morale", "board", "trust":
+			kind = "gain" if d > 0 else ("cost" if d < 0 else "")
+		"xp", "fresh":
+			kind = "gain"
+		"rest", "sore", "heavy_legs", "expects_game", "start_backing", "back_kid", "slow_start", "loss_sting":
+			kind = "cost"
+	var s := _effect_words(e, facts)
+	if kind == "" or s == "":
+		return []
+	return [[kind, s]]
+
+
+const RUSH_GAIN := "He is cleared to play, and you name him."
+const RUSH_COST := "He plays sore, and there's {sore_odds} chance the injury flares and he is out for weeks."
+const SWAP_GAIN := "{vice_name} takes the armband; {name} stays in the leadership group."
+const SWAP_COST := "Taking it off {name} mid-season drops his morale and he trusts you less. It uses your one change this season."
+const PROMISE_WIN_GAIN := "Win and board confidence goes up."
+const PROMISE_WIN_COST := "Lose and board confidence goes down."
+const EXTEND_GAIN := "He signs on for {more_seasons}."
+const EXTEND_COST := "Locked in at {early_price} a season, whatever he does next."
+
+
 static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
+	if str(e.get("line", "")) != "":
+		return str(e["line"])   # a card may word an effect itself (sizes read differently)
 	var d := effect_d(e, facts)
 	var who := str(e.get("who", "subject"))
 	match str(e.get("op", "")):
@@ -407,9 +542,9 @@ static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
 			if str(e.get("scale", "")) == "trust" and d > 0:
 				var b := str(facts.get("trust_band", "neutral"))
 				if b == "close" or b == "trusts":
-					s += " It means more coming from you."
+					s += " It counts for more because he trusts you."
 				elif b == "wary" or b == "lost":
-					s += " He's wary of you, so it lands softer."
+					s += " It counts for less because he's wary of you."
 			return s
 		"xp":
 			var size := "A big week of development" if d >= 20 else ("A solid week of development" if d >= 10 else "Some extra development")
@@ -417,23 +552,26 @@ static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
 		"board":
 			return _board_words(d)
 		"trust":
-			return "His trust in you rises." if d > 0 else "His trust in you takes a hit."
+			return _trust_words(d)
 		"rest":
 			return "He misses this week's game."
 		"sore":
-			return "He plays short of a gallop, and there's {sore_odds} chance he breaks down for weeks."
+			return "He plays sore, and there's {sore_odds} chance he breaks down for weeks."
 		"fresh":
-			return "Fresher bodies: fewer injuries this week."
+			return "Fresher legs: fewer injuries this week."
 		"heavy_legs":
-			return "Heavy legs on game day, and more soft-tissue risk."
+			var hl := "Heavy legs on game day, and more soft-tissue risk."
+			if who != "subject":
+				hl = "Heavy legs across the %s on game day, and more soft-tissue risk." % ("side" if who == "side" else "whole list")
+			return hl
 		"expects_game":
-			return "He expects a game this week; leave him out fit and it sours."
+			return "He expects a game this week; leave him out fit and the promise breaks."
 		"start_backing":
-			return "He's thrilled, and expects to be picked for the next {run_games} games; leave him out fit and the promise breaks."
+			return "He expects to be picked for the next {run_games} games; leave him out fit and the promise breaks."
 		"extend_early":
-			return "He signs on for {more_seasons} at {early_price} a season, locked in whatever he does next."
+			return "%s %s" % [EXTEND_GAIN, EXTEND_COST]
 		"promise_win":
-			return "Win and the board is won over; lose and it costs you."
+			return "%s %s" % [PROMISE_WIN_GAIN, PROMISE_WIN_COST]
 		"explain":
 			return "{kpi_or_need} Nothing is promised."
 		"delegate":
@@ -441,12 +579,39 @@ static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
 		"back_kid":
 			return "{kid_name} is promised the next {run_games} games; leave him out fit and the promise breaks."
 		"captaincy_swap":
-			return "{vice_name} takes the armband; {name} stays in the leadership group. The Captaincy costs apply."
+			return "%s %s" % [SWAP_GAIN, SWAP_COST]
+		"rush_back":
+			return "%s %s" % [RUSH_GAIN, RUSH_COST]
+		"slow_start":
+			# Never "a flat start": what happens, and how likely, in the coach's words.
+			# In Grand Final week there is no next final: it is Saturday that he starts slowly.
+			var when := "Saturday" if str(e.get("on", "")) == "grand_final" else "his next final"
+			if who == "subject":
+				return "A small chance he starts %s slowly." % when
+			return "A small chance %s starts %s slowly." % [("the side" if who == "side" else "the whole list"),
+					"Saturday" if when == "Saturday" else "its next final"]
+		"loss_sting":
+			return "A small chance the side's morale falls instead if you lose that final."
+		"role_trial":
+			return _trial_words(e)
 	return ""
+
+
+## A role trial: where he plays and for how long.
+static func _trial_words(e: Dictionary) -> String:
+	var n := int(e.get("weeks", 3))
+	var word: String = ["one", "two", "three", "four", "five", "six"][clampi(n, 1, 6) - 1]
+	return "He plays as a {trial_word} for the next %s %s, then goes back to being a {trial_home}." % [word, "game" if n == 1 else "games"]
 
 
 ## Left to the captain: what happens if the group listens and what if it doesn't,
 ## worded from the choice's own held / failed effects, and which way it stands now.
+static func _standing_words(facts: Dictionary) -> String:
+	if bool(facts.get("delegate_holds", false)):
+		return "As it stands the group would listen to {name}."
+	return "As it stands the group wouldn't listen to {name}."
+
+
 static func _delegate_words(e: Dictionary, facts: Dictionary) -> String:
 	var held := _lower_first(_outcome_words(e.get("held", []), facts))
 	var failed := _lower_first(_outcome_words(e.get("failed", []), facts))
@@ -468,34 +633,26 @@ static func _lower_first(s: String) -> String:
 	return s.substr(0, 1).to_lower() + s.substr(1)
 
 
+## Every phrase names the thing that moves (morale, trust, board confidence),
+## its direction and a size word, in the names the game shows the player.
 static func _morale_words(d: int, who: String) -> String:
+	var size := "a lot" if absi(d) >= 10 else ("" if absi(d) >= 5 else "a little")
+	var dir := "up" if d > 0 else "down"
+	var move := ("%s %s" % [dir, size]).strip_edges()
 	if who == "subject":
-		if d >= 10:
-			return "It lifts him a lot."
-		if d >= 5:
-			return "It lifts him."
-		if d > 0:
-			return "A small lift for him."
-		if d <= -10:
-			return "He takes it hard."
-		if d <= -5:
-			return "He's disappointed."
-		return "It stings him a little."
-	var group: String = {"side": "the side", "all": "the whole list", "others": "the rest of the group"}.get(who, "the group")
-	if d > 0:
-		return ("A lift for %s." if d >= 5 else "A small lift for %s.") % group
-	var lead := group.substr(0, 1).to_upper() + group.substr(1)  # sentence case, not Title Case
-	return ("%s takes it hard." if d <= -5 else "%s is a little flat about it.") % lead
+		return "His morale goes %s." % move
+	var group: String = {"side": "across the side", "all": "across the whole list", "others": "in the rest of the group"}.get(who, "in the group")
+	return "Morale %s %s." % [move, group]
 
 
 static func _board_words(d: int) -> String:
-	if d >= 6:
-		return "The board is delighted."
-	if d > 0:
-		return "The board likes it."
-	if d <= -6:
-		return "The board will be furious."
-	return "The board won't like it."
+	var size := "a lot" if absi(d) >= 6 else ("" if absi(d) >= 3 else "a little")
+	return ("Board confidence %s %s." % ["up" if d > 0 else "down", size]).replace(" .", ".")
+
+
+static func _trust_words(d: int) -> String:
+	var size := "a lot " if absi(d) >= 7 else ("a little " if absi(d) < 4 else "")
+	return "He trusts you %s%s." % [size, "more" if d > 0 else "less"]
 
 
 ## What changed, for the card's result line: only the levers a player feels.
@@ -503,8 +660,8 @@ static func aftermath(applied: Dictionary) -> String:
 	var out: PackedStringArray = []
 	var t := int(applied.get("trust", 0))
 	if t != 0:
-		out.append("His trust in you rose." if t > 0 else "His trust in you fell.")
+		out.append("He trusts you more." if t > 0 else "He trusts you less.")
 	var b := int(applied.get("board", 0))
 	if b != 0:
-		out.append("The board liked it." if b > 0 else "The board didn't like it.")
+		out.append("Board confidence went up." if b > 0 else "Board confidence went down.")
 	return " ".join(out)

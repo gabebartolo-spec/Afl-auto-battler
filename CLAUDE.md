@@ -97,11 +97,6 @@ every fact in its own card, generic dashboard grids, gradients, glows, big
 corner radii, excess separators, decorative stat boxes and icons. Prefer flat,
 editorial layouts: typography, alignment, spacing, restrained surfaces.
 
-**Colour.** A restrained warm-neutral palette so clubs, match information and
-real states provide the colour. Accent (red) only for the primary action;
-selection is a light outline; GOOD/BAD only for genuine state. Gold is not
-"important".
-
 **Readability is a pillar (design bible, director 2026-10-13).** It applies to
 every screen. Sections feel distinct: club colours and strategic bold set them
 apart, because text that is all one colour and weight harms readability. A
@@ -110,19 +105,11 @@ No text the coach needs is overlooked: nothing he decides on sits in uniform
 grey. Club colour must stay readable (check contrast for dark clubs on the dark
 page) and must not be mistaken for GOOD/BAD or the primary action.
 
-**Typography.** Weight and size before colour, from UiKit's type scale.
-Sentence case unless AFL convention says otherwise (OVR, POT, Grand Final). No
-ALL CAPS labels, wide letter spacing, condensed body copy or tiny uppercase
-metadata. The condensed face is for scores. Font changes are project-wide
-decisions.
-
-**Components.** Before adding a pill, card, badge or progress bar, ask whether
-typography, spacing or alignment could say it. Panels mean real grouping, have
-no border, and no radius above `UiKit.RADIUS`. Secondary buttons are outlines.
-
-**Copy.** Concise football language. Do not explain simulation mechanics
-(percentages, internal rules) unless the player needs them to decide; do not
-repeat what context already shows.
+**Colour, type, components, copy.** The exact rules are in
+[docs/VISUAL_STYLE_GUIDE.md](docs/VISUAL_STYLE_GUIDE.md): colour and where it goes
+(§2.1-2.2), type roles (§2.3), the component kit (§3), copy (§5). Before adding a
+pill, card, badge or progress bar, ask whether typography, spacing or alignment
+could say it. Font changes are project-wide decisions.
 
 **Consistency.** Reuse what works; don't invent a mini design system per
 screen, and don't copy a template-looking pattern because it exists. Apply
@@ -141,7 +128,7 @@ The director reviewed and included FL-001–FL-008 for Claude's queue. Read [ROA
 
 ## Explicitly assigned visual styling — 2026-10-06
 
-The director included all eight STYLE-01–STYLE-08 work packages after the complete interview. Read [ROADMAP §9.5](docs/roadmap/23-9-5-approved-visual-styling-work-director-interview-2026.md#95-approved-visual-styling-work--director-interview-2026-10-06). Dark Android is primary; wide-screen and light maintenance follow. The Training **player-row** name/secondary-line stack is a confirmed vertical-alignment defect, independent of broad restyling. Inspect the current implementation/art branch before repairing audit-snapshot findings.
+The director included all eight STYLE-01–STYLE-08 work packages after the complete interview. Read [ROADMAP §9.5](docs/roadmap/23-9-5-approved-visual-styling-work-director-interview-2026.md#95-approved-visual-styling-work--director-interview-2026-10-06). Dark Android is primary; wide-screen maintenance follows. The light theme is parked by the director (2026-10-13: "im also happy to abandon 'light mode' for now, i dont want to waste time on it"): no new light-theme work, captures or tests until he says otherwise; the code stays. The Training **player-row** name/secondary-line stack is a confirmed vertical-alignment defect, independent of broad restyling. Inspect the current implementation/art branch before repairing audit-snapshot findings.
 
 The art agent has higher authority than ChatGPT on visual direction; Claude implements its treatment and reports constraints. **All final decisions go through the director.** Scope approval permits scoped prototypes/reviewable implementation, not final font, palette, geometry or layout selection. Obtain final director appearance approval before completing/merging visual treatments; ordinary green CI is insufficient. Preserve gameplay, information, touch/Back, existing 2.5D art and correctness/performance gates. No new scene authority or competing design system is added. No rejected style candidates remain.
 

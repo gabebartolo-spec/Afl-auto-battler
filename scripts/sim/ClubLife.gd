@@ -236,6 +236,10 @@ const SORE_LEGS := 90.0
 ## A heavy week's and a recovery week's effect on this week's injury risk.
 const HEAVY_RISK := 1.25
 const FRESH_RISK := 0.75
+## A slow start (a story card's "small chance"): the legs a player takes to the
+## first bounce, a little under a heavy week's, so the first quarter is the
+## cost and the rest of the match is his own (energy comes back at each break).
+const SLOW_LEGS := 82.0
 ## XP: a heavy week, a closed session, a development week (between a
 ## reserves game and a senior game, so playing stays the best teacher).
 const HEAVY_XP := 12

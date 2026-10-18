@@ -21,6 +21,8 @@ var _pick_tutorials := true
 var _pick_start := "redraft"
 var _pick_prospect := false
 var _pick_club := false
+## The web build's one line when the browser refuses to keep the save (P-71), or "".
+var _storage_line := ""
 
 ## Placeholder title art. Swap the file (same path) to replace it.
 const LOGO := preload("res://assets/ui/aussie_rules_dynasties_logo_placeholder.png")
@@ -32,6 +34,10 @@ const LOGO_MAX_H_SHARE := 0.26
 const LOGO_REGION := Rect2(90, 228, 1374, 614)
 const TAGLINE := "Build your dynasty."
 const NAME_OPTIONS := [["generated", "Generated"], ["real", "Real"]]
+## The promise, printed once on the menu (P-70). tools/check_android_permissions.py
+## fails CI if the Android export ever asks for more than vibrate.
+const OFFLINE_PROMISE := "Plays offline. No ads, no account.
+Your career stays on your phone."
 const NAMES_INFO := "Real shows each player's AFL name; generated names are invented. Ratings and results are the same either way."
 
 
@@ -110,8 +116,36 @@ func _ready() -> void:
 	_content = UiKit.vbox(12)
 	_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	margin.add_child(UiKit.scroll(_content))
-	get_viewport().size_changed.connect(_render)
+	get_viewport().size_changed.connect(func():
+		if not UiKit.keyboard_resize(self):
+			_render())
 	_render()
+	if WebStorage.should_ask(WebStorage.on_web(), bool(GameState.get_setting(WebStorage.ASKED_KEY, false))):
+		WebStorage.ask()
+		_wait_for_storage_answer()
+
+
+## Poll the browser's answer for a few seconds (a prompt may be open). A final answer is
+## remembered so the browser is asked once; a refusal shows its line this visit only.
+func _wait_for_storage_answer() -> void:
+	for i in range(40):
+		await get_tree().create_timer(0.5).timeout
+		if not is_inside_tree():
+			return
+		var got := WebStorage.answer()
+		if WebStorage.is_final(got):
+			_on_storage_answer(got)
+			return
+
+
+func _on_storage_answer(got: String) -> void:
+	GameState.set_setting(WebStorage.ASKED_KEY, true)
+	if not WebStorage.notice_due(got, bool(GameState.get_setting(WebStorage.SHOWN_KEY, false))):
+		return
+	GameState.set_setting(WebStorage.SHOWN_KEY, true)
+	_storage_line = WebStorage.REFUSED_LINE
+	if _mode == "home":
+		_render()
 
 
 func _render() -> void:
@@ -168,7 +202,8 @@ func _show_home() -> void:
 		col.add_child(cont)
 		var meta := GameState._save_meta() if live else GameState.saved_career_meta()
 		if str(meta.get("club", "")) != "":
-			var info := UiKit.lbl(_meta_line(meta), UiKit.SMALL, UiKit.MUTED)
+			# Which career Continue opens is what the coach decides on: TEXT, not MUTED.
+			var info := UiKit.lbl(_meta_line(meta), UiKit.BODY, UiKit.TEXT)
 			info.name = "CareerMeta"
 			info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			col.add_child(info)
@@ -203,6 +238,18 @@ func _show_home() -> void:
 		exit.custom_minimum_size = Vector2(120, 48)
 		quiet.add_child(exit)
 	_content.add_child(quiet)
+	_content.add_child(UiKit.spacer(10))
+	var promise := UiKit.lbl(OFFLINE_PROMISE, UiKit.SECONDARY, UiKit.MUTED)
+	promise.name = "OfflinePromise"
+	promise.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	promise.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_content.add_child(promise)
+	if _storage_line != "":
+		var storage := UiKit.lbl(_storage_line, UiKit.SECONDARY, UiKit.TEXT)
+		storage.name = "StorageNotice"
+		storage.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		storage.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_content.add_child(storage)
 	var build := UiKit.lbl("Build " + BuildInfo.label(), UiKit.SMALL, UiKit.MUTED)
 	build.name = "BuildLabel"
 	build.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

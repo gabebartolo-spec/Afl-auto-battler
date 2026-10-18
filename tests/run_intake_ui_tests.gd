@@ -44,6 +44,14 @@ func _run() -> void:
 	_state.open_offseason()
 	_state.compensation.append({"club": "COL", "player": "comp_test", "name": "Sam Example",
 			"to": "CAR", "salary": 8, "years": 3, "value": 10.0, "after": 1})
+	# A first-round pick bought from Carlton for a player: the order and your
+	# picks must say where it came from (P-46).
+	_state.pick_owner = {}
+	_state.pick_got = {}
+	var bought_pick: Dictionary = _state.pick_asset(_state.pick_id(first_year, 1, "CAR"))
+	var paid_player: Dictionary = (_state.season.lists["COL"] as Array)[-1]
+	var paid_name: String = _db.player_display_name(paid_player)
+	_state._execute_trade("CAR", "COL", [bought_pick], [paid_player])
 	var opened: bool = _state.begin_intake_draft()
 	_check(opened, "begin_intake_draft opens after the home-and-away")
 	var draft = _state.draft
@@ -96,6 +104,45 @@ func _run() -> void:
 	_check(comp_rows.size() == 1
 			and str((comp_rows[0] as Label).text).contains("Compensation for losing Sam Example"),
 			"The draft order shows a compensation pick as compensation, with the player it replaces")
+	var want_via := "From %s, for %s, %d trade period" % [_db.club_name("CAR"), paid_name, first_year]
+	var via_node: Control = ui.find_child("ViaPick", true, false)
+	_check(via_node != null and _line_text(via_node) == want_via,
+			"The draft order says where a bought pick came from: %s" % (_line_text(via_node) if via_node else "-"))
+	_check(via_node is RichTextLabel and str((via_node as RichTextLabel).text).contains("[color=#"),
+			"The player in that line wears his club's ink")
+	var own_node: Control = null
+	for c in ui.find_children("OwnPick", "Control", true, false):
+		if own_node == null and _line_text(c).begins_with("Your own, "):
+			own_node = c
+	_check(own_node != null and _line_text(own_node).begins_with("Your own, ")
+			and _line_text(own_node).ends_with("on the ladder"),
+			"Your own pick says so and where the club finished: %s" % (_line_text(own_node) if own_node else "-"))
+	# One ink for every provenance line (lead review): own and traded alike, and a
+	# rival's own pick says so too, so no row of the order is left without one.
+	_check(_ink(via_node) == _text_ink() and _ink(own_node) == _text_ink(),
+			"Own and traded picks read in the same ink, not quieter for being your own")
+	var round_picks: int = (draft.pick_rounds as Array).count(draft.current_round())
+	var story_rows := ui.find_children("ViaPick", "Control", true, false).size()
+	story_rows += ui.find_children("OwnPick", "Control", true, false).size()
+	story_rows += ui.find_children("CompPick", "Control", true, false).size()
+	_check(round_picks > 0 and story_rows == round_picks,
+			"Every row of the draft order says whose pick it is and where it came from (%d lines, %d rows)" % [story_rows, round_picks])
+	var rival_own := ui.find_children("OwnPick", "Control", true, false).filter(func(c): return _line_text(c).contains("'s own"))
+	_check(not rival_own.is_empty(), "A rival's own pick reads \"Club's own\" (%d rows)" % rival_own.size())
+	var squad_tab: Button = ui.find_child("Tab_squad", true, false)
+	if squad_tab == null:
+		squad_tab = ui.find_child("SideTab_squad", true, false)
+	if squad_tab != null:
+		await _press(squad_tab, "My list")
+		await _settle()
+	var stories := ui.find_children("MyPickStory_*", "Control", true, false)
+	var told := stories.filter(func(c): return _line_text(c) == want_via)
+	_check(ui.find_child("MyPicks", true, false) != null and not told.is_empty()
+			and stories.any(func(c): return _line_text(c).begins_with("Your own, ")),
+			"Your picks list each one with how you got it (%d lines)" % stories.size())
+	if order_tab != null:
+		await _press(order_tab, "the draft order")
+		await _settle()
 	var tab_pool: Button = ui.find_child("Tab_pool", true, false)
 	if tab_pool != null:
 		await _press(tab_pool, "the pool tab")
@@ -107,7 +154,7 @@ func _run() -> void:
 	again.queue_free()
 	await _settle()
 	var cap: Label = ui.find_child("SalaryCap", true, false)
-	_check(cap != null and cap.text.contains("ROUNDS"), "Intake swaps the cap line for rounds")
+	_check(cap != null and cap.text.contains("prospects left"), "Intake swaps the cap line for prospects left")
 
 	var board0 = draft.board("", "", "", "overall", true)
 	if not draft.is_user_turn():
@@ -229,9 +276,175 @@ func _run() -> void:
 			all_landed = false
 	_check(all_landed, "Every intake signing is on the new list")
 	ui.queue_free()
+	await _settle()
+	await _pass_and_pick_for_me(Vector2i(390, 844))
+	await _pass_and_pick_for_me(Vector2i(1280, 720))
+	await _pick_order_and_untouchable_ui()
 	print("Intake UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
+
+
+## Real taps on "Pick for me" and "Pass" at one screen size.
+func _pass_and_pick_for_me(size: Vector2i) -> void:
+	var tag := "%dx%d" % [size.x, size.y]
+	_state.reset()
+	_state.replay_seed = SUITE_SEED
+	_state.start_season("COL", _db.club_list("COL"))
+	_state.season.round_index = _state.season.fixture.size()
+	_state.open_offseason()
+	if not _state.begin_intake_draft():
+		_check(false, "The draft opens for the pick buttons test (%s)" % tag)
+		return
+	var draft = _state.draft
+	root.size = size
+	var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
+	root.add_child(ui)
+	await _settle()
+	var meeting: Control = ui.find_child("DraftMeeting", true, false)
+	if meeting != null:
+		var skip: Button = ui.find_child("MeetingDone", true, false)
+		if skip != null:
+			await _press(skip, "the recruiting panel")
+	# Get to the coach's own turn.
+	var guard := 0
+	while not draft.is_user_turn() and not draft.is_finished() and guard < 200:
+		guard += 1
+		draft.auto_until_user_turn()
+	ui.call("_refresh")
+	await _settle()
+	var pick_me: Button = ui.find_child("PickForMe", true, false)
+	var pass_b: Button = ui.find_child("PassPick", true, false)
+	_check(pick_me != null and pass_b != null, "Both buttons are on the draft screen (%s)" % tag)
+	if pick_me == null or pass_b == null:
+		ui.queue_free()
+		return
+	_check(pick_me.text == "Pick for me" and pass_b.text == "Pass", "The buttons read Pick for me and Pass (%s)" % tag)
+	_check(not pick_me.disabled and not pass_b.disabled, "Both buttons are live on your turn (%s)" % tag)
+	var expect: String = str(draft._best_ai_pick(draft.user_club)["id"])
+	var before: int = draft.count()
+	await _press(pick_me, "Pick for me (%s)" % tag)
+	await _settle()
+	_check(draft.count() == before + 1 and str(draft.list()[-1]["id"]) == expect,
+			"A tap on Pick for me signs the assistant's choice, once (%s)" % tag)
+	guard = 0
+	while not draft.is_user_turn() and not draft.is_finished() and guard < 200:
+		guard += 1
+		draft.auto_until_user_turn()
+	ui.call("_refresh")
+	await _settle()
+	if draft.is_user_turn():
+		var taken: int = draft.count()
+		await _press(pass_b, "Pass (%s)" % tag)
+		await _settle()
+		_check(draft.count() == taken and draft.passed_clubs.has(draft.user_club),
+				"A tap on Pass signs nobody and leaves the draft (%s)" % tag)
+		_check(draft.is_finished() or not draft.is_user_turn(), "A passed coach is not asked again (%s)" % tag)
+	ui.queue_free()
+	await _settle()
+
+
+## The hub's draft line in the last rounds (P-47) and the untouchable mark on
+## My list, by a real tap (P-49), on a phone.
+func _pick_order_and_untouchable_ui() -> void:
+	_state.reset()
+	_state.replay_seed = SUITE_SEED
+	_state.start_season("COL", _db.club_list("COL"))
+	root.size = Vector2i(390, 844)
+	var s = _state.season
+	var hub: Control = load("res://scenes/HubScene.tscn").instantiate()
+	root.add_child(hub)
+	await _settle()
+	_check(hub.find_child("DraftPickLine", true, false) == null, "Early in the season the hub says nothing about the draft")
+	hub.queue_free()
+	await _settle()
+	s.round_index = s.fixture.size() - _state.PICK_LINE_ROUNDS
+	hub = load("res://scenes/HubScene.tscn").instantiate()
+	root.add_child(hub)
+	await _settle()
+	var line: Control = hub.find_child("DraftPickLine", true, false)
+	_check(line != null and (line as Label).text == _state.pick_order_line()
+			and (line as Label).text.begins_with("Your first pick today: No. "),
+			"In the last rounds the hub says where your first pick would fall: %s" % ((line as Label).text if line else "-"))
+	hub.queue_free()
+	await _settle()
+	# One line, never an orphaned "No. 11." on the next, at 360, 390 and 412.
+	for width in [360, 390, 412]:
+		root.size = Vector2i(width, 844)
+		hub = load("res://scenes/HubScene.tscn").instantiate()
+		root.add_child(hub)
+		await _settle()
+		line = hub.find_child("DraftPickLine", true, false)
+		_check(line is Label and (line as Label).get_line_count() == 1,
+				"The hub's pick line is one line at %d wide: %s" % [width,
+				"%d lines" % (line as Label).get_line_count() if line is Label else "-"])
+		hub.queue_free()
+		await _settle()
+	root.size = Vector2i(390, 844)
+
+	# My list: open a player, tap the mark, see it on his row, tap it off.
+	var player: Dictionary = (_state.my_list as Array)[3]
+	var id := str(player["id"])
+	var ls: Control = load("res://scenes/ListScene.tscn").instantiate()
+	root.add_child(ls)
+	await _settle()
+	var full: Button = null
+	for t in ls.find_children("*", "Button", true, false):
+		if (t as Button).text == "Full list":
+			full = t
+	_check(full != null, "My list has its Full list tab on a phone")
+	if full != null:
+		await _press(full, "Full list")
+		await _settle()
+	var row: Button = ls.find_child("Row_" + id, true, false)
+	_check(row != null and ls.find_child("RowUntouchable", true, false) == null, "No one is marked to begin with")
+	if row == null:
+		ls.queue_free()
+		return
+	await _press(row, "a player's row")
+	await _settle()
+	var mark: Button = ls.find_child("Untouchable", true, false)
+	_check(mark != null and mark.text == "Mark untouchable", "His profile offers Mark untouchable")
+	var what: Control = ls.find_child("Detail_Untouchable", true, false)
+	_check(what != null and _ink(what) == _text_ink() and what.get_parent() == mark.get_parent(),
+			"What the mark does is a fact in full ink, in the block with the button, not under Ratings")
+	if mark != null:
+		await _press(mark, "Mark untouchable")
+		await _settle()
+	_check(_state.is_untouchable(id), "A tap marks him untouchable")
+	var on_row: Control = ls.find_child("Row_" + id, true, false)
+	_check(on_row != null and on_row.find_child("RowUntouchable", true, false) != null,
+			"His row on My list carries the mark")
+	var off: Button = ls.find_child("Untouchable", true, false)
+	_check(off != null and off.text == "Remove untouchable mark", "The profile now offers to remove the mark")
+	if off != null:
+		await _press(off, "Remove untouchable mark")
+		await _settle()
+	_check(not _state.is_untouchable(id) and ls.find_child("RowUntouchable", true, false) == null,
+			"A second tap takes the mark off, and the row loses it")
+	ls.queue_free()
+	await _settle()
+
+
+## UiKit's body ink (loaded when asked: UiKit needs the GameDB autoload).
+func _text_ink() -> Color:
+	return load("res://scripts/ui/UiKit.gd").TEXT
+
+
+## The ink a line is set in, plain or with names in ink.
+func _ink(c: Control) -> Color:
+	if c is RichTextLabel:
+		return (c as RichTextLabel).get_theme_color("default_color")
+	return c.get_theme_color("font_color")
+
+
+## The words of a line, whether a plain label or one with names in ink.
+func _line_text(c: Control) -> String:
+	if c == null:
+		return ""
+	if c.has_meta("plain"):
+		return str(c.get_meta("plain"))
+	return str(c.get("text"))
 
 
 func _has_sandringham(draft) -> bool:

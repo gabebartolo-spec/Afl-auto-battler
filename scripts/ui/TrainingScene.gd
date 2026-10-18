@@ -1,3 +1,4 @@
+class_name TrainingScene
 extends Control
 ## Training. Every listed player is here. XP is personal and earned every
 ## game; each player's training plan spends it automatically after the game
@@ -9,8 +10,11 @@ const ROLE_NOUN := {"RUCK": "ruck", "MID": "midfielder", "DEF": "defender", "FWD
 const ROLE_TABS := [["", "All"], ["DEF", "DEF"], ["MID", "MID"], ["RUCK", "RUCK"], ["FWD", "FWD"]]
 const LONG_PRESS_SECONDS := 0.45
 
+## Set by the training report: open this player's page when Training opens.
+static var open_player_id := ""
 var _role := ""
 var _query := ""
+var _built_width := 0.0
 var _selected := ""
 var _showing_detail := false
 var _notice := ""
@@ -50,9 +54,14 @@ func _ready() -> void:
 	_root = UiKit.vbox(8)
 	margin.add_child(_root)
 	get_viewport().size_changed.connect(func():
-		if is_inside_tree():
+		if is_inside_tree() and not UiKit.keyboard_resize(self, _built_width):
 			_build())
 	_build()
+	if open_player_id != "":
+		var want := open_player_id
+		open_player_id = ""
+		if not GameState.list_player(want).is_empty():
+			_open_player(want)
 	if GameState.intro_due("training"):
 		GameState.set_setting("seen_training_intro", true)
 		_show_intro()
@@ -62,6 +71,8 @@ func _ready() -> void:
 ## player detail back to the list, before leaving Training. Returning false
 ## lets the router take the scene back to whatever was viewed before.
 func handle_back() -> bool:
+	if TrainingReportSheet.close_top(self):
+		return true
 	var plan_sheet := get_node_or_null("SeasonPlanSheet")
 	if plan_sheet != null and is_instance_valid(plan_sheet) and not plan_sheet.is_queued_for_deletion():
 		plan_sheet.queue_free()
@@ -126,9 +137,10 @@ func _on_names() -> void:
 
 
 func _build() -> void:
-	_wide = UiKit.view_width(self) >= 760.0
-	var list_y := _list_scroll.scroll_vertical if is_instance_valid(_list_scroll) else 0
-	var detail_y := _detail_scroll.scroll_vertical if is_instance_valid(_detail_scroll) else 0
+	_wide = ScreenLayout.wide_view(UiKit.view_width(self), 0.0, 760.0, false)
+	_built_width = UiKit.view_width(self)
+	var list_y := UiKit.scroll_place(_list_scroll) if is_instance_valid(_list_scroll) else 0
+	var detail_y := UiKit.scroll_place(_detail_scroll) if is_instance_valid(_detail_scroll) else 0
 	UiKit.clear(_root)
 	_list_scroll = null
 	_detail_scroll = null
@@ -150,20 +162,41 @@ func _build() -> void:
 		_root.add_child(_detail_panel())
 	else:
 		_root.add_child(_list_panel())
-	_restore_scroll.call_deferred(list_y, detail_y)
+	UiKit.restore_scroll(_list_scroll, list_y)
+	UiKit.restore_scroll(_detail_scroll, detail_y)
 
 
-func _restore_scroll(list_y: int, detail_y: int) -> void:
-	if is_instance_valid(_list_scroll):
-		_list_scroll.scroll_vertical = list_y
-	if is_instance_valid(_detail_scroll):
-		_detail_scroll.scroll_vertical = detail_y
+## The training gear beside the week's news (director, 2026-10-14: "Bigger,
+## in real colours"): a blue tackle bag with a stack of orange cones, in its
+## own colours. It may not push the list down or squeeze the news, so on a
+## phone it is as tall as the news it stands beside and no wider than before;
+## on a wide screen it leads the news from the left.
+const TRADE_OFF_LINE := "Games earn the points and each costs more as a stat climbs: a plan is a choice of what he improves."
+const HERO_NARROW := 72.0
+const HERO_WIDE := 96.0
 
 
 func _summary() -> Control:
 	var panel := UiKit.panel(UiKit.PANEL, 10, 8)
 	var v := UiKit.vbox(3)
-	panel.add_child(v)
+	# Decoration: it stands on the panel's foot at the right and takes no tap.
+	# Without the picture the news has the whole width, as before.
+	var hero := UiArt.view("training_gear", HERO_WIDE if _wide else HERO_NARROW)
+	if hero == null:
+		panel.add_child(v)
+	else:
+		hero.name = "TrainingHero"
+		hero.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var h := UiKit.hbox(14 if _wide else 12)
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		if _wide:
+			h.add_child(hero)
+			h.add_child(v)
+		else:
+			h.add_child(v)
+			h.add_child(hero)
+		panel.add_child(h)
 	var report: Dictionary = GameState.last_training_report
 	if int(report.get("count", 0)) > 0:
 		v.add_child(UiKit.lbl(str(report.get("label", "Last game")), 15, UiKit.EMPH, true))
@@ -173,9 +206,13 @@ func _summary() -> Control:
 		what.name = "TrainingNews"
 		what.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(what)
-		var reserves := GameState.reserves_summary_line()
-		if reserves != "":
-			v.add_child(UiKit.lbl(reserves, UiKit.SECONDARY, UiKit.MUTED))
+		var month := TrainingReportSheet.link(self, _open_player)
+		if month != null:
+			v.add_child(month)
+		else:
+			var reserves := GameState.reserves_summary_line()
+			if reserves != "":
+				v.add_child(UiKit.lbl(reserves, UiKit.SECONDARY, UiKit.MUTED))
 	else:
 		v.add_child(UiKit.lbl("No game played yet. Players develop after every match.", UiKit.BODY, UiKit.EMPH, true))
 	# The season plan in words, one tap from the season line.
@@ -192,6 +229,11 @@ func _summary() -> Control:
 		warn.name = "PausedWarning"
 		warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(warn)
+	# What it costs and what it buys, in one line (P-63).
+	var trade := UiKit.lbl(TRADE_OFF_LINE, UiKit.SMALL, UiKit.TEXT)
+	trade.name = "TrainingTradeOff"
+	trade.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(trade)
 	return panel
 
 
@@ -751,6 +793,7 @@ func _train(player_id: String, key: String, points: int) -> void:
 func _bar(value: int) -> Control:
 	var holder := Control.new()
 	holder.custom_minimum_size = Vector2(0, 8)
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var track := ColorRect.new()
 	track.color = Color(1, 1, 1, 0.10)
@@ -761,6 +804,8 @@ func _bar(value: int) -> Control:
 	fill.set_anchors_preset(Control.PRESET_FULL_RECT)
 	fill.anchor_right = clampf(float(value) / 99.0, 0.0, 1.0)
 	holder.add_child(fill)
+	for bar_part in [track, fill]:
+		bar_part.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return holder
 
 
@@ -785,10 +830,9 @@ func _ignore_mouse(node: Control) -> void:
 func _potential_note(p: Dictionary) -> String:
 	var mult := Potential.training_multiplier(p)
 	if bool(p.get("rehab", false)):
-		return "Rehab: back near his %d POT after this season. Training %d%% off until then." % [
-				int(p["potential"]), int(round((1.0 - mult) * 100.0))]
+		return "Rehab: back near his %d POT after this season. Training is cheaper until then." % int(p["potential"])
 	if mult < 0.95:
-		return "Room to grow: training %d%% off below his potential." % int(round((1.0 - mult) * 100.0))
+		return "Room to grow: training is cheaper while he is below his potential."
 	var gap := int(p.get("potential", p["overall"])) - int(p["overall"])
 	if gap < 0:
 		return "Past his projected peak: every point costs far more."

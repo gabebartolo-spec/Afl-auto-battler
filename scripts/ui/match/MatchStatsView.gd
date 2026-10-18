@@ -21,18 +21,28 @@ const GROUPS := [
 			["clangers", "Clangers"]]],
 ]
 const GROUP_W := 300.0
+const COMPACT_GROUP_W := 230.0
+const COMPACT_GROUP_MAX_W := 270.0
 
 var _res: Dictionary
 var _me := 0
 var _view := "team"
 var _scope := "all"      # "all" or the quarter number as a string
 var _live := false        # at a break: the match so far
+## Opens on the player table (the break's "All player stats"), not the team's.
+var players_first := false
+## Beside the score on a PC page: as many groups across as the width the page gives the
+## team numbers (`room`), each the width of its words.
+var compact := false
+var room := 500.0
 
 
 func setup(res: Dictionary, my_side: int, live := false) -> MatchStatsView:
 	_res = res
 	_me = my_side
 	_live = live
+	if players_first:
+		_view = "players"
 	add_theme_constant_override("separation", 8)
 	# The layout reads the screen's width, which a view not yet on screen
 	# can't know (it took a PC's and opened a phone in landscape columns
@@ -87,7 +97,7 @@ func _build() -> void:
 	if _view == "team":
 		add_child(_team(res))
 	else:
-		add_child(PlayerStatsTable.new().setup(res, _me, UiKit.view_width(self) >= 900.0))
+		add_child(PlayerStatsTable.new().setup(res, _me, ScreenLayout.wide_view(UiKit.view_width(self), 0.0, 900.0, false)))
 
 
 ## The result as one quarter saw it: the team and player numbers between the
@@ -129,16 +139,16 @@ static func _minus(now: Dictionary, was: Dictionary) -> Dictionary:
 func _team(res: Dictionary) -> Control:
 	var codes := [str(res["home"]), str(res["away"])]
 	var t: Array = res["team"]
-	var cols := clampi(int(UiKit.view_width(self) / (GROUP_W + 40.0)), 1, GROUPS.size())
+	var cols := clampi(int(room / 250.0), 2, GROUPS.size()) if compact else clampi(int(UiKit.view_width(self) / (GROUP_W + 40.0)), 1, GROUPS.size())
 	var grid := GridContainer.new()
 	grid.name = "TeamStats"
 	grid.columns = cols
-	grid.add_theme_constant_override("h_separation", 32)
+	grid.add_theme_constant_override("h_separation", 20 if compact else 32)
 	grid.add_theme_constant_override("v_separation", 14)
 	for g in GROUPS:
 		var box := UiKit.vbox(2)
 		box.name = "Group_" + str(g[0])
-		box.custom_minimum_size.x = GROUP_W if cols > 1 else 0.0
+		box.custom_minimum_size.x = (clampf((room - 20.0 * float(cols - 1)) / float(cols), COMPACT_GROUP_W, COMPACT_GROUP_MAX_W) if compact else GROUP_W) if cols > 1 else 0.0
 		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL if cols == 1 else Control.SIZE_FILL
 		# Your club on the left, every group, so you never have to look up
 		# which column is yours.
