@@ -348,7 +348,7 @@ static func effect_line(strand: String, t: int) -> String:
 					"better" if x > 0.0 else "worse"]
 		"ambition":
 			if effect_of("young_growth", strand, band) != 0.0 or effect_of("young_ceiling", strand, band) != 0.0:
-				return "Young players come on quicker at a patient club."
+				return "Young players come on a little quicker here."
 			var r := effect_of("resign_floor", strand, band)
 			var f := effect_of("free_agent_score", strand, band)
 			if r == 0.0 and f == 0.0:

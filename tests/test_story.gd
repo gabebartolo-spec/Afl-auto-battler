@@ -2270,8 +2270,8 @@ func _test_culture_effects() -> void:
 	_check(Culture.effect_line("together", -50) == "Players take a missed game a little worse.", "Togetherness, divided band")
 	_check(Culture.effect_line("ambition", 20) == "Players are a little more willing to stay and to join.", "Ambition, pushing to win now")
 	# Director, 2026-10-18: a patient club brings its young on; veterans' asks are not lower there.
-	_check(Culture.effect_line("ambition", -20) == "Young players come on quicker at a patient club."
-			and Culture.effect_line("ambition", -50) == "Young players come on quicker at a patient club.", "Ambition, patient and rebuilding")
+	_check(Culture.effect_line("ambition", -20) == "Young players come on a little quicker here."
+			and Culture.effect_line("ambition", -50) == "Young players come on a little quicker here.", "Ambition, patient and rebuilding")
 	_check(Culture.effect_of("young_ceiling", "ambition", "patient") == 1.0 and Culture.effect_of("young_ceiling", "ambition", "rebuild") == 1.0
 			and Culture.effect_of("young_ceiling", "ambition", "now") == 0.0, "Young players: a point more season ceiling at a patient club only")
 	for band in ["patient", "rebuild"]:
