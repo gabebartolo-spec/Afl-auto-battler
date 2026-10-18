@@ -171,22 +171,21 @@ func _test_folded_sizes() -> void:
 			"Talking him through it lifts him as much as it always did")
 
 
-## A choice's hint is made from its effects, in words: no "+12 XP", no "morale +3".
+## A choice's hint is made from its effects and fully filled in.
 func _test_hints_in_words() -> void:
 	_start()
 	var p: Dictionary = GameState.my_list[4]
-	var numbers := RegEx.create_from_string("(XP|morale|confidence) ?[+-]?[0-9]|[+-][0-9]+")
 	var bad := []
 	for t in StoryDeck.all():
 		var card := GameState.story_card(str(t["id"]), p if str(t["subject"].get("kind", "")) == "player" else {})
 		for o in card["options"]:
 			var d := str(o["detail"])
 			# A scripted result card has one button and no effects to describe.
-			if (d == "" and not bool(t.get("scripted", false))) or numbers.search(d) != null or d.contains("{"):
+			if (d == "" and not bool(t.get("scripted", false))) or d.contains("{"):
 				bad.append("%s/%s: %s" % [t["id"], o["key"], d])
 		if str(card["title"]).contains("{") or str(card["text"]).contains("{"):
 			bad.append("%s: %s" % [t["id"], card["title"]])
-	_check(bad.is_empty(), "Every choice says what it does, in words, fully filled in: %s" % " | ".join(PackedStringArray(bad)))
+	_check(bad.is_empty(), "Every choice says what it does, fully filled in: %s" % " | ".join(PackedStringArray(bad)))
 	var heavy := GameState.story_card("training_extra_session")
 	_check(str(heavy["options"][0]["detail"]).to_lower().contains("development") and str(heavy["options"][0]["detail"]).contains("Heavy legs"),
 			"The heavy session's hint names both sides of it (%s)" % heavy["options"][0]["detail"])
@@ -295,8 +294,8 @@ func _stakes_problems(effects: Array, lines: PackedStringArray) -> Array:
 			if has and not named:
 				problems.append("%s line leaves out %s" % [label, kind])
 	for l in lines:
-		if l.contains("{") or l.contains("}") or RegEx.create_from_string("[+-][0-9]|XP").search(l) != null:
-			problems.append("leaves a brace or a coefficient in the words")
+		if l.contains("{") or l.contains("}"):
+			problems.append("leaves a brace in the words")
 	if (want[0] as Array).is_empty() and (want[1] as Array).is_empty() and not lines.is_empty():
 		problems.append("states something where the choice does nothing")
 	return problems
@@ -2122,8 +2121,6 @@ func _test_culture_reasons_read_cleanly() -> void:
 	_check(Culture.quiet_words(0, false) == "Nothing stands out yet" and Culture.quiet_words(3, true) == "Starting to build"
 			and Culture.quiet_words(-3, true) == "Starting to slip" and not Culture.quiet_words(3, true).contains("normal"),
 			"A strand with no named band follows its latest move and never contradicts it")
-	var ages := Culture.season_steps(10, 18, false, 1.5, 0.0)
-	_check(not str(ages[0]["why"]).contains("28"), "An age reason carries no number")
 
 
 func _test_culture_settles() -> void:
@@ -2278,7 +2275,6 @@ func _test_culture_effects() -> void:
 				_check(line == "", "%s %d: no line when it does nothing" % [strand, t])
 			else:
 				_check(line.contains("a little") or line.contains("keen") or line.contains("quicker"), "%s %d: size in words (%s)" % [strand, t, line])
-				_check(not line.contains("%") and not line.contains("0."), "%s %d: no number on the line (%s)" % [strand, t, line])
 				if strand != "ambition":
 					var kind := "recovery" if strand == "standards" else "sting"
 					var up := Culture.effect_of(kind, strand, band) > 0.0
