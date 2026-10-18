@@ -1,5 +1,7 @@
 ### 2026-09-30 full-season phone playtest handoff
 
+*Superseded on decision transparency by bible §4 (director, 2026-10-18); see docs/research/DECISION_TRANSPARENCY_AUDIT_2026-10-18.md.*
+
 This playtest reached the end of the 2027 season, finals, off-season and National Draft. The findings in this section are now the canonical player-observed evidence for the next work. **Do not treat every bullet as an immediate implementation request:** bugs/UX defects can be fixed directly when scoped; anything labelled audit/investigate must be measured by Claude first under the audit-ownership convention above. Prefer coherent batches and keep the P0 match-flow gate ahead of lower-risk presentation/features.
 
 ### Product goal

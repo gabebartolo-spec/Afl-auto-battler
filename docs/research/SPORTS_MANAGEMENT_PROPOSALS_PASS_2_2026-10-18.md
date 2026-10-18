@@ -42,7 +42,7 @@ Five repo findings the director should know before deciding. First, `scripts/sim
 - Exists today: "How it's going" block for the defensive forward only (`MatchScene.gd:1131-1140`), loose-man tally (`:935`). P-12 is the picture, P-19 the quarter strip; this is the live readout.
 - Size: M. Tier: B.
 - Does not: show a percentage or claim the call won anything; one count per active call.
-- Conflicts: none (one count tied to a call, gone when it ends, satisfies no number vomit).
+- Conflicts: none (one count tied to a call, gone when it ends; the odds stay on the call's own gate, bible §4).
 
 **P-29. What is expected of you this week.** One line on the poster, from the board's season goal, both ladder spots and the venue: "A game the board expects you to win", "An even game", "Nobody expects much here". The post-match summary says in one word whether it was met. From C-MG-04.
 - Bible intent: the risk belongs to the player, so he should know what a loss costs.
@@ -203,7 +203,7 @@ Five repo findings the director should know before deciding. First, `scripts/sim
 - Conflicts: none.
 
 **P-48. This year's list problem in three lines.** The off-season screen opens with the three pressures compounding this year as facts: "Nine out of contract", "Your best six average 29", "Two list spots, three picks". No recommendation follows; the facts are the brief. From C-MG-15.
-- Bible intent: reading the game is the skill; no number vomit.
+- Bible intent: reading the game is the skill (bible §4: each option shows its upside, downside, size and odds, never which is better).
 - Evidence: AFCM "connects contracts, picks, drafting and club resources across seasons" and makes pressures tangible, while its opacity "erodes confidence" [director, GENRE §3.2].
 - Exists today: "Out of contract (n)" list (`OffseasonScene.gd:176-188`), budget summary (`:112`), `ListProfile.gd` strengths in words. No opening brief.
 - Size: S. Tier: B.
@@ -318,8 +318,8 @@ Five repo findings the director should know before deciding. First, `scripts/sim
 - Does not: explain percentages or recommend when to use the rule. P-03 owns the walkthroughs; P-13 lays options beside an opponent fact.
 - Conflicts: none; CLAUDE.md already asks for every rule to be lookable up exactly.
 
-**P-62. Intent on the button, never odds.** Every call button says what it changes in shape ("Push two up the ground; thinner behind the ball"), never a predicted result. A CI lint fails any player-facing string with a percent sign or "chance of" outside the stats tables. From C-MG-21.
-- Bible intent: decisions move the odds, never the certainty; the exact science stays clouded.
+**P-62. Intent on the button, with the odds beside it.** Reversed by the director on 2026-10-18, after it was approved as "never odds" (bible §4: "Every decision gate says what each option does for you and what it costs, with the size and the odds, in football words"). Every call button says what it changes in football words ("Push two up the ground; thinner behind the ball") and, for each option, its upside, downside, size and odds as percentages, never which option is better. The CI lint first described here (fail any percent sign or "chance of" outside the stats tables) is the old rule; `tools/check_player_facing_odds.py` still enforces it and needs retiring or turning into a check that every gate names a positive and a negative. From C-MG-21.
+- Bible intent: decisions move the odds, never the certainty; reading the game is the skill (bible §4).
 - Evidence: Into the Breach's postmortem on readable intent; "reject exact next-play forecasts in stochastic football" [dev, GENRE §3.18].
 - Exists today: 19 percent or "chance" hits in UI copy, none of them odds; plan blurb PR #755 open; no lint in `tools/`.
 - Size: S. Tier: A.
@@ -413,8 +413,8 @@ Five repo findings the director should know before deciding. First, `scripts/sim
 - Evidence: visible developer replies recur under praised indies (Pocket GM, Astonishing) [player, App Store].
 - Exists today: devlog-per-upload rule (`memory/itch-builds-devlog-and-saves.md`); `docs/ITCH_UPLOAD.md` has no reply rule; balance evidence docs exist but are not written for players.
 - Size: S, then S per post. Tier: A for the reply rule, C for the posts.
-- Does not: promise a fix or a date; does not print percentages a player would use to game the sim.
-- Conflicts: none in game (CLAUDE.md "do not explain simulation mechanics" governs in-game copy; a post outside the game is his decision).
+- Does not: promise a fix or a date; does not promise what is not built.
+- Conflicts: none in game (bible §4 and CLAUDE.md: every decision gate shows its odds; a post outside the game is his decision).
 
 **P-74. The list of what we are not building.** A one-page "Not in this game" that the director fills (candidates: playable control, multiplayer, 3D, commentary, light mode, AFLW, microtransactions), printed in About and on the store page. It answers the bible's own open question. From C-MG-26.
 - Bible intent: open question "What will this game deliberately not have?"; restraint is a feature.
