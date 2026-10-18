@@ -94,6 +94,15 @@ What that showed, and what the view does about it:
 - **Movement** has acceleration, braking and reaction delays, so starts, stops
   and turns take time and paths curve. Sprint speed comes from the `carry`
   rating (presentation only).
+- **Motion limits, for every shape and call.** Nobody moves faster than a
+  sprint (15 m/s of match time) in any step, whatever moves him: a new spot, a
+  set-up's quicker reset, Throw numbers at it's legs. Bodies in a pile ease
+  apart at a walk (2.5 m/s), and discs drawn apart on screen move apart no
+  faster, so no disc ever snaps across. Every structure spot stays 5 m inside
+  the boundary line and out of the pockets the phone's bench strip covers; no
+  two of a side's spots stand within 7 m (they part front to back); and in
+  possession each line (backs, midfield, forwards) keeps at least 12 m of
+  spread across the ground (standard deviation), Balanced's narrowest line.
 
 ## The coach's calls on the oval
 
@@ -106,15 +115,17 @@ Each structural call has a shape, read from the match's recorded calls
 | Defensive press | one band around the ball in their back half or the middle, narrower, with the press-zone wash |
 | Flood behind the ball | the midfield folds back between ball and goal, the half-forwards push up |
 | Stack the stoppage | the wings on the square's edge at a centre bounce, crashing in at the bounce |
-| Attack corridor | with the ball the side packs the corridor and the ball goes down the middle (no switch of play); moves quicker |
+| Attack corridor | with the ball the side packs the corridor (each line no narrower than the 12 m floor) and the ball goes down the middle, zig-zagging across it so each receiver leads in his own lane (no switch of play); moves quicker |
 | Controlled tempo | spreads wide with the ball, its lines short around it; moves slower |
-| Win contest | the midfield stays on the ball; at every centre bounce, ball-up and throw-in a bigger pack, with the wings and both half-lines sprinting in round it through the clearance (none at a marking contest: the engine gives it no edge there) |
+| Win contest | the midfield stays on the ball, round it 9.5 m off, each on his own side; at every centre bounce, ball-up and throw-in one more in the pack (six of its discs within 6 m of the ball at most), the wings sprinting in round it and both half-lines a beat later, 9 m off, through the clearance (none at a marking contest: the engine gives it no edge there) |
 | Through stars | with the ball the three stars stand closest to it and lead first when the log has one getting it next, their opponents stay glued to them, and the rest of the side sets up on the side of the ground of the star nearest the ball-carrier |
-| Throw numbers at it | with the ball the midfield and the half-back line run past it, on the engine's quicker legs |
-| Slow it down | sits about 11 m deeper, spreads wide with the ball; moves slower. Carriers hold the ball no longer: the engine's hold chains have more disposals in the same minutes |
+| Throw numbers at it | with the ball the midfield and the half-back line run past where the chain is going (the furthest lead already on), the forwards stay ahead of it and the back pockets come up, on the engine's quicker legs (up to a sprint) |
+| Slow it down | sits deeper with and without the ball (the backs 18 m, the midfield and forwards 24 m), spreads wide with the ball; moves slower, with shorter, slower leads that start only when they must. Carriers hold the ball no longer: the engine's hold chains have more disposals in the same minutes |
 
-Every shape moves its side at least 8 m from Balanced, measured in real
-playback at the moments it applies (`_test_call_visibility`).
+Every shape moves its side at least 8 m from Balanced, measured as the phone
+draws it (`tests/test_match_motion.gd`): from the discs on the upright oval,
+over the frames the call applies, depth calls relative to the ball and to the
+other side.
 
 The feed marks a plan when it starts ("Fremantle: Win contest is on until half
 time."), when it carries on over a break and when it ends, and a short call
@@ -153,6 +164,12 @@ movement model's clock. A full match takes about 4 to 5 minutes at the default
 
 ## Checking it
 
+- `tests/test_match_motion.gd` (suite `match_motion`) plays 640 events with
+  every call on both sides on the phone's upright oval at 1x and 4x and holds
+  the motion limits frame by frame from the discs as drawn (a sprint, the
+  walking draw-apart, the visible share of each side's discs, line widths, the
+  boundary and bench margins, the Win contest pack), and measures each call
+  against Balanced.
 - `tests/test_match_visual.gd` (in `tools/run_tests.sh`) covers:
   - the log, score and stats are unchanged after playback;
   - no event is mutated;

@@ -34,6 +34,12 @@ extends SceneTree
 ##                   (held on until the first break, as --flood)
 ##   --kside S       with --kind, only events by side S
 ##   --shake F       the turnover shake's size as a share of the oval's height
+##   --movie also prints each frame's largest disc move (MOTION lines, metres,
+##                   as drawn) and, over the window, the home side's shape from
+##                   the drawn discs: its centroid and median player up the ground
+##                   from the ball and from the away side's centroid, its spread
+##                   across, and the most of its discs within 6 m of the ball
+##                   (SHAPE lines; in possession, without it, at a stoppage)
 
 ## --size WxH: the window (default 900x700; 390x330 is the oval's share of a phone).
 var W := 900
@@ -231,6 +237,7 @@ func _run() -> void:
 			await process_frame
 			var mf: Image = root.get_viewport().get_texture().get_image()
 			mf.save_png("%s_f%04d.png" % [out, movie_n])
+			_motion_frame(pitch, movie_n)
 			movie_n += 1
 		if s % every == 0 and tiles.size() < frames:
 			pitch.queue_redraw()
@@ -268,7 +275,91 @@ func _run() -> void:
 	var trail_img: Image = root.get_viewport().get_texture().get_image()
 	trail_img.save_png(out + "_trails.png")
 	print("CAPTURE events %d..%d: %s" % [start_idx, pitch.current_index(), ", ".join(events_seen)])
+	if movie:
+		# A movie frame is movie_every steps of dt, at the playback speed, in match time.
+		var frame_h := float(movie_every) * dt * float(pitch.speed) * float(load("res://scripts/ui/match/MatchDirector.gd").TEMPO)
+		print("MOTION max %.2f m in one frame (frame %d), %.1f m/s of match time (a frame is %.3f s of it)" % [_max_move, _max_move_at,
+				_max_move / maxf(0.0001, frame_h), frame_h])
+		for tag in ["has", "not", "stop"]:
+			var a: Dictionary = _shape.get(tag, {})
+			var n := float(a.get("n", 0))
+			if n > 0.0:
+				print("SHAPE %s frames %d: centroid up the ground from the ball %.1f m, median player %.1f m, centroid from the away side's %.1f m, spread across %.1f m, front to back %.1f m, median distance from the ball %.1f m, most within 6 m of the ball %d" % [
+						tag, int(n), float(a["cen"]) / n, float(a["med"]) / n, float(a["opp"]) / n, float(a["sd"]) / n,
+						float(a["span"]) / n, float(a["rad"]) / n, int(a["near"])])
 	quit(0)
+
+
+var _prev_disc := PackedVector2Array()
+var _prev_period := -1
+var _max_move := 0.0
+var _max_move_at := -1
+var _shape := {}
+
+
+## One movie frame as drawn: the largest disc move since the last frame (not
+## across a change of ends, where the picture mirrors), and the home side's shape.
+func _motion_frame(pitch, n: int) -> void:
+	var drawn: PackedVector2Array = pitch.disc_positions_drawn()
+	var s: float = pitch._scale()
+	var most := 0.0
+	if _prev_disc.size() == drawn.size() and pitch.period == _prev_period:
+		for i in range(drawn.size()):
+			most = maxf(most, drawn[i].distance_to(_prev_disc[i]) / s)
+		if most > _max_move:
+			_max_move = most
+			_max_move_at = n
+	print("MOTION frame %d %.2f m" % [n, most])
+	_prev_disc = drawn.duplicate()
+	_prev_period = pitch.period
+	var d = pitch.director
+	if d.mode == "break" or drawn.size() != d.tokens.size():
+		return
+	var o0: Vector2 = pitch._w2s(Vector2.ZERO)
+	var ex: Vector2 = pitch._w2s(Vector2(1, 0)) - o0
+	var ey: Vector2 = pitch._w2s(Vector2(0, 1)) - o0
+	var det := ex.x * ey.y - ex.y * ey.x
+	var b: Vector2 = d.ball["pos"]
+	var xs := []
+	var ys := []
+	var opp := 0.0
+	var near := 0
+	var rads := []
+	for i in range(drawn.size()):
+		var v := drawn[i] - o0
+		var w := Vector2((v.x * ey.y - v.y * ey.x) / det, (ex.x * v.y - ex.y * v.x) / det)
+		if int(d.tokens[i]["side"]) == 1:
+			opp += w.x / 18.0
+			continue
+		xs.append(w.x)
+		ys.append(w.y)
+		rads.append(w.distance_to(b))
+		if w.distance_to(b) < 6.0:
+			near += 1
+	var cx := 0.0
+	var cy := 0.0
+	for k in range(xs.size()):
+		cx += float(xs[k]) / xs.size()
+		cy += float(ys[k]) / ys.size()
+	var sd := 0.0
+	var span := 0.0
+	for k in range(ys.size()):
+		sd += pow(float(ys[k]) - cy, 2.0) / ys.size()
+		span += absf(float(xs[k]) - cx) / xs.size()
+	xs.sort()
+	rads.sort()
+	var tag := "stop" if d._stoppage_on() else ("has" if d._poss == 0 else "not")
+	if not _shape.has(tag):
+		_shape[tag] = {"n": 0, "cen": 0.0, "med": 0.0, "opp": 0.0, "sd": 0.0, "span": 0.0, "rad": 0.0, "near": 0}
+	var a: Dictionary = _shape[tag]
+	a["n"] = int(a["n"]) + 1
+	a["cen"] = float(a["cen"]) + cx - b.x
+	a["med"] = float(a["med"]) + 0.5 * (float(xs[8]) + float(xs[9])) - b.x
+	a["opp"] = float(a["opp"]) + cx - opp
+	a["sd"] = float(a["sd"]) + sqrt(sd)
+	a["span"] = float(a["span"]) + span
+	a["rad"] = float(a["rad"]) + 0.5 * (float(rads[8]) + float(rads[9]))
+	a["near"] = maxi(int(a["near"]), near)
 
 
 ## Token and ball positions in pixels.
