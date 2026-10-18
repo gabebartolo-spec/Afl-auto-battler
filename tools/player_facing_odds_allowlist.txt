@@ -1,8 +1,0 @@
-# Legitimate player-facing percentages for tools/check_player_facing_odds.py (P-62).
-# A real, recorded stat is not a predicted result. One per line:
-#   <path>::<a snippet of the string, as written>::<why it is a stat>
-# Anything that predicts what will happen (a chance, odds, a percentage of success) is not allowed here:
-# reword it to what the call changes, in football words.
-scripts/ui/match/PlayerStatsTable.gd::disposal efficiency::the recorded disposal efficiency of a player, a stat line on the match sheet
-scripts/ui/SeasonReviewScene.gd::%.1f%%::the ladder percentage (points for over points against), a real AFL ladder column
-scripts/ui/stats/StatsPlayers.gd::1%::the column header AFL stats pages use for one percenters
