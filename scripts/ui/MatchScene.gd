@@ -452,32 +452,33 @@ func _controls() -> Control:
 	var row := UiKit.hbox(5)
 	v.add_child(row)
 	_play_btn = UiKit.btn("Pause", UiKit.SECONDARY)
-	_play_btn.custom_minimum_size = Vector2(0, 40)
+	_play_btn.custom_minimum_size = Vector2(0, 44)
 	_play_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_play_btn.clip_text = true
 	_play_btn.pressed.connect(_on_toggle)
 	row.add_child(_play_btn)
 
-	# Key moments shows its name where the speeds sit, and Watch beside it
-	# drops back to watching at your usual speed (the speeds come back).
-	_km_word = UiKit.btn("Key moments", UiKit.SECONDARY)
-	_km_word.name = "KeyMomentsState"
-	_km_word.custom_minimum_size = Vector2(0, 40)
-	_km_word.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_km_word.size_flags_stretch_ratio = 2.0
-	_km_word.clip_text = true
-	row.add_child(_km_word)
+	# Key moments shows its name where the speeds sit, in the poster's order
+	# (Watch, then Key moments): Watch drops back to watching at your usual
+	# speed and the speeds come back.
 	_km_watch = UiKit.btn("Watch", UiKit.SECONDARY)
 	_km_watch.name = "KeyMomentsWatch"
-	_km_watch.custom_minimum_size = Vector2(0, 40)
+	_km_watch.custom_minimum_size = Vector2(0, 44)
 	_km_watch.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_km_watch.clip_text = true
 	_km_watch.pressed.connect(_on_km_watch)
 	row.add_child(_km_watch)
+	_km_word = UiKit.btn("Key moments", UiKit.SECONDARY)
+	_km_word.name = "KeyMomentsState"
+	_km_word.custom_minimum_size = Vector2(0, 44)
+	_km_word.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_km_word.size_flags_stretch_ratio = 2.0
+	_km_word.clip_text = true
+	row.add_child(_km_word)
 
 	for s in SPEEDS:
 		var b := UiKit.btn("%dx" % int(s), UiKit.SECONDARY)
-		b.custom_minimum_size = Vector2(0, 40)
+		b.custom_minimum_size = Vector2(0, 44)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.clip_text = true
 		b.pressed.connect(_on_speed.bind(s))
@@ -487,7 +488,7 @@ func _controls() -> Control:
 	var row2 := UiKit.hbox(5)
 	v.add_child(row2)
 	var skip := UiKit.btn("Skip to full time", UiKit.SECONDARY)
-	skip.custom_minimum_size = Vector2(0, 40)
+	skip.custom_minimum_size = Vector2(0, 44)
 	skip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	skip.pressed.connect(_on_skip)
 	row2.add_child(skip)
@@ -495,7 +496,7 @@ func _controls() -> Control:
 	# Your own match cannot be left half way (Back says so); a replay can.
 	if not _interactive:
 		var leave := UiKit.btn("Back to hub", UiKit.SECONDARY)
-		leave.custom_minimum_size = Vector2(0, 40)
+		leave.custom_minimum_size = Vector2(0, 44)
 		leave.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		leave.pressed.connect(func(): Router.back())
 		row2.add_child(leave)

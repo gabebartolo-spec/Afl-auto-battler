@@ -820,23 +820,20 @@ func _form_colour(f: float) -> Color:
 
 ## How you take the match (director, 2026-10-18, P-14): Watch it, Key moments
 ## (top speed, stopping for your calls, the goals and the breaks) or Skip
-## straight to full time. The last one chosen comes up chosen; Play match takes
-## the match that way.
+## straight to full time. The last one chosen comes up chosen; the main button
+## takes the match that way and says so (_play_label).
 func _match_way() -> Control:
-	var v := UiKit.vbox(4)
-	v.name = "MatchWayBlock"
-	var note := UiKit.lbl("Straight to your full time. Sim the week plays the whole round.",
-			UiKit.SMALL, UiKit.MUTED)
-	note.name = "MatchWaySkipNote"
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var grid := UiKit.choice_grid("MatchWay", [["watch", "Watch"], ["key", "Key moments"], ["skip", "Skip"]],
+	return UiKit.choice_grid("MatchWay", [["watch", "Watch"], ["key", "Key moments"], ["skip", "Skip"]],
 			GameState.match_way(), 3, func(key: String) -> void:
 				GameState.set_match_way(key)
-				note.visible = key == "skip")
-	v.add_child(grid)
-	note.visible = GameState.match_way() == "skip"
-	v.add_child(note)
-	return v
+				for b in find_children("PlayMatch", "Button", true, false):
+					(b as Button).text = _play_label())
+
+
+## The main button's words: Skip chosen says what the match screen's own
+## control says; Watch and Key moments play the match.
+func _play_label() -> String:
+	return "Skip to full time" if GameState.match_way() == "skip" else "Play match"
 
 
 ## The week's decision buttons: the primary action last, where the thumb is.
@@ -870,7 +867,9 @@ func _week_actions(season: Season) -> Control:
 		buttons.append(week)
 	else:
 		buttons.append(_nav_button("Pick the side", func(): Router.go("selection")))
-		buttons.append(_nav_button("Play match", _on_play_match, true))
+		var play := _nav_button(_play_label(), _on_play_match, true)
+		play.name = "PlayMatch"
+		buttons.append(play)
 	var row := UiKit.hbox(8)
 	row.name = "WeekActions"
 	for b in buttons:

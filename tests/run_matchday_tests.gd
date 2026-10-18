@@ -2924,6 +2924,11 @@ func _drive_match(vignettes: bool, way := "watch") -> Dictionary:
 	for b in m.get("_speed_btns"):
 		if (b as Control).is_visible_in_tree():
 			speeds_shown += 1
+	var km_watch: Control = m.find_child("KeyMomentsWatch", true, false)
+	var row_ok := km_word != null and km_watch != null and km_watch.global_position.x < km_word.global_position.x
+	for c in m.find_children("*", "Button", true, false):
+		if (c as Button).is_visible_in_tree() and (c as Button).text in ["Pause", "Watch", "Key moments", "Skip to full time"]:
+			row_ok = row_ok and (c as Control).size.y >= 44.0
 	var kinds := []
 	var offered := 0
 	var chosen := 0
@@ -2963,7 +2968,8 @@ func _drive_match(vignettes: bool, way := "watch") -> Dictionary:
 		"score": "%s-%s" % [str(res.get("goals", [])), str(res.get("behinds", []))],
 		"events": JSON.stringify(res.get("events", [])), "players": JSON.stringify(res.get("players", {})),
 		"log": (res.get("events", []) as Array).duplicate(true), "stops": (m.get("km_stops") as Array).duplicate(true),
-		"trace": (m.get("km_trace") as Array).duplicate(true), "km_shown": km_shown, "speeds_shown": speeds_shown}
+		"trace": (m.get("km_trace") as Array).duplicate(true), "km_shown": km_shown, "speeds_shown": speeds_shown,
+		"row_ok": row_ok}
 	_check(bool(m.get("_fulltime_shown")), "The match reaches full time (vignettes %s)" % ("on" if vignettes else "off"))
 	node_added.disconnect(watch)
 	m.queue_free()
@@ -3004,6 +3010,7 @@ func _key_moments_checks(key: Dictionary, watch: Dictionary) -> void:
 			str(breaks), (key["trace"] as Array).size()])
 	_check(bool(key["km_shown"]) and int(key["speeds_shown"]) == 0,
 			"Key moments shows its name where the speeds sit, the speeds put away (%d shown)" % int(key["speeds_shown"]))
+	_check(bool(key["row_ok"]), "The match row reads Pause, Watch, Key moments, each at least 44 px tall")
 	_check(not goals.is_empty() and goal_stops == goals,
 			"Key moments stops for every goal in the log and only those (%d of %d)" % [goal_stops.size(), goals.size()])
 	_check(moments > 0 and moment_stops == moments,
@@ -3036,8 +3043,10 @@ func _key_moments_checks(key: Dictionary, watch: Dictionary) -> void:
 			"Key moments ends on the same match as watching it (%s v %s)" % [str(key["score"]), str(watch["score"])])
 
 
-## The poster's three ways to take the match: a real tap picks one, the last one
-## comes up chosen on the next visit, and Skip goes straight to your full time.
+## The poster's three ways to take the match: a real tap picks one, the main
+## button says Skip to full time only when Skip is chosen, the last one comes up
+## chosen on the next visit, and a real tap on the main button with Skip chosen
+## goes straight to your full time.
 func _match_way_poster() -> void:
 	var db = root.get_node("GameDB")
 	_state.set_vignettes_on(true)
@@ -3055,45 +3064,55 @@ func _match_way_poster() -> void:
 		var key: Button = hub.find_child("MatchWay_key", true, false)
 		var skip: Button = hub.find_child("MatchWay_skip", true, false)
 		var watch: Button = hub.find_child("MatchWay_watch", true, false)
-		var note: Control = hub.find_child("MatchWaySkipNote", true, false)
+		var play: Button = hub.find_child("PlayMatch", true, false)
 		_check(watch != null and key != null and skip != null and _chosen(watch) and not _chosen(key)
-				and note != null and not note.visible,
+				and play != null and play.text == "Play match",
 				"%dx%d: the poster offers Watch, Key moments and Skip, Watch chosen for a new coach" % [sz.x, sz.y])
 		var row_ok := watch != null and key != null and skip != null
 		if row_ok:
-			row_ok = is_equal_approx(watch.global_position.y, key.global_position.y) \
+			row_ok = (is_equal_approx(watch.global_position.y, key.global_position.y)
 					and is_equal_approx(key.global_position.y, skip.global_position.y)
-		_check(row_ok, "%dx%d: the three choices sit in one row" % [sz.x, sz.y])
+					and watch.global_position.x < key.global_position.x
+					and key.global_position.x < skip.global_position.x)
+		_check(row_ok, "%dx%d: the three choices sit in one row, Watch, Key moments, Skip" % [sz.x, sz.y])
 		var tapped: String = await Tap.tap(key) if key != null else "missing"
-		_check(tapped == "" and _state.match_way() == "key" and _chosen(key) and not _chosen(watch),
-				"%dx%d: a real tap on Key moments chooses it and keeps it (%s, %s)" % [sz.x, sz.y, tapped, _state.match_way()])
+		_check(tapped == "" and _state.match_way() == "key" and _chosen(key) and not _chosen(watch)
+				and play != null and play.text == "Play match",
+				"%dx%d: a real tap on Key moments chooses it and keeps it, Play match stays (%s, %s)" % [
+					sz.x, sz.y, tapped, _state.match_way()])
 		tapped = await Tap.tap(skip) if skip != null else "missing"
-		_check(tapped == "" and _state.match_way() == "skip" and note != null and note.is_visible_in_tree(),
-				"%dx%d: a real tap on Skip chooses it and says it is not Sim the week (%s)" % [sz.x, sz.y, tapped])
+		_check(tapped == "" and _state.match_way() == "skip" and play != null and play.text == "Skip to full time",
+				"%dx%d: a real tap on Skip chooses it and the main button says Skip to full time (%s, %s)" % [
+					sz.x, sz.y, tapped, play.text if play != null else "-"])
 		hub.queue_free()
 		await _settle()
-	# The next visit: Skip comes up chosen, and the match is set up that way.
+	# The next visit: Skip comes up chosen; a real tap on the main button goes
+	# straight to your full time.
 	root.size = Vector2i(390, 844)
 	var hub2: Control = load("res://scenes/HubScene.tscn").instantiate()
 	root.add_child(hub2)
 	await _settle()
 	var skip2: Button = hub2.find_child("MatchWay_skip", true, false)
-	_check(skip2 != null and _chosen(skip2), "The way chosen last comes up chosen on the next visit")
-	hub2.queue_free()
-	await _settle()
-	_state.prepare_interactive_match()
-	_check(_state.match_way_live == "skip", "The match is set up the way the poster says (%s)" % _state.match_way_live)
-	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
-	root.add_child(m)
+	var play2: Button = hub2.find_child("PlayMatch", true, false)
+	_check(skip2 != null and _chosen(skip2) and play2 != null and play2.text == "Skip to full time",
+			"The way chosen last comes up chosen on the next visit, the main button in its words")
+	var tapped2: String = await Tap.tap(play2) if play2 != null else "missing"
 	var saw_box := false
-	for i in range(40):
+	var m: Node = null
+	for i in range(60):
 		await process_frame
-		saw_box = saw_box or m.find_child("CoachBox", true, false) != null
-		if bool(m.get("_fulltime_shown")):
-			break
-	_check(bool(m.get("_fulltime_shown")) and not saw_box and _state.pending_sim == null,
+		if current_scene != null and current_scene.name == "MatchScene":
+			m = current_scene
+			saw_box = saw_box or m.find_child("CoachBox", true, false) != null
+			if bool(m.get("_fulltime_shown")):
+				break
+	_check(tapped2 == "" and m != null, "A real tap on Skip to full time opens your match (%s)" % tapped2)
+	_check(m != null and bool(m.get("_fulltime_shown")) and not saw_box and _state.pending_sim == null,
 			"Skip goes straight to your full time on the plan you took in, no break on the way")
-	m.queue_free()
+	if m != null:
+		m.queue_free()
+	if is_instance_valid(hub2):
+		hub2.queue_free()
 	_state.set_match_way("watch")
 	await _settle()
 

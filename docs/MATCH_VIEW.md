@@ -174,14 +174,15 @@ movement model's clock. A full match takes about 4 to 5 minutes at the default
 **Three ways to take your match** (director, 2026-10-18, P-14), chosen under the
 hub's poster and kept for the next match (setting `match_way`, Watch for a new
 coach): **Watch** plays it at your usual speed; **Skip** goes straight to your
-full time on the plan you took in (Skip to full time before the first bounce);
+full time on the plan you took in (Skip to full time before the first bounce;
+the hub's main button then says "Skip to full time");
 **Key moments** plays at 8x and drops to 1x for each goal (from the play before
 it, the shot seen, until 1.8 s of play after it, its close-up if it has one), for
 each coach's call (the card, then until its line reaches the feed and a moment
 more) and for each quarter break (the break as always). Nothing else stops it:
 the other close-ups do not play. The feed still writes and the oval still draws
-at 8x. "Key moments" sits where the speeds do, with Watch beside it to watch the
-rest; Skip to full time works as always. It never answers a call for the coach,
+at 8x. Watch and "Key moments" sit where the speeds do, in the poster's order; Watch
+watches the rest at your usual speed; Skip to full time works as always. It never answers a call for the coach,
 and the match, its log and the result are the same as watching
 (`tests/run_matchday_tests.gd`, the seeded match taken both ways).
 
