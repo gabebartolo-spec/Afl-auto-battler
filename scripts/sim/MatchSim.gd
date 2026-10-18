@@ -1488,9 +1488,9 @@ func _pep_heat(side: int) -> float:
 func _contest_calls(side: int, stoppage: bool) -> float:
 	var b := 0.0
 	if _burst(side, "stack") and stoppage:
-		b += 0.10
+		b += STACK_CONTEST
 	if _burst(side, "surge"):
-		b += 0.03
+		b += SURGE_CONTEST
 	return b
 
 
@@ -2737,8 +2737,8 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		pressure *= _pep_heat(opp)
 		_credit(opp, "pep", (pressure - p_base) * TURNOVER_VALUE)
 		if _burst(side, "hold"):
-			_credit(side, "bursts", pressure * 0.15 * TURNOVER_VALUE)
-			pressure *= 0.85
+			_credit(side, "bursts", pressure * (1.0 - HOLD_TAKEN) * TURNOVER_VALUE)
+			pressure *= HOLD_TAKEN
 
 		# One roll, three outcomes: a tackle, a pressured (rushed) disposal,
 		# or no pressure at all. Both of the first two are pressure acts.
@@ -2830,7 +2830,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		if synergies[side].has("supply_line"):
 			gain *= Traits.power("supply_line")
 		if _burst(side, "flood") or _burst(side, "hold"):
-			gain *= 0.85
+			gain *= BACK_GAIN
 		gain *= rng.randf_range(0.45, 1.75)
 		if is_kick_in:
 			gain *= 0.82 if not kick_in_play_on else 1.12
@@ -2998,7 +2998,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		return {"outcome": "free", "fp": mark_fp, "actor": infringement["recipient"],
 				"free_side": free_side}
 
-	var mark_edge := 0.06 if _trait(shooter, "aerial") else 0.0
+	var mark_edge := Matchups.AERIAL_EDGE if _trait(shooter, "aerial") else 0.0
 	# A named contest can be lopsided: a great forward on a small defender
 	# marks nearly everything, so its ceiling is higher than the lines'.
 	var mark_cap := 0.78 if matched.is_empty() else Matchups.DUEL_CAP
@@ -3008,7 +3008,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	if matched.is_empty():
 		air_shift = (Matchups.forward_air(shooter) - FWD_AIR_CENTRE) / FWD_AIR_SCALE
 	var marked := rng.randf() < clampf(
-			0.5 + (atk.fwd_mark - dfn.def_intercept) / 240.0 + mark_edge + duel_shift + air_shift
+			Matchups.MARK_BASE + (atk.fwd_mark - dfn.def_intercept) / Matchups.MARK_LINES + mark_edge + duel_shift + air_shift
 			+ roam_shift, 0.10, mark_cap)
 	# A third-man arrival is not credited to the direct defender's 1v1 log.
 	# Interceptor contests have their own evidence/stats and story.
@@ -3526,24 +3526,24 @@ func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, cre
 	# Throw numbers at it: more of your shots go in. Slow it down: fewer
 	# shots at goal, both ends - the game goes quiet. Flood: numbers back.
 	if _burst(side, "surge"):
-		call_mult *= 1.12
+		call_mult *= SURGE_GOAL
 	if _burst(side, "hold"):
-		call_mult *= 0.90
+		call_mult *= HOLD_GOAL
 	if _burst(side, "flood"):
-		call_mult *= 0.90
+		call_mult *= FLOOD_GOAL
 	goal_p *= call_mult
 	if credit:
 		_credit(side, "bursts", 6.0 * (goal_p - before))
 	before = goal_p
 	var opp_mult := 1.0
 	if _burst(opp, "flood"):
-		opp_mult *= 0.80
+		opp_mult *= FLOOD_OPP_GOAL
 	if _burst(opp, "hold"):
-		opp_mult *= 0.85
+		opp_mult *= HOLD_OPP_GOAL
 	if _burst(opp, "stack"):
-		opp_mult *= 1.12
+		opp_mult *= STACK_OPP_GOAL
 	if _burst(opp, "surge"):
-		opp_mult *= 1.25
+		opp_mult *= SURGE_OPP_GOAL
 	goal_p *= opp_mult
 	if credit:
 		_credit(opp, "bursts", 6.0 * (before - goal_p))
@@ -3827,8 +3827,8 @@ func _play_one_chain(T: Dictionary) -> void:
 	_credit(side, "form", clanger_p * (1.0 - form_cl) * CLANGER_VALUE)
 	clanger_p *= form_cl
 	if _burst(side, "hold"):
-		_credit(side, "bursts", clanger_p * 0.25 * CLANGER_VALUE)
-		clanger_p *= 0.75
+		_credit(side, "bursts", clanger_p * (1.0 - HOLD_CLANGERS) * CLANGER_VALUE)
+		clanger_p *= HOLD_CLANGERS
 	if rng.randf() < clanger_p:
 		var err = _pick(squads[side].ground, cw[0])
 		_t(side, "clangers")
@@ -4077,7 +4077,7 @@ func _after_chain() -> void:
 		var heat_legs := _pep_mult(side, "pace") if _pep(side) == "heat" else 1.0
 		var movement_pace := _pv(side, "pace") * (1.0 if _pep(side) == "heat" else _pep_mult(side, "pace"))
 		if _burst(side, "surge"):
-			movement_pace *= 1.3
+			movement_pace *= SURGE_PACE
 		var fatigue_pace := movement_pace * heat_legs
 		if weather == "hot":
 			fatigue_pace *= HOT_DRAIN
@@ -4397,6 +4397,29 @@ const BURSTS := {
 }
 
 
+## What each call does while it lasts (the cards say these as percentages,
+## GateOdds.burst_lines). Throw numbers: points of win chance at every
+## contest, your shots and theirs, and the legs. Slow it down: your shots,
+## theirs, clangers and the pressure you feel. Stack: points of win chance at
+## a centre bounce (the contest clamp still holds) and their shots. Flood:
+## yours and theirs. Slow it down and Flood both cost ground (BACK_GAIN).
+const SURGE_CONTEST := 0.03
+const SURGE_GOAL := 1.12
+const SURGE_OPP_GOAL := 1.25
+const SURGE_PACE := 1.3
+const HOLD_GOAL := 0.90
+const HOLD_OPP_GOAL := 0.85
+const HOLD_CLANGERS := 0.75
+const HOLD_TAKEN := 0.85
+const STACK_CONTEST := 0.10
+const STACK_OPP_GOAL := 1.12
+const FLOOD_GOAL := 0.90
+const FLOOD_OPP_GOAL := 0.80
+const BACK_GAIN := 0.85
+## A game's minutes on the clock (four quarters of 30).
+const GAME_MINUTES := 120
+
+
 func _burst(side: int, kind: String) -> bool:
 	return (bursts[side] as Dictionary).has(kind)
 
@@ -4462,14 +4485,27 @@ func _fire_bounce(margin: int) -> void:
 	_fire({"kind": "bounce", "default": 2,
 		"title": "Centre ball-up - %s with %d minutes left" % [state, 120 - current_minute],
 		"text": "Set up for the rest of the game.",
-		"options": [
+		"options": _sized([
 			{"key": "stack", "label": "Stack the stoppage",
 				"detail": "Extra numbers at the bounce: win far more clearances, but they score more easily if they get out."},
 			{"key": "flood", "label": "Flood behind the ball",
 				"detail": "Protect the lead: they score far less, and so do you."},
 			{"key": "none", "label": "Play it straight",
 				"detail": "No change."},
-		]})
+		], 120 - current_minute, GateOdds.NONE_COST_BOUNCE)})
+
+
+## A risk card's options with what each does for you and what it costs, sized
+## from the call's own constants and its length (GateOdds.burst_lines; bible
+## §4): "gain" and "cost" lines the card shows under each choice. "none" keeps
+## the match as it is and says what that leaves (`none_cost`).
+func _sized(options: Array, minutes_left: int, none_cost: String) -> Array:
+	for o in options:
+		var k := str(o["key"])
+		var two: Array = [GateOdds.NONE_GAIN, none_cost] if k == "none" else GateOdds.burst_lines(k, minutes_left)
+		o["gain"] = GateOdds.gain(str(two[0]))
+		o["cost"] = GateOdds.cost(str(two[1]))
+	return options
 
 
 func _late_bounce_ready() -> bool:
@@ -4544,13 +4580,15 @@ func _boundary_moment() -> bool:
 		for p in Matchups.defenders((squads[me] as Squad).ground):
 			if str(p["id"]) == str(cur["id"]) or opts.size() >= 2:
 				continue
+			var dl := GateOdds.duel_lines(self, me, str(fid), p)
 			opts.append({"key": "def:" + str(p["id"]),
 					"label": "Put %s on %s" % [GameDB.player_display_name(p), fname],
-					"detail": Matchups.describe(p)})
+					"detail": Matchups.describe(p), "gain": "%s: %s" % [dl[0], dl[1]], "cost": dl[2]})
 		if opts.is_empty():
 			continue
+		var kl := GateOdds.duel_lines(self, me, str(fid), cur)
 		opts.append({"key": "keep", "label": "Keep %s on %s" % [cname, fname],
-				"detail": Matchups.describe(cur)})
+				"detail": Matchups.describe(cur), "gain": "%s: %s" % [kl[0], kl[1]], "cost": kl[2]})
 		_fire({"kind": "duel", "player_id": str(fid), "default": opts.size() - 1,
 			"title": ("%s has kicked %d" % [fname, bag]) if bag >= 3 else ("%s is getting on top" % fname),
 			"text": "%s has won %d contests in the air against %s this quarter." % [fname, wins,
@@ -4594,14 +4632,14 @@ func _boundary_moment() -> bool:
 		_fire({"kind": "momentum", "default": 2,
 			"title": "They have kicked %d in a row" % _run[opp],
 			"text": "The game is getting away from you. Make a call for the next ten minutes.",
-			"options": [
+			"options": _sized([
 				{"key": "surge", "label": "Throw numbers at it",
 					"detail": "Win more of the ball and more goals, but they score more when they get out, and it burns legs."},
 				{"key": "hold", "label": "Slow it down",
 					"detail": "Chip it around: fewer turnovers, a quieter game at both ends, less ground gained."},
 				{"key": "none", "label": "Ride it out",
 					"detail": "Trust the plan. No change."},
-			]})
+			], 120 - current_minute, GateOdds.NONE_COST_RUN)})
 		return true
 	# A tight last-quarter centre bounce.
 	return _bounce_moment(margin)
@@ -5307,15 +5345,18 @@ func _lost_quarter(side: int, q: int) -> bool:
 ## A tag is a midfield job: only a midfielder (centre or wing) is picked for
 ## one by the AI and the match moments.
 static func taggable(p: Dictionary) -> bool:
-	return midfielder_on_ground(p)
+	return midfielder_on_ground(p) and can_be_tagged(p)
 
 
 ## What the coach may tag: anyone who can play midfield, by his first or
 ## second position, wherever he lines up today (director, 2026-10-14: a
 ## mid/forward like Rankine could not be tagged). A ruck or defender with no
-## midfield position still cannot.
+## midfield position still cannot, and nor does a ruckman, even one who also
+## lists midfield (director, 2026-10-18: "no one tags ruckmen"; "ruckmen can
+## be stopped by other ruckmen").
 static func can_be_tagged(p: Dictionary) -> bool:
-	return Ratings.positions(p).has("MID")
+	var pos := Ratings.positions(p)
+	return pos.has("MID") and str(pos[0]) != "RUCK"
 
 
 ## Playing in the midfield today and a midfielder by position. The match-day

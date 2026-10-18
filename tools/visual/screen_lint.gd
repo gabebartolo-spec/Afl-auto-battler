@@ -12,6 +12,8 @@ extends SceneTree
 ## first opaque one (the page colour UiKit.BG when none is opaque). It cannot see colour that _draw() paints.
 ## Exit code 1 when any FIX is found. Never touches a real save.
 
+## An options row beside a fact (FactOptionsRow): its labels repeat by design.
+const OPTION_ROW_NAMES := ["OptionName", "OptionGain", "OptionSub"]
 const MIN_TAP := 44.0
 const MIN_FONT := 13
 const MIN_CONTRAST := 4.5
@@ -257,6 +259,10 @@ func _lint(screen: String) -> void:
 	for e in texts:
 		var key: String = String(e.text).strip_edges().to_lower()
 		if key.length() < 8:
+			continue
+		# The same option under two opposition facts is the feature (P-13), not a
+		# repeat: an option row's name and its gain and cost lines are exempt.
+		if str((e.node as Node).name) in OPTION_ROW_NAMES:
 			continue
 		if not by_text.has(key):
 			by_text[key] = []

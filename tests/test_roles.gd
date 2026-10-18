@@ -327,7 +327,7 @@ func _test_tag_targets() -> void:
 	_check(not sim.tag_target_ok(1, str(ruck["id"])), "A ruck in a midfield slot is not a target")
 	ruck["role2"] = "MID"
 	away.ground[di] = Ratings._for_slot(ruck, "MID")
-	_check(sim.tag_target_ok(1, str(ruck["id"])), "...unless midfield is one of his positions")
+	_check(not sim.tag_target_ok(1, str(ruck["id"])), "...nor when midfield is his second position: no one tags ruckmen (director, 2026-10-18)")
 
 	# Resting a midfielder keeps his tag; bringing him back on up forward keeps
 	# it too, with no "dropped" line: the coach's tag persists across breaks.

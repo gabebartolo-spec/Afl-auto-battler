@@ -671,7 +671,7 @@ func _coach_descriptions(sz: Vector2i) -> void:
 		# trade is his season Player rating, never his disposals (director, 2026-10-13).
 		var words := func(b: Button) -> String: return str(b.get_meta("card_text", b.text))
 		var gives := func(t: String) -> bool:
-			return t.contains("Gives up His own game (") and not t.contains("disposals") 					and (t.contains("season rating ") or t.contains("yet to play this season"))
+			return t.contains("Gives up " + GateOdds.tag_gives().left(1).to_upper() + GateOdds.tag_gives().substr(1) + " (") and t.contains("Their man keeps ") and not t.contains("disposals") 					and (t.contains("season rating ") or t.contains("yet to play this season"))
 		_check(dflt != null and gives.call(words.call(dflt)) and words.call(dflt).contains("Your assistant's pick")
 				and mine_btn != null and gives.call(words.call(mine_btn)),
 				"Your assistant's tagger shows what he gives up, like the others, marked as the pick (%s: %s)" % [tag, words.call(dflt).replace("
