@@ -58,6 +58,20 @@ func _to_practice() -> bool:
 	return GameState.preseason_stop() == "practice"
 
 
+## The papers wait in week 8 (their own suite, papers): pressing on passes them.
+func _past_papers(at: String) -> String:
+	return GameState.preseason_advance() if at == "papers" else at
+
+
+## The same on screen: a tap on the way on passes the papers.
+func _past_papers_scene(tree: SceneTree, scene: Control) -> Control:
+	if scene != null and scene.name == "PreSeasonScene" and GameState.preseason_stop() == "papers":
+		await _tap(scene.find_child("PreSeasonGo", true, false), "On to Round 1 from the papers")
+		await _frames(tree, 10)
+		return tree.current_scene as Control
+	return scene
+
+
 func _frames(tree: SceneTree, n: int) -> void:
 	for i in range(n):
 		await tree.process_frame
@@ -162,7 +176,7 @@ func _test_flow() -> void:
 	_check(names == ["Fremantle", "West Coast"] and int(score[0]) >= 0 and int(score[1]) >= 0 and str(rep["opponent"]) == "WCE",
 			"The report names the two clubs and carries the score")
 	_check(not GameState.sim_practice_match(), "It cannot be played twice")
-	_check(GameState.preseason_advance() == "done" and not GameState.preseason_active() and GameState.preseason_week() == 8,
+	_check(_past_papers(GameState.preseason_advance()) == "done" and not GameState.preseason_active() and GameState.preseason_week() == 8,
 			"Pressing on from the report finishes the last week and opens Round 1")
 	_career()
 	_to_practice()
@@ -365,7 +379,7 @@ func _test_saves() -> void:
 	_career()
 	_to_practice()
 	GameState.preseason.erase("practice")
-	_check(GameState.preseason_stop() == "" and GameState.preseason_advance() == "done" and not GameState.preseason_active(),
+	_check(GameState.preseason_stop() == "" and _past_papers(GameState.preseason_advance()) == "done" and not GameState.preseason_active(),
 			"A save from week 7 with no practice match runs on to Round 1")
 	_career()
 	var guard := 0
@@ -485,6 +499,7 @@ func _test_screens_phone() -> void:
 			"Phone: a finger's tap goes on")
 	await _frames(tree, 10)
 	scene = tree.current_scene as Control
+	scene = await _past_papers_scene(tree, scene)
 	_check(scene != null and scene.name == "HubScene" and not GameState.preseason_active() and GameState.preseason_week() == 8,
 			"Phone: the quiet week passes and the hub opens at Round 1")
 	# Simmed from the screen.
@@ -531,6 +546,7 @@ func _test_screens_pc() -> void:
 	_check(await _tap(scene.find_child("PreSeasonGo", true, false), "Back to training"), "PC: a click goes on")
 	await _frames(tree, 8)
 	scene = tree.current_scene as Control
+	scene = await _past_papers_scene(tree, scene)
 	_check(scene != null and scene.name == "HubScene" and not GameState.preseason_active(),
 			"PC: the hub opens at Round 1")
 	tree.root.size = Vector2i(390, 844)
