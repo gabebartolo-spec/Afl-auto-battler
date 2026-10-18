@@ -57,7 +57,7 @@ func _run() -> void:
 		root.size = size
 		await _settle()
 		for key in SCREENS:
-			await _t("_test_screen", [str(key), size])
+			await _screen(str(key), size)
 	for size in SIZES:
 		root.size = size
 		await _settle()
@@ -142,7 +142,7 @@ func _thumb(bar: ScrollBar) -> Rect2:
 	return Rect2(Vector2(r.position.x, top), Vector2(r.size.x, grab_h))
 
 
-func _test_screen(key: String, size: Vector2i) -> void:
+func _screen(key: String, size: Vector2i) -> void:
 	await _open(key)
 	var scene := current_scene
 	var found: Array = []

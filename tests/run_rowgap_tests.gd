@@ -63,11 +63,11 @@ func _run() -> void:
 		if size == SIZES[0]:
 			await _t("_test_calls_seeds", [size])
 		for key in SCREENS:
-			await _t("_test_screen", [str(key), size])
+			await _screen(str(key), size)
 		for section in ["ladder", "players", "ratings", "awards", "trophies"]:
 			load("res://scripts/ui/StatsHubScene.gd").current = section
 			await _open("stats")
-			_t("_test_audit", [current_scene, "stats %s %dx%d" % [section, size.x, size.y]])
+			_audit(current_scene, "stats %s %dx%d" % [section, size.x, size.y])
 		load("res://scripts/ui/StatsHubScene.gd").current = "fixture"
 	print(Ran.line("Row gap", self))
 	for f in _failures:
@@ -94,9 +94,9 @@ func _open(key: String) -> void:
 	await _settle(8)
 
 
-func _test_screen(key: String, size: Vector2i) -> void:
+func _screen(key: String, size: Vector2i) -> void:
 	await _open(key)
-	_t("_test_audit", [current_scene, "%s %dx%d" % [key, size.x, size.y]])
+	_audit(current_scene, "%s %dx%d" % [key, size.x, size.y])
 
 
 ## The match stats sheet as MatchScene hosts it: the box score in a full-width body.
@@ -116,7 +116,7 @@ func _test_box_score(size: Vector2i) -> void:
 	bg.add_child(body)
 	body.add_child(load("res://scripts/ui/match/BoxScore.gd").new().setup(res))
 	await _settle(8)
-	_t("_test_audit", [bg, "boxscore %dx%d" % [size.x, size.y]])
+	_audit(bg, "boxscore %dx%d" % [size.x, size.y])
 	_inked(bg, str(res["home"]), str(res["away"]), "boxscore %dx%d" % [size.x, size.y])
 	bg.queue_free()
 	await _settle(2)
@@ -144,7 +144,7 @@ func _test_match_sheets(size: Vector2i) -> void:
 	var sheet = scene.find_child("BreakStatsSheet", true, false)
 	_check(sheet != null, "break stats sheet opens at %dx%d" % [size.x, size.y])
 	if sheet != null:
-		_t("_test_audit", [sheet, "break stats %dx%d" % [size.x, size.y]])
+		_audit(sheet, "break stats %dx%d" % [size.x, size.y])
 		var bres: Dictionary = scene.get("_res")
 		_inked(sheet, str(bres["home"]), str(bres["away"]), "break stats %dx%d" % [size.x, size.y])
 		if size.x >= 1280:
@@ -164,7 +164,7 @@ func _test_match_sheets(size: Vector2i) -> void:
 	var ft = scene.find_child("FullTime", true, false)
 	_check(ft != null, "full time opens at %dx%d" % [size.x, size.y])
 	if ft != null:
-		_t("_test_audit", [ft, "full time stats %dx%d" % [size.x, size.y]])
+		_audit(ft, "full time stats %dx%d" % [size.x, size.y])
 		var fres: Dictionary = scene.get("_res")
 		_inked(ft, str(fres["home"]), str(fres["away"]), "full time stats %dx%d" % [size.x, size.y])
 		if size.x >= 1280:
@@ -339,7 +339,7 @@ func _phone_scorers(sheet: Node, tag: String) -> void:
 	_check(worst <= MAX_GAP, tag + ": a scorer's name and figure %d px apart ('%s')" % [int(worst), who])
 
 
-func _test_audit(scene: Node, tag: String) -> void:
+func _audit(scene: Node, tag: String) -> void:
 	# A phone's row is as wide as the phone: only a screen with room is held to it.
 	if root.size.x < 900:
 		return
