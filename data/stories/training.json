@@ -260,7 +260,7 @@
 		"when": {
 			"round_min": 8
 		},
-		"stakes": "A day off costs the week's extra development."
+		"stakes": "A day off gives up the development Monday's session brings."
 	},
 	{
 		"id": "training_time_trial",

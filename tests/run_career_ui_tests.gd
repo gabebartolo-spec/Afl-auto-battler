@@ -326,8 +326,14 @@ func _test_menu_and_career() -> void:
 	# --- the offline promise and the browser's storage line (P-70, P-71) -----------
 	var promise: Label = current_scene.find_child("OfflinePromise", true, false)
 	_check(promise != null and promise.text == "Plays offline. No ads, no account.
-Your career stays on your phone.",
-			"The menu prints the offline promise in the approved words")
+Your career stays on this device.",
+			"The menu prints the offline promise, saying the career stays on this device")
+	var main_script = load("res://scripts/ui/Main.gd")
+	_check(main_script.promise_text(true).ends_with("Your career stays in this browser.")
+			and main_script.promise_text(false).ends_with("Your career stays on this device.")
+			and not main_script.promise_text(true).contains("phone")
+			and not main_script.promise_text(false).contains("phone"),
+			"The promise names the browser on the web and the device elsewhere, never a phone")
 	_check(promise != null and promise.visible and promise.autowrap_mode != TextServer.AUTOWRAP_OFF,
 			"The promise is on screen as two deliberate lines")
 	_check(not WebStorage.should_ask(false, false) and WebStorage.should_ask(true, false)
@@ -867,6 +873,16 @@ Your career stays on your phone.",
 	# backing him names the promise, leaving him out names the missed game, and
 	# a finger on a button with lines under it still answers the card. The card
 	# does not repeat these lines under its heading.
+	# A card that settles itself when the week is played says so on its face, with that choice's cost.
+	_state.week_events = [_state.story_card("health_pulled_up_sore", _state.my_list[0])]
+	_router.go("hub")
+	await _settle()
+	var sore_node: Control = current_scene.find_child("EventSilence_0", true, false)
+	var sore_text := ""
+	if sore_node != null:
+		sore_text = str(sore_node.get_meta("plain")) if sore_node.has_meta("plain") else str(sore_node.get("text"))
+	_check(sore_text.begins_with("If you leave this, it goes as \"Play him\"") and sore_text.contains("%"),
+			"A card with a silent default names it and its odds on the card (%s)" % sore_text)
 	_state.week_events = [_state.story_card("training_kid_pushing", _state.my_list[0])]
 	_router.go("hub")
 	await _settle()

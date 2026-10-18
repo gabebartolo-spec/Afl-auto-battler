@@ -61,7 +61,7 @@ func _test_budget_model() -> void:
 			and ClubBudget.development_mult(1) > ClubBudget.development_mult(0),
 			"More Development funding always has a larger, diminishing XP benefit")
 	_check(ClubBudget.benefit_text("recruiting", 2).contains("20% narrower")
-			and ClubBudget.benefit_text("high_performance", 3).contains("20% higher"),
+			and ClubBudget.benefit_text("high_performance", 3).contains("Legs recover 20% faster"),
 			"Funding benefits are stated as exact effects, not hidden scores")
 
 	var normal := {"id": "normal", "age": 25, "attr": {"durability": 70}, "workload": 50.0}
