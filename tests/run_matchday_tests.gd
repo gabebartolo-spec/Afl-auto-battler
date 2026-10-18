@@ -3031,7 +3031,12 @@ func _break_panes_layout() -> void:
 				"Tag which player? is drawn over the tag choices (%s)" % tag)
 		_check(ask != null and tag_picker != null and ask.get_parent() == tag_picker.get_parent()
 				and ask.get_index() < tag_picker.get_index(), "...above the choices, in the Tag block (%s)" % tag)
-		_matchup_rows(m, box, tag)
+		await _matchup_rows(m, box, tag)
+		var mq: Control = box.find_child("MinderQuestion", true, false)
+		var opp_code := str(sim.squads[1 - int(sim.moment_side)].code)
+		var ink_club: String = "[color=#%s]%s[/color]" % [UK.club_ink(opp_code).to_html(false), db.club_name(opp_code).replace(" ", NB)]
+		_check(mq is RichTextLabel and (mq as RichTextLabel).text.contains(ink_club),
+				"The club name in Who covers (%s)? wears the club's ink (%s: %s)" % [db.club_name(opp_code), tag, "" if mq == null else str(mq.get("text"))])
 		if sz.x >= 1200:
 			var cols_node: Control = box.find_child("BreakColumns", true, false)
 			var cols: Array = cols_node.get_children()
@@ -3122,14 +3127,18 @@ func _matchup_rows(m: Control, box: Node, tag: String) -> void:
 	var rows := box.find_children("BreakMatchup_*", "HBoxContainer", true, false)
 	_check(not rows.is_empty(), "The key match-ups have rows (%s)" % tag)
 	var names: Dictionary = m.call("_names")
+	var gaps := []
 	for r in rows:
 		var line: RichTextLabel = r.find_child("MatchupLine", true, false) as RichTextLabel
 		var change: Button = r.find_child("ChangeMatchup", true, false) as Button
 		if line == null or change == null:
 			_check(false, "A match-up row has its sentence and Change (%s)" % tag)
 			continue
-		var gap := change.get_global_rect().position.x - line.get_global_rect().end.x
+		var beside := _change_beside(line, change)
+		var gap: float = beside["gap"]
+		gaps.append(gap)
 		_check(gap >= 0.0 and gap <= 14.0, "Change sits right after its sentence, %.0f px away (%s: %s)" % [gap, tag, _plain_of(line)])
+		_check(absf(float(beside["off"])) <= 6.0, "Change sits level with the last line of its sentence (%.0f px off, %s: %s)" % [beside["off"], tag, _plain_of(line)])
 		var plain := _plain_of(line)
 		var spans: Array = NI.spans_in(plain, names)
 		var broken := []
@@ -3139,6 +3148,43 @@ func _matchup_rows(m: Control, box: Node, tag: String) -> void:
 				if at > int(sp[0]) and at < int(sp[1]):
 					broken.append(plain.substr(int(sp[0]), int(sp[1]) - int(sp[0])))
 		_check(broken.is_empty(), "No name breaks across lines on a match-up (%s: %s)" % [tag, str(broken)])
+	# A sentence long enough to wrap on any pane: Change still follows its last line,
+	# the same distance as on a one-line row.
+	if not rows.is_empty():
+		var wl: RichTextLabel = rows[0].find_child("MatchupLine", true, false) as RichTextLabel
+		var was_bb := wl.text
+		var was_plain := _plain_of(wl)
+		NI.set_line(wl, "A long sentence that names a good many words, so that this match-up has to wrap onto a second and a third line before it ends.", names)
+		if wl.has_meta("refit"):
+			(wl.get_meta("refit") as Callable).call()
+		await _settle()
+		var wc: Button = rows[0].find_child("ChangeMatchup", true, false) as Button
+		var wat := _change_beside(wl, wc)
+		_check(wl.get_line_count() >= 2, "(setup) the long match-up sentence wraps (%d lines, %s)" % [wl.get_line_count(), tag])
+		_check(float(wat["gap"]) >= 0.0 and float(wat["gap"]) <= 14.0, "On a wrapped sentence Change sits right after its last line, %.0f px away (%s)" % [wat["gap"], tag])
+		_check(absf(float(wat["off"])) <= 6.0, "...level with that last line (%.0f px off, %s)" % [wat["off"], tag])
+		var all_gaps: Array = gaps.duplicate()
+		all_gaps.append(float(wat["gap"]))
+		var lo: float = all_gaps.min()
+		var hi: float = all_gaps.max()
+		_check(all_gaps.size() >= 2 and hi - lo <= 4.0, "Every Change sits the same distance after its sentence, wrapped or not (%.1f to %.1f px, %s)" % [lo, hi, tag])
+		wl.text = was_bb
+		wl.set_meta("plain", was_plain)
+		(wl.get_meta("refit") as Callable).call()
+		await _settle()
+
+
+## How far a Change sits from the end of its sentence's last line (gap, px across),
+## and how far its middle is from that line's middle (off, px down).
+func _change_beside(line: RichTextLabel, change: Button) -> Dictionary:
+	var last := line.get_line_count() - 1
+	var rng := line.get_line_range(last)
+	var shown := line.get_parsed_text().substr(rng.x, rng.y - rng.x).strip_edges(false, true)
+	var ends := line.get_global_rect().position.x + line.get_theme_font("normal_font").get_string_size(
+			shown, HORIZONTAL_ALIGNMENT_LEFT, -1, line.get_theme_font_size("normal_font_size")).x
+	var top := line.get_line_offset(last)
+	var mid := line.get_global_rect().position.y + top + (line.get_content_height() - top) * 0.5
+	return {"gap": change.get_global_rect().position.x - ends, "off": change.get_global_rect().get_center().y - mid}
 
 
 ## Tapping a tag target brings "Who tags" in; no other section changes column

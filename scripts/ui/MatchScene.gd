@@ -921,8 +921,12 @@ func _show_coach_box() -> void:
 		minder_box.add_child(none_note)
 	else:
 		var fwds := Matchups.minder_candidates(my_ground)
-		var ask := _say(MatchNotes.minder_question(GameDB.player_display_name(opp_spare),
-				GameDB.club_name(str((sim.squads[1 - _my_side] as Squad).code))), UiKit.BODY, UiKit.TEXT, true)
+		# Prose carries ink: his name and his club's name both wear his club's colour.
+		var opp_code := str((sim.squads[1 - _my_side] as Squad).code)
+		var ask_names := _names_named([str(opp_spare.get("id", ""))])
+		ask_names[GameDB.club_name(opp_code)] = opp_code
+		var ask := NameInk.label(MatchNotes.minder_question(GameDB.player_display_name(opp_spare),
+				GameDB.club_name(opp_code)), ask_names, UiKit.BODY, UiKit.TEXT, true)
 		ask.name = "MinderQuestion"
 		ask.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		minder_box.add_child(ask)
@@ -4097,24 +4101,55 @@ func _matchups_view(sim: MatchSim, q: int) -> Control:
 ## A sentence with its action right after it, not at the far edge of the pane: the
 ## sentence is as wide as its words need, up to what the row leaves beside the
 ## action, so a long one wraps (before a name, never inside one: NameInk) and the
-## action sits at the end of its last line. `refit` (a meta on the line) runs
-## again after the words change.
+## action sits right after the end of its LAST line, level with it, the same gap on
+## every row. Both are placed by hand in one slot of the row: the action keeps its
+## full touch height and hangs over the line's top and bottom instead of making the
+## row taller than its words. `refit` (a meta on the line) runs again after the
+## words change.
+const BESIDE_GAP := 6.0
+
+
 func _beside_sentence(row: HBoxContainer, line: RichTextLabel, action: Button) -> void:
-	line.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	line.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	action.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var slot := Control.new()
+	slot.name = "BesideSentence"
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# The slot has no width of its own, only the row's: a long sentence wraps to
+	# the pane, it never widens it.
+	slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for n in [line, action]:
+		if (n as Node).get_parent() != null:
+			(n as Node).get_parent().remove_child(n)
+		slot.add_child(n)
+	row.add_child(slot)
 	var refit := func() -> void:
 		if not is_instance_valid(line) or not is_instance_valid(row) or not is_instance_valid(action):
 			return
 		var font := line.get_theme_font("normal_font")
 		var size := line.get_theme_font_size("normal_font_size")
 		var natural := font.get_string_size(NameInk.plain(line), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + 4.0
-		var room := row.size.x - action.get_combined_minimum_size().x - float(row.get_theme_constant("separation"))
+		var btn := action.get_combined_minimum_size()
+		var room := slot.size.x - btn.x - BESIDE_GAP
 		# Before the row has a width, leave the sentence its own: the first
 		# layout pass then sets it right.
-		line.custom_minimum_size.x = natural if row.size.x <= 0.0 else maxf(60.0, minf(natural, room))
+		var w := natural if slot.size.x <= 0.0 else maxf(60.0, minf(natural, room))
+		line.size = Vector2(w, line.size.y)
+		var lines := line.get_line_count()
+		if lines <= 0:
+			return
+		var text_h := line.get_content_height()
+		var last := line.get_line_range(lines - 1)
+		var tail := line.get_parsed_text().substr(last.x, last.y - last.x).strip_edges(false, true)
+		var tail_w := font.get_string_size(tail, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		var top := line.get_line_offset(lines - 1)
+		var height := maxf(text_h + 4.0, btn.y)
+		var text_y := (height - text_h) * 0.5
+		line.position = Vector2(0.0, text_y)
+		line.size = Vector2(w, text_h)
+		action.size = btn
+		action.position = Vector2(tail_w + BESIDE_GAP, text_y + top + (text_h - top) * 0.5 - btn.y * 0.5)
+		slot.custom_minimum_size = Vector2(0.0, height)
 	line.set_meta("refit", refit)
-	row.resized.connect(refit)
+	slot.resized.connect(refit)
 	refit.call_deferred()
 
 
