@@ -144,7 +144,7 @@ func _row(p: Dictionary) -> Control:
 	var st: Dictionary = p["stats"]
 	# His name in his club's ink, both clubs alike (director A1, 2026-10-14).
 	var who := UiKit.ellipsis("%d  %s" % [int(p["num"]), str(p["name"])], UiKit.SMALL,
-			UiKit.club_ink_pair(str(_res.get("home", "")), str(_res.get("away", "")))[_side])
+			UiKit.club_name_colour(UiKit.club_ink_pair(str(_res.get("home", "")), str(_res.get("away", "")))[_side]))
 	who.name = "PlayerName_" + id
 	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(who)

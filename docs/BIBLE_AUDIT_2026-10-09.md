@@ -1,5 +1,7 @@
 # Design documents audited against the design bible (2026-10-09)
 
+*Superseded on decision transparency by bible §4 (director, 2026-10-18); see docs/research/DECISION_TRANSPARENCY_AUDIT_2026-10-18.md.*
+
 Asked for by the director. Scope: `CLAUDE.md`, `README.md`, `docs/DESIGN.md`,
 `docs/MATCH_VIEW.md` and `docs/ROADMAP.md` (§0 to §1.10, the items the bible
 touches, §9.3 to §9.5), checked against [DESIGN_BIBLE.md](DESIGN_BIBLE.md).
