@@ -852,6 +852,10 @@ func _fact_options() -> void:
 	var mid_fwd := {"id": "y", "role": "FWD", "role2": "MID", "overall": 80, "attr": {}}
 	var rank: Array = FO.options({"key": "danger", "player_id": "y"}, [], [], [mid_fwd])
 	_check(not rank.is_empty() and bool(rank[0]["enabled"]), "A mid/forward can be tagged, as the director asked (A9)")
+	var ruck_mid := {"id": "z", "role": "RUCK", "role2": "MID", "overall": 85, "attr": {}}
+	var rm: Array = FO.options({"key": "danger", "player_id": "z"}, [ruck_mid], [], [ruck_mid])
+	_check(not rm.is_empty() and str(rm[0]["call"]) == "tag" and not bool(rm[0]["enabled"]),
+			"A ruckman is never offered a tag, even one who also lists midfield (lead ruling, 2026-10-18)")
 
 	# The hub, phone and PC: the rows are under their facts, thumb-sized, whole.
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:

@@ -86,9 +86,9 @@ static func _option(key: String, row: Array, who: Dictionary, theirs: Array, min
 	match call:
 		"tag":
 			if not who.is_empty():
-				if not MatchSim.can_be_tagged(who):
+				if not _tag_candidate(who):
 					reason = "He plays %s: a tag needs a midfielder." % _where(who)
-			elif theirs.filter(func(p): return MatchSim.can_be_tagged(p)).is_empty():
+			elif theirs.filter(func(p): return _tag_candidate(p)).is_empty():
 				reason = "None of their midfielders is on the ground."
 		"matchup":
 			var keys := Matchups.key_forwards(theirs)
@@ -142,6 +142,12 @@ static func plan_cost(plan: String) -> String:
 		if i > 0:
 			cut = mini(cut, i)
 	return c.left(cut)
+
+
+## Mid or forward with a midfield position, never a ruckman (director, 2026-10-14, A9; lead, 2026-10-18):
+## a ruck who also lists MID is the Main ruck call's business here, not a tag's.
+static func _tag_candidate(p: Dictionary) -> bool:
+	return MatchSim.can_be_tagged(p) and str(Ratings.positions(p)[0]) != "RUCK"
 
 
 static func _where(p: Dictionary) -> String:
