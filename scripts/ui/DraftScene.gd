@@ -76,6 +76,7 @@ var _history_scroll: ScrollContainer
 var _mine_scroll: ScrollContainer
 var _order_scroll: ScrollContainer
 var _ticker: Button
+var _why_box: VBoxContainer   # one line: why a rival took or passed on a prospect you opened
 var _next_picks: Label
 var _finish_btn: Button
 var _pass_btn: Button
@@ -391,6 +392,9 @@ func _show_board() -> void:
 	# On short landscape displays, show the ticker inside the activity pane
 	# instead of spending an entire row above the player pool.
 	_ticker.visible = not _short
+	_why_box = UiKit.vbox(0)
+	_why_box.name = "RivalWhy"
+	_root.add_child(_why_box)
 
 	_main_tabs = UiKit.hbox(3)
 	_main_tabs.visible = not _wide
@@ -1137,6 +1141,8 @@ func _open_player(id: String) -> void:
 	var keep_all := _detail_all and id == _detail_id
 	_close_player()
 	_detail_id = id
+	if not _draft.has(id):
+		_draft.wanted()[id] = true  # he's on your mind: a rival passing on him says why
 	_detail_all = keep_all
 	var box := UiKit.modal_box(self, 560.0, 0.0)
 	_detail = box["overlay"]
@@ -1829,6 +1835,45 @@ func _refresh_status() -> void:
 		_ticker.text = "Pick #%d · %s: %s · +%d picks ›" % [
 			latest["pick"], str(latest["club"]), _entry_player_name(latest), new_rivals]
 	_ticker.tooltip_text = _ticker.text + "\nTap to see every club's selections."
+	_refresh_why()
+
+
+## Since your last pick, why a rival took a prospect you had opened (or, if
+## none was taken, why the latest club passed on one): one line, the club in
+## its ink, nothing when you opened no one (P-18).
+func _refresh_why() -> void:
+	if not is_instance_valid(_why_box):
+		return
+	UiKit.clear(_why_box)
+	var e := _why_entry()
+	if e.is_empty():
+		return
+	var club := str(e["club"])
+	var index := {GameDB.club_name(club): club}
+	var line := NameInk.label(_draft.wanted_line(e, func(q: Dictionary) -> String:
+			return GameDB.player_display_name(q) if not q.is_empty() else "another player"), index, UiKit.SMALL, UiKit.TEXT)
+	line.name = "RivalWhyLine"
+	if line is Label:
+		(line as Label).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_why_box.add_child(line)
+
+
+func _why_entry() -> Dictionary:
+	var since := 0
+	for i in range(_draft.pick_history.size() - 1, -1, -1):
+		if str(_draft.pick_history[i]["club"]) == _club:
+			since = int(_draft.pick_history[i]["pick"])
+			break
+	var pass_entry := {}
+	for i in range(_draft.wanted_news().size() - 1, -1, -1):
+		var e: Dictionary = _draft.wanted_news()[i]
+		if int(e["pick"]) <= since:
+			break
+		if str(e["code"]).begins_with("draft_took"):
+			return e
+		if pass_entry.is_empty() and not _draft.picked.has(str(e["player_id"])):
+			pass_entry = e
+	return pass_entry
 
 
 func _on_finish() -> void:
