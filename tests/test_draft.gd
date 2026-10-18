@@ -32,6 +32,7 @@ func run() -> void:
 	_test_scouted_league_board()
 	_test_rival_says_why()
 	_test_draft_reasons_change_nothing()
+	_test_real_drafts_reasons_change_nothing()
 	GameState.replay_seed = 0
 	print("Draft tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -1003,3 +1004,59 @@ func _test_draft_reasons_change_nothing() -> void:
 	var leaked := saved.keys().filter(func(k): return str(k).contains("wanted") or str(k) == "_session")
 	_check(not saved.is_empty() and leaked.is_empty(),
 			"What you opened on the board is not written to a save (%s)" % str(leaked))
+
+
+## P-18 on the real data: the full league draft (18 clubs, every prospect
+## opened, you picking) and the real intake draft make JSON-equal picks with
+## reasons on and off, and while the board shows the coach a range, no reason
+## rests on a rating (the first-choice ruck rule turns on OVR).
+func _test_real_drafts_reasons_change_nothing() -> void:
+	for kind in ["league", "intake"]:
+		var runs := []
+		var codes := {}
+		for on in [true, false]:
+			AiReasons.enabled = on
+			var d: Draft = _real_draft(kind)
+			if on:
+				for q in d.pool:
+					d.wanted()[str(q["id"])] = true
+			d.start_for_user("FRE")
+			var guard := 0
+			while not d.is_finished() and guard < 2000:
+				guard += 1
+				if d.is_user_turn():
+					var rows: Array = d.board("", "", "", "overall", true)
+					if rows.is_empty() or not d.pick(rows[0]):
+						break
+				d.auto_until_user_turn()
+			runs.append(JSON.stringify(d.pick_history))
+			if on:
+				for n in d.wanted_news():
+					codes[str(n["code"])] = int(codes.get(str(n["code"]), 0)) + 1
+		AiReasons.enabled = true
+		_check(runs[0] == runs[1] and runs[0].length() > 100,
+				"The real %s draft picks the same players with reasons on and off (%s)" % [kind, str(codes)])
+		_check(not codes.has("draft_first_ruck") and codes.size() >= 3,
+				"In the real %s draft no reason rests on a rating the board shows as a range" % kind)
+
+
+func _real_draft(kind: String) -> Draft:
+	var clubs: Array = GameDB.active_clubs(2026).duplicate()
+	if kind == "league":
+		return Draft.new(GameDB.all_players_sorted(), clubs, 4242)
+	var sizes := {}
+	var counts := {}
+	var pairs := {}
+	for code in clubs:
+		var arr: Array = GameDB.club_list(code)
+		sizes[code] = arr.size()
+		var c := {"RUCK": 0, "MID": 0, "DEF": 0, "FWD": 0}
+		var pr: Array = []
+		for q in arr:
+			if c.has(str(q["role"])):
+				c[str(q["role"])] = int(c[str(q["role"])]) + 1
+			pr.append([str(q["role"]), str(q.get("role2", ""))])
+		counts[code] = c
+		pairs[code] = pr
+	var pool: Array = GameDB.draftees.map(func(q): return (q as Dictionary).duplicate(true))
+	return Draft.build_intake(pool, clubs, clubs.duplicate(), 4242, sizes, counts, pairs)

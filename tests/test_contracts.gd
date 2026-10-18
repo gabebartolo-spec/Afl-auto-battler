@@ -2284,3 +2284,20 @@ func _test_market_reasons_change_nothing() -> void:
 			"The reasons add nothing to the save")
 	GameState.reset()
 	_check(GameState.fa_lost.is_empty(), "A new career starts with no free-agency reasons")
+	# Season two: the wrap tells this off-season's losses, not last year's.
+	GameState.career_seed = 4712
+	GameState.replay_seed = 4712
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	_to_offseason()
+	GameState.open_offseason()
+	for fa in GameState.free_agents.slice(0, 8):
+		var yrs := int(Contracts.wants(fa)["years"])
+		GameState._add_offer(fa, GameState.my_club, {"salary": Contracts.lowest(fa, yrs), "years": yrs},
+				GameState.fa_role(fa, GameState.my_club), GameState._finish_t(GameState.my_club))
+	GameState._close_free_agency()
+	var had := GameState.fa_lost.size()
+	GameState.start_next_season()
+	_to_offseason()
+	GameState.open_offseason()
+	_check(had > 0 and GameState.fa_lost.is_empty(),
+			"The next off-season's market starts with no free-agency reasons from last year (%d before)" % had)

@@ -775,15 +775,33 @@ func _why_scored(code: String, best: Dictionary, best_score: float, scored: Dict
 		if id == bid:
 			why[id] = "draft_took_need" if float(d.get("need", 0.0)) >= 1.0 else "draft_took_best"
 		elif bool(d.get("second_star", false)):
-			why[id] = "draft_first_ruck"
+			# The rule turns on his rating and their ruck's: say so only when
+			# the board shows the coach both; otherwise only what is plain.
+			why[id] = "draft_first_ruck" if _first_ruck_public(code, scored_player(id)) else "draft_preferred"
 		elif float(d.get("need", 0.0)) <= 0.0 and str(d.get("role", "")) == "RUCK":
 			why[id] = "draft_ruck_full"
-		elif float(d.get("need", 0.0)) < float(bd.get("need", 0.0)):
+		elif float(d.get("need_list", 0.0)) < float(bd.get("need_list", 0.0)):
 			why[id] = "draft_stocked"
 		elif float(scored[id][0]) + float(d.get("penalty", 0.0)) - float(bd.get("penalty", 0.0)) > best_score:
 			why[id] = "draft_price"
 		else:
 			why[id] = "draft_preferred"
+
+
+## The prospect `id` from the pool (for a reason's check), or {}.
+func scored_player(id: String) -> Dictionary:
+	return _pool_player(id)
+
+
+## True when the board shows the coach exact ratings for `p` and for every
+## first-choice ruck on `code`'s list: only then may a reason rest on them.
+func _first_ruck_public(code: String, p: Dictionary) -> bool:
+	if p.is_empty() or bool(user_view(p)["scouted"]):
+		return false
+	for q in club_lists.get(code, []):
+		if str(q["role"]) == "RUCK" and int(q["overall"]) >= RUCK_FIRST_CHOICE and bool(user_view(q)["scouted"]):
+			return false
+	return true
 
 
 func _forced_role(code: String) -> String:
@@ -885,6 +903,7 @@ func _ai_score(code: String, p: Dictionary, detail = null) -> float:
 		if s > best and detail is Dictionary:
 			detail["role"] = role
 			detail["need"] = need
+			detail["need_list"] = _need_by_count(code, role)
 			detail["second_star"] = second_star
 		best = maxf(best, s)
 	var penalty := _cap_penalty(code, p)
@@ -1151,6 +1170,20 @@ func _intake_ruck_need(code: String, p: Dictionary) -> float:
 		return 0.0
 	var project := int(p.get("potential", 0)) - int(p.get("overall", 0)) >= INTAKE_RUCK_PROJECT_GAP
 	return INTAKE_COVERED if (current_round() >= INTAKE_RUCK_LATE_ROUND or project) else INTAKE_RUCK_THIRD
+
+
+## The need a reason may name: from the list's counts and the round alone,
+## never a rating (the intake ruck rule's "project" turns on POT; the first-
+## choice ruck rule on OVR). P-18 reasons only; picks use _need_weight.
+func _need_by_count(code: String, role: String) -> float:
+	if role == "RUCK" and intake_mode:
+		var n := int(role_counts_for(code).get("RUCK", 0))
+		if n < 2:
+			return 1.0
+		if n >= 3:
+			return 0.0
+		return INTAKE_COVERED if current_round() >= INTAKE_RUCK_LATE_ROUND else INTAKE_RUCK_THIRD
+	return _need_weight(code, role)
 
 
 func _need_weight(code: String, role: String) -> float:

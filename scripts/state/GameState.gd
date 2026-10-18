@@ -5436,6 +5436,7 @@ func open_offseason() -> void:
 	# signings, and a reload, which does not keep them, changed the market).
 	market_stats = {}
 	_targets_signed = {}
+	fa_lost = []   # the wrap tells this off-season's losses, not last year's
 	_bars = {}
 	_open_market(free_agents)
 	mark_dirty()
