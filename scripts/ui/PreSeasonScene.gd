@@ -339,7 +339,7 @@ func _papers_ladder() -> Control:
 		mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(mark)
 		var mine := code == GameState.my_club
-		var nm := UiKit.lbl(GameDB.club_name(code), UiKit.BODY, UiKit.club_ink(code), mine)
+		var nm := UiKit.lbl(GameDB.club_name(code), UiKit.BODY, UiKit.club_name_colour(UiKit.club_ink(code)), mine)
 		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(nm)
