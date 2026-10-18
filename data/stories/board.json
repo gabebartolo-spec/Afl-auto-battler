@@ -159,6 +159,12 @@
 						"op": "morale",
 						"d": 3,
 						"who": "all"
+					},
+					{
+						"op": "slow_start",
+						"who": "side",
+						"chance": 15,
+						"on": "week"
 					}
 				],
 				"result": "The billboards go up."

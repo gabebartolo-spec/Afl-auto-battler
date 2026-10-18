@@ -223,6 +223,11 @@ func _ratings_section(sz: Vector2i) -> void:
 	var rule: Label = s.find_child("RatingsRule", true, false)
 	_check(rule != null and rule.get_global_rect().end.x <= sz.x + 1 and rule.get_line_count() >= 1
 			and rule.get_visible_line_count() == rule.get_line_count(), "The ranking rule is said in full at the top (%s)" % tag)
+	var intro: Control = s.find_child("RatingsIntro", true, false)
+	var first_row: Control = s.find_child("RatingsList", true, false)
+	var heading_x: float = (intro.get_child(0).get_child(0) as Control).get_global_rect().position.x if intro != null else -1.0
+	_check(intro != null and first_row != null and heading_x >= (sec as Control).get_global_rect().position.x + 8.0 and heading_x >= 8.0,
+			"The Ratings heading starts inside the page, not on its edge (%s)" % tag)
 	var head := []
 	for i in range(mini(12, rows.size())):
 		head.append(rows[i])
@@ -891,6 +896,12 @@ func _ladder(sz: Vector2i) -> void:
 		# puts the ladder back in its true order.
 		var pos_why: String = await Tap.tap(s.find_child("Sort_pos", true, false))
 		_check(pos_why == "", "A finger on the # header (24 px wide, 44 tall) reaches it (%s: %s)" % [tag, pos_why])
+	else:
+		# On a PC the "#" header, the way back to the true order, is at least thumb-wide too.
+		var pos_btn: Control = s.find_child("Sort_pos", true, false)
+		_check(pos_btn != null and pos_btn.size.x >= 44.0, "The # sort header is at least 44 px wide (%s: %.0f)" % [tag, pos_btn.size.x if pos_btn != null else 0.0])
+		var pos_pc: String = await Tap.tap(pos_btn)
+		_check(pos_pc == "", "A real tap on the # header reaches it (%s: %s)" % [tag, pos_pc])
 
 	# A wide screen: the table is as wide as its columns, at the left beside the
 	# toggles, and the toggles are compact groups rather than bars across the window.

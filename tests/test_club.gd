@@ -29,6 +29,7 @@ func run() -> void:
 	_test_first_goal_candidates()
 	_test_sacking()
 	_test_board_patience()
+	_test_board_warning_line()
 	_test_team_form()
 	_test_board_confidence()
 	_test_coaching_hub()
@@ -364,6 +365,20 @@ func _test_event_decisions() -> void:
 	GameState.resolve_week_event(1)
 	_check(int(star["contract_years"]) == 1 and int(star["salary"]) == sal_before and ClubLife.morale(star) == 65,
 			"Waiting commits nothing and costs a little morale")
+	# Waiting's upside and its risk, sized from the price curve (bible §4).
+	var flat := {"id": "w_flat", "overall": 84, "age": 26.0, "morale": 70}
+	var up := flat.duplicate()
+	up["overall"] = 84 + GameState.SEASON_TRAIN_GAIN
+	var rise := Contracts.asking_salary(up) - Contracts.asking_salary(flat)
+	var waits := ClubLife.wait_words(flat, 84 + GameState.SEASON_TRAIN_GAIN)
+	_check(waits.contains("at most %d points" % GameState.SEASON_TRAIN_GAIN) and waits.contains(Contracts.money(rise))
+			and ClubLife.wait_words(flat, 84) == ClubLife.WAIT_FLAT
+			and RegEx.create_from_string("[0-9]").search(ClubLife.WAIT_LIFT + ClubLife.WAIT_FLAT) == null,
+			"Waiting says how far training can still lift his price this season (%s)" % waits)
+	var wait_card: Dictionary = GameState.story_card("contracts_wants_to_extend", star)
+	var wait_opt: Dictionary = (wait_card.get("options", []) as Array)[1] if (wait_card.get("options", []) as Array).size() > 1 else {}
+	_check(str(wait_opt.get("detail", "")).contains("At the off-season he asks") and not str(wait_opt.get("detail", "")).contains("{"),
+			"The Wait answer on the card carries what waiting can cost (%s)" % str(wait_opt.get("detail", "")))
 	GameState.week_event = GameState.story_card("contracts_wants_to_extend", star)
 	GameState.resolve_week_event(0)
 	_check(int(star["salary"]) == early and int(star["contract_years"]) == 3,
@@ -552,6 +567,63 @@ func _test_board_patience() -> void:
 			"A forgiven poor season is reported in the board's words: %s" % GameState.board_why())
 	_check(GameState.save_career() and GameState.load_career() and int(GameState.board.get("poor_seasons", 0)) == 1
 			and GameState.board_patience == "patient", "The count of poor seasons and the dial survive a save")
+	GameState.set_new_career_dial("board_patience", "fair")
+	GameState.delete_saved_career()
+
+
+## The hub's warning fires the moment confidence is under ClubLife.POOR_LINE
+## (40) on every board type, and not at or above it. The board's words keep
+## each dial's own season line, and the copy carries the real lines (director
+## 2026-10-18, ch. 30 row 34: "Warn at 40, labels keep their line").
+func _test_board_warning_line() -> void:
+	var line := ClubLife.POOR_LINE
+	_check(line == 40, "The warning line is 40")
+	for step in ["patient", "fair", "ruthless"]:
+		GameState.set_new_career_dial("board_patience", step)
+		GameState.reset()
+		GameState.start_season("GEE", GameDB.club_list("GEE"))
+		var rules := GameState.difficulty_rules()
+		# The board's words keep the dial's own season line: at 35 Patient and Fair are
+		# "Under pressure", Ruthless (line 40) is "In trouble"; all three warn.
+		GameState.board["confidence"] = 35
+		GameState.board["warned"] = false
+		var want := "In trouble" if step == "ruthless" else "Under pressure"
+		_check(GameState.board_state() == want and GameState.board_warning() != "",
+				"%s at 35: the board reads '%s' and the hub warns (%s)" % [step, want, GameState.board_state()])
+		# Walk confidence down one point at a time: the first warning is the first week under 40.
+		var first_warned := -1
+		var above_clean := true
+		for c in range(60, 20, -1):
+			GameState.board["confidence"] = c
+			GameState.board["warned"] = false
+			if GameState.board_warning() != "":
+				if first_warned < 0:
+					first_warned = c
+			elif c < line:
+				above_clean = false
+			if c >= line and GameState.board_warning() != "":
+				above_clean = false
+		_check(first_warned == line - 1 and above_clean,
+				"%s: the warning first fires at %d and never at %d or above (first %d)" % [step, line - 1, line, first_warned])
+		GameState.board["goal"] = {"key": "top4", "text": "Finish in the top four", "pos": 4}
+		GameState.board["confidence"] = 38
+		GameState.board["poor_seasons"] = 0
+		var text := GameState.board_warning()
+		_check(text.begins_with("Board confidence is poor (38%). ") and text.contains("%d%%" % int(rules["poor_season_below"])),
+				"%s: the copy carries the confidence and the season line (%s)" % [step, text])
+		GameState.board["warned"] = true
+		_check(GameState.board_warning().ends_with("and you are sacked."),
+				"%s: on a final warning the copy says the next poor season is the sack" % step)
+	# Patient: the first poor season is forgiven, so the copy does not promise a warning yet.
+	GameState.set_new_career_dial("board_patience", "patient")
+	GameState.reset()
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	GameState.board["confidence"] = 38
+	GameState.board["poor_seasons"] = 0
+	var forgiving := GameState.board_warning()
+	GameState.board["poor_seasons"] = 1
+	_check(not forgiving.contains("final warning") and GameState.board_warning().contains("final warning"),
+			"Patient: the first poor season is marked against you, the second brings the warning")
 	GameState.set_new_career_dial("board_patience", "fair")
 	GameState.delete_saved_career()
 

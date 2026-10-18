@@ -105,13 +105,9 @@ static func benefit_text(area: String, level: int) -> String:
 			return "Players aged 22 and under earn 10% more development XP."
 		return "Players aged 22 and under earn 15% more development XP."
 	if area == "high_performance":
-		if level == 0:
-			return "Weekly workload recovery is 10% lower than standard."
-		if level == 1:
-			return "Weekly workload recovery is at the standard rate."
-		if level == 2:
-			return "Weekly workload recovery is 10% higher than standard."
-		return "Weekly workload recovery is 20% higher than standard."
+		# All it buys (recovery, the season peak's height and timing) and what
+		# it costs, worked out from the constants (Conditioning.department_words).
+		return Conditioning.department_words(level)
 	if area == "football":
 		if level == 0:
 			return "Gameplan execution is 5% lower than standard."

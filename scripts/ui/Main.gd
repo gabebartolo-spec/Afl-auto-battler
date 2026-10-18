@@ -40,9 +40,17 @@ const TAGLINE := "Build your dynasty."
 const NAME_OPTIONS := [["generated", "Generated"], ["real", "Real"]]
 ## The promise, printed once on the menu (P-70). tools/check_android_permissions.py
 ## fails CI if the Android export ever asks for more than vibrate.
-const OFFLINE_PROMISE := "Plays offline. No ads, no account.
-Your career stays on your phone."
+const OFFLINE_PROMISE := "Plays offline. No ads, no account."
+## Where the career is kept, true on every platform: a browser build keeps it in the
+## browser, the app and the desktop game on this device (it said "your phone" on all).
+const KEPT_ON_DEVICE := "Your career stays on this device."
+const KEPT_IN_BROWSER := "Your career stays in this browser."
 const NAMES_INFO := "Real shows each player's AFL name; generated names are invented. Ratings and results are the same either way."
+
+
+## The promise as the menu prints it: two lines, the second naming where the save lives.
+static func promise_text(web: bool) -> String:
+	return OFFLINE_PROMISE + "\n" + (KEPT_IN_BROWSER if web else KEPT_ON_DEVICE)
 
 
 ## The title treatment: the logo, whole and undistorted. Its black ground
@@ -250,7 +258,7 @@ func _show_home() -> void:
 		quiet.add_child(exit)
 	_content.add_child(quiet)
 	_content.add_child(UiKit.spacer(10))
-	var promise := UiKit.lbl(OFFLINE_PROMISE, UiKit.SECONDARY, UiKit.MUTED)
+	var promise := UiKit.lbl(promise_text(WebStorage.on_web()), UiKit.SECONDARY, UiKit.MUTED)
 	promise.name = "OfflinePromise"
 	promise.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	promise.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

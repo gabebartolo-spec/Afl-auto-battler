@@ -56,7 +56,7 @@ const HOLDS_WITH_TRUST := 45
 const PLAYER_FACTS := ["name", "first", "age", "games", "fit", "selected", "overall", "potential",
 		"pot_gap", "contract_years", "morale", "trust", "trust_band", "discipline", "backed",
 		"fit_rank", "talk_case", "kpi", "kpi_or_need", "explain_label", "talk_text", "sore_odds",
-		"ask", "early_price", "more_seasons", "extension_ok", "job", "real_named",
+		"sore_pct", "trial_ovr", "ask", "early_price", "more_seasons", "extension_ok", "job", "real_named",
 		"form", "form_games", "has_role2", "starting", "form_low", "role_avg", "role_word", "trial_word", "trial_home", "trial_avg", "trial_par", "trial_tail",
 		"leadership", "captain", "delegate_holds", "holds_at", "holds_trust_at",
 		# The finals cards: the ageing rule says this is his last season, the finals he has
@@ -67,7 +67,9 @@ const PLAYER_FACTS := ["name", "first", "age", "games", "fit", "selected", "over
 		"last_season", "finals_games", "save_debut", "debut_year", "milestone_next",
 		"injured_weeks", "rushable", "overall_rank", "told_players",
 		# International prospects (international.json): who he is, and where he is in his career.
-		"intl", "intl_region", "from", "demonym", "home_club", "seasons_listed", "goals"]
+		"intl", "intl_region", "from", "demonym", "home_club", "seasons_listed", "goals",
+		# The extension card: what waiting for the off-season can cost (ClubLife.wait_words).
+		"wait_price"]
 ## Facts about the club and the week (GameState._story_club_facts).
 const CLUB_FACTS := ["club", "opp", "round", "year", "losing_run", "winning_run", "ladder",
 		"board", "fit_count", "run_games", "finals_week", "captain_name", "vice_name", "vice_id",

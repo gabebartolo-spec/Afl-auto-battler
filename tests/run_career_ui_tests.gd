@@ -303,8 +303,14 @@ func _run() -> void:
 	# --- the offline promise and the browser's storage line (P-70, P-71) -----------
 	var promise: Label = current_scene.find_child("OfflinePromise", true, false)
 	_check(promise != null and promise.text == "Plays offline. No ads, no account.
-Your career stays on your phone.",
-			"The menu prints the offline promise in the approved words")
+Your career stays on this device.",
+			"The menu prints the offline promise, saying the career stays on this device")
+	var main_script = load("res://scripts/ui/Main.gd")
+	_check(main_script.promise_text(true).ends_with("Your career stays in this browser.")
+			and main_script.promise_text(false).ends_with("Your career stays on this device.")
+			and not main_script.promise_text(true).contains("phone")
+			and not main_script.promise_text(false).contains("phone"),
+			"The promise names the browser on the web and the device elsewhere, never a phone")
 	_check(promise != null and promise.visible and promise.autowrap_mode != TextServer.AUTOWRAP_OFF,
 			"The promise is on screen as two deliberate lines")
 	_check(not WebStorage.should_ask(false, false) and WebStorage.should_ask(true, false)
@@ -844,6 +850,16 @@ Your career stays on your phone.",
 	# backing him names the promise, leaving him out names the missed game, and
 	# a finger on a button with lines under it still answers the card. The card
 	# does not repeat these lines under its heading.
+	# A card that settles itself when the week is played says so on its face, with that choice's cost.
+	_state.week_events = [_state.story_card("health_pulled_up_sore", _state.my_list[0])]
+	_router.go("hub")
+	await _settle()
+	var sore_node: Control = current_scene.find_child("EventSilence_0", true, false)
+	var sore_text := ""
+	if sore_node != null:
+		sore_text = str(sore_node.get_meta("plain")) if sore_node.has_meta("plain") else str(sore_node.get("text"))
+	_check(sore_text.begins_with("If you leave this, it goes as \"Play him\"") and sore_text.contains("%"),
+			"A card with a silent default names it and its odds on the card (%s)" % sore_text)
 	_state.week_events = [_state.story_card("training_kid_pushing", _state.my_list[0])]
 	_router.go("hub")
 	await _settle()
@@ -1678,23 +1694,29 @@ Your career stays on your phone.",
 	_check(hub_settings != null and hub_settings.size.y >= 44, "Settings is on the hub's top bar")
 	var board_was: String = _state.board_patience
 	var rivals_was: String = _state.rival_recruiting
-	# The hub's board line follows the board's own line for a poor season: at
-	# confidence 35 a Ruthless board (line 40) is worried, a Fair one (line 30) is not.
+	# The hub's board warning fires under the poor line (ClubLife.POOR_LINE, 40) on every
+	# board type: at 39 all three warn, at 40 none does.
 	var conf_was: int = _state.board_confidence()
 	var warned_was: bool = bool(_state.board.get("warned", false))
-	_state.board["confidence"] = 35
-	_state.board["warned"] = false
-	_state.board_patience = "ruthless"
-	_router.go("hub")
-	await _settle()
-	var ruthless_line: Label = current_scene.find_child("BoardLine", true, false)
-	var ruthless_text := ruthless_line.text if ruthless_line != null else ""
-	_state.board_patience = "fair"
-	_router.go("hub")
-	await _settle()
-	var fair_line: Label = current_scene.find_child("BoardLine", true, false)
-	_check(ruthless_text.begins_with("Board: In trouble") and fair_line == null,
-			"On Ruthless a coach at 35 is told the board is worried; on Fair he is not (ruthless '%s', fair %s)" % [ruthless_text, "shown" if fair_line != null else "none"])
+	var seen := {}
+	for conf in [39, 40]:
+		for step in ["patient", "fair", "ruthless"]:
+			_state.board["confidence"] = conf
+			_state.board["warned"] = false
+			_state.board_patience = step
+			_router.go("hub")
+			await _settle()
+			var warn_l: Label = current_scene.find_child("BoardWarning", true, false)
+			var line_l: Label = current_scene.find_child("BoardLine", true, false)
+			seen["%s_%d" % [step, conf]] = [warn_l.text if warn_l != null else "", line_l != null]
+	var all_warn := true
+	var none_at_40 := true
+	for step in ["patient", "fair", "ruthless"]:
+		var at39: Array = seen["%s_39" % step]
+		var at40: Array = seen["%s_40" % step]
+		all_warn = all_warn and str(at39[0]).begins_with("Board confidence is poor (39%). ") and bool(at39[1])
+		none_at_40 = none_at_40 and str(at40[0]) == "" and not bool(at40[1])
+	_check(all_warn and none_at_40, "On every board type the hub warns at 39 and not at 40 (%s)" % str(seen))
 	_state.board["confidence"] = conf_was
 	_state.board["warned"] = warned_was
 	hub_settings = current_scene.find_child("HubSettings", true, false)
