@@ -221,7 +221,8 @@ func _row(id: String) -> Dictionary:
 ## and survives a save.
 func _test_reserves_development() -> void:
 	_new_season()
-	GameState.difficulty = "normal"
+	GameState.board_patience = "fair"
+	GameState.rival_recruiting = "shrewd"
 	# The reserves rate itself, not the coaching around it: a Good (70)
 	# staff, each coach in his own line, teaches at exactly par.
 	var staff := GameState.club_staff(GameState.my_club)
@@ -333,14 +334,16 @@ func _test_reserves_development() -> void:
 			and GameState.xp_gain_for(depth) >= GameState.XP_SQUAD + GameState.XP_SELECTED + GameState.XP_NAMED,
 			"Recalled, he earns senior XP again (%d)" % GameState.xp_gain_for(depth))
 
-	# Difficulty never changes development: reserves XP is the same on Hard.
-	GameState.difficulty = "hard"
+	# Difficulty never changes development: reserves XP is the same on the hardest dials.
+	GameState.board_patience = "ruthless"
+	GameState.rival_recruiting = "cutthroat"
 	GameState.list_player(depth)["injury_weeks"] = 0  # he may have been hurt in his senior game
 	_pick(depth, false)
 	_round()
 	_check(GameState.xp_gain_for(depth) == res_xp,
-			"Reserves XP is the same on Hard (%d)" % GameState.xp_gain_for(depth))
-	GameState.difficulty = "normal"
+			"Reserves XP is the same on Ruthless and Cut-throat (%d)" % GameState.xp_gain_for(depth))
+	GameState.board_patience = "fair"
+	GameState.rival_recruiting = "shrewd"
 
 
 func _test_department_development() -> void:

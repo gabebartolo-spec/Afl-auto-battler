@@ -154,7 +154,8 @@ var department_budget_year := 0
 var season_wrap := {}            # the off-season briefing shown before Round 1 (season_wrap_lines)
 var _wrap_picks: Array = []      # your National Draft picks, carried into the rollover
 var news: Array = []             # league news feed, newest first
-var difficulty := "normal"       # this career's difficulty (DIFFICULTIES key)
+var board_patience := "fair"     # this career's board dial (DifficultyDials step)
+var rival_recruiting := "shrewd" # this career's rival dial (DifficultyDials step)
 var tutorials := true            # this career's first-visit menu tips (Tutorials.gd)
 var board := {}                  # confidence, goal, warned, sacked, history
 ## This week's story cards (StoryEngine.pick_week): usually none or one, two
@@ -671,7 +672,8 @@ func save_career() -> bool:
 		"trade_table": trade_table,
 		"trade_requests": trade_requests,
 		"news": news,
-		"difficulty": difficulty,
+		"board_patience": board_patience,
+		"rival_recruiting": rival_recruiting,
 		"tutorials": tutorials,
 		"board": board,
 		"week_events": week_events,
@@ -853,10 +855,14 @@ func load_career() -> bool:
 	losing_streak = int(state.get("losing_streak", 0))
 	my_matchups = state.get("my_matchups", {})
 	last_side = state.get("last_side", [])
-	difficulty = str(state.get("difficulty", "normal"))
+	# A career saved before the dials has only "difficulty" (easy, normal,
+	# hard): it plays on the matching pair.
+	var legacy := DifficultyDials.from_legacy(str(state.get("difficulty", "normal")))
+	board_patience = DifficultyDials.normalize(DifficultyDials.BOARD,
+			str(state.get("board_patience", legacy[DifficultyDials.BOARD])))
+	rival_recruiting = DifficultyDials.normalize(DifficultyDials.RIVALS,
+			str(state.get("rival_recruiting", legacy[DifficultyDials.RIVALS])))
 	tutorials = bool(state.get("tutorials", true))
-	if not DIFFICULTIES.has(difficulty):
-		difficulty = "normal"
 	GameDB.draftees = state.get("db_draftees", GameDB.draftees)
 	GameDB.late_draftees = state.get("db_late_draftees", [])
 	GameDB._alias_next = int(state.get("db_alias_next", GameDB._alias_next))
@@ -1286,7 +1292,8 @@ func reset() -> void:
 	losing_streak = 0
 	my_matchups = {}
 	last_side = []
-	difficulty = new_career_difficulty()
+	board_patience = new_career_dial(DifficultyDials.BOARD)
+	rival_recruiting = new_career_dial(DifficultyDials.RIVALS)
 	tutorials = new_career_tutorials()
 	# A seeded run (replay_seed, the tests) needs a seeded career too: this
 	# seed picks every club's conditioning timing, staff and prospects, and a
@@ -8368,24 +8375,32 @@ func _recalc_player_overall(p: Dictionary) -> void:
 
 
 # ---------------------------------------------------------------------------
-# Difficulty
+# Difficulty: two named dials (data/difficulty_dials.json)
 # ---------------------------------------------------------------------------
-## trade_margin: how much better off a rival must be to accept a trade.
-## Difficulty never changes how players develop: every club's players earn,
-## train and grow by the same rules (SEASON_TRAIN_GAIN, Potential).
-const DIFFICULTIES := {
-	"easy": {"label": "Easy", "trade_margin": 0.0,
-			"text": "Rival clubs trade with you at fair value."},
-	"normal": {"label": "Normal", "trade_margin": Contracts.TRADE_MARGIN,
-			"text": "Rival clubs want a little more than fair value to trade with you."},
-	"hard": {"label": "Hard", "trade_margin": 0.12,
-			"text": "Rival clubs drive hard bargains in trades with you."},
-}
-const DIFFICULTY_ORDER := ["easy", "normal", "hard"]
-
-
+## Board patience: how many poor seasons the board puts up with before it
+## warns you, then moves on you (ClubLife.season_end). Rival recruiting: how
+## hard the other clubs bargain over trades with you (trade_margin). Difficulty
+## never changes how players develop: every club's players earn, train and
+## grow by the same rules (SEASON_TRAIN_GAIN, Potential), and the rivals get no
+## hidden information or rating boost.
 func difficulty_rules() -> Dictionary:
-	return DIFFICULTIES.get(difficulty, DIFFICULTIES["normal"])
+	var board_step := DifficultyDials.step(DifficultyDials.BOARD, board_patience)
+	var rival_step := DifficultyDials.step(DifficultyDials.RIVALS, rival_recruiting)
+	return {
+		"trade_margin": float(rival_step.get("trade_margin", Contracts.TRADE_MARGIN)),
+		"poor_seasons_before_warning": int(board_step.get("poor_seasons_before_warning", 1)),
+		"poor_season_below": int(board_step.get("poor_season_below", ClubLife.WARN_LINE)),
+	}
+
+
+## This career's dial as a step key ("board_patience" or "rival_recruiting").
+func career_dial(dial: String) -> String:
+	return board_patience if dial == DifficultyDials.BOARD else rival_recruiting
+
+
+## "Board patience: Fair" - one read-only line for a dial.
+func dial_line(dial: String) -> String:
+	return "%s: %s" % [DifficultyDials.title(dial), DifficultyDials.label(dial, career_dial(dial))]
 
 
 ## First-visit menu tips (director, 2026-10-07): chosen at New career, kept
@@ -8418,19 +8433,25 @@ func set_tutorials_on(on: bool) -> void:
 	mark_dirty()
 
 
-## The difficulty the next New Career starts on (a menu setting).
-func new_career_difficulty() -> String:
-	var d := str(get_setting("difficulty", "normal"))
-	return d if DIFFICULTIES.has(d) else "normal"
+## The step of a dial the next New Career starts on (a menu setting). A
+## device that only ever chose Easy, Normal or Hard starts on the matching pair.
+func new_career_dial(dial: String) -> String:
+	var saved := str(get_setting(dial, ""))
+	if saved == "":
+		return str(DifficultyDials.from_legacy(str(get_setting("difficulty", "normal")))[dial])
+	return DifficultyDials.normalize(dial, saved)
 
 
-func set_new_career_difficulty(key: String) -> void:
-	if not DIFFICULTIES.has(key):
+func set_new_career_dial(dial: String, key: String) -> void:
+	if not DifficultyDials.DIALS.has(dial) or not DifficultyDials.order(dial).has(key):
 		return
-	set_setting("difficulty", key)
+	set_setting(dial, key)
 	# Before the season starts the choice still applies to this career.
 	if season == null:
-		difficulty = key
+		if dial == DifficultyDials.BOARD:
+			board_patience = key
+		else:
+			rival_recruiting = key
 
 
 # ---------------------------------------------------------------------------
@@ -8940,17 +8961,14 @@ func _board_season_end() -> void:
 	var goal: Dictionary = board.get("goal", {})
 	var met := ClubLife.goal_met(goal, my_position(), int(row.get("w", 0)), season.clubs.size())
 	var conf := ClubLife.after_season(board_confidence(), met, premier() == my_club)
-	var verdict := "The board is delighted." if met else "The board is disappointed."
-	if conf < ClubLife.WARN_LINE:
-		if bool(board.get("warned", false)):
-			board["sacked"] = true
-			verdict = "The board has sacked you."
-		else:
-			board["warned"] = true
-			conf = maxi(conf, 35)
-			verdict = "Final warning: miss again next year and you are gone."
-	elif met:
-		board["warned"] = false
+	var end := ClubLife.season_end(conf, met, bool(board.get("warned", false)),
+			int(board.get("poor_seasons", 0)), difficulty_rules())
+	conf = int(end["confidence"])
+	var verdict := str(end["verdict"])
+	board["warned"] = bool(end["warned"])
+	board["poor_seasons"] = int(end["poor_seasons"])
+	if bool(end["sacked"]):
+		board["sacked"] = true
 	board["confidence"] = conf
 	(board["history"] as Array).append({"year": season_year, "goal": str(goal.get("text", "")),
 			"met": met, "position": my_position(), "confidence": conf, "verdict": verdict})

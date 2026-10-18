@@ -60,7 +60,7 @@ Floor is the fewest checks the suite may run (`expected_checks.txt`; a suite rep
 | `awards` | Brownlow, Coleman, best and fairest, All-Australian | 22 | 49 |
 | `achievements` | Club achievements | 153 | 48 |
 | `contracts` | Contracts, free agency and trades (seeded: a clock seed once made the pick-limit check flaky) | 233 | 29 |
-| `league` | Difficulty and the league news feed | 47 | 52 |
+| `league` | The two difficulty dials (saved, old saves mapped, trade bargaining) and the league news feed | 60 | 52 |
 | `club` | The board, morale and the weekly event card | 199 | 103 |
 | `story` | The week's story cards: the deck's checks, cooldowns, arcs, trust, ten seasons of repeats, the save round trip, cards never moving the dice | 94 | - |
 | `nameink` | A player's name in running text wears his club's ink: the index from the lists, the markup, every club's ink readable on dark, the match feed and goal rows carrying both clubs' colours | 16 | - |
