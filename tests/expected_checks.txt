@@ -53,3 +53,4 @@ plan_know 96
 rowgap 110
 planpane 152
 namelink 73
+trainrep 100
