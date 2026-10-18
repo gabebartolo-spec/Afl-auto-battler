@@ -291,6 +291,7 @@ func _career(state: Node, db: Node) -> void:
 	found = _find(state, mine)
 	_check(not found.is_empty() and str(found.get("intl", "")) != "" and str(found.get("generic_name", "")) == name_before,
 			"He keeps his identity across a season rollover (year %d to %d)" % [year, int(state.season_year)])
+	_stories(state, found)
 
 
 func _find(state: Node, id: String) -> Dictionary:
@@ -299,3 +300,124 @@ func _find(state: Node, id: String) -> Dictionary:
 			if str(p["id"]) == id:
 				return p
 	return {}
+
+
+# ---------------------------------------------------------------------------
+# Story beats (data/stories/international.json)
+# ---------------------------------------------------------------------------
+func _facts(region: String, seasons: int, games: int, goals: int, selected: bool, contract: int, ext: bool) -> Dictionary:
+	return {"id": "x", "intl": region != "", "intl_region": region, "seasons_listed": seasons, "games": games,
+			"goals": goals, "selected": selected, "contract_years": contract, "extension_ok": ext, "fit": true}
+
+
+func _eligible(card: Dictionary, f: Dictionary, round_no: int) -> bool:
+	var club := {"round": round_no}
+	return StoryEngine.meets(club, card.get("when", {}), {}) 			and StoryEngine.meets(f, (card["subject"] as Dictionary).get("where", {}), {})
+
+
+func _stories(state: Node, mine: Dictionary) -> void:
+	Features.set_on("international_prospects", false)
+	StoryDeck.reload()
+	var off := 0
+	for t in StoryDeck.all():
+		if str(t["id"]).begins_with("intl_"):
+			off += 1
+	_check(off == 0, "Switched off, no international story card is in the deck")
+	Features.set_on("international_prospects", true)
+	StoryDeck.reload()
+	var deck := StoryDeck.all()
+	var cards := []
+	for t in deck:
+		if str(t["id"]).begins_with("intl_"):
+			cards.append(t)
+	_check(cards.size() >= 8 and cards.size() <= 12, "Eight to twelve international beats (%d)" % cards.size())
+	_check(StoryDeck.validate(deck).is_empty(), "The deck with them passes the deck checks: %s" % "; ".join(PackedStringArray(StoryDeck.validate(deck))))
+	var by_region := {}
+	for t in cards:
+		var r := str((t["subject"]["where"] as Dictionary).get("intl_region", "any"))
+		by_region[r] = int(by_region.get(r, 0)) + 1
+	_check(int(by_region.get("any", 0)) >= 4, "Four or more beats for any international (%s)" % str(by_region))
+	for r in ["ireland", "nz", "usa", "africa"]:
+		_check(int(by_region.get(r, 0)) >= 1, "%s has a beat of his own" % r)
+
+	# Every choice says its gain and its cost, in words, fully filled in; and applies.
+	var pid := str(mine["id"])
+	var bad := []
+	for t in cards:
+		_check(((t["subject"] as Dictionary)["where"] as Dictionary).get("intl", false) == true, "%s is about an international only" % t["id"])
+		var card: Dictionary = state.story_card(str(t["id"]), mine)
+		if str(card.get("title", "")).contains("{") or str(card.get("text", "")).contains("{") or str(card.get("title", "")) == "":
+			bad.append("%s: unfilled" % t["id"])
+		for o in card["options"]:
+			var d := " ".join(StoryEngine.stakes_lines(o["effects"], card["facts"]))
+			if not (d.contains("Gain: ") and d.contains("Cost: ")) or d.contains("{"):
+				bad.append("%s/%s: %s" % [t["id"], o["key"], d])
+	_check(bad.is_empty(), "Every choice shows a Gain and a Cost, filled in: %s" % " | ".join(PackedStringArray(bad)))
+	var played := 0
+	for t in cards:
+		for i in range((t["choices"] as Array).size()):
+			var card: Dictionary = state.story_card(str(t["id"]), mine)
+			var said: String = ClubStories.apply_choice(state, card, i)
+			played += 1
+			_check(said != "" and not said.contains("{"), "%s choice %d plays: %s" % [t["id"], i, said])
+	print("INTL story choices played: ", played)
+
+	# Each beat is tied to its moment, and only to his country.
+	var moments := {
+		"intl_homesick": [_facts("ireland", 1, 0, 0, false, 3, false), 10, true],
+		"intl_learning_the_game": [_facts("usa", 1, 2, 0, false, 3, false), 5, true],
+		"intl_first_game": [_facts("nz", 1, 1, 0, true, 3, false), 5, true],
+		"intl_first_goal": [_facts("africa", 1, 3, 1, true, 3, false), 5, true],
+		"intl_first_summer": [_facts("ireland", 1, 15, 3, true, 3, false), 22, true],
+		"intl_irish_county_call": [_facts("ireland", 2, 30, 5, true, 3, false), 12, true],
+		"intl_irish_torn": [_facts("ireland", 2, 30, 5, true, 1, true), 14, true],
+		"intl_usa_visit": [_facts("usa", 1, 4, 0, true, 3, false), 5, true],
+		"intl_nz_rugby_offer": [_facts("nz", 2, 30, 5, true, 1, true), 5, true],
+		"intl_africa_ambassador": [_facts("africa", 1, 5, 0, true, 3, false), 5, true],
+		"intl_africa_visa": [_facts("africa", 1, 0, 0, true, 3, false), 2, true],
+	}
+	for t in cards:
+		var id := str(t["id"])
+		_check(moments.has(id), "%s has a moment in the test" % id)
+		if not moments.has(id):
+			continue
+		var m: Array = moments[id]
+		_check(_eligible(t, m[0], int(m[1])), "%s comes up at its moment" % id)
+		var home := (m[0] as Dictionary).duplicate()
+		home["intl"] = false
+		home["intl_region"] = ""
+		_check(not _eligible(t, home, int(m[1])), "%s never comes up for a home-grown player" % id)
+		var where: Dictionary = t["subject"]["where"]
+		if where.has("intl_region"):
+			for other in ["ireland", "nz", "usa", "africa"]:
+				if other != str(where["intl_region"]):
+					var f: Dictionary = (m[0] as Dictionary).duplicate()
+					f["intl_region"] = other
+					_check(not _eligible(t, f, int(m[1])), "%s is not for %s" % [id, other])
+	var late := _facts("ireland", 3, 90, 40, true, 1, true)
+	for id in ["intl_homesick", "intl_first_game", "intl_first_goal", "intl_first_summer", "intl_africa_visa", "intl_learning_the_game"]:
+		_check(not _eligible(StoryDeck.by_id(deck, id), late, 12), "%s is a first-season moment: not for a veteran" % id)
+	_check(not _eligible(StoryDeck.by_id(deck, "intl_homesick"), _facts("ireland", 1, 0, 0, false, 3, false), 2),
+			"Homesick comes in the winter, not round 2")
+
+	# The engine deals them: a first-game week for a New Zealander brings his card.
+	var club := {"round": 5, "club": "Adelaide", "opp": "Essendon"}
+	var f := _facts("nz", 1, 1, 0, true, 3, false)
+	f["name"] = "Kahu Test"
+	f["first"] = "Kahu"
+	f["from"] = "New Zealand"
+	var dealt := {}
+	for seed_no in range(1, 21):
+		var story := StoryEngine.new_state()
+		for week in range(1, 31):
+			var ctx := {"seed": seed_no, "year": 2028, "week": week, "phase": "regular", "big": false, "club": club, "players": [f]}
+			var got := StoryEngine.pick_week(cards, ctx, story)
+			if not got.is_empty():
+				dealt[str(got[0].get("tid", ""))] = true
+				break
+	var only := true
+	for k in dealt:
+		only = only and ["intl_first_game", "intl_learning_the_game", "intl_nz_rugby_offer"].has(str(k)) 				and not str(k).begins_with("intl_irish") and not str(k).begins_with("intl_africa")
+	_check(dealt.has("intl_first_game") and only, "The engine deals his first-game card, and only cards fit for him (%s)" % str(dealt.keys()))
+	Features.set_on("international_prospects", false)
+	StoryDeck.reload()
