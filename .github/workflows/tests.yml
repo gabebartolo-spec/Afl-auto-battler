@@ -135,6 +135,12 @@ jobs:
           unzip -q godot.zip && rm godot.zip
           mv "${name}" godot && chmod +x godot
 
+      # Every test runner must compile, and its load must not hang, before the
+      # shards start: a runner naming a class whose load chain reaches an autoload
+      # hung a shard for the full 900 s timeout three times on 2026-10-17/18.
+      - name: Every test runner compiles
+        run: GODOT="$HOME/godot/godot" tools/ci_preflight_compile.sh
+
       - name: Early matchday gate
         run: SUITES_ONLY=1 STOP_ON_FAILURE=1 GODOT="$HOME/godot/godot" LOG_DIR="$RUNNER_TEMP/test-logs" tools/run_tests.sh matchday
 
@@ -285,7 +291,7 @@ jobs:
             exit 1
           fi
           if [ "$PREFLIGHT" != success ] && [ "$PREFLIGHT" != skipped ]; then
-            echo "::error::the early matchday gate failed or was cancelled; full tests did not pass"
+            echo "::error::the preflight (a test runner does not compile, or the early matchday gate) failed or was cancelled; full tests did not pass"
             exit 1
           fi
           if [ "$CODE" = true ]; then
