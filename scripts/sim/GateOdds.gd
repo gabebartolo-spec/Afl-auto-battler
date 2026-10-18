@@ -19,7 +19,7 @@ const MATCHUP_COST_NEXT := "moving %s frees their next forward"
 const MATCHUP_COST_LOOSE := "%s can no longer play loose"
 const MINDER_GAIN := "their loose man reaches %s of his contests, %s with a Defensive forward"
 const MINDER_COST := "your forward is a target %s less often"
-const RUCK_GAIN := "your best ruck goes up at every stoppage"
+const RUCK_GAIN := "the ruck you name goes up at every stoppage"
 const RUCK_COST := "he tires %s faster than up forward"
 const LOOSE_GAIN := "a top reader gets to %s of their entries"
 const LOOSE_COST := "he leaves his man on %s of entries, and space opens if he is late"
@@ -68,6 +68,7 @@ const BURST_COST := {
 }
 const FOR_MINUTES := ", for about %d minutes"
 const TO_SIREN := ", to the final siren"
+const TO_BREAK := ", to the break"
 const NONE_GAIN := "no extra risk at either end"
 const NONE_COST_RUN := "their run goes on at the current odds"
 const NONE_COST_BOUNCE := "no extra edge at the bounce or behind the ball"
@@ -164,17 +165,18 @@ static func back_stats(p: Dictionary) -> String:
 			+ (BACK_CM % h if h > 0 else "")
 
 
-## How long a burst lasts, or the siren when it outlasts the game.
-static func burst_time(kind: String, minutes_left: int) -> String:
+## How long a burst lasts: every call ends at the break, so one that outlasts
+## the quarter runs to the break (the siren in the last quarter).
+static func burst_time(kind: String, minutes_left: int, last := true) -> String:
 	var chains := int((MatchSim.BURSTS.get(kind, {}) as Dictionary).get("chains", 0))
 	var mins := roundi(float(chains) * float(MatchSim.GAME_MINUTES) / float(Ratings.T["chains_per_game"]))
 	if minutes_left >= 0 and mins >= minutes_left:
-		return TO_SIREN
+		return TO_SIREN if last else TO_BREAK
 	return FOR_MINUTES % mins
 
 
-static func burst_lines(kind: String, minutes_left := -1) -> Array:
-	var t := burst_time(kind, minutes_left)
+static func burst_lines(kind: String, minutes_left := -1, last := true) -> Array:
+	var t := burst_time(kind, minutes_left, last)
 	match kind:
 		"surge":
 			return [BURST_GAIN[kind] % [pct(MatchSim.SURGE_CONTEST), pct(MatchSim.SURGE_GOAL - 1.0)] + t,

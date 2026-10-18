@@ -4492,7 +4492,7 @@ func _fire_bounce(margin: int) -> void:
 				"detail": "Protect the lead: they score far less, and so do you."},
 			{"key": "none", "label": "Play it straight",
 				"detail": "No change."},
-		], 120 - current_minute, GateOdds.NONE_COST_BOUNCE)})
+		], current_quarter * 30 - current_minute, GateOdds.NONE_COST_BOUNCE)})
 
 
 ## A risk card's options with what each does for you and what it costs, sized
@@ -4502,7 +4502,7 @@ func _fire_bounce(margin: int) -> void:
 func _sized(options: Array, minutes_left: int, none_cost: String) -> Array:
 	for o in options:
 		var k := str(o["key"])
-		var two: Array = [GateOdds.NONE_GAIN, none_cost] if k == "none" else GateOdds.burst_lines(k, minutes_left)
+		var two: Array = [GateOdds.NONE_GAIN, none_cost] if k == "none" else GateOdds.burst_lines(k, minutes_left, current_quarter >= 4)
 		o["gain"] = GateOdds.gain(str(two[0]))
 		o["cost"] = GateOdds.cost(str(two[1]))
 	return options
@@ -4639,7 +4639,7 @@ func _boundary_moment() -> bool:
 					"detail": "Chip it around: fewer turnovers, a quieter game at both ends, less ground gained."},
 				{"key": "none", "label": "Ride it out",
 					"detail": "Trust the plan. No change."},
-			], 120 - current_minute, GateOdds.NONE_COST_RUN)})
+			], current_quarter * 30 - current_minute, GateOdds.NONE_COST_RUN)})
 		return true
 	# A tight last-quarter centre bounce.
 	return _bounce_moment(margin)

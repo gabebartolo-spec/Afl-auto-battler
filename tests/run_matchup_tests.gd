@@ -1362,7 +1362,7 @@ func _gate_odds() -> void:
 			GO.MATCHUP_COST_LOOSE, GO.MINDER_GAIN, GO.MINDER_COST, GO.RUCK_GAIN, GO.RUCK_COST, GO.LOOSE_GAIN,
 			GO.LOOSE_COST, GO.TAG_GIVES, GO.TAG_NOTE, GO.SKIP_FIRST, GO.SKIP_LATER, GO.BACK_STATS, GO.BACK_CM,
 			GO.DUEL_GAIN, GO.DUEL_COST_SWAP, GO.DUEL_COST_LOOSE, GO.DUEL_COST_FREE, GO.DUEL_COST_KEEP,
-			GO.FOR_MINUTES, GO.TO_SIREN, GO.NONE_GAIN, GO.NONE_COST_RUN, GO.NONE_COST_BOUNCE]
+			GO.FOR_MINUTES, GO.TO_SIREN, GO.TO_BREAK, GO.NONE_GAIN, GO.NONE_COST_RUN, GO.NONE_COST_BOUNCE]
 	for d in [GO.PLAN_GAIN, GO.PLAN_COST, GO.BURST_GAIN, GO.BURST_COST]:
 		templates.append_array((d as Dictionary).values())
 	var literal := templates.filter(func(t): return digits.search(str(t)) != null)
@@ -1402,6 +1402,7 @@ func _gate_odds() -> void:
 	var stack: Array = GO.burst_lines("stack", 15)
 	_check(str(stack[0]).contains(pct.call(Ms.STACK_CONTEST)) and str(stack[0]).contains(pct.call(float(Ratings.T["contest_clamp"])))
 			and str(stack[1]).contains(pct.call(Ms.STACK_OPP_GOAL - 1.0)), "Stack the stoppage: the edge, its cap and its cost (%s / %s)" % stack)
+	_check(str(GO.burst_lines("flood", 20, false)[0]).ends_with(GO.TO_BREAK), "Before the last quarter a call that outlasts it runs to the break")
 	var flood: Array = GO.burst_lines("flood", 15)
 	_check(str(flood[0]).contains(pct.call(1.0 - Ms.FLOOD_OPP_GOAL)) and str(flood[0]).ends_with(GO.TO_SIREN)
 			and str(flood[1]).contains(pct.call(1.0 - Ms.FLOOD_GOAL)), "Flood: to the siren, both sides from its constants (%s / %s)" % flood)
