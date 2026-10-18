@@ -208,7 +208,7 @@ const GAIN_WORDS := {
 const COST_WORDS := {
 	"morale": "(?i)morale", "board": "(?i)board confidence", "trust": "trusts you ([0-9]+% )?less",
 	"rest": "misses", "heavy_legs": "Heavy legs", "sore": "chance he is injured", "expects_game": "expects a game",
-	"start_backing": "expects to be picked", "back_kid": "is promised", "promise_win": "Lose and", "extend_early": "Locked in", "captaincy_swap": "mid-season",
+	"start_backing": "expects to be picked", "back_kid": "is promised", "promise_win": "Lose or draw and", "extend_early": "Locked in", "captaincy_swap": "mid-season",
 	"rush_back": "hurt again", "slow_start": "slowly", "loss_sting": "also falls", "role_trial": "away from his usual spot",
 	"culture": "(Standards|Togetherness|Ambition) falls [0-9]+%", "running": "comes off the fitness base", "forgo_xp": "Slower growth",
 }
@@ -395,7 +395,7 @@ func _test_choice_stakes_are_stated() -> void:
 		var all_lines := ""
 		for c in t["choices"]:
 			all_lines += " ".join(StoryEngine.stakes_lines(c.get("effects", []), SAMPLE_FACTS))
-		for kw in ["breaks down", "heavy legs", "expects a game", "promise breaks", "lose and"]:
+		for kw in ["breaks down", "heavy legs", "expects a game", "promise breaks", "lose or draw"]:
 			if st.to_lower().contains(kw) and all_lines.to_lower().contains(kw):
 				repeats.append("%s (%s)" % [t["id"], kw])
 	_check(repeats.is_empty(), "A card's own stakes line never repeats the lines under its choices: %s" % " | ".join(PackedStringArray(repeats)))
@@ -2796,7 +2796,10 @@ func _test_silent_defaults_announced() -> void:
 	var p: Dictionary = GameState.my_list[4]
 	var bad := []
 	var n := 0
+	var want := 0
 	for t in StoryDeck.all():
+		if int(t.get("default", -1)) >= 0:
+			want += 1
 		var card := GameState.story_card(str(t["id"]), p if str(t["subject"].get("kind", "")) == "player" else {})
 		var line := StoryEngine.silence_line(card)
 		var d := int(card.get("default", -1))
@@ -2812,7 +2815,8 @@ func _test_silent_defaults_announced() -> void:
 				bad.append("%s: %s" % [t["id"], line])
 		elif (t.get("unanswered", {}) as Dictionary).is_empty() and line != "":
 			bad.append("%s says something where leaving it changes nothing: %s" % [t["id"], line])
-	_check(n >= 17 and bad.is_empty(), "Every card with a silent default names it and its cost (%d cards): %s" % [n, " | ".join(PackedStringArray(bad.slice(0, 4)))])
+	# The international cards join the deck only with their switch on, so the count is the deck's own.
+	_check(n == want and n >= 6 and bad.is_empty(), "Every card with a silent default names it and its cost (%d of %d cards): %s" % [n, want, " | ".join(PackedStringArray(bad.slice(0, 4)))])
 	var sore := GameState.story_card("health_pulled_up_sore", p)
 	var sl := StoryEngine.silence_line(sore)
 	_check(sl.contains("Play him") and sl.contains("%") and sl.contains("chance"),
@@ -2916,5 +2920,5 @@ func _test_line_numbers_match_effects() -> void:
 	var promise := " ".join(StoryEngine.stakes_lines([{"op": "morale", "d": 5}, {"op": "start_backing"}], {"run_games": "three"}))
 	_check(promise.contains("His morale up %d%%." % (5 + Backing.THRILL)) and promise.count("His morale up") == 1,
 			"Two lifts for the same player print once, with their total (%s)" % promise)
-	var slow := " ".join(StoryEngine.stakes_lines([{"op": "slow_start", "who": "subject", "chance": 15}], {"finals_week": 0}))
-	_check(slow.contains("this week's game") and slow.contains("15%"), "A slow start in the season names this week's game and its chance (%s)" % slow)
+	var slow := " ".join(StoryEngine.stakes_lines([{"op": "slow_start", "who": "subject", "chance": 15, "on": "week"}], {}))
+	_check(slow.contains("this week's game") and slow.contains("15%") and slow.contains("for the first quarter"), "A slow start in the season names this week's game and its chance (%s)" % slow)
