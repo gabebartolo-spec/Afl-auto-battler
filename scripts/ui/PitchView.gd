@@ -1178,8 +1178,9 @@ func _draw_marks(tr: float) -> int:
 ## a colour at every corner, soft at the edges.
 func _draw_corridor(side: int, base: Color, a: float, half: float) -> void:
 	var dir := MatchDirector._dir(side)
-	var x0 := MatchDirector.CORRIDOR_FROM
-	var x1 := MatchDirector.CORRIDOR_TO
+	# Full strength over the whole corridor; the soft ends lie outside it.
+	var x0 := MatchDirector.CORRIDOR_FROM - MARK_END_FEATHER
+	var x1 := MatchDirector.CORRIDOR_TO + MARK_END_FEATHER
 	var ys := [-half - MARK_SIDE_FEATHER, -half, half, half + MARK_SIDE_FEATHER]
 	var yk := [0.0, 1.0, 1.0, 0.0]
 	var n := 24
@@ -1205,11 +1206,13 @@ func _draw_corridor(side: int, base: Color, a: float, half: float) -> void:
 
 
 ## The corridor's strength along the ground (metres up it from the centre, for
-## its own side): full between its soft ends, none past them.
+## its own side): full from the defensive 50 to the goal square, easing to
+## nothing over MARK_END_FEATHER beyond each end (lead's check, 2026-10-18: with
+## the ease inside, the shade only read from the centre square).
 static func corridor_end(x: float) -> float:
 	var x0 := MatchDirector.CORRIDOR_FROM
 	var x1 := MatchDirector.CORRIDOR_TO
-	return smoothstep(x0, x0 + MARK_END_FEATHER, x) * (1.0 - smoothstep(x1 - MARK_END_FEATHER, x1, x))
+	return smoothstep(x0 - MARK_END_FEATHER, x0, x) * (1.0 - smoothstep(x1, x1 + MARK_END_FEATHER, x))
 
 
 ## The ring's rim: a light tint of the club's colour, so a line a few pixels wide
