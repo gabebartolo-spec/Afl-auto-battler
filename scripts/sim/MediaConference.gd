@@ -99,6 +99,8 @@ static func pick(ctx: Dictionary, recent: Dictionary) -> Dictionary:
 		if typeof(last) != TYPE_INT and typeof(last) != TYPE_FLOAT:
 			last = -999
 		if round_no - int(last) > COOLDOWN_ROUNDS:
+			# A young side moves the odds of every answer (see chance()).
+			q["young"] = young
 			return q
 	return {}
 
@@ -126,26 +128,130 @@ static func _close_question(res: Dictionary, side: int, margin: int, opp: String
 	return "It came down to the last few minutes against %s. What decided it?" % opp
 
 
-## What an answer does, in football words and no numbers, shown under its
-## button (director, 2026-10-10: the effects stay, and the player sees them).
-## Read from the answer's own "board" and "morale", so the line can never
-## drift from what resolve_media_conference applies.
-static func effect_line(option: Dictionary) -> String:
-	var board := int(option.get("board", 0))
-	var morale := int(option.get("morale", 0))
-	if board > 0 and morale < 0:
-		return "The board likes it; the players feel hung out to dry."
-	if board < 0 and morale > 0:
-		return "The players feel backed; the board wanted accountability."
-	if board > 0:
-		return "The board likes it."
-	if board < 0:
-		return "The board wanted more accountability."
-	if morale > 0:
-		return "The players feel backed."
-	if morale < 0:
-		return "The players feel hung out to dry."
-	return "Neither the board nor the players read much into it."
+## Every answer is a roll based on logic (bible: "An answer is a dice roll
+## based on logic"; director 2026-10-18, ch. 30 row 33: "Code follows the
+## bible"). Each has two outcomes, and the gate shows both with their odds and
+## sizes (bible §4), never which answer is better. Option order is the
+## questions' order: criticise the players, talk the method, back them.
+const KINDS := ["criticise", "method", "back"]
+
+## Per answer: the chance of outcome "a" before the facts move it ("base"),
+## which way the group's mood moves it ("pull": +1 a settled group takes it
+## better, -1 a flat group needs it more), what a young side does to it, which
+## journalist's write-up moves it, and what the match result does to it. Each
+## outcome moves board confidence and every listed player's morale; "odds" is
+## its words at the gate, "after" what the coach reads once it has landed.
+## "both" names the lever that moves the same way whichever way it lands.
+const ANSWERS := {
+	"criticise": {"base": 50, "pull": 1, "young": -15, "journalist": {"muckraker": -10}, "result": {},
+		"both": "The board likes it either way",
+		"a": {"board": 2, "morale": 3, "odds": "their resolve tightens", "after": "The players' resolve tightened"},
+		"b": {"board": 2, "morale": -4, "odds": "they feel hung out to dry", "after": "The players felt hung out to dry"}},
+	"method": {"base": 50, "pull": 0, "young": 0, "journalist": {"stats": 10},
+		"result": {"heavy_loss": -15, "big_win": 15},
+		"both": "The players read nothing into it",
+		"a": {"board": 2, "morale": 0, "odds": "the board buys it", "after": "The board bought it"},
+		"b": {"board": -2, "morale": 0, "odds": "the board hears excuses", "after": "The board heard excuses"}},
+	"back": {"base": 60, "pull": -1, "young": 10, "journalist": {}, "result": {},
+		"both": "The board wanted accountability either way",
+		"a": {"board": -2, "morale": 4, "odds": "the players lift", "after": "The players lifted"},
+		"b": {"board": -2, "morale": -2, "odds": "it rings hollow with them", "after": "It rang hollow with the players"}},
+}
+## The group's average morale against the settled line moves the odds by
+## half a point per point, at most this far either way.
+const MORALE_WEIGHT := 0.5
+const MORALE_CAP := 10.0
+## Odds are shown in steps of five, never a sure thing.
+const ODDS_STEP := 5
+const ODDS_MIN := 20
+const ODDS_MAX := 80
+
+## The gate's templates: no digits here, every number comes from ANSWERS.
+const ODDS_TEMPLATE := "%d%% %s (%s), %d%% %s (%s). %s."
+const MORALE_SIZE := "%+d%% morale"
+const BOARD_SIZE := "%+d%% confidence"
+const AFTER_MORALE := "morale %+d%% across the list"
+const AFTER_BOARD := "board confidence %+d%%"
+
+
+## The answer an option is. A save from before the roll kept fixed effects on
+## its pending options; those map by their place in the list.
+static func kind_of(option: Dictionary, index: int) -> String:
+	var k := str(option.get("kind", ""))
+	if ANSWERS.has(k):
+		return k
+	return str(KINDS[clampi(index, 0, KINDS.size() - 1)])
+
+
+## The chance (percent) that an answer lands its first way, from the facts:
+## {"morale": the group's average, "young": young players in the side,
+## "journalist": who asked, "key": what the question is about}.
+static func chance(kind: String, facts: Dictionary) -> int:
+	var s: Dictionary = ANSWERS.get(kind, ANSWERS["method"])
+	var c := float(s["base"])
+	var mood := float(facts.get("morale", ClubLife.MORALE_BASE)) - float(ClubLife.MORALE_BASE)
+	c += float(s["pull"]) * clampf(mood * MORALE_WEIGHT, -MORALE_CAP, MORALE_CAP)
+	if int(facts.get("young", 0)) >= YOUNG_SIDE:
+		c += float(s["young"])
+	c += float((s["journalist"] as Dictionary).get(str(facts.get("journalist", "")), 0))
+	c += float((s["result"] as Dictionary).get(str(facts.get("key", "")), 0))
+	return clampi(roundi(c / ODDS_STEP) * ODDS_STEP, ODDS_MIN, ODDS_MAX)
+
+
+## What an answer can do, under its button: both outcomes with their odds and
+## sizes, and the lever that moves the same either way (bible §4).
+static func odds_line(kind: String, chance_a: int) -> String:
+	var s: Dictionary = ANSWERS.get(kind, ANSWERS["method"])
+	var a: Dictionary = s["a"]
+	var b: Dictionary = s["b"]
+	var both := str(s["both"])
+	var shared := _shared_size(a, b)
+	if shared != "":
+		both += " (%s)" % shared
+	return ODDS_TEMPLATE % [chance_a, str(a["odds"]), _sizes(a, b), 100 - chance_a, str(b["odds"]), _sizes(b, a), both]
+
+
+## How it landed, for the sheet after the tap and the news.
+static func after_line(kind: String, landed: String) -> String:
+	var s: Dictionary = ANSWERS.get(kind, ANSWERS["method"])
+	var o: Dictionary = s.get(landed, s["b"])
+	var bits: PackedStringArray = []
+	if int(o["morale"]) != 0:
+		bits.append(AFTER_MORALE % int(o["morale"]))
+	if int(o["board"]) != 0:
+		bits.append(AFTER_BOARD % int(o["board"]))
+	var tail := ", ".join(bits)
+	return "%s: %s." % [str(o["after"]), tail] if tail != "" else str(o["after"]) + "."
+
+
+## The press stream's draw for one answer, 1..100: seeded from the career's
+## seed, the season, the round, the question and the answer (as the story
+## stream's risk_hit), so the same career gives the same answer the same way
+## however often it is reloaded. Never the clock.
+static func roll(seed: int, year: int, round_no: int, key: String, option: int) -> int:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("press|%d|%d|%d|%s|%d" % [seed, year, round_no, key, option])
+	return rng.randi_range(1, 100)
+
+
+## The sizes that differ between the two outcomes, for one outcome.
+static func _sizes(o: Dictionary, other: Dictionary) -> String:
+	var bits: PackedStringArray = []
+	if int(o["morale"]) != int(other["morale"]):
+		bits.append(MORALE_SIZE % int(o["morale"]))
+	if int(o["board"]) != int(other["board"]):
+		bits.append(BOARD_SIZE % int(o["board"]))
+	return ", ".join(bits)
+
+
+## The size both outcomes share (the same move either way), or "".
+static func _shared_size(a: Dictionary, b: Dictionary) -> String:
+	var bits: PackedStringArray = []
+	if int(a["morale"]) == int(b["morale"]) and int(a["morale"]) != 0:
+		bits.append(MORALE_SIZE % int(a["morale"]))
+	if int(a["board"]) == int(b["board"]) and int(a["board"]) != 0:
+		bits.append(BOARD_SIZE % int(a["board"]))
+	return ", ".join(bits)
 
 
 static func _q(key: String, journalist: String, question: String, round_no: int, accountable: String,
@@ -154,8 +260,8 @@ static func _q(key: String, journalist: String, question: String, round_no: int,
 		"key": key, "round": round_no, "question": question, "journalist": journalist,
 		"by": byline(journalist),
 		"options": [
-			{"label": accountable, "board": 1, "morale": -1},
-			{"label": tactical, "board": 0, "morale": 0},
-			{"label": protective, "board": -1, "morale": 1},
+			{"label": accountable, "kind": "criticise"},
+			{"label": tactical, "kind": "method"},
+			{"label": protective, "kind": "back"},
 		]
 	}
