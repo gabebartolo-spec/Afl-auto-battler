@@ -43,6 +43,7 @@ func _run() -> void:
 	await _ground_fit()
 	_state.replay_seed = SUITE_SEED
 	await _plan_at_first_bounce()
+	await _break_panes_layout()
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
 		await _coach_descriptions(sz)
 		await _tag_targets(sz)
@@ -2978,6 +2979,166 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
 		push_error(message)
+
+
+## The call panes, Fremantle v Melbourne (the lead's captures of 2026-10-18, seed 2050).
+## Before the first ball-up: "Tag which player?" is drawn over the tag choices; on a
+## PC the game plan leads the first column, the tag and the key match-ups share one, the
+## pep talk and the defensive forward share one, the columns are alike in height and the
+## pane does not scroll; each key match-up's Change sits right after its sentence and no
+## player's name is broken across two lines. At quarter time each surname the key
+## match-ups row names wears his own club's ink (two clubs share "McDonald"), and Best so
+## far's names wear their clubs' ink (director A1, 2026-10-14).
+const NB := " "
+
+
+func _fre_v_mel() -> bool:
+	var db = root.get_node("GameDB")
+	for tries in range(80):
+		_state.reset()
+		_state.career_seed = 2050 + tries
+		_state.replay_seed = 2050 + tries
+		_state.set_setting("seen_training_intro", true)
+		_state.start_season("FRE", db.club_list("FRE"))
+		_state.prepare_interactive_match()
+		var sq = _state.pending_sim.squads
+		if str(sq[0].code) == "MEL" or str(sq[1].code) == "MEL":
+			return true
+	return false
+
+
+func _break_panes_layout() -> void:
+	var UK = load("res://scripts/ui/UiKit.gd")
+	var db = root.get_node("GameDB")
+	var seed_before: int = _state.replay_seed
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		var tag := "%dx%d" % [sz.x, sz.y]
+		root.size = sz
+		_check(_fre_v_mel(), "(setup) Fremantle meet Melbourne in a seed from 2050 (%s)" % tag)
+		var sim = _state.pending_sim
+		var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+		root.add_child(m)
+		await _settle()
+		await _settle()
+		var box: Node = m.find_child("CoachBox", true, false)
+		_check(box != null, "The pre-bounce box opens (%s)" % tag)
+		if box == null:
+			m.queue_free()
+			continue
+		var ask: Node = box.find_child("TagQuestion", true, false)
+		var tag_picker: Node = box.find_child("TagPicker", true, false)
+		_check(ask is Label and (ask as Label).text == "Tag which player?" and (ask as Label).is_visible_in_tree(),
+				"Tag which player? is drawn over the tag choices (%s)" % tag)
+		_check(ask != null and tag_picker != null and ask.get_parent() == tag_picker.get_parent()
+				and ask.get_index() < tag_picker.get_index(), "...above the choices, in the Tag block (%s)" % tag)
+		_matchup_rows(m, box, tag)
+		if sz.x >= 1200:
+			var cols_node: Control = box.find_child("BreakColumns", true, false)
+			var cols: Array = cols_node.get_children()
+			var col_of := func(nm: String) -> int:
+				var n: Node = box.find_child(nm, true, false)
+				for i in range(cols.size()):
+					if n != null and (cols[i] as Node).is_ancestor_of(n):
+						return i
+				return -1
+			_check(cols.size() == 4, "Four call columns at 1280x720 (%d)" % cols.size())
+			_check(int(col_of.call("PlanPicker")) == 0, "The game plan leads the first column (column %d)" % int(col_of.call("PlanPicker")))
+			_check(int(col_of.call("TagPicker")) >= 0 and int(col_of.call("TagPicker")) == int(col_of.call("BreakMatchups")),
+					"The tag and the key match-ups share a column")
+			_check(int(col_of.call("PepPicker")) >= 0 and int(col_of.call("PepPicker")) == int(col_of.call("MinderBlock")),
+					"The pep talk and the defensive forward share a column")
+			_check(int(col_of.call("RotationPicker")) >= 0 and int(col_of.call("RotationPicker")) == int(col_of.call("FocusPicker_focus_fwd"))
+					and int(col_of.call("RotationPicker")) == int(col_of.call("FocusPicker_focus_def")),
+					"Rotations and the play-through calls share a column")
+			var tallest := 0.0
+			var heights := []
+			for c in cols:
+				var t := 0.0
+				for n in (c as Node).get_children():
+					if (n as Control).visible:
+						t += (n as Control).get_combined_minimum_size().y + 6.0
+				heights.append(t)
+				tallest = maxf(tallest, t)
+			var worst := 0.0
+			for t in heights:
+				worst = maxf(worst, (tallest - float(t)) / tallest)
+			_check(worst <= 0.20, "No column stands more than a fifth empty (%.0f%%: %s)" % [worst * 100.0, str(heights)])
+			var bsc: ScrollContainer = null
+			var up: Node = cols_node
+			while up != null and bsc == null:
+				bsc = up as ScrollContainer
+				up = up.get_parent()
+			var need := (bsc.get_child(0) as Control).get_combined_minimum_size().y if bsc != null else INF
+			_check(need <= bsc.size.y + 1.0, "The pre-bounce pane does not scroll at 1280x720 (%.0f of %.0f)" % [need, bsc.size.y if bsc else 0.0])
+		m.queue_free()
+		await _settle()
+		# Quarter time: the calls rows and Best so far.
+		sim.run_quarter()
+		var m2: Control = load("res://scenes/MatchScene.tscn").instantiate()
+		root.add_child(m2)
+		await _settle()
+		await _settle()
+		var box2: Node = m2.find_child("CoachBox", true, false)
+		var row: Node = box2.find_child("CallRow_mu", true, false) if box2 != null else null
+		_check(row != null, "Quarter time has the key match-ups row (%s)" % tag)
+		if row != null:
+			var ans: RichTextLabel = row.get_meta("answer") as RichTextLabel
+			var mine := int(sim.moment_side)
+			var named := 0
+			for fid in (sim.duels[mine] as Dictionary):
+				var duel_id := str((sim.duels[mine] as Dictionary)[fid])
+				for pair in [[str(fid), str(sim.squads[1 - mine].code)], [duel_id, str(sim.squads[mine].code)]]:
+					var full: String = db.player_display_name_by_id(str(pair[0]), "")
+					var sur: String = full.split(" ", false, 1)[1] if full.contains(" ") else full
+					if not _plain_of(ans).contains(sur):
+						continue
+					named += 1
+					_check(ans.text.contains("[color=#%s]%s" % [UK.club_ink(str(pair[1])).to_html(false), sur.replace(" ", NB)]),
+							"%s wears %s's ink on the key match-ups row (%s)" % [sur, pair[1], tag])
+			_check(named >= 2, "The key match-ups row names players (%d, %s)" % [named, tag])
+		var inks: Array = UK.club_ink_pair(str(sim.squads[0].code), str(sim.squads[1].code))
+		for side in [0, 1]:
+			var wrap: Node = box2.find_child("BestSide_%d" % side, true, false) if box2 != null else null
+			var plain := []
+			var count := 0
+			for n in (wrap.find_children("StandoutName", "Label", true, false) if wrap != null else []):
+				count += 1
+				if (n as Label).get_theme_color("font_color") != (inks[side] as Color):
+					plain.append((n as Label).text)
+			_check(count >= 1 and plain.is_empty(), "Best so far names for side %d wear his club's ink (%s, %d, not: %s)" % [side, tag, count, str(plain)])
+		m2.queue_free()
+		await _settle()
+	_state.replay_seed = seed_before
+
+
+func _plain_of(c: Control) -> String:
+	return str(c.get_meta("plain")) if c.has_meta("plain") else (c as Label).text
+
+
+## Each key match-up's Change sits right after its sentence, and no name in a
+## sentence is broken across two lines.
+func _matchup_rows(m: Control, box: Node, tag: String) -> void:
+	var NI = load("res://scripts/ui/NameInk.gd")
+	var rows := box.find_children("BreakMatchup_*", "HBoxContainer", true, false)
+	_check(not rows.is_empty(), "The key match-ups have rows (%s)" % tag)
+	var names: Dictionary = m.call("_names")
+	for r in rows:
+		var line: RichTextLabel = r.find_child("MatchupLine", true, false) as RichTextLabel
+		var change: Button = r.find_child("ChangeMatchup", true, false) as Button
+		if line == null or change == null:
+			_check(false, "A match-up row has its sentence and Change (%s)" % tag)
+			continue
+		var gap := change.get_global_rect().position.x - line.get_global_rect().end.x
+		_check(gap >= 0.0 and gap <= 14.0, "Change sits right after its sentence, %.0f px away (%s: %s)" % [gap, tag, _plain_of(line)])
+		var plain := _plain_of(line)
+		var spans: Array = NI.spans_in(plain, names)
+		var broken := []
+		for i in range(1, line.get_line_count()):
+			var at := line.get_line_range(i).x
+			for sp in spans:
+				if at > int(sp[0]) and at < int(sp[1]):
+					broken.append(plain.substr(int(sp[0]), int(sp[1]) - int(sp[0])))
+		_check(broken.is_empty(), "No name breaks across lines on a match-up (%s: %s)" % [tag, str(broken)])
 
 
 ## Tapping a tag target brings "Who tags" in; no other section changes column

@@ -8,6 +8,7 @@ extends SceneTree
 
 var NI
 var UK
+const NB := "\u00A0"  # a name's spaces in the text drawn (NameInk.NBSP)
 var _state: Node
 var _db: Node
 var _checks := 0
@@ -60,9 +61,9 @@ func _helper() -> void:
 			"The index knows each player's club from his record (%s, %s)" % [fre_name, gws_name])
 	var line := "%s is roaming loose behind the ball, %s's man [on him]." % [fre_name, gws_name]
 	var bb: String = NI.markup(line, idx)
-	_check(bb.contains("[color=#%s]%s[/color]" % [_html("FRE"), fre_name]),
+	_check(bb.contains("[color=#%s]%s[/color]" % [_html("FRE"), fre_name.replace(" ", NB)]),
 			"The Fremantle player's name carries Fremantle's ink")
-	_check(bb.contains("[color=#%s]%s[/color]" % [_html("GWS"), gws_name]),
+	_check(bb.contains("[color=#%s]%s[/color]" % [_html("GWS"), gws_name.replace(" ", NB)]),
 			"The Giants player's name carries the Giants' ink")
 	_check(bb.contains("[lb]on him[rb]") and not bb.contains("[on him]"),
 			"Square brackets in the words are escaped, never read as tags")
@@ -86,7 +87,7 @@ func _helper() -> void:
 	var found := btn.find_children("*", "RichTextLabel", true, false)
 	var over: RichTextLabel = found[0] as RichTextLabel if not found.is_empty() else null
 	_check(btn.text == "%s on %s" % [fre_name, gws_name] and over != null
-			and over.text.contains("[color=#%s]%s[/color]" % [_html("GWS"), gws_name]),
+			and over.text.contains("[color=#%s]%s[/color]" % [_html("GWS"), gws_name.replace(" ", NB)]),
 			"A button naming two players keeps its words and draws each in his club's ink")
 	_check(btn.get_theme_color("font_color").a == 0.0, "The button's own text is made clear under the tinted copy")
 	var plain_btn := Button.new()
@@ -137,15 +138,15 @@ func _match_screen() -> void:
 	var text := ""
 	if row is RichTextLabel:
 		text = (row as RichTextLabel).text
-	_check(row is RichTextLabel and text.contains("[color=#%s]%s[/color]" % [_html(home), an]),
+	_check(row is RichTextLabel and text.contains("[color=#%s]%s[/color]" % [_html(home), an.replace(" ", NB)]),
 			"A feed line colours the %s player in %s's ink" % [home, home])
-	_check(text.contains("[color=#%s]%s[/color]" % [_html(away), bn]),
+	_check(text.contains("[color=#%s]%s[/color]" % [_html(away), bn.replace(" ", NB)]),
 			"... and the %s player in %s's ink in the same line" % [away, away])
 	_check(NI.plain(row).contains("GOAL to " + an), "The words of the line are unchanged")
 	var goal: Control = m.call("_goal_row", {"side": 0, "name": an, "goals": [1, 0], "behinds": [0, 0]}, "Q1 3'")
 	feed.add_child(goal)
 	var head: Node = goal.get_child(1).get_child(0)
-	_check(head is RichTextLabel and (head as RichTextLabel).text.contains("[color=#%s]%s[/color]" % [_html(home), an]),
+	_check(head is RichTextLabel and (head as RichTextLabel).text.contains("[color=#%s]%s[/color]" % [_html(home), an.replace(" ", NB)]),
 			"A goal row's scorer wears his club's ink")
 	m.queue_free()
 	await _settle()
