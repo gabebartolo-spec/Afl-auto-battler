@@ -8,6 +8,8 @@ extends RefCounted
 
 ## A row: thumb-sized at every width.
 const ROW_H := 60.0
+## How far in a row's words start from its edge (_row offsets its content by this).
+const ROW_INSET := 8
 const RANK_W := 30.0
 const FIG_W := 72.0
 ## Rows built with the section, then rows added each frame after it.
@@ -19,12 +21,21 @@ static func build(host: Control) -> Control:
 	var v := UiKit.vbox(8)
 	v.name = "StatsRatings"
 	var wide: bool = host.call("wide")
-	v.add_child(UiKit.heading("Player ratings", UiKit.HEADING))
+	# The heading and its rule start where the rows' words start, never on the
+	# section's own edge (it sat flush against the viewport edge).
+	var intro := MarginContainer.new()
+	intro.name = "RatingsIntro"
+	intro.add_theme_constant_override("margin_left", ROW_INSET)
+	intro.add_theme_constant_override("margin_right", ROW_INSET)
+	v.add_child(intro)
+	var intro_box := UiKit.vbox(8)
+	intro.add_child(intro_box)
+	intro_box.add_child(UiKit.heading("Player ratings", UiKit.HEADING))
 	var rule := UiKit.lbl("Ranked by rating a game among players who have played at least half their club's games. Everyone else is listed below them.",
 			UiKit.SECONDARY, UiKit.MUTED)
 	rule.name = "RatingsRule"
 	rule.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(rule)
+	intro_box.add_child(rule)
 	var list := rows()
 	if list.is_empty():
 		var none := UiKit.lbl("No one has played a game yet.", UiKit.BODY, UiKit.MUTED)
@@ -144,7 +155,7 @@ static func _row(host: Control, row: Dictionary, rank: int, wide: bool) -> Contr
 	b.pressed.connect(func(): StatsPlayers.open_player(host, id))
 	var h := UiKit.hbox(10)
 	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	h.offset_left = 8
+	h.offset_left = ROW_INSET
 	h.offset_right = -10
 	b.add_child(h)
 	var rk := _cell(str(rank) if rank > 0 else "", RANK_W, UiKit.TEXT, UiKit.SECONDARY, HORIZONTAL_ALIGNMENT_RIGHT, true)

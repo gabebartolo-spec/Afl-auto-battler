@@ -24,7 +24,7 @@ const WIDE_CLUB := 190
 ## Wildcard, Rebuilding) and the list in three years.
 const LADDER_PHONE := [["pos", "#", 24], ["club", "Club", 0], ["p", "P", 26], ["w", "W", 26],
 		["l", "L", 26], ["d", "D", 24], ["pct", "%", 42], ["pts", "Pts", 34], ["rating", "Rating", 46]]
-const LADDER_WIDE := [["pos", "#", 28], ["club", "Club", WIDE_CLUB], ["p", "P", 32], ["w", "W", 32],
+const LADDER_WIDE := [["pos", "#", 44], ["club", "Club", WIDE_CLUB], ["p", "P", 32], ["w", "W", 32],
 		["l", "L", 32], ["d", "D", 30], ["pf", "PF", 50], ["pa", "PA", 50], ["pct", "%", 50],
 		["pts", "Pts", 40], ["home", "Home", 68], ["away", "Away", 68], ["form", "Form", 76],
 		["rating", "Rating", 52]]
@@ -221,7 +221,7 @@ static func _header(host: Control, specs: Array, width: float, wide := false) ->
 		b.mouse_filter = Control.MOUSE_FILTER_PASS
 		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		b.add_theme_font_override("font", UiKit.BOLD if key == _sort else UiKit.FONT)
-		b.add_theme_font_size_override("font_size", 12)
+		b.add_theme_font_size_override("font_size", UiKit.FINE)
 		var on: bool = key == _sort
 		for col in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 			b.add_theme_color_override(col, UiKit.TEXT if on else UiKit.MUTED)
@@ -243,7 +243,7 @@ static func _header(host: Control, specs: Array, width: float, wide := false) ->
 
 
 static func _plain(text: String, w: int, col: Color) -> Label:
-	var l := UiKit.line(text, 12, col)
+	var l := UiKit.line(text, UiKit.FINE, col)
 	l.custom_minimum_size = Vector2(w, 0)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	return l
@@ -312,7 +312,7 @@ static func _row(host: Control, r: Dictionary, specs: Array, width: float, band 
 		var text := cell_text(r, key)
 		# The position is muted, so is a zero; the rest is plain text.
 		var ink := UiKit.MUTED if key == "pos" or _is_zero(text) else UiKit.TEXT
-		var l := UiKit.line(text, 13 if key == "pts" or key == "pos" else 12, ink, mine or key == "pts")
+		var l := UiKit.line(text, UiKit.FINE, ink, mine or key == "pts")
 		l.custom_minimum_size = Vector2(w, 0)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		row.add_child(l)
