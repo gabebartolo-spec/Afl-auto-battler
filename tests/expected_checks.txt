@@ -52,4 +52,4 @@ nameink 16
 plan_know 96
 rowgap 110
 planpane 152
-namelink 73
+namelink 85
