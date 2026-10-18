@@ -118,6 +118,7 @@ func _run() -> void:
 	await _test_rotation()
 	await _test_phone_browser_never_wide()
 	await _test_stage()
+	await _test_league_draft_stays_instant()
 	await _test_rival_why()
 	print("Draft UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
@@ -1055,7 +1056,7 @@ func _check_layout(ui: Control, label: String) -> void:
 	var margin: Control = ui.get("_margin")
 	_check(viewport.grow(1).encloses(margin.get_global_rect()), label + " has no page overflow")
 	for node_name in ["DraftWorkspace", "StartSeason", "DraftPool", "DraftActivity",
-			"Position_DEF", "Position_MID", "Position_RUCK", "Position_FWD", "LatestRivalPick"]:
+			"Position_DEF", "Position_MID", "Position_RUCK", "Position_FWD", "LiveBoard"]:
 		var node: Control = ui.find_child(node_name, true, false)
 		if node != null and node.is_visible_in_tree():
 			_check(viewport.grow(1).encloses(node.get_global_rect()), label + ": " + node_name + " fits")
@@ -1156,7 +1157,7 @@ func _test_stage() -> void:
 			var hung: Control = stage.find_child("DraftGuernsey", true, false) if stage != null else null
 			var marker: Control = hung.find_child("ClubMarker", true, false) if hung != null else null
 			_check(marker != null and marker.size.x >= (64.0 if sz.x >= 760 else 53.0) and is_equal_approx(marker.size.x, marker.size.y),
-					"%s: the draft's header shows a guernsey, as big as it was under the hanger (%d)" % [tag, int(marker.size.x) if marker != null else 0])
+					"%s: the board shows the guernsey on the clock, as big as it was under the hanger (%d)" % [tag, int(marker.size.x) if marker != null else 0])
 			if stage == null or marker == null:
 				ui.queue_free()
 				await _settle()
@@ -1186,10 +1187,12 @@ func _test_stage() -> void:
 					continue
 				if lab.size.y + 1.0 < lab.get_combined_minimum_size().y or lab.get_global_rect().intersects(stage.get_global_rect()):
 					whole = false
+				# Each line of a label that neither wraps nor trims fits its width (the cap
+				# line beside the guernsey is two lines).
 				if lab.autowrap_mode == TextServer.AUTOWRAP_OFF and lab.text_overrun_behavior == TextServer.OVERRUN_NO_TRIMMING \
-						and lab.get_theme_font("font").get_string_size(lab.text, HORIZONTAL_ALIGNMENT_LEFT, -1, lab.get_theme_font_size("font_size")).x > lab.size.x + 0.5:
+						and lab.get_theme_font("font").get_multiline_string_size(lab.text, HORIZONTAL_ALIGNMENT_LEFT, -1, lab.get_theme_font_size("font_size")).x > lab.size.x + 0.5:
 					whole = false
-			_check(whole and quiet, "%s: the stage sits inside the header, takes no tap, and the title beside it is whole" % tag)
+			_check(whole and quiet, "%s: the guernsey sits on the live board, takes no tap, and the words beside it are whole" % tag)
 			var back: Button = ui.find_child("BackToMenu", true, false)
 			_check(back != null and back.size.x >= 44.0 and back.size.y >= 44.0, "%s: the back button is still a thumb wide and tall" % tag)
 			if sz.x < 600 and club == "FRE":
@@ -1200,7 +1203,7 @@ func _test_stage() -> void:
 				var status: Label = ui.find_child("DraftStatus", true, false)
 				var cap: Label = ui.find_child("SalaryCap", true, false)
 				_check(status != null and status.text != "" and cap != null and cap.text.contains("Cap left"),
-						"%s: who is on the clock and the cap left are still said under the header" % tag)
+						"%s: who is on the clock and the cap left are said on the board" % tag)
 			ui.queue_free()
 			await _settle()
 	# No picture file is needed: with the art folder pointed nowhere the guernsey is still there.
@@ -1235,8 +1238,41 @@ func _check(condition: bool, message: String) -> void:
 		push_error(message)
 
 
+## Draft night's stage and replay are the National Draft's alone (lead,
+## 2026-10-18): the League Draft's picks land at once, even with motion on.
+func _test_league_draft_stays_instant() -> void:
+	var feel = load("res://scripts/ui/Feel.gd")
+	_state.reset()
+	_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(),
+			_db.active_clubs(2026).duplicate(), 12345)
+	root.size = Vector2i(390, 844)
+	feel.test_motion = true
+	var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
+	root.add_child(ui)
+	ui.call("_on_club_chosen", "FRE")
+	await _settle()
+	var draft = _state.draft
+	var at: int = draft.pick_history.size()
+	var pick_me: Button = ui.find_child("PickForMe", true, false)
+	if pick_me != null:
+		var why: String = await Tap.tap(pick_me)
+		_check(why == "", "A finger's tap reaches Pick for me in the League Draft (%s)" % why)
+		if why != "":
+			pick_me.emit_signal("pressed")
+	await _settle()
+	var status: Label = ui.find_child("DraftStatus", true, false)
+	var want: String = "Draft complete" if draft.is_finished() else "Pick %d: %s" % [draft.pick_index + 1, _db.club_name(draft.current_club())]
+	_check(pick_me != null and draft.pick_history.size() > at + 1, "League Draft: Pick for me makes the pick and the rivals follow")
+	_check(ui.find_child("DraftNightStage", true, false) == null and not ui.call("replaying")
+			and status != null and status.text == want,
+			"League Draft: no stage and no replay, the board lands at once (%s)" % (status.text if status else "-"))
+	feel.test_motion = false
+	ui.queue_free()
+	await _settle()
+
+
 ## P-18: open a prospect's sheet with a real tap, draft someone else, and the
-## rival picks that follow say, in one line under the ticker, why a club took
+## rival picks that follow say, in one line under the board, why a club took
 ## or passed on him, with the club's name in its ink. Opening no one: no line.
 func _test_rival_why() -> void:
 	root.size = Vector2i(390, 844)

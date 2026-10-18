@@ -117,7 +117,8 @@ func _ready() -> void:
 		_res["events"] = []
 		_my_side = GameDB.coach_side(str(_res["home"]), str(_res["away"]), GameState.my_club)
 		_pos_before = GameState.my_position()
-		_farewell = _farewell_for(GameState.pending_match)
+		# A pre-season practice match is nobody's debut, farewell or first goal.
+		_farewell = {} if _is_practice(GameState.pending_match) else _farewell_for(GameState.pending_match)
 		_key_moments = GameState.match_way_live == "key"
 	else:
 		_res = GameState.last_match
@@ -139,7 +140,7 @@ func _ready() -> void:
 	_pitch.setup(_res)
 	_refresh_rings()
 	# Whose first AFL goal the feed can say, if it comes today (MatchNotes).
-	if _interactive:
+	if _interactive and not _is_practice(_res):
 		_duel_mem["first_goal"] = GameState.first_goal_candidates()
 	_pitch.event_played.connect(_on_event)
 	_pitch.finished.connect(_on_finished)
@@ -3759,6 +3760,12 @@ func _on_finished() -> void:
 
 ## Who the scene after the siren honours, and both sides' players: {} unless your
 ## side has a milestone man (FarewellVignette.caption) who is in the side today.
+## The pre-season practice match (GameState.prepare_practice_match): played
+## for its own sake, so it carries no ladder, finals, debut or milestone talk.
+func _is_practice(m: Dictionary) -> bool:
+	return str(m.get("label", "")) == "Practice match"
+
+
 func _farewell_for(match: Dictionary) -> Dictionary:
 	# Vignettes off (Settings) means no scene at all, this one included.
 	if GameState.season == null or GameState.my_club == "" or not GameState.vignettes_on():
@@ -3911,8 +3918,8 @@ func _ft_summary(v: VBoxContainer) -> void:
 		row.add_child(UiKit.spacer(10))
 		v.add_child(row)
 
-	# What it means: finals, the ladder, who is next.
-	if mine:
+	# What it means: finals, the ladder, who is next. (Nothing, for a practice match.)
+	if mine and not _is_practice(_res):
 		var outlook := GameState.finals_outcome_line(_res)
 		if outlook != "":
 			var tag_now := str(_res.get("tag", ""))
