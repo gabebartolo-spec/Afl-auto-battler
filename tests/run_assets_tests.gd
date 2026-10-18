@@ -553,6 +553,8 @@ func _music_files() -> void:
 	var good_a := _write_tone("musicclear_a.wav", 21.0, 0.30)
 	var good_b := _write_tone("musicclear_b.wav", 21.0, 0.25)
 	var loud := _write_tone("musicclear_c.wav", 21.0, 0.05)
+	var short := _write_tone("musicclear_d.wav", 5.0, 0.30)
+	var hot := _write_tone("musicclear_e.wav", 21.0, 0.999)
 	var wa := _wav_levels(good_a)
 	var wb := _wav_levels(good_b)
 	var wc := _wav_levels(loud)
@@ -562,8 +564,13 @@ func _music_files() -> void:
 		_track_checks("reference tone B", wb)
 		_level_spread_check([float(wa["rms"]), float(wb["rms"])])
 		_check(absf(float(wa["rms"]) - float(wc["rms"])) > LEVEL_SPREAD_DB, "Two tracks far apart in level are caught")
+	# A track under 20 seconds is a sting, and one that touches full scale clips.
+	var ws := _wav_levels(short)
+	var wh := _wav_levels(hot)
+	_check(not ws.is_empty() and float(ws["seconds"]) < 20.0, "A five-second tone is caught as a sting, not a track")
+	_check(not wh.is_empty() and float(wh["peak"]) > PEAK_LIMIT_DB, "A tone at full scale is caught as clipping")
 	_check(_wav_levels("res://assets/audio/music/README.md").is_empty(), "A file that is not a WAV is not read as one")
-	for f in [good_a, good_b, loud]:
+	for f in [good_a, good_b, loud, short, hot]:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(f))
 	# The tool itself: a clipped, late-starting tone fails.
 	var bad := PackedByteArray()
