@@ -23,6 +23,7 @@ func run() -> void:
 	_test_real_pool()
 	_test_player_name_modes()
 	_test_plausible_names()
+	_test_no_double_names()
 	_test_cap_guard()
 	_test_stuck_draft_recovery()
 	_test_finished_list_reachability()
@@ -352,6 +353,32 @@ func _test_plausible_names() -> void:
 			words_ok = false
 	_check(words_ok and GameDB.FICTIONAL_FIRST_NAMES.size() >= 120 and GameDB.FICTIONAL_LAST_NAMES.size() >= 300,
 			"The name pools are large and made of real names")
+
+
+## No generated name has its given name equal to its surname ("Reid Reid").
+func _test_no_double_names() -> void:
+	var saved_next: int = GameDB._alias_next
+	var doubles := []
+	var checked := 0
+	for person in GameDB.players + GameDB.draftees:
+		checked += 1
+		if GameDB.alias_is_double(str(person["generic_name"])):
+			doubles.append(str(person["generic_name"]))
+	for i in range(20):
+		for person in Prospects.generate_class(2027 + i, 4242):
+			checked += 1
+			if GameDB.alias_is_double(str(person["generic_name"])):
+				doubles.append(str(person["generic_name"]))
+	for s in range(2000):
+		var cls: Array = Prospects.generate_class(2100 + s % 40, s)
+		for person in cls:
+			checked += 1
+			if GameDB.alias_is_double(str(person["generic_name"])):
+				doubles.append(str(person["generic_name"]))
+	GameDB._alias_next = saved_next
+	_check(doubles.is_empty(), "No generated name repeats its first word as its surname (%d checked, bad: %s)" % [checked, str(doubles.slice(0, 5))])
+	_check(GameDB.alias_is_double("Reid Reid") and GameDB.alias_is_double("Reid reid")
+			and not GameDB.alias_is_double("Reid Reed"), "The double-name check is case-insensitive on first and last word")
 
 
 func _is_generated_name(label: String) -> bool:
