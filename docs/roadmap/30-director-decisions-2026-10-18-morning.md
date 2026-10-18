@@ -13,6 +13,7 @@ edits the bible.
 | 5 | P-74 "Not in this game" list: which candidates | Playable control; Microtransactions | the page carries those two. Multiplayer, 3D and spoken commentary were NOT picked: they are not promised absent |
 | 6 | The merged looks (With us block, pick provenance, Doig Medal stage, stats on one PC page, list Shape scroll) | "All fine" | no changes |
 | 7 | Lead ruling on inline name links (a name in a sentence taps at line height; buttons and Profile taps keep 44 px) | "Keep" | the sweep's "Inline name links" column stays non-gating |
+| 8 | Ambition's patient/rebuilding side: an effect too, or win-now only | "Yes, small" | draftees and under-22s settle and develop a touch faster at a patient club (about 3%/5% by grade, his final sizes in playtest); veterans' re-sign asks not lower; one plain line on the Culture screen |
 
 Also told him, no decision asked: AI clubs turn over about 9 players a year (median 9; 66% of club-years inside 8-12),
 real clubs lose 4-7 to delistings and retirements plus trades (docs/research/LIST_CHURN_AUDIT_2026-10-18.md). Balance stays his.
