@@ -3,7 +3,7 @@
 Read in full at session start. One line per director requirement not DONE on main: owner, status, where the
 full wording lives (`docs/roadmap/`). Leaves this file only when its section file records DONE with the PR.
 Owner "none" = no plan or branch covers it. "verify" = code not checked this pass; owner checks before scheduling.
-Nothing here starts until the boss assigns it. Reconciled 2026-10-10 against main `d0fbaf4d` (hygiene); owners for items 1-9 set by the boss 2026-10-10 (order: 8, then 2-5 as one PR, 1, 9, 7). Items 10-31 unowned go to the director as one scheduling question (boss). Director decisions of 2026-10-13: [chapter 26](26-director-decisions-2026-10-13.md). Next patch milestone: 0.2.0 "Pre-season". Light theme parked by the director 2026-10-13 (ch. 26 s11).
+Nothing here starts until the boss assigns it. Reconciled 2026-10-10 against main `d0fbaf4d` (hygiene); owners for items 1-9 set by the boss 2026-10-10 (order: 8, then 2-5 as one PR, 1, 9, 7). Items 10-31 unowned go to the director as one scheduling question (boss). Director decisions of 2026-10-13: [chapter 26](26-director-decisions-2026-10-13.md). Next patch milestone: 0.2.0 "Pre-season". Light theme parked by the director 2026-10-13 (ch. 26 s11). **Director playtest of 2026-10-14 evening: every comment, his words, owner and PR, in [chapter 27](27-director-playtest-2026-10-14.md) (items A1-A13 ship in that night's itch patch; B rulings; C new switched features).**
 
 ## Director rules on main that the code does not meet
 
