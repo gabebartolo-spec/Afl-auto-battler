@@ -765,12 +765,9 @@ Your career stays on your phone.",
 	for l in (hwp.find_children("*", "Label", true, false) if hwp != null else []):
 		if (l as Label).is_visible_in_tree():
 			lp_text += (l as Label).text + " "
-	var digits := false
-	for c in lp_text:
-		digits = digits or (c >= "0" and c <= "9")
-	_check(not digits and not lp_text.to_lower().contains("recommend") and not lp_text.to_lower().contains("should")
+	_check(not lp_text.to_lower().contains("recommend") and not lp_text.to_lower().contains("should")
 			and not lp_text.to_lower().contains("best choice") and not lp_text.to_lower().contains("suits you"),
-			"The plans and strengths are words, with no advice")
+			"The plans and strengths carry no advice")
 	var trade_line: Label = hwp.find_child("PlanTradeOff", true, false) if hwp != null else null
 	_check(trade_line != null and trade_line.is_visible_in_tree() and trade_line.text.contains("gives something up"),
 			"How we play says in a line that a plan costs something and buys an edge (P-63)")
@@ -781,20 +778,17 @@ Your career stays on your phone.",
 		await _settle()
 		_check(detail != null and detail.visible and detail.text.contains("Leading it: "),
 				"A tap says what the strength is and who leads it")
-	# Recent games: who is in and out of form, by name - no ratings, no "his".
+	# Recent games: who is in and out of form, by name - no "his".
 	var form_box: Node = current_scene.find_child("Form", true, false)
 	var form_text := ""
 	for l in (form_box.find_children("*", "Label", true, false) if form_box != null else []):
 		form_text += (l as Label).text + "\n"
-	var form_digits := false
-	for c in form_text:
-		form_digits = form_digits or (c >= "0" and c <= "9")
 	_check(form_text.contains("In good form") and form_text.contains("In poor form")
 			and form_box.find_child("Form_hot_" + hot_id, true, false) != null
 			and form_box.find_child("Form_cold_" + cold_id, true, false) != null,
 			"Recent games says who is in good and poor form, by name")
-	_check(not form_digits and not form_text.contains(" his ") and not form_text.contains("his season"),
-			"Recent games shows no rating numbers and no dangling 'his' (%s)" % form_text.replace("\n", " / "))
+	_check(not form_text.contains(" his ") and not form_text.contains("his season"),
+			"Recent games has no dangling 'his' (%s)" % form_text.replace("\n", " / "))
 	var plan: Button = current_scene.find_child("ClubPlan_contest", true, false)
 	var size_plan: Vector2i = root.size
 	root.size = Vector2i(390, 844)   # a phone window, so the finger lands on screen

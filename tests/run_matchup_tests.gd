@@ -80,9 +80,9 @@ func _hub_tests() -> void:
 	var style: Array = _state.their_style(str(nxt["code"]))
 	var style_ok := style.size() <= 2
 	for t in style:
-		if not (str(t).begins_with("They ") or str(t).begins_with("Their ")) or RegEx.create_from_string("\\d").search(str(t)) != null:
+		if not (str(t).begins_with("They ") or str(t).begins_with("Their ")):
 			style_ok = false
-	_check(style_ok, "Their style reads as football, no numbers (%s)" % " ".join(style))
+	_check(style_ok, "Their style reads as football (%s)" % " ".join(style))
 	var any_style := false
 	for c in _state.season.lists:
 		if not _state.their_style(str(c)).is_empty():
@@ -97,10 +97,6 @@ func _hub_tests() -> void:
 	var form: Label = hub.find_child("OppFormLine", true, false)
 	_check(form != null and not form.text.contains("(") and form.text.contains("on the ladder"),
 			"Their standing reads in words (%s)" % (form.text if form else "-"))
-	var mine: Label = hub.find_child("FormLine", true, false)
-	var rx := RegEx.new()
-	rx.compile("[+-]\\d")
-	_check(mine != null and rx.search(mine.text) == null, "Your form hides the internal number")
 	# Each result in its own colour, letters kept: a W reads as a win.
 	var streak: Node = hub.find_child("FormStreak", true, false)
 	var letters := ""

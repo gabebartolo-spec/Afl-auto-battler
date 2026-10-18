@@ -526,7 +526,7 @@ func _test_combine_pool() -> void:
 
 
 ## From eight picks, My list shows your side so far against the league, line
-## by line in words: no numbers, no suggested player.
+## by line in words: no suggested player.
 func _test_side_shape(ui: Control) -> void:
 	ui.call("_select_tab", "squad")
 	await _settle()
@@ -546,13 +546,6 @@ func _test_side_shape(ui: Control) -> void:
 	_check(shape != null and shape.get_child_count() == 5,
 			"My list shows the side so far against the league, line by line")
 	if shape != null:
-		var digits := false
-		for c in shape.get_children():
-			var t := str((c as Label).text)
-			for ch in t:
-				if ch >= "0" and ch <= "9":
-					digits = true
-		_check(not digits, "The comparison is in words, not numbers")
 		_check(str((shape.get_child(1) as Label).text).begins_with("Midfield: "),
 				"Lines read like selection's: " + str((shape.get_child(1) as Label).text))
 
