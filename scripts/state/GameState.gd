@@ -1229,6 +1229,7 @@ func reset() -> void:
 	# (a second career in one process played its off-season differently).
 	market_stats = {}
 	_targets_signed = {}
+	fa_lost = []
 	_bars = {}
 	_order_cache = {}
 	_standings_cache = {}
@@ -5812,6 +5813,7 @@ func open_offseason() -> void:
 	# signings, and a reload, which does not keep them, changed the market).
 	market_stats = {}
 	_targets_signed = {}
+	fa_lost = []   # the wrap tells this off-season's losses, not last year's
 	_bars = {}
 	_open_market(free_agents)
 	mark_dirty()
@@ -6369,7 +6371,8 @@ func offer_free_agent(player_id: String, salary: int, years: int) -> Dictionary:
 	var name := GameDB.player_display_name(p)
 	var terms := free_agent_terms(player_id)
 	if bool(terms["refuse"]):
-		return {"ok": false, "answer": "reject", "reason": "%s turns you down. %s" % [name, str(terms["reasons"][0])]}
+		return {"ok": false, "answer": "reject", "code": str(terms["code"]),
+				"reason": AiReasons.line(str(terms["code"]), {"player": name})}
 	if salary > cap_room():
 		return {"ok": false, "answer": "", "reason": "Not enough cap room for %s a season." % Contracts.money(salary)}
 	var reply := Contracts.respond(p, salary, years, int(talks.get("failed", 0)))
@@ -6425,6 +6428,11 @@ func offer_free_agent(player_id: String, salary: int, years: int) -> Dictionary:
 		out["ok"] = club == my_club
 		out["reason"] = ("%s signs with you: %s for %d season%s." % [name, Contracts.money(salary), years, "" if years == 1 else "s"]) if club == my_club \
 				else "%s chooses %s." % [name, GameDB.club_name(club)] if club != "" else "%s stays on the market." % name
+		if club != "" and club != my_club and fa_last_why != "":
+			# Why he went there, from the branch his choice took (P-18).
+			out["code"] = fa_last_why
+			out["club"] = club
+			out["reason"] = AiReasons.line(fa_last_why, {"player": name, "club": GameDB.club_name(club)})
 	else:
 		var lead := Contracts.best_offer(p, p["offers"])
 		out["reason"] = "Your offer leads." if lead == mine else "%s's offer leads." % GameDB.club_name(str(lead["club"]))
@@ -6432,23 +6440,59 @@ func offer_free_agent(player_id: String, salary: int, years: int) -> Dictionary:
 	return out
 
 
+## Why the last free agent _decide_fa settled went elsewhere rather than to
+## you: a reason code (data/ai_reasons.json), "" when you had no offer in or
+## he chose you. Not saved.
+var fa_last_why := ""
+## Free agents you had an offer in for who chose another club, and why:
+## [{"id", "name", "club", "code"}]. Shown in the off-season wrap; session
+## only, not saved (P-18, lead 2026-10-18: no new save key).
+var fa_lost: Array = []
+
+
+## The off-season wrap's free-agency lines: each free agent you were after
+## who chose a rival, and why (fa_lost), the club's name for its ink.
+## [{"text", "club"}]; empty after a reload (not saved).
+func fa_lost_lines() -> Array:
+	var out := []
+	for e in fa_lost:
+		out.append({"club": str(e["club"]), "text": AiReasons.line(str(e["code"]),
+				{"player": str(e["name"]), "club": GameDB.club_name(str(e["club"]))})})
+	return out
+
+
 ## He picks among the standing offers his suitors can still honour (a spot on
 ## the list, the cap room). Returns the club he signs with, or "".
 func _decide_fa(p: Dictionary) -> String:
+	fa_last_why = ""
 	var valid := []
+	var mine := {}
+	var mine_out := ""
 	for o in p.get("offers", []):
 		if bool(o.get("withdrawn", false)):
 			continue
 		var code := str(o["club"])
 		var list: Array = season.lists.get(code, [])
 		if list.size() >= Contracts.MAX_LIST or int(o["salary"]) > _cap_room_of(code):
+			if code == my_club:
+				mine_out = "fa_your_list" if list.size() >= Contracts.MAX_LIST else "fa_your_cap"
 			continue
+		if code == my_club:
+			mine = o
 		if code != my_club and bool(o.get("filler", false)) and list.size() >= Contracts.AI_FILL:
 			continue
 		valid.append(o)
 	var best := Contracts.best_offer(p, valid)
 	if best.is_empty():
 		return ""
+	if AiReasons.enabled and str(best["club"]) != my_club:
+		if mine_out != "":
+			fa_last_why = mine_out
+		elif not mine.is_empty():
+			fa_last_why = str(Contracts.prefers_why(p, best, mine)[1])
+		if fa_last_why != "":
+			fa_lost.append({"id": str(p["id"]), "name": GameDB.player_display_name(p),
+					"club": str(best["club"]), "code": fa_last_why})
 	if not bool(best.get("filler", false)) and str(best["club"]) != my_club:
 		_targets_signed[str(best["club"])] = int(_targets_signed.get(str(best["club"]), 0)) + 1
 	_sign_fa(p, str(best["club"]), int(best["salary"]), int(best["years"]))
@@ -6784,12 +6828,13 @@ func _trade_assets(ids: Array, owner: String) -> Dictionary:
 	for id in ids:
 		var key := str(id)
 		if seen.has(key):
-			return {"assets": [], "error": "Each player or pick can only go in once."}
+			return {"assets": [], "error": AiReasons.line("trade_twice"), "code": "trade_twice"}
 		seen[key] = true
 		if key.begins_with("pick:"):
 			var pk := pick_asset(key)
 			if pk.is_empty() or str(pk["owner"]) != owner:
-				return {"assets": [], "error": "That pick isn't theirs to trade." if owner != my_club else "That pick isn't yours to trade."}
+				var pc := "trade_not_their_pick" if owner != my_club else "trade_not_your_pick"
+				return {"assets": [], "error": AiReasons.line(pc), "code": pc}
 			out.append(pk)
 		else:
 			var found := {}
@@ -6797,26 +6842,28 @@ func _trade_assets(ids: Array, owner: String) -> Dictionary:
 				if str(p["id"]) == key:
 					found = p
 			if found.is_empty():
-				return {"assets": [], "error": "That player isn't on their list." if owner != my_club else "That player isn't on your list."}
+				var fc := "trade_not_their_player" if owner != my_club else "trade_not_your_player"
+				return {"assets": [], "error": AiReasons.line(fc), "code": fc}
 			out.append(found)
-	return {"assets": out, "error": ""}
+	return {"assets": out, "error": "", "code": ""}
 
 
 ## Would `club` accept your `mine` (player and pick ids) for its `theirs`?
 func evaluate_trade(club: String, mine: Array, theirs: Array) -> Dictionary:
 	if not offseason_open():
-		return {"ok": false, "reason": "Trades are only open in the off-season."}
+		return {"ok": false, "code": "trade_closed", "reason": AiReasons.line("trade_closed")}
 	var g := _trade_assets(theirs, club)
 	var t := _trade_assets(mine, my_club)
 	if str(g["error"]) != "" or str(t["error"]) != "":
-		return {"ok": false, "reason": str(g["error"]) if str(g["error"]) != "" else str(t["error"])}
+		var bad: Dictionary = g if str(g["error"]) != "" else t
+		return {"ok": false, "code": str(bad["code"]), "reason": str(bad["error"])}
 	var give: Array = g["assets"]
 	var take: Array = t["assets"]
 	var wont := _wont_go(give, my_club)
 	if wont == "":
 		wont = _wont_go(take, club)
 	if wont != "":
-		return {"ok": false, "reason": wont}
+		return {"ok": false, "code": "trade_asked_elsewhere", "reason": wont}
 	var ctx := trade_context(club)
 	var names := {}
 	for p in give + take:
@@ -7038,7 +7085,8 @@ func _club_verdict(club: String, other: String, gives: Array, gets: Array, margi
 
 ## When `club` turns your offer down on value, the one change that would get
 ## it done, in its own words: one more of yours (the least it would settle
-## for), or else one of theirs left out. {"say", "mine", "theirs"}, or {}
+## for), or else one of theirs left out. {"say", "mine", "theirs", "code" (the
+## refusal's reason code)}, or {}
 ## when the offer stands or no single change would do.
 func trade_counter(club: String, mine: Array, theirs: Array) -> Dictionary:
 	_freeze_league(true)
@@ -7067,7 +7115,7 @@ func _counter(club: String, mine: Array, theirs: Array) -> Dictionary:
 				least = float(w["in"])
 				best = {"say": "“We'd need %s as well.”" % _ask_name(str(id)), "mine": mine + [id], "theirs": theirs.duplicate()}
 	if not best.is_empty() or theirs.size() < 2:
-		return best
+		return _with_code(best, v)
 	var most := -1.0
 	for id in theirs:
 		var rest := theirs.filter(func(x): return x != id)
@@ -7075,7 +7123,14 @@ func _counter(club: String, mine: Array, theirs: Array) -> Dictionary:
 		if bool(w["ok"]) and float(w["out"]) > most:
 			most = float(w["out"])
 			best = {"say": "“We could do it without %s.”" % _ask_name(str(id), "our"), "mine": mine.duplicate(), "theirs": rest}
-	return best
+	return _with_code(best, v)
+
+
+## A counter carries the reason code of the refusal it answers (P-18).
+func _with_code(counter: Dictionary, verdict: Dictionary) -> Dictionary:
+	if not counter.is_empty():
+		counter["code"] = str(verdict.get("code", ""))
+	return counter
 
 
 ## A player's name, or a pick as `whose` ("your", "our", "their") would
@@ -7369,8 +7424,8 @@ func _wont_go(assets: Array, to: String) -> String:
 			continue
 		var ask: Dictionary = trade_requests[str(a["id"])]
 		if not (ask["to"] as Array).has(to):
-			return "%s has asked to go to %s." % [GameDB.player_display_name(a),
-					" or ".join((ask["to"] as Array).map(func(c): return GameDB.club_name(str(c))))]
+			return AiReasons.line("trade_asked_elsewhere", {"player": GameDB.player_display_name(a),
+					"to": " or ".join((ask["to"] as Array).map(func(c): return GameDB.club_name(str(c))))})
 	return ""
 
 

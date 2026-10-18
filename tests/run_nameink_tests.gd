@@ -48,7 +48,7 @@ func _run() -> void:
 
 
 func _html(club: String) -> String:
-	return UK.club_ink(club).to_html(false)
+	return UK.club_name_colour(UK.club_ink(club)).to_html(false)
 
 
 func _helper() -> void:

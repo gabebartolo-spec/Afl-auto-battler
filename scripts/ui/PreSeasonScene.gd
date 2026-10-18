@@ -133,7 +133,7 @@ func _header(stop: String) -> Control:
 	who.add_child(UiKit.club_marker(GameState.my_club, 32.0))
 	var names := UiKit.vbox(0)
 	names.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var club := UiKit.lbl(GameDB.club_name(GameState.my_club), UiKit.NAME, UiKit.club_ink(GameState.my_club), true)
+	var club := UiKit.lbl(GameDB.club_name(GameState.my_club), UiKit.NAME, UiKit.club_name_colour(UiKit.club_ink(GameState.my_club)), true)
 	club.name = "PreSeasonClub"
 	names.add_child(club)
 	names.add_child(UiKit.lbl("Before the %d season" % GameState.season_year, UiKit.SECONDARY, UiKit.TEXT))
