@@ -1359,9 +1359,9 @@ func _names(opts: Array) -> Array:
 func _gate_odds() -> void:
 	var GO = load("res://scripts/sim/GateOdds.gd")
 	var Ms = load("res://scripts/sim/MatchSim.gd")
-	var RL = load("res://scripts/sim/RL.gd")
+	var RL = load("res://scripts/sim/Roles.gd")
 	var RT = load("res://scripts/sim/Ratings.gd")
-	var MU = load("res://scripts/sim/MU.gd")
+	var MU = load("res://scripts/sim/Matchups.gd")
 	var digits := RegEx.create_from_string("[0-9]")
 	var templates := [GO.GAIN, GO.COST, GO.TAG_GAIN, GO.TAG_COST, GO.MATCHUP_GAIN, GO.MATCHUP_COST_NEXT,
 			GO.MATCHUP_COST_LOOSE, GO.MINDER_GAIN, GO.MINDER_COST, GO.RUCK_GAIN, GO.RUCK_COST, GO.LOOSE_GAIN,
