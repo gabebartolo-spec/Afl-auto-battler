@@ -297,7 +297,9 @@ func _stakes_problems(effects: Array, lines: PackedStringArray) -> Array:
 		for kind in table:
 			var named := RegEx.create_from_string(str(table[kind])).search(line) != null
 			var has: bool = (want[side] as Array).has(kind)
-			if named and not has and not (kind == "board" and (want[side] as Array).has("promise_win")):
+			# A board mention is fine where the line explains a later board cost: a promise
+			# to win, or a finish put on the record (the papers' reckoning card).
+			if named and not has and not (kind == "board" and ((want[side] as Array).has("promise_win") or (want[side] as Array).has("on_record"))):
 				problems.append("%s line names %s which the effects do not contain" % [label, kind])
 			if has and not named:
 				problems.append("%s line leaves out %s" % [label, kind])
