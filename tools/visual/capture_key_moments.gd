@@ -27,6 +27,12 @@ func _shot(path: String) -> void:
 		img.resize(W, H, Image.INTERPOLATE_LANCZOS)
 	img.save_png(path)
 	print("wrote ", path, " ", img.get_size())
+	# The thumb targets this capture shows, measured (at least 44 px tall).
+	for b in root.find_children("*", "Button", true, false):
+		var t := (b as Button).text
+		if (b as Button).is_visible_in_tree() and t in ["Watch", "Key moments", "Skip", "Pause",
+				"Skip to full time", "Play match", "Pick the side"]:
+			print("  button '", t, "' ", (b as Button).size, " at ", (b as Button).global_position)
 
 
 func _run() -> void:
