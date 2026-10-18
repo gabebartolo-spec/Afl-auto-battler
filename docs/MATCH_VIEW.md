@@ -145,11 +145,15 @@ read as a swarm or a clump:
   lane, 14.25 m, plus a disc either side of the centre line), from the side's
   defensive 50 to the goal square at full strength (its soft ends lie beyond
   them), while the side has the ball in play.
-- **Win contest**: at a ball-up or throw-in, a ring round the contest from the
-  call to the clearance, its edge just outside the pack's 8 m ring (the ring
-  plus a disc, so the ring's players do not cover it); in open play the same
-  ring round the ball at the midfield's 10.5 m, gliding after the ball no faster
-  than a sprint. A faint pad of the colour inside, the rim a light tint of it.
+- **Win contest**: at a ball-up or throw-in, a ring planted on the contest spot
+  from the umpire's call (the ball dead in a tackle or a pack) to the clearance,
+  its edge just outside the pack's 8 m ring (the ring plus a disc, so the ring's
+  players do not cover it); it never follows the ball in. In open play the same
+  ring round the ball at the midfield's 10.5 m, on the ball while it moves at a
+  player's pace; when the ball goes faster than a sprint (a kick or handball in
+  flight) the ring stays where it was and eases out, and eases back in where the
+  ball comes down, so nothing drags across the ground. A faint pad of the colour
+  inside, the rim a light tint of it.
 
 Both are laid at the press wash's faint strength (0.3 at half, 0.15) and ease
 in and out over half a second. Where the press wash lies a marking only tops it
