@@ -875,7 +875,7 @@ static func tagger_card(p: Dictionary, legs: float, rating := -1.0) -> Dictionar
 	return {"where": where, "pressure": str(roundi(float(a.get("pressure", 0)))),
 			"legs": lw.left(1).to_upper() + lw.substr(1), "legs_bad": legs < TIRING,
 			"gives_label": "Gives up", "gives": GateOdds.tag_gives() + season,
-			"holds_label": "Their man keeps", "holds": GateOdds.pct(GateOdds.tag_kept(p, legs)) + " of his ball"}
+			"holds_label": "Their man keeps", "holds": GateOdds.pct(GateOdds.tag_kept(p, legs))}
 
 
 ## The same card in one run of words, for the long list ("Other player...")
@@ -886,7 +886,7 @@ static func tagger_card_detail(p: Dictionary, legs: float, wide: bool, rating :=
 	# never ends on one.
 	var dot := " · "
 	var first := "%s%sPressure %s" % [c["where"], dot, c["pressure"]]
-	var second := "%s%sGives up %s%sTheir man keeps %s" % [c["legs"], dot, c["gives"], dot, c["holds"]]
+	var second := "%s%sGives up %s%sTheir man keeps %s of his ball" % [c["legs"], dot, c["gives"], dot, c["holds"]]
 	return (first + dot + second) if wide else (first + "
 " + second)
 

@@ -952,7 +952,7 @@ func _show_coach_box() -> void:
 		var who = my_mids.get(str(calls["tagger_id"]), tagger)
 		var target := GameDB.player_display_name_by_id(str(calls["tag_id"]), "")
 		if str(calls["tag_id"]) == "":
-			NameInk.set_line(tag_note, "No tag: your midfielders play their own game.", _names())
+			NameInk.set_line(tag_note, "No tag: your midfielders play their own game, and their man runs free.", _names())
 		elif who == null:
 			NameInk.set_line(tag_note, "No midfielder on the ground to tag with.", _names())
 		elif str(calls["tagger_id"]) != "" and not my_mids.has(str(calls["tagger_id"])):
@@ -2884,8 +2884,11 @@ func _card_text(r: Dictionary, detail: Callable) -> String:
 ## "card_text" meta for the tests.
 func _dress_tagger_card(b: Button, who_name: String, c: Dictionary, is_pick: bool) -> void:
 	var gives_value := str(c["gives"]).left(1).to_upper() + str(c["gives"]).substr(1)
-	var plain := "%s\n%s\nPressure %s\nLegs %s\n%s %s\n%s %s" % [who_name, c["where"], c["pressure"], c["legs"],
-			c["gives_label"], gives_value, c["holds_label"], c["holds"]]
+	# The hold sits beside his Pressure (it is his Pressure and legs that set
+	# it), so the card keeps its three rows and the PC break still fits.
+	var press_value := "%s · their man keeps %s" % [c["pressure"], c["holds"]]
+	var plain := "%s\n%s\nPressure %s\nLegs %s\n%s %s" % [who_name, c["where"], press_value, c["legs"],
+			c["gives_label"], gives_value]
 	if is_pick:
 		plain += "\nYour assistant's pick"
 	b.set_meta("card_text", plain)
@@ -2928,8 +2931,8 @@ func _dress_tagger_card(b: Button, who_name: String, c: Dictionary, is_pick: boo
 	where.name = "CardWhere"
 	head.add_child(where)
 	col.add_child(head)
-	var rows := [["Pressure", str(c["pressure"]), false], ["Legs", str(c["legs"]), bool(c["legs_bad"])],
-			[str(c["gives_label"]), gives_value, false], [str(c["holds_label"]), str(c["holds"]), false]]
+	var rows := [["Pressure", press_value, false], ["Legs", str(c["legs"]), bool(c["legs_bad"])],
+			[str(c["gives_label"]), gives_value, false]]
 	# A phone card is wide: label and value in two columns. A PC's card is a
 	# narrow half of a column: the label above the long value instead.
 	var facts: Container = VBoxContainer.new() if _pc_break else GridContainer.new()
