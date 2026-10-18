@@ -1325,6 +1325,62 @@ Your assistant's pick"
 				UiKit.attention(row as CanvasItem)
 		elif found != null:
 			UiKit.attention(found.get_parent() as CanvasItem)
+	_land_call_intent(overlay, q)
+
+
+## A response tapped beside an opposition fact on the hub (P-13,
+## GameState.call_intent) lands here, before the first ball-up: that call's
+## block is brought into view and brightens once, with the one fact that sent
+## the coach there restated above its picker. Nothing is chosen for him and
+## nothing else on the pane changes.
+const INTENT_NODES := {"tag": "TagPicker", "matchup": "BreakMatchups", "minder": "MinderBlock",
+		"ruck": "MainRuckPicker", "loose": "InterceptorPicker", "plan": "PlanPicker"}
+
+
+func _land_call_intent(overlay: Control, q: int) -> void:
+	var intent: Dictionary = GameState.call_intent
+	GameState.call_intent = {}
+	if q != 1 or intent.is_empty():
+		return
+	var target: Node = overlay.find_child(str(INTENT_NODES.get(str(intent.get("call", "")), "-")), true, false)
+	if target == null:
+		return
+	# The call's own block: the one holding its heading.
+	var block: Node = target
+	while block != null and block != overlay and block.find_child("CallHeading", false, false) == null 			and not (str(block.name) == "BreakMatchups"):
+		block = block.get_parent()
+	if block == null or block == overlay:
+		return
+	var line := _say(str(intent.get("fact", "")), UiKit.BODY, UiKit.TEXT, true)
+	line.name = "CallIntentFact"
+	if line is Label:
+		(line as Label).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	block.add_child(line)
+	var heading: Node = block.find_child("CallHeading", false, false)
+	block.move_child(line, (heading.get_index() + 1) if heading != null else mini(2, block.get_child_count() - 1))
+	_show_intent_block.call_deferred(block, str(intent.get("player_id", "")))
+
+
+func _show_intent_block(block: Node, player_id: String) -> void:
+	# The columns of a PC pane are dealt a frame after the break is built.
+	for i in range(4):
+		await get_tree().process_frame
+	if not is_instance_valid(block):
+		return
+	var shown: Node = block
+	var row: Node = block.find_child("BreakMatchup_" + player_id, true, false) if player_id != "" else null
+	if row != null:
+		shown = row
+	var up: Node = block
+	while up != null and not (up is ScrollContainer):
+		up = up.get_parent()
+	if up != null:
+		# The block's top (its heading and the fact) at the top of the pane; a
+		# long block would otherwise be shown by its end.
+		var sc := up as ScrollContainer
+		var top := (block as Control).global_position.y - (sc.get_child(0) as Control).global_position.y
+		sc.scroll_vertical = maxi(0, int(top) - 8)
+	UiKit.attention(shown as CanvasItem)
 
 
 # ---------------------------------------------------------------------------

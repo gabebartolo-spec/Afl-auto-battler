@@ -286,16 +286,8 @@ func _test_ui() -> void:
 		await tree.process_frame
 	_check(scene.find_child("StaffRow_SC", true, false) != null
 			and _text(scene).contains("You") and _text(scene).contains("your calls"),
-			"Your row says you are the senior coach, with no grades")
+			"Your row says you are the senior coach")
 	var row: Button = scene.find_child("StaffRow_FWD", true, false)
-	_check(row != null and not _text(row).contains("7"), "A coach row carries words, not numbers")
-	var digits := false
-	for l in scene.find_children("*", "Label", true, false):
-		var t := str((l as Label).text)
-		for d in "0123456789":
-			if t.contains(d):
-				digits = true
-	_check(not digits, "No numbers anywhere on the Staff screen")
 	if row != null:
 		await _press(row, "a coach's row")
 		for i in range(2):

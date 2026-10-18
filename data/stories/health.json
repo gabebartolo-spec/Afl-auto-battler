@@ -32,7 +32,8 @@
 				"note": "He misses this round only.",
 				"effects": [
 					{
-						"op": "rest"
+						"op": "rest",
+						"spares": "sore"
 					}
 				],
 				"result": "{name} is rested this week."
@@ -123,7 +124,8 @@
 				"label": "Sit him out",
 				"effects": [
 					{
-						"op": "rest"
+						"op": "rest",
+						"spares": "sore"
 					}
 				],
 				"result": "{name} sits this one out."
@@ -303,7 +305,8 @@
 				"label": "Don't risk him",
 				"effects": [
 					{
-						"op": "rest"
+						"op": "rest",
+						"spares": "sore"
 					},
 					{
 						"op": "morale",

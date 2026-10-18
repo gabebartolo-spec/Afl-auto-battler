@@ -127,6 +127,9 @@ var _shadow := [[], []]
 ## Win contest: where the pack's ring is being set this beat (INF for none):
 ## the play's other runs keep clear of it (_clear_of_pack).
 var _ring_at := Vector2.INF
+## Win contest: ball-ups pinned to where the ball was when the umpire called them
+## (event k -> the shift from the logged spot), _pin_ballup.
+var _ballup_pin := {}
 
 
 # ---------------------------------------------------------------------------
@@ -141,6 +144,7 @@ func setup(result: Dictionary, p_events: Array) -> void:
 	flash = {}
 	arrivals = []
 	_locs = {}
+	_ballup_pin = {}
 	_busy = {}
 	_lead = {}
 	_beat = {}
@@ -334,6 +338,7 @@ func _tick(h: float) -> void:
 			cursor += 1
 		if not _run_phases(h if guard == 1 else 0.0):
 			break
+	_pin_called_ballup()
 	_struct_timer -= h
 	if _struct_timer <= 0.0:
 		_struct_timer = STRUCTURE_EVERY
@@ -389,6 +394,8 @@ func _start_beat(k: int) -> void:
 	var side := int(ev.get("side", -1))
 	if side >= 0 and not META.has(kind):
 		_poss = side
+	if kind == "ballup":
+		_pin_ballup(k)
 	match kind:
 		"sub", "final", "injury":
 			_phases = [{"t": "emit"}]
@@ -645,6 +652,11 @@ func _ballup_phases(k: int) -> Array:
 		var shape := _flight_shape("kick", d)
 		out.append({"t": "flight", "to": at, "dur": shape.x, "apex": shape.y, "recv": -1,
 				"mode": "stoppage"})
+	elif _ballup_pin.has(k) and (_ballup_pin[k] as Vector2).length() > 3.0:
+		# Pinned to the ball (Win contest): no flight to the logged spot, but the
+		# ball-up keeps the time that flight took, so the pack forms and every
+		# later beat runs when it did before the pin.
+		out.append({"t": "wait", "dur": _flight_shape("kick", (_ballup_pin[k] as Vector2).length()).x})
 	var nk := _next_real(k)
 	var winner := _actor_id(events[nk]) if nk >= 0 else -1
 	var members := _nearest(at, 0, _pack_n(0), [winner]) + _nearest(at, 1, _pack_n(1), [winner])
@@ -994,7 +1006,9 @@ func _loc(k: int) -> Vector2:
 		# longitudinal field position as the crossing.
 		p = Vector2(x, src.y * 0.78)
 	elif _possession(kind) and _restart(k) in ["ballup", "free", "loose"]:
-		p = Vector2(x, src.y + _rng.randf_range(-6.0, 6.0))
+		# (A pinned ball-up carries its shift on to the ball's next spot.)
+		var px := x + (_ballup_pin[pk] as Vector2).x if pk >= 0 and _ballup_pin.has(pk) else x
+		p = Vector2(px, src.y + _rng.randf_range(-6.0, 6.0))
 	else:
 		var hb := pk >= 0 and str((events[pk] as Dictionary).get("kind", "")) == "handball"
 		var dy_raw := ry - src.y
@@ -1030,6 +1044,44 @@ func _loc(k: int) -> Vector2:
 	p.y = clampf(p.y, -ymax, ymax)
 	_locs[k] = p
 	return p
+
+
+## Win contest: the ball-up is where the ball is when the umpire calls it (motion
+## critic, 2026-10-18: the ring came in on the logged spot 15 m off and the ball
+## then flew to it with nobody kicking it). Under that call the ball-up event `k`
+## is pinned to the ball (where its flight lands, if it is in the air), so the
+## ring, the pack and the ball agree from the call, and the ball's next spot keeps
+## the same shift. Once per ball-up; other calls keep the logged spot. Draws
+## nothing from the random stream.
+func _pin_ballup(k: int) -> void:
+	if _ballup_pin.has(k) or not (_plan_of(0) == "contest" or _plan_of(1) == "contest"):
+		return
+	var old := _peek_loc(k)
+	var at: Vector2 = ball["to"] if str(ball["mode"]) == "flight" else ball["pos"]
+	_locs[k] = at
+	var shift := at - old
+	_ballup_pin[k] = shift
+	var nk := _next_real(k)
+	if nk >= 0 and _locs.has(nk) and _restart(nk) == "ballup":
+		var q := (_locs[nk] as Vector2) + shift
+		q.x = clampf(q.x, -MatchMotion.GOAL_X, MatchMotion.GOAL_X)
+		var ymax := (MatchMotion.HALF_WID - 4.0) * sqrt(maxf(0.0,
+				1.0 - pow(q.x / (MatchMotion.HALF_LEN - 1.0), 2.0)))
+		q.y = clampf(q.y, -ymax, ymax)
+		_locs[nk] = q
+
+
+## The umpire's call: the ball dead in a tackle or a pack with a ball-up next.
+## Under Win contest the ball-up is pinned to the ball there and then.
+func _pin_called_ballup() -> void:
+	if mode != "stoppage" or _beat.is_empty() or str(ball["mode"]) != "dead":
+		return
+	var kind := str(_beat.get("kind", ""))
+	if kind == "ballup" or kind == "throwin":
+		return
+	var nk := _next_real(int(_beat["k"]))
+	if nk >= 0 and str((events[nk] as Dictionary).get("kind", "")) == "ballup":
+		_pin_ballup(nk)
 
 
 # ---------------------------------------------------------------------------
@@ -2208,6 +2260,80 @@ static func press_zone_field(x_side: float) -> float:
 	return lerpf(lerpf(press_zone_strength(-e - 1.0), mid, fwd), press_zone_strength(e + 1.0), back)
 
 
+# ---------------------------------------------------------------------------
+# The oval marks two calls on the grass (P-12 pass 5, director 2026-10-18:
+# "Merge, then mark the oval"). Attack corridor and Win contest meet their
+# measures, but the busy players round the ball (leads, carrier, pack) crowd it
+# on every call, so the shape alone can read as a swarm or a clump. A faint
+# marking of the side's colour says the call where the discs cannot, like the
+# press wash. Read here, drawn by PitchView; neither moves a player.
+# - Attack corridor: the corridor its lanes use (LANE_TABLE's outermost lane,
+#   plus a disc in the view), from the side's defensive 50 to the goal square,
+#   only while the side has the ball in play.
+# - Win contest: at a ball-up or throw-in, its pack's ring (PACK_RING) on the
+#   contest spot from the moment it is called until the clearance; in open play,
+#   the ring its midfield keeps round the ball (CONTEST_MID_RING) while the ball
+#   is live.
+const CORRIDOR_FROM := -35.0     # the side's defensive 50, from the centre (x up the ground)
+const CORRIDOR_TO := 76.0        # the front of the goal square (GOAL_X less its 9 m)
+const CORRIDOR_HALF := 14.25     # the outermost lane (LANE_TABLE)
+
+
+## Whether `side`'s Attack corridor is marked now: its plan, the ball its, in play.
+func corridor_mark_on(side: int) -> bool:
+	if _tac.size() < 2 or tokens.is_empty():
+		return false
+	return _plan_of(side) == "attacking" and side == _poss and not (mode in ["break", "centre", "stoppage"])
+
+
+## `side`'s Win contest ring now: {"at", "r", "stop"} (a stoppage's pack ring, or
+## the midfield's ring round the ball in open play, the ball in play: not at a
+## centre bounce, a stoppage, a set shot or a break), or {} when none shows.
+func contest_mark(side: int) -> Dictionary:
+	if _tac.size() < 2 or tokens.is_empty() or _plan_of(side) != "contest":
+		return {}
+	if _ring_at.is_finite():
+		return {"at": _ring_at, "r": PACK_RING, "stop": true}
+	var called := _contest_called()
+	if called.is_finite():
+		return {"at": called, "r": PACK_RING, "stop": true}
+	if mode == "open" and not _stoppage_on():
+		return {"at": ball["pos"], "r": CONTEST_MID_RING, "stop": false}
+	return {}
+
+
+## The contest spot from the moment the umpire calls a ball-up (the ball dead in
+## a tackle or a pack), before the ball-up's own beat begins: where that beat will
+## plant its ring (_start_beat), so the ring is on the spot from the call and never
+## follows the ball in (motion critic, 2026-10-18). INF when no ball-up is called.
+## Reads only: _peek_loc leaves every cache and the random stream as it found them.
+func _contest_called() -> Vector2:
+	if mode != "stoppage" or _beat.is_empty():
+		return Vector2.INF
+	var nk := _next_real(int(_beat["k"]))
+	if nk < 0:
+		return Vector2.INF
+	var kind := str((events[nk] as Dictionary).get("kind", ""))
+	if kind != "ballup" and kind != "throwin":
+		return Vector2.INF
+	if kind == "ballup" and _plan_of(0) != "contest" and _plan_of(1) != "contest":
+		return Vector2.INF
+	if kind == "ballup" and not _ballup_pin.has(nk):
+		return Vector2.INF   # not called yet: the ball is not dead (_pin_called_ballup)
+	var rat := _peek_loc(nk)
+	return rat if kind == "ballup" else Vector2(rat.x, rat.y * 0.78)
+
+
+## _loc(k) without keeping anything: the spot, the cache and the random stream as before.
+func _peek_loc(k: int) -> Vector2:
+	if _locs.has(k):
+		return _locs[k]
+	var st := _rng.state
+	var p := _loc(k)
+	_locs.erase(k)
+	_rng.state = st
+	return p
+
 ## Debug only (capture_match --noshape): draw the calls without their shapes
 ## (the press, the flood, the stack and every P-12 shape), the sim untouched,
 ## so a clip pair differs in the formation alone.
@@ -2311,7 +2437,7 @@ const PACK_SECOND := 2.9
 const PACK_RING_WAIT := 2.0        # the longest a ring takes to set...
 const PACK_RUCK_NEAR := 25.0      # a ruck further off than this when the ball-up is called stands on the ring
 const PACK_SETTLE := 0.5          # ...and holds this long once set
-const PACK_RUCK_WAIT := 3.0        # ...or to wait for a ruck still on his way
+const PACK_RUCK_WAIT := 4.0        # ...or to wait for a ruck still on his way (25 m off and running the other way takes 3.2 s: trace 2026-10-18)
 const PACK_CLEAR_ARC := 0.45       # radians between two men clearing out the same way
 const PACK_SET := 2.5
 const PACK_INNER_SET := 0.4        # ...and the four on the ball within this of theirs

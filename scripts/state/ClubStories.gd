@@ -294,6 +294,7 @@ static func player_fact(gs, p: Dictionary, selected: bool, i: Dictionary, fit_ra
 			"job": str(i.get("job", "")), "need": str(i.get("need", "")),
 			"sore_odds": ClubLife.odds(Injuries.chance(sore)),
 			"sore_pct": "about a %d%%" % roundi(Injuries.chance(sore) * 100.0),
+			"injury_pct": "about a %d%%" % roundi(Injuries.chance(p) * 100.0),
 			# How he rates in the spot a role trial would play him (his usual rating when he has none).
 			"trial_ovr": gs.rating_as(p, trial_role(p)) if trial_role(p) != "" and p.has("attr") else ovr,
 			"ask": Contracts.money(Contracts.asking_salary(p)), "early_price": Contracts.money(early),
@@ -425,7 +426,7 @@ static func apply_choice(gs, card: Dictionary, choice: int) -> String:
 			said.append(line)
 	var out := " ".join(said) if not said.is_empty() else str(opt.get("result", ""))
 	# A promise made on a card that has its own result line: the line first, then what he now expects.
-	if bool(applied.get("_lead_result", false)) and str(opt.get("result", "")) != "":
+	if bool(applied.get("_lead_result", false)) and not said.is_empty() and str(opt.get("result", "")) != "":
 		out = str(opt["result"]) + " " + out
 	out = StoryEngine.fill_ranked(out, running_fitness(gs))
 	if out == "":
@@ -533,8 +534,12 @@ static func _apply(gs, e: Dictionary, p: Dictionary, facts: Dictionary, applied:
 		"expects_game":
 			p["expects_game"] = int(e.get("sting", 12))
 			if str(facts.get("_result", "")) != "":
+				# The card's own result line speaks; on Auto-pick he is named anyway, so
+				# only a side you picked yourself needs the reminder.
+				if gs.my_selection().is_empty():
+					return ""
 				applied["_lead_result"] = true
-				return "He's in the side this week." if gs.my_selection().is_empty() else "He expects a game this week."
+				return "He expects a game this week."
 			return ("%s feels heard. He's in the side this week." if gs.my_selection().is_empty()
 					else "%s feels heard, and expects a game this week.") % name
 		"start_backing":

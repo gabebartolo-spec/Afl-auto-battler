@@ -503,9 +503,9 @@ static func stakes_lines(effects: Array, facts: Dictionary) -> PackedStringArray
 
 
 ## What happens if the coach leaves the card when the week is played, in one
-## line under the text, from the card's own data: its silent default (named,
-## with that choice's cost, or its gain when it costs nothing) or the price of
-## saying nothing. "" when leaving it changes nothing.
+## line under the text, from the card's own data: the choice it settles as (its
+## gain and cost sit under that choice's button, so they are not said twice) or
+## the price of saying nothing. "" when leaving it changes nothing.
 static func silence_line(card: Dictionary) -> String:
 	var un: Dictionary = card.get("unanswered", {})
 	if str(un.get("hint", "")) != "":
@@ -514,15 +514,70 @@ static func silence_line(card: Dictionary) -> String:
 	var opts: Array = card.get("options", [])
 	if d < 0 or d >= opts.size():
 		return ""
-	var o: Dictionary = opts[d]
-	var lines := stakes_lines(o.get("effects", []), card.get("facts", {}))
-	var what := ""
-	for mark in [COST_MARK, GAIN_MARK]:
-		for l in lines:
-			if what == "" and l.begins_with(mark):
-				what = l.substr(mark.length())
-	var head := "If you leave this, it goes as \"%s\"" % str(o.get("label", ""))
-	return ("%s: %s" % [head, _lower_first(what)]) if what != "" else head + "."
+	return "If you leave this, it goes as \"%s\"." % str((opts[d] as Dictionary).get("label", ""))
+
+
+## The lines under one choice on a card (the hub shows these). Every choice
+## carries a gain and a cost (bible §4): a choice whose own effects gain nothing
+## states, as its gain, the other choices' costs it does not carry, from their
+## effects (no slow-start chance, no promise to keep, the board untouched).
+static func card_lines(card: Dictionary, i: int) -> PackedStringArray:
+	var opts: Array = card.get("options", [])
+	var facts: Dictionary = card.get("facts", {})
+	var mine: Array = (opts[i] as Dictionary).get("effects", [])
+	var lines := stakes_lines(mine, facts)
+	for l in lines:
+		if l.begins_with(GAIN_MARK):
+			return lines
+	var own := {}
+	for e in mine:
+		own[str(e.get("op", ""))] = true
+	var spared: PackedStringArray = []
+	for j in range(opts.size()):
+		if j == i:
+			continue
+		for e in (opts[j] as Dictionary).get("effects", []):
+			if own.has(str(e.get("op", ""))):
+				continue
+			var s := fill(_spared_words(e, facts), facts)
+			if s != "" and not spared.has(s):
+				spared.append(s)
+	if spared.is_empty():
+		return lines
+	var out: PackedStringArray = []
+	var placed := false
+	for l in lines:
+		if not placed and l.begins_with(COST_MARK):
+			out.append(GAIN_MARK + " ".join(spared))
+			placed = true
+		out.append(l)
+	if not placed:
+		out.append(GAIN_MARK + " ".join(spared))
+	return out
+
+
+## What a choice spares him that another choice on the card would cost, in the
+## same sizes; "" for a cost that is not spared by not choosing it (a mood).
+static func _spared_words(e: Dictionary, facts: Dictionary) -> String:
+	match str(e.get("op", "")):
+		"slow_start":
+			return "No %s chance of a slow start." % _pct(int(e.get("chance", 0)))
+		"expects_game", "start_backing":
+			return "No promise to keep: he is not owed a game."
+		"back_kid":
+			return "No promise to keep: {kid_name} is not owed a game."
+		"promise_win":
+			return "No promise to the board: a loss or draw costs %s less than a broken promise would." % _pct(PROMISE_WIN_DOWN)
+		"board":
+			var d := effect_d(e, facts)
+			return "Board confidence stays where it is (the other choice costs it %s)." % _pct(absi(d)) if d < 0 else ""
+		"role_trial":
+			return "He stays in his usual spot as a {trial_home}."
+		"heavy_legs":
+			return "No heavy legs on game day."
+		"rest":
+			return "He is free to play this week."
+	return ""
 
 
 ## The one effect-phrase function: [kind, words] for each thing an effect does
@@ -566,7 +621,11 @@ static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
 		"fresh":
 			return [["gain", "Fresh legs: %d%% less likely to be injured this week." % roundi((1.0 - ClubLife.FRESH_RISK) * 100.0)]]
 		"rest":
-			return [["cost", "He misses this week's game."]]
+			# He cannot be hurt in a game he does not play: the chance he is spared
+			# (playing sore, on the cards that say so).
+			var risk := "{sore_pct}" if str(e.get("spares", "")) == "sore" else "{injury_pct}"
+			var spare := ("He can't get hurt this week: playing, he would carry %s chance of an injury." % risk) 					if facts.has("injury_pct") else "He can't get hurt in this week's game."
+			return [["gain", spare], ["cost", "He misses this week's game."]]
 		"sore":
 			return [["cost", "He plays sore: %s chance he is injured (%s), and he starts %s short of fresh legs." % [
 					_sore_chance(facts), _injury_length_words(), _pct(100 - roundi(ClubLife.SORE_LEGS))]]]
@@ -699,8 +758,8 @@ static func _slow_words(e: Dictionary) -> String:
 	var legs := _pct(100 - roundi(ClubLife.SLOW_LEGS))
 	var chance := _pct(int(e.get("chance", 0)))
 	if who == "subject":
-		return "About a %s chance he starts %s slowly, %s short of fresh legs for the first quarter." % [chance, when, legs]
-	return "About a %s chance %s starts %s slowly, every one of them %s short of fresh legs for the first quarter." % [
+		return "About a %s chance he starts %s slowly, %s short of fresh legs at the first bounce." % [chance, when, legs]
+	return "About a %s chance %s starts %s slowly, every one of them %s short of fresh legs at the first bounce." % [
 			chance, "the side" if who == "side" else "the whole list", when, legs]
 
 
