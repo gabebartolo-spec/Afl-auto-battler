@@ -1,0 +1,462 @@
+extends RefCounted
+## The oval marks the call (P-12 pass 5, director 2026-10-18: "Merge, then mark
+## the oval"): a faint corridor shade for Attack corridor and a faint ring for
+## Win contest, on the grass in the side's colour, under the players. Run
+## through tests/run_match_marks_tests.gd.
+##
+## Each marking shows only while its call is on and its moment holds (the
+## corridor while the side has the ball in play; the ring at a ball-up or
+## throw-in until the clearance, and round the ball in open play), at the press
+## wash's faint strength at most, easing in and out over half a second, under the
+## discs, never on the other side or under another call, never adding on top of
+## the press wash, and never moving a player.
+
+var failures: Array[String] = []
+var checks := 0
+
+const SUITE_SEED := 2027
+const PHONE := Vector2(300, 387)
+const FRAME := 1.0 / 30.0
+## A marking takes at least this long to come in or go out (real seconds).
+const FADE_LEAST := 0.4
+## The faint band: the press wash's faint state (0.3 at half strength) at most,
+## and at least this much, or it would not show on the turf at all.
+const FAINT_TOP := 0.15
+const FAINT_LEAST := 0.08
+
+
+func run() -> void:
+	failures.clear()
+	checks = 0
+	GameState.replay_seed = SUITE_SEED
+	GameDB.reload()
+	var res := _result(42)
+	_test_when_marked(res)
+	_test_fades(res)
+	_test_over_the_press(res)
+	_test_corridor_playback(res)
+	_test_contest_playback(res)
+	_test_other_calls(res)
+	_test_moves_nobody(res)
+	await _test_under_the_discs(res)
+	GameState.replay_seed = 0
+	print("Match marks tests: %d checks, %d failures" % [checks, failures.size()])
+
+
+func _check(condition: bool, message: String) -> void:
+	checks += 1
+	if not condition:
+		failures.append(message)
+		push_error(message)
+
+
+## Fremantle v Melbourne (two clubs with real colour), as the clips show them.
+func _result(seed: int) -> Dictionary:
+	var res := MatchSim.new(Squad.new("FRE", GameDB.club_list("FRE"), true, "FRE"),
+			Squad.new("MEL", GameDB.club_list("MEL"), false, "MEL"), seed).run()
+	res["home"] = "FRE"
+	res["away"] = "MEL"
+	res["label"] = "Round 1"
+	return res
+
+
+## The result with Fremantle (side 0) on `plan` and `bursts` all match, the first
+## `n` events.
+static func _with_call(res: Dictionary, plan: String, bursts: Array, n: int) -> Dictionary:
+	var r2 := res.duplicate()
+	r2["events"] = (res["events"] as Array).slice(0, n)
+	var tl := []
+	for e in res["timeline"]:
+		var e2: Dictionary = (e as Dictionary).duplicate(true)
+		if int(e2["side"]) == 0:
+			e2["plan"] = plan
+			e2["bursts"] = bursts
+		else:
+			e2["plan"] = "balanced"
+			e2["bursts"] = []
+		tl.append(e2)
+	r2["timeline"] = tl
+	return r2
+
+
+func _phone(r: Dictionary, speed: float) -> PitchView:
+	var pv := PitchView.new()
+	pv.size = PHONE
+	pv.camera_enabled = false
+	pv.upright = true
+	pv.setup(r)
+	pv.set_speed(speed)
+	pv.play()
+	return pv
+
+
+static func _alpha(pv: PitchView, kind: String, side: int) -> float:
+	return float((pv.mark_alphas()[kind] as Array)[side])
+
+
+## When each marking shows, from the director's own state.
+func _test_when_marked(res: Dictionary) -> void:
+	var d := MatchDirector.new()
+	d.setup(res, res["events"])
+	d._beat = {}
+	d._ring_at = Vector2.INF
+	d.mode = "open"
+	d.ball["mode"] = "held"
+	d._tac[0] = {"side": 0, "plan": "attacking", "bursts": []}
+	d._tac[1] = {"side": 1, "plan": "balanced", "bursts": []}
+	d._poss = 0
+	_check(d.corridor_mark_on(0), "Attack corridor: the corridor shows while the side has the ball in play")
+	_check(not d.corridor_mark_on(1), "...and never for the other side")
+	d._poss = 1
+	_check(not d.corridor_mark_on(0), "...and not while the other side has the ball")
+	d._poss = 0
+	for m in ["centre", "stoppage", "break"]:
+		d.mode = m
+		_check(not d.corridor_mark_on(0), "...and not at a %s (nobody has it in play)" % m)
+	d.mode = "open"
+	MatchDirector.debug_no_press_shape = true
+	_check(not d.corridor_mark_on(0), "...and not with the shapes off (capture_match --noshape)")
+	MatchDirector.debug_no_press_shape = false
+	# Win contest.
+	d._tac[0] = {"side": 0, "plan": "contest", "bursts": []}
+	d._ring_at = Vector2(12.0, -20.0)
+	var m0: Dictionary = d.contest_mark(0)
+	_check(not m0.is_empty() and bool(m0["stop"]) and (m0["at"] as Vector2) == Vector2(12.0, -20.0)
+			and is_equal_approx(float(m0["r"]), MatchDirector.PACK_RING),
+			"Win contest: a ball-up's ring sits on the contest at the pack's ring (%s)" % str(m0))
+	_check(d.contest_mark(1).is_empty(), "...and never for the other side")
+	d._poss = 1
+	_check(not d.contest_mark(0).is_empty(), "...whoever is to win it")
+	d._ring_at = Vector2.INF
+	d._struct_ball = Vector2(-30.0, 8.0)
+	var m1: Dictionary = d.contest_mark(0)
+	_check(not m1.is_empty() and not bool(m1["stop"]) and (m1["at"] as Vector2) == Vector2(-30.0, 8.0)
+			and is_equal_approx(float(m1["r"]), MatchDirector.CONTEST_MID_RING),
+			"...in open play a ring round the ball at the midfield's ring (%s)" % str(m1))
+	for m in ["centre", "stoppage", "break", "kickin", "shot"]:
+		d.mode = m
+		_check(d.contest_mark(0).is_empty(), "...and not with the ball out of open play (%s)" % m)
+	d.mode = "open"
+	d._beat = {"k": 0, "kind": "ballup"}
+	_check(d.contest_mark(0).is_empty(), "...nor through a stoppage's clearance (the stoppage's own ring's time)")
+	d._beat = {}
+	d.mode = "open"
+	_check(not d.corridor_mark_on(0), "Win contest has no corridor")
+	d._tac[0] = {"side": 0, "plan": "attacking", "bursts": []}
+	_check(d.contest_mark(0).is_empty(), "Attack corridor has no ring")
+	MatchDirector.debug_no_press_shape = true
+	d._tac[0] = {"side": 0, "plan": "contest", "bursts": []}
+	_check(d.contest_mark(0).is_empty(), "No ring with the shapes off")
+	MatchDirector.debug_no_press_shape = false
+
+
+## Faint, and eased in and out over half a second: never a one-frame appearance.
+func _test_fades(res: Dictionary) -> void:
+	var pv := _phone(res, 1.0)
+	pv.playing = false
+	var d: MatchDirector = pv.director
+	d._beat = {}
+	d._ring_at = Vector2.INF
+	d.mode = "open"
+	d.ball["mode"] = "held"
+	d._tac[0] = {"side": 0, "plan": "attacking", "bursts": []}
+	d._tac[1] = {"side": 1, "plan": "balanced", "bursts": []}
+	d._poss = 0
+	var cases := [["corridor", func(): d._tac[0] = {"side": 0, "plan": "attacking", "bursts": []}],
+			["stop", func():
+				d._tac[0] = {"side": 0, "plan": "contest", "bursts": []}
+				d._ring_at = Vector2(0.0, 0.0)],
+			["open", func():
+				d._tac[0] = {"side": 0, "plan": "contest", "bursts": []}
+				d._ring_at = Vector2.INF]]
+	var full := {}
+	var off := func(): d._tac[0] = {"side": 0, "plan": "balanced", "bursts": []}
+	for c in cases:
+		var kind: String = c[0]
+		off.call()
+		for i in range(90):
+			pv._step_marks(1.0 / 60.0)
+		(c[1] as Callable).call()
+		# In: from nothing to full, frame by frame at 60 fps.
+		var first := -1.0
+		var reached := 0.0
+		var step_most := 0.0
+		var prev := 0.0
+		var top := PitchView.MARK_ALPHA * (PitchView.MARK_OPEN_SHARE if kind == "open" else 1.0)
+		while reached < 3.0:
+			pv._step_marks(1.0 / 60.0)
+			reached += 1.0 / 60.0
+			var a := _alpha(pv, kind, 0)
+			if first < 0.0:
+				first = a
+			step_most = maxf(step_most, a - prev)
+			prev = a
+			if a >= top - 0.0001:
+				break
+		full[kind] = _alpha(pv, kind, 0)
+		var other := _alpha(pv, kind, 1)
+		# Out: from full to nothing.
+		off.call()
+		var t_out := 0.0
+		while _alpha(pv, kind, 0) > 0.0 and t_out < 3.0:
+			pv._step_marks(1.0 / 60.0)
+			t_out += 1.0 / 60.0
+		_check(first < top * 0.05, "%s: the first frame shows under a twentieth of it (%.4f of %.3f): it never pops" % [kind, first, top])
+		_check(reached >= FADE_LEAST and reached <= 0.75, "%s: it fades in over %.2f s (at least %.1f)" % [kind, reached, FADE_LEAST])
+		_check(t_out >= FADE_LEAST and t_out <= 0.75, "%s: ...and out over %.2f s" % [kind, t_out])
+		_check(step_most <= top / (FADE_LEAST * 60.0) * 1.6, "%s: no frame jumps more than an eased fade allows (%.4f)" % [kind, step_most])
+		_check(other == 0.0, "%s: nothing for the other side" % kind)
+	_check(float(full["corridor"]) <= FAINT_TOP + 0.0001 and float(full["corridor"]) >= FAINT_LEAST,
+			"The corridor is faint: %.3f, the press wash's faint state (%.2f) at most" % [float(full["corridor"]), FAINT_TOP])
+	_check(float(full["stop"]) <= FAINT_TOP + 0.0001 and float(full["stop"]) >= FAINT_LEAST,
+			"The stoppage ring is faint: %.3f" % float(full["stop"]))
+	_check(float(full["open"]) <= FAINT_TOP + 0.0001 and float(full["open"]) >= FAINT_LEAST,
+			"The open-play ring is faint: %.3f" % float(full["open"]))
+	_check(is_equal_approx(PitchView.MARK_ALPHA, PitchView.PRESS_ZONE_ALPHA * MatchDirector.PRESS_ZONE_STANDING),
+			"The markings are laid at the press wash's faint strength (%.2f)" % PitchView.MARK_ALPHA)
+	pv.free()
+
+
+## Where the press wash lies, a marking never adds on top of it: the two together
+## are never stronger than the stronger alone, and the press wash is untouched.
+func _test_over_the_press(res: Dictionary) -> void:
+	var pv := _phone(res, 1.0)
+	pv.playing = false
+	var worst := 0.0
+	var hid := true
+	var clear := true
+	for fade in [0.0, 0.5, 1.0]:
+		pv._zone_fade = [0.0, fade]
+		var x := -80.0
+		while x <= 80.0:
+			var p := pv.press_alpha_at(x)
+			var m := pv.mark_over_press(PitchView.MARK_ALPHA, x)
+			# Two layers at alphas p and m cover 1 - (1-p)(1-m) of the turf.
+			var both := 1.0 - (1.0 - p) * (1.0 - m)
+			worst = maxf(worst, both - maxf(p, PitchView.MARK_ALPHA))
+			if fade == 1.0 and p >= PitchView.MARK_ALPHA and m > 0.0:
+				hid = false
+			if p == 0.0 and not is_equal_approx(m, PitchView.MARK_ALPHA):
+				clear = false
+			x += 2.0
+	_check(worst <= 0.0001, "A marking over the press wash never adds a flash (most over the stronger alone %.4f)" % worst)
+	_check(hid, "Under a full-strength hunting press the marking gives way to it")
+	_check(clear, "Off the press wash the marking is laid at its own strength")
+	# The press wash itself follows its own rule (A13): a marking changes nothing in it.
+	pv._zone_fade = [0.0, 0.0]
+	var d: MatchDirector = pv.director
+	d._tac[1] = {"side": 1, "plan": "defensive", "bursts": []}
+	d._tac[0] = {"side": 0, "plan": "attacking", "bursts": []}
+	d._poss = 0
+	d.mode = "open"
+	d._beat = {}
+	d.ball["pos"] = Vector2(-30.0, 0.0)
+	_check(d.press_zone_level(1) == 1.0 and d.corridor_mark_on(0),
+			"With the corridor showing, the press still hunts at full strength (A13 unchanged)")
+	pv.free()
+
+
+## Attack corridor on the oval: Fremantle's corridor shows while Fremantle has
+## the ball, and is gone once Melbourne has had it half a second.
+func _test_corridor_playback(res: Dictionary) -> void:
+	var r2 := _with_call(res, "attacking", [], 260)
+	var pv := _phone(r2, 1.0)
+	var d: MatchDirector = pv.director
+	var since_lost := 0.0
+	var own_frames := 0
+	var own_full := 0
+	var opp_shown := 0
+	var other := 0.0
+	var top := 0.0
+	var step_most := 0.0
+	var prev := 0.0
+	var rings := 0.0
+	var guard := 0
+	while not d.idle() and guard < 40000:
+		guard += 1
+		pv._process(FRAME)
+		var a := _alpha(pv, "corridor", 0)
+		top = maxf(top, a)
+		step_most = maxf(step_most, absf(a - prev))
+		prev = a
+		other = maxf(other, _alpha(pv, "corridor", 1))
+		rings = maxf(rings, maxf(_alpha(pv, "stop", 0), _alpha(pv, "open", 0)))
+		if d._poss == 0:
+			since_lost = 0.0
+			if d.mode == "open":
+				own_frames += 1
+				if a >= PitchView.MARK_ALPHA - 0.0001:
+					own_full += 1
+		else:
+			since_lost += FRAME
+			if since_lost > PitchView.MARK_FADE_SECS + FRAME and a > 0.0:
+				opp_shown += 1
+	var share := float(own_full) / float(maxi(1, own_frames))
+	print("  corridor: full in %.0f%% of Fremantle's open-play frames (%d)" % [share * 100.0, own_frames])
+	_check(own_frames > 300 and share >= 0.6, "The corridor shows at full in most of Fremantle's open play (%.0f%% of %d frames)" % [share * 100.0, own_frames])
+	_check(opp_shown == 0, "...and is gone once Melbourne has had the ball half a second (%d frames)" % opp_shown)
+	_check(other == 0.0 and rings == 0.0, "No marking for Melbourne on Balanced, and no ring under Attack corridor")
+	_check(top <= FAINT_TOP + 0.0001, "...faint all the way (%.3f)" % top)
+	_check(step_most <= PitchView.MARK_ALPHA / (FADE_LEAST * 30.0) * 1.6,
+			"...and it never pops between frames at 1x (largest change %.4f)" % step_most)
+	pv.free()
+
+
+## Win contest on the oval: the ring at every ball-up and throw-in from the call
+## to the clearance, on the contest; in open play round the ball, gliding.
+func _test_contest_playback(res: Dictionary) -> void:
+	var r2 := _with_call(res, "contest", [], 400)
+	var pv := _phone(r2, 1.0)
+	var d: MatchDirector = pv.director
+	var stoppages := 0
+	var full_at := 0
+	var on_spot := true
+	var cur_k := -1
+	var cur_max := 0.0
+	var cur_at := Vector2.INF
+	var after := -1.0          # real seconds since the clearance (beat after a stoppage)
+	var gone_late := 0
+	var open_wrong := 0
+	var since_open_off := 0.0
+	var other := 0.0
+	var corr := 0.0
+	var glide_most := 0.0
+	var prev_at := Vector2.INF
+	var top := 0.0
+	var open_full := 0
+	var guard := 0
+	while not d.idle() and guard < 60000:
+		guard += 1
+		pv._process(FRAME)
+		var kind := str(d._beat.get("kind", ""))
+		var k := int(d._beat.get("k", -1))
+		var sa := _alpha(pv, "stop", 0)
+		var oa := _alpha(pv, "open", 0)
+		top = maxf(top, maxf(sa, oa))
+		other = maxf(other, maxf(_alpha(pv, "stop", 1), _alpha(pv, "open", 1)))
+		corr = maxf(corr, _alpha(pv, "corridor", 0))
+		if (kind == "ballup" or kind == "throwin") and k != cur_k:
+			if cur_k >= 0:
+				stoppages += 1
+				full_at += 1 if cur_max >= PitchView.MARK_ALPHA - 0.0001 else 0
+			cur_k = k
+			cur_max = 0.0
+			cur_at = d._ring_at
+			after = -1.0
+		if cur_k >= 0 and k == cur_k:
+			cur_max = maxf(cur_max, sa)
+			var ring: Dictionary = pv._stop_ring[0]
+			if sa > 0.0 and (ring.is_empty() or (ring["at"] as Vector2).distance_to(cur_at) > 0.01):
+				on_spot = false
+		elif cur_k >= 0:
+			if after < 0.0:
+				after = 0.0
+			else:
+				after += FRAME
+			if after > PitchView.MARK_FADE_SECS + FRAME and sa > 0.0:
+				gone_late += 1
+		# The open-play ring only in live open play (after its fade).
+		if d.contest_mark(0).is_empty() or bool(d.contest_mark(0).get("stop", false)):
+			since_open_off += FRAME
+			if since_open_off > PitchView.MARK_FADE_SECS + FRAME and oa > 0.0:
+				open_wrong += 1
+		else:
+			since_open_off = 0.0
+			if oa >= PitchView.MARK_ALPHA * PitchView.MARK_OPEN_SHARE - 0.0001:
+				open_full += 1
+		var orr: Dictionary = pv._open_ring[0]
+		if oa > 0.0 and not orr.is_empty():
+			var at: Vector2 = orr["at"]
+			if prev_at.is_finite():
+				glide_most = maxf(glide_most, at.distance_to(prev_at))
+			prev_at = at
+		else:
+			prev_at = Vector2.INF
+	if cur_k >= 0:
+		stoppages += 1
+		full_at += 1 if cur_max >= PitchView.MARK_ALPHA - 0.0001 else 0
+	print("  contest: %d of %d stoppages reach the full ring; %d open-play frames at full" % [full_at, stoppages, open_full])
+	_check(stoppages >= 5 and float(full_at) / float(stoppages) >= 0.8,
+			"Win contest: the ring comes in fully at the stoppages as the pack forms (%d of %d)" % [full_at, stoppages])
+	_check(on_spot, "...on the contest itself")
+	_check(gone_late == 0, "...and goes out at the clearance, gone half a second after it (%d late frames)" % gone_late)
+	_check(open_full > 200, "In open play the ring round the ball shows (%d frames at full)" % open_full)
+	_check(open_wrong == 0, "...and only in live open play (%d frames off it)" % open_wrong)
+	_check(glide_most <= MatchMotion.SPRINT * FRAME * MatchDirector.TEMPO + 0.01,
+			"...gliding after the ball no faster than a sprint (%.2f m in a frame)" % glide_most)
+	_check(other == 0.0 and corr == 0.0, "No ring for Melbourne on Balanced, and no corridor under Win contest")
+	_check(top <= FAINT_TOP + 0.0001, "...faint all the way (%.3f)" % top)
+	pv.free()
+
+
+## Balanced and the other four calls (and the press) mark nothing.
+func _test_other_calls(res: Dictionary) -> void:
+	for c in [["balanced", []], ["controlled", []], ["through_stars", []], ["balanced", ["surge"]],
+			["balanced", ["hold"]], ["defensive", []]]:
+		var r2 := _with_call(res, str(c[0]), c[1], 160)
+		var pv := _phone(r2, 4.0)
+		var d: MatchDirector = pv.director
+		var most := 0.0
+		var guard := 0
+		while not d.idle() and guard < 20000:
+			guard += 1
+			pv._process(FRAME)
+			for kind in ["corridor", "stop", "open"]:
+				for side in [0, 1]:
+					most = maxf(most, _alpha(pv, kind, side))
+		_check(most == 0.0, "No marking under %s%s (most %.3f)" % [str(c[0]), "" if (c[1] as Array).is_empty() else " + " + str(c[1]), most])
+		pv.free()
+
+
+## The markings only draw: the players are where the match has them with or
+## without the view (a director played alone lands every token on the same spot).
+func _test_moves_nobody(res: Dictionary) -> void:
+	for plan in ["attacking", "contest"]:
+		var r2 := _with_call(res, plan, [], 120)
+		var pv := _phone(r2, 4.0)
+		var bare := MatchDirector.new()
+		bare.setup(r2, (r2["events"] as Array).duplicate())
+		var worst := 0.0
+		var shown := 0.0
+		for i in range(900):
+			if not pv.playing:
+				break   # the view stops at the end of the log; so does the match alone
+			pv._process(FRAME)
+			bare.advance(FRAME * 4.0)
+			shown = maxf(shown, maxf(_alpha(pv, "corridor", 0), _alpha(pv, "stop", 0)))
+		for t in range(bare.tokens.size()):
+			worst = maxf(worst, (bare.tokens[t]["pos"] as Vector2).distance_to(pv.director.tokens[t]["pos"]))
+		_check(shown > 0.0 and worst < 0.0001, "%s: marked, and every player is where the match alone puts him (%.5f m off)" % [plan, worst])
+		pv.free()
+
+
+## Drawn under the discs (and over the press wash's layer), on the phone and the PC oval.
+func _test_under_the_discs(res: Dictionary) -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	for setup in [["phone", PHONE, true], ["PC", Vector2(1280, 720), false]]:
+		for plan in ["attacking", "contest"]:
+			var pv := PitchView.new()
+			pv.camera_enabled = false
+			pv.upright = bool(setup[2])
+			pv.position = Vector2.ZERO
+			tree.root.add_child(pv)
+			pv.size = setup[1]
+			pv.setup(_with_call(res, plan, [], 120))
+			pv.playing = false
+			var d: MatchDirector = pv.director
+			d._beat = {}
+			d.mode = "open"
+			d.ball["mode"] = "held"
+			d._poss = 0
+			d._tac[0] = {"side": 0, "plan": plan, "bursts": []}
+			d._ring_at = Vector2(0.0, 0.0) if plan == "contest" else Vector2.INF
+			for i in range(40):
+				await tree.process_frame
+			var layers: Array = pv.drawn_layers
+			var mi := layers.find("marks")
+			var di := layers.find("discs")
+			var pi := layers.find("press")
+			_check(mi >= 0 and di > mi and pi >= 0 and pi < mi,
+					"%s, %s: the marking is drawn over the turf and under the discs (%s)" % [str(setup[0]), plan, str(layers)])
+			pv.queue_free()
+			await tree.process_frame

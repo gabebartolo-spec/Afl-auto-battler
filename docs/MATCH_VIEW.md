@@ -136,6 +136,26 @@ narrower, keeps its heavy overlaps within 130% of Balanced's, its file-of-three
 frames within 2 points and no file longer than Balanced's longest, on the same
 events.
 
+Two calls are also marked on the grass, faintly, in the side's colour, under the
+lines and the players (PitchView `_draw_marks`), because the busy players round
+the ball (leads, carrier, pack) crowd it on every call and the shape alone can
+read as a swarm or a clump:
+
+- **Attack corridor**: a shade down the corridor its lanes use (the outermost
+  lane, 14.25 m, plus a disc either side of the centre line), from the side's
+  defensive 50 to the goal square, while the side has the ball in play.
+- **Win contest**: at a ball-up or throw-in, a ring round the contest from the
+  call to the clearance, its edge just outside the pack's 8 m ring (the ring
+  plus a disc, so the ring's players do not cover it); in open play the same
+  ring round the ball at the midfield's 10.5 m, gliding after the ball no faster
+  than a sprint. A faint pad of the colour inside, the rim a light tint of it.
+
+Both are laid at the press wash's faint strength (0.3 at half, 0.15) and ease
+in and out over half a second. Where the press wash lies a marking only tops it
+up to that strength, never adds on top, so under a full-strength hunting press
+it gives way; the press itself is unchanged. They draw only: no player moves
+for them (`tests/test_match_marks.gd`).
+
 The feed marks a plan when it starts ("Fremantle: Win contest is on until half
 time."), when it carries on over a break and when it ends, and a short call
 when it runs out ("Fremantle: Throw numbers at it ends."). A short call's start
@@ -179,6 +199,9 @@ movement model's clock. A full match takes about 4 to 5 minutes at the default
   walking draw-apart, the visible share of each side's discs, line widths and
   the corridor's lanes, the boundary and bench margins, the Win contest pack and
   its ring, the draw order), and measures each call against Balanced.
+- `tests/test_match_marks.gd` (suite `match_marks`) holds the two markings on the
+  grass: when each shows, its strength and fades, the press wash rule, under
+  the discs, absent for every other call and the other side, and no player moved.
 - `tests/test_match_visual.gd` (in `tools/run_tests.sh`) covers:
   - the log, score and stats are unchanged after playback;
   - no event is mutated;

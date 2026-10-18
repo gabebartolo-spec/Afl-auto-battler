@@ -210,6 +210,11 @@ func setup(p_result: Dictionary) -> void:
 	_press_said = [false, false]
 	_press_banner = {}
 	_zone_fade = [0.0, 0.0]
+	_corr_fade = [0.0, 0.0]
+	_stop_fade = [0.0, 0.0]
+	_open_fade = [0.0, 0.0]
+	_stop_ring = [{}, {}]
+	_open_ring = [{}, {}]
 	_ev_idx = 0
 	_last_actor = -1
 	_poss_side = -1
@@ -308,6 +313,7 @@ func _process(delta: float) -> void:
 	_name_the_ball_carrier()
 	_age_caption(delta)
 	_step_zone_fade(delta)
+	_step_marks(delta)
 	if not _press_banner.is_empty():
 		_press_banner["left"] = float(_press_banner["left"]) - delta
 		if float(_press_banner["left"]) <= 0.0:
@@ -319,7 +325,7 @@ func _process(delta: float) -> void:
 	if playing or _cam.distance_to(_drawn_cam) > 0.05 or absf(_zoom - _drawn_zoom) > 0.002 \
 			or not director.flash.is_empty() or not _caption.is_empty() or not _press_banner.is_empty() \
 			or float(_zone_fade[0]) > 0.0 or float(_zone_fade[1]) > 0.0 \
-			or director.press_zone_on(0) or director.press_zone_on(1):
+			or director.press_zone_on(0) or director.press_zone_on(1) or marks_live():
 		queue_redraw()
 
 
@@ -893,7 +899,12 @@ func _draw() -> void:
 		var x0 := c.x - a + (2.0 * a) * float(i) / float(stripes)
 		var x1 := c.x - a + (2.0 * a) * float(i + 1) / float(stripes)
 		draw_colored_polygon(_stripe(c, a, b, x0, x1), grass[1])
+	drawn_layers = ["turf"]
 	_draw_press_zone(c, a, b)
+	drawn_layers.append("press")
+	# The coach's call marked on the grass, under the lines and the players.
+	if _draw_marks(token_radius()) > 0:
+		drawn_layers.append("marks")
 	# The turf's edge in the stand's shadow: a few soft rings fading inward.
 	var shade := maxf(6.0, 7.0 * s)
 	for i in range(4):
@@ -939,6 +950,7 @@ func _draw() -> void:
 	var tr := token_radius()
 	_layout_discs(tr)
 	_draw_bench(tr)
+	drawn_layers.append("discs")
 	_draw_tokens(tr)
 	_draw_rings(tr)
 	if _figs != null:
@@ -1036,6 +1048,211 @@ func _draw_press_zone(c: Vector2, a: float, b: float) -> void:
 				var t := 0.0 if xr <= xl else clampf((p.x - xl) / (xr - xl), 0.0, 1.0)
 				cols.append(Color(base.r, base.g, base.b, PRESS_ZONE_ALPHA * fade * lerpf(left_k, right_k, t)))
 			draw_polygon(q, cols)
+
+
+## The oval marks the call (P-12 pass 5, director 2026-10-18: "Merge, then mark
+## the oval"): Attack corridor and Win contest get a faint marking on the grass
+## in the side's colour (press_zone_colour), so the call reads where the discs
+## crowding the ball cannot say it. MatchDirector says when (corridor_mark_on,
+## contest_mark); this draws, under the lines, the players and the ball, and
+## moves nobody.
+## - The corridor: the lanes' width plus a disc, from the side's defensive 50 to
+##   the goal square, soft at its edges and ends, while the side has the ball.
+## - The contest ring: round a ball-up or throw-in, the pack's ring from the call
+##   to the clearance; in open play the midfield's ring round the
+##   ball, gliding after it no faster than a sprint. The players on the ring stand
+##   on its radius, so on a phone (a disc is 8.6 m across) a line there is under
+##   their discs: the ring is drawn round the outside of them (radius plus a
+##   disc), a faint pad of the colour inside, the rim at full strength.
+## Strength: the press wash's faint state (0.3 x a half), never more. Where the
+## press wash lies, a marking only tops the wash up to that, never adds on top
+## (lead, 2026-10-18: the press tint stays as the director accepted it; under a
+## full-strength hunting press the marking gives way). In and out over
+## MARK_FADE_SECS of real time, eased: it never pops.
+const MARK_ALPHA := PRESS_ZONE_ALPHA * MatchDirector.PRESS_ZONE_STANDING
+const MARK_FADE_SECS := 0.5
+const MARK_SIDE_FEATHER := 2.5     # metres: the corridor's long edges, soft
+const MARK_END_FEATHER := 8.0      # ...and its ends, softer
+const MARK_RIM := 2.0              # metres: the ring's rim, inside its edge...
+const MARK_RIM_FEATHER := 1.5      # ...and its soft outer edge
+const MARK_PAD := 0.5              # the pad inside the rim, this share of the rim's strength
+const MARK_RIM_SAT := 0.4          # the rim's tint of the club colour (mark_rim_colour)
+const MARK_OPEN_SHARE := 1.0       # ...as strong (0.7 did not show on a phone at 1x)
+var _corr_fade := [0.0, 0.0]
+var _stop_fade := [0.0, 0.0]
+var _open_fade := [0.0, 0.0]
+var _stop_ring := [{}, {}]         # {at, r}: the last stoppage ring, kept while it fades
+var _open_ring := [{}, {}]
+## The layers in the order the last frame drew them (tests: a marking under the discs).
+var drawn_layers: Array = []
+
+
+func _step_marks(delta: float) -> void:
+	var md := delta * speed * MatchDirector.TEMPO if playing else 0.0
+	var k := delta / MARK_FADE_SECS
+	for side in [0, 1]:
+		_corr_fade[side] = move_toward(float(_corr_fade[side]), 1.0 if director.corridor_mark_on(side) else 0.0, k)
+		var m: Dictionary = director.contest_mark(side)
+		var stop := not m.is_empty() and bool(m["stop"])
+		var open := not m.is_empty() and not bool(m["stop"])
+		if stop:
+			_stop_ring[side] = {"at": m["at"], "r": m["r"]}
+		if open:
+			var was: Dictionary = _open_ring[side]
+			if was.is_empty() or float(_open_fade[side]) <= 0.0:
+				_open_ring[side] = {"at": m["at"], "r": m["r"]}
+			else:
+				# The ring glides after the ball's next spot, no faster than a
+				# sprint: a kick's flight never drags it across the ground.
+				was["at"] = (was["at"] as Vector2).move_toward(m["at"], MatchMotion.SPRINT * md)
+				was["r"] = m["r"]
+		_stop_fade[side] = move_toward(float(_stop_fade[side]), 1.0 if stop else 0.0, k)
+		_open_fade[side] = move_toward(float(_open_fade[side]), 1.0 if open else 0.0, k)
+
+
+## Whether any marking is showing or fading (the view keeps redrawing).
+func marks_live() -> bool:
+	for side in [0, 1]:
+		if float(_corr_fade[side]) > 0.0 or float(_stop_fade[side]) > 0.0 or float(_open_fade[side]) > 0.0:
+			return true
+	return false
+
+
+## Each marking's strength now, for the tests: {"corridor": [a0, a1], "stop": [...],
+## "open": [...]}, the alpha it is laid at before the press wash takes its share.
+func mark_alphas() -> Dictionary:
+	var out := {"corridor": [], "stop": [], "open": []}
+	for side in [0, 1]:
+		(out["corridor"] as Array).append(MARK_ALPHA * ease_fade(float(_corr_fade[side])))
+		(out["stop"] as Array).append(MARK_ALPHA * ease_fade(float(_stop_fade[side])))
+		(out["open"] as Array).append(MARK_ALPHA * MARK_OPEN_SHARE * ease_fade(float(_open_fade[side])))
+	return out
+
+
+## The press wash's strength at `wx` metres (the director's frame): the most of
+## either side's, as _draw_press_zone lays it.
+func press_alpha_at(wx: float) -> float:
+	var out := 0.0
+	for side in [0, 1]:
+		var f := ease_fade(float(_zone_fade[side]))
+		if f > 0.003:
+			out = maxf(out, PRESS_ZONE_ALPHA * f * MatchDirector.press_zone_field(wx * MatchDirector._dir(side)))
+	return out
+
+
+## A marking's alpha at a point where it wants `want`: only what tops the press
+## wash up to it, never more on top.
+func mark_over_press(want: float, wx: float) -> float:
+	return maxf(0.0, want - press_alpha_at(wx))
+
+
+## Draws every marking showing; returns how many it drew.
+func _draw_marks(tr: float) -> int:
+	var s := _scale()
+	if s <= 0.0:
+		return 0
+	var drew := 0
+	var disc_m := tr / s
+	for side in [0, 1]:
+		var code := home_code if side == 0 else away_code
+		var base := press_zone_colour(code)
+		var rim := mark_rim_colour(code)
+		var cf := MARK_ALPHA * ease_fade(float(_corr_fade[side]))
+		if cf > 0.002:
+			_draw_corridor(side, base, cf, MatchDirector.CORRIDOR_HALF + disc_m)
+			drew += 1
+		var sf := MARK_ALPHA * ease_fade(float(_stop_fade[side]))
+		if sf > 0.002 and not (_stop_ring[side] as Dictionary).is_empty():
+			var sr: Dictionary = _stop_ring[side]
+			_draw_mark_ring(sr["at"], float(sr["r"]) + disc_m, base, rim, sf)
+			drew += 1
+		var of := MARK_ALPHA * MARK_OPEN_SHARE * ease_fade(float(_open_fade[side]))
+		if of > 0.002 and not (_open_ring[side] as Dictionary).is_empty():
+			var orr: Dictionary = _open_ring[side]
+			_draw_mark_ring(orr["at"], float(orr["r"]) + disc_m, base, rim, of)
+			drew += 1
+	return drew
+
+
+## The corridor shade: slices up the ground, each a strip of quads across it with
+## a colour at every corner, soft at the edges.
+func _draw_corridor(side: int, base: Color, a: float, half: float) -> void:
+	var dir := MatchDirector._dir(side)
+	var x0 := MatchDirector.CORRIDOR_FROM
+	var x1 := MatchDirector.CORRIDOR_TO
+	var ys := [-half - MARK_SIDE_FEATHER, -half, half, half + MARK_SIDE_FEATHER]
+	var yk := [0.0, 1.0, 1.0, 0.0]
+	var n := 24
+	for i in range(n):
+		var xa := lerpf(x0, x1, float(i) / float(n))
+		var xb := lerpf(x0, x1, float(i + 1) / float(n))
+		var ka := corridor_end(xa)
+		var kb := corridor_end(xb)
+		for j in range(3):
+			var pts := PackedVector2Array([
+					_w2s_flat(Vector2(xa * dir, ys[j])), _w2s_flat(Vector2(xb * dir, ys[j])),
+					_w2s_flat(Vector2(xb * dir, ys[j + 1])), _w2s_flat(Vector2(xa * dir, ys[j + 1]))])
+			var ks := [ka * float(yk[j]), kb * float(yk[j]), kb * float(yk[j + 1]), ka * float(yk[j + 1])]
+			var xs := [xa, xb, xb, xa]
+			var cols := PackedColorArray()
+			var any := false
+			for q in range(4):
+				var al := mark_over_press(a * float(ks[q]), float(xs[q]) * dir)
+				any = any or al > 0.001
+				cols.append(Color(base.r, base.g, base.b, al))
+			if any:
+				draw_polygon(pts, cols)
+
+
+## The corridor's strength along the ground (metres up it from the centre, for
+## its own side): full between its soft ends, none past them.
+static func corridor_end(x: float) -> float:
+	var x0 := MatchDirector.CORRIDOR_FROM
+	var x1 := MatchDirector.CORRIDOR_TO
+	return smoothstep(x0, x0 + MARK_END_FEATHER, x) * (1.0 - smoothstep(x1 - MARK_END_FEATHER, x1, x))
+
+
+## The ring's rim: a light tint of the club's colour, so a line a few pixels wide
+## reads on the dark turf at the same faint strength (the wash's colour, worked to
+## mix at turf lightness, only darkens the grass in a line that thin). A club with
+## no hue gets a light grey.
+static func mark_rim_colour(code: String) -> Color:
+	var base := press_zone_colour(code)
+	if base == PRESS_NO_HUE:
+		return Color(0.85, 0.85, 0.85)
+	return Color.from_hsv(base.h, MARK_RIM_SAT, 1.0)
+
+
+## A ring on the grass round `at` (metres), its edge at `edge`: the rim (in `rim`)
+## at `a` just inside the edge, soft to nothing just outside it, a pad of `base`
+## at MARK_PAD of it within.
+func _draw_mark_ring(at: Vector2, edge: float, base: Color, rim: Color, a: float) -> void:
+	var rs := [0.0, edge - MARK_RIM, edge - MARK_RIM * 0.3, edge, edge + MARK_RIM_FEATHER]
+	var rk := [MARK_PAD, MARK_PAD, 1.0, 1.0, 0.0]
+	var n := 56
+	for i in range(n):
+		var t0 := TAU * float(i) / float(n)
+		var t1 := TAU * float(i + 1) / float(n)
+		for j in range(rs.size() - 1):
+			var w := [at + Vector2.from_angle(t0) * float(rs[j]), at + Vector2.from_angle(t1) * float(rs[j]),
+					at + Vector2.from_angle(t1) * float(rs[j + 1]), at + Vector2.from_angle(t0) * float(rs[j + 1])]
+			var ks := [rk[j], rk[j], rk[j + 1], rk[j + 1]]
+			if j == 0:
+				# The middle: a triangle from the centre, not a quad with two corners on it.
+				w.remove_at(1)
+				ks.remove_at(1)
+			var pts := PackedVector2Array()
+			var cols := PackedColorArray()
+			var any := false
+			for q in range(w.size()):
+				var wp: Vector2 = w[q]
+				pts.append(_w2s_flat(wp))
+				var al := mark_over_press(a * float(ks[q]), wp.x)
+				any = any or al > 0.001
+				var c: Color = base if float(ks[q]) <= MARK_PAD + 0.001 else rim
+				cols.append(Color(c.r, c.g, c.b, al))
+			if any:
+				draw_polygon(pts, cols)
 
 
 ## The turf the wash sits on, for working out what colour to lay over it.

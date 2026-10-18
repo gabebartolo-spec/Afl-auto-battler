@@ -2208,6 +2208,43 @@ static func press_zone_field(x_side: float) -> float:
 	return lerpf(lerpf(press_zone_strength(-e - 1.0), mid, fwd), press_zone_strength(e + 1.0), back)
 
 
+# ---------------------------------------------------------------------------
+# The oval marks two calls on the grass (P-12 pass 5, director 2026-10-18:
+# "Merge, then mark the oval"). Attack corridor and Win contest meet their
+# measures, but the busy players round the ball (leads, carrier, pack) crowd it
+# on every call, so the shape alone can read as a swarm or a clump. A faint
+# marking of the side's colour says the call where the discs cannot, like the
+# press wash. Read here, drawn by PitchView; neither moves a player.
+# - Attack corridor: the corridor its lanes use (LANE_TABLE's outermost lane,
+#   plus a disc in the view), from the side's defensive 50 to the goal square,
+#   only while the side has the ball in play.
+# - Win contest: at a ball-up or throw-in, its pack's ring (PACK_RING) from the
+#   moment it is called until the clearance; in open play, the ring its midfield
+#   keeps round the ball (CONTEST_MID_RING) while the ball is live.
+const CORRIDOR_FROM := -35.0     # the side's defensive 50, from the centre (x up the ground)
+const CORRIDOR_TO := 76.0        # the front of the goal square (GOAL_X less its 9 m)
+const CORRIDOR_HALF := 14.25     # the outermost lane (LANE_TABLE)
+
+
+## Whether `side`'s Attack corridor is marked now: its plan, the ball its, in play.
+func corridor_mark_on(side: int) -> bool:
+	if _tac.size() < 2 or tokens.is_empty():
+		return false
+	return _plan_of(side) == "attacking" and side == _poss and not (mode in ["break", "centre", "stoppage"])
+
+
+## `side`'s Win contest ring now: {"at", "r", "stop"} (a stoppage's pack ring, or
+## the midfield's ring round the ball in open play, the ball in play: not at a
+## centre bounce, a stoppage, a set shot or a break), or {} when none shows.
+func contest_mark(side: int) -> Dictionary:
+	if _tac.size() < 2 or tokens.is_empty() or _plan_of(side) != "contest":
+		return {}
+	if _ring_at.is_finite():
+		return {"at": _ring_at, "r": PACK_RING, "stop": true}
+	if mode == "open" and not _stoppage_on():
+		return {"at": _struct_ball, "r": CONTEST_MID_RING, "stop": false}
+	return {}
+
 ## Debug only (capture_match --noshape): draw the calls without their shapes
 ## (the press, the flood, the stack and every P-12 shape), the sim untouched,
 ## so a clip pair differs in the formation alone.
