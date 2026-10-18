@@ -1,7 +1,7 @@
 # Director decisions, 2026-10-18 morning
 
 Interview by the question tool after the overnight run (25 merges, chapters 28 and 29 built). His picks are in
-quotes where they were a labelled choice; rows 9 to 14 are his own words after the interview. Where a later decision of his differs, the later one wins. Nothing here
+quotes where they were a labelled choice; rows 9 to 20 are his own words after the interview (15 and 18 were labelled choices). Where a later decision of his differs, the later one wins. Nothing here
 edits the bible.
 
 | # | Question | His answer | What follows |
@@ -20,6 +20,14 @@ edits the bible.
 | 12 | The itch push failed ("invalid target (bad user)"): butler login, upload by hand, or hold | "I'll run butler login" | the key was fine: the itch username had changed to aussierulesdynasties; target fixed, 0.1.0-54290c9 then 0.1.0-67185d8 pushed with devlogs 1713766 and 1713802 |
 | 13 | (unprompted, on the posted devlog) | "dont mention the removals in the devlog" | the "Removed, for now" paragraph and the title's mention came out; rule in memory: devlogs say what players gain, never what was pulled |
 | 14 | (unprompted, on the posted devlog) | "remove the melbourne potentials, they dont need to know that, reads as balance tampering" | the line came out; rule in memory: no hand-set ratings or balance notes about a named club in any devlog |
+| 15 | Status check, then "interview me" on the coach's pre-bounce sheet: how a PC shows "Tag which player?" and the Change control | "One line + Change, as on the phone" | lane tagline: the PC sheet asks the question and shows Change on one line, as the phone does; after keymoments and optsbeside land (MatchScene files) |
+| 16 | (unprompted, on the devlog titles) | "'Build 0.1.0', this number is meant to change with every update, fix all the devlogs to reflect it" | project.godot config/version is the one source (0.1.13 now); tools/bump_version.py bumps it in its own PR before each ship; tools/check_version.py in run_tests.sh and the plan job; butler userversion and devlog titles carry "<version>-<sha7>"; every published devlog retitled (0.1.1 db0cfdc ... 0.1.12 60a1bd4) |
+| 17 | (unprompted, on the devlog list) | "merge minor patch notes into bigger ones" | a small build gets no post of its own: its lines go under "Also in this build, from 0.1.N" in the next big post, the small post stays an unpublished draft; visitors see 0.1.2, 0.1.3, 0.1.5, 0.1.6, 0.1.9, 0.1.10, 0.1.12 |
+| 18 | P-12 pass 4 (#784): two of the three calls still read weak in the clips (Attack corridor, Win contest); merge and mark the oval, hold for a pass 5 first, or drop the marks | "Merge, then mark the oval" | #784 merged; lane ovalcalls5, PR #800: a corridor shade for Attack corridor and a contest ring for Win contest on the oval, look-gated (fresh motion critic, then his clip) |
+| 19 | (unprompted, as the 0.1.13 ship was about to start) | "no more itch patches until 1.0 / full speed ahead" | the 0.1.13 push was stopped before it went out; live stays 0.1.12 (60a1bd4); nothing ships until he lifts this; before the 1.0 push: bump_version PR, merge, ship, one devlog; the team runs every assigned lane at once |
+| 20 | (unprompted, on the team) | "only spawn opus medium effort helpers, you stay fable high", then "you can spawn sonnet helpers too, just dont spawn fables" | helpers are Sonnet or Opus (medium effort), never Fable; the lead stays Fable high; three Sonnet lanes spawned a minute earlier were stopped and respawned (gotaway2 and aiwhy2 as Opus, optsbeside2 as Sonnet); rule in memory-shared/right-size-agents.md |
+
+Left open, no answer yet: the culture young-ceiling size (+1 stays until his playtest) and the Ruthless board warning level (confidence 35, under the 40 poor line).
 
 Also told him, no decision asked: AI clubs turn over about 9 players a year (median 9; 66% of club-years inside 8-12),
 real clubs lose 4-7 to delistings and retirements plus trades (docs/research/LIST_CHURN_AUDIT_2026-10-18.md). Balance stays his.
