@@ -36,6 +36,8 @@ func run() -> void:
 	_test_over_the_press(res)
 	_test_corridor_playback(res)
 	_test_contest_playback(res)
+	for sp in [1.0, 4.0]:
+		_test_ball_in_the_ring(res, sp)
 	_test_other_calls(res)
 	_test_moves_nobody(res)
 	await _test_under_the_discs(res)
@@ -128,17 +130,37 @@ func _test_when_marked(res: Dictionary) -> void:
 	d._poss = 1
 	_check(not d.contest_mark(0).is_empty(), "...whoever is to win it")
 	d._ring_at = Vector2.INF
-	d._struct_ball = Vector2(-30.0, 8.0)
+	d.ball["pos"] = Vector2(-30.0, 8.0)
+	d._struct_ball = Vector2(-10.0, -8.0)
 	var m1: Dictionary = d.contest_mark(0)
 	_check(not m1.is_empty() and not bool(m1["stop"]) and (m1["at"] as Vector2) == Vector2(-30.0, 8.0)
 			and is_equal_approx(float(m1["r"]), MatchDirector.CONTEST_MID_RING),
-			"...in open play a ring round the ball at the midfield's ring (%s)" % str(m1))
+			"...in open play a ring round the ball itself (not its next spot) at the midfield's ring (%s)" % str(m1))
 	for m in ["centre", "stoppage", "break", "kickin", "shot"]:
 		d.mode = m
 		_check(d.contest_mark(0).is_empty(), "...and not with the ball out of open play (%s)" % m)
 	d.mode = "open"
 	d._beat = {"k": 0, "kind": "ballup"}
 	_check(d.contest_mark(0).is_empty(), "...nor through a stoppage's clearance (the stoppage's own ring's time)")
+	# From the umpire's call: the ball dead in a tackle before a ball-up, the
+	# ring is already on the ball-up's spot, and reading it changes nothing.
+	var nb := -1
+	for i in range(1, (res["events"] as Array).size()):
+		if str((res["events"][i] as Dictionary).get("kind", "")) == "ballup" and d._prev_real(i) >= 0:
+			nb = i
+			break
+	if nb >= 0:
+		var pk: int = d._prev_real(nb)
+		d._locs[pk] = Vector2(14.0, -7.0)
+		d._beat = {"k": pk, "kind": str((res["events"][pk] as Dictionary).get("kind", ""))}
+		d.mode = "stoppage"
+		var st: int = d._rng.state
+		var had: bool = d._locs.has(nb)
+		var mc: Dictionary = d.contest_mark(0)
+		var same: bool = d._rng.state == st and d._locs.has(nb) == had
+		var want: Vector2 = d._loc(nb)
+		_check(not mc.is_empty() and bool(mc["stop"]) and (mc["at"] as Vector2).distance_to(want) < 0.001 and same,
+				"...from the call (the ball dead before a ball-up) the ring is on the ball-up's spot (%s, the ball-up %s), reading it changes nothing (%s)" % [str(mc), str(want), str(same)])
 	d._beat = {}
 	d.mode = "open"
 	_check(not d.corridor_mark_on(0), "Win contest has no corridor")
@@ -281,11 +303,47 @@ func _test_corridor_playback(res: Dictionary) -> void:
 	var step_most := 0.0
 	var prev := 0.0
 	var rings := 0.0
+	# Frame by frame through each turnover from a full corridor in open play:
+	# it starts going the frame Melbourne has the ball, falls every frame (never
+	# back up), no frame drops more than an eased fade allows, and it is gone
+	# within half a second, taking at least FADE_LEAST over it.
+	var turn := -1.0           # real seconds since the turnover being followed
+	var turns := 0
+	var turns_ok := 0
+	var turn_prev := 0.0
+	var turn_bad := ""
+	var turn_step := 0.0
+	var prev_poss := -1
 	var guard := 0
 	while not d.idle() and guard < 40000:
 		guard += 1
 		pv._process(FRAME)
 		var a := _alpha(pv, "corridor", 0)
+		if turn < 0.0 and prev_poss == 0 and d._poss == 1 and d.mode == "open" and prev >= PitchView.MARK_ALPHA - 0.0001:
+			turn = 0.0
+			turn_prev = prev
+			turn_bad = ""
+			turn_step = 0.0
+		elif turn >= 0.0:
+			turn += FRAME
+		if turn >= 0.0:
+			if d._poss != 1:
+				turn = -1.0    # won straight back: not a clean turnover to follow
+			else:
+				if a > turn_prev or (turn <= FRAME * 0.5 and a >= turn_prev):
+					turn_bad = "rose or held at %.2f s (%.4f after %.4f)" % [turn, a, turn_prev]
+				turn_step = maxf(turn_step, turn_prev - a)
+				turn_prev = a
+				if a <= 0.0:
+					turns += 1
+					if turn_bad == "" and turn >= FADE_LEAST - FRAME and turn <= PitchView.MARK_FADE_SECS + FRAME 							and turn_step <= PitchView.MARK_ALPHA / (FADE_LEAST * 30.0) * 1.6:
+						turns_ok += 1
+					elif turn_bad == "":
+						turn_bad = "gone after %.2f s, largest drop %.4f" % [turn, turn_step]
+					if turn_bad != "":
+						print("  corridor turnover: %s" % turn_bad)
+					turn = -1.0
+		prev_poss = d._poss
 		top = maxf(top, a)
 		step_most = maxf(step_most, absf(a - prev))
 		prev = a
@@ -305,6 +363,9 @@ func _test_corridor_playback(res: Dictionary) -> void:
 	print("  corridor: full in %.0f%% of Fremantle's open-play frames (%d)" % [share * 100.0, own_frames])
 	_check(own_frames > 300 and share >= 0.6, "The corridor shows at full in most of Fremantle's open play (%.0f%% of %d frames)" % [share * 100.0, own_frames])
 	_check(opp_shown == 0, "...and is gone once Melbourne has had the ball half a second (%d frames)" % opp_shown)
+	print("  corridor: %d of %d turnovers from full fade out cleanly" % [turns_ok, turns])
+	_check(turns >= 3 and turns_ok == turns,
+			"...frame by frame at each turnover from full: it starts going at once, falls every frame, and is gone in 0.4 to 0.5 s (%d of %d)" % [turns_ok, turns])
 	_check(other == 0.0 and rings == 0.0, "No marking for Melbourne on Balanced, and no ring under Attack corridor")
 	_check(top <= FAINT_TOP + 0.0001, "...faint all the way (%.3f)" % top)
 	_check(step_most <= PitchView.MARK_ALPHA / (FADE_LEAST * 30.0) * 1.6,
@@ -312,8 +373,8 @@ func _test_corridor_playback(res: Dictionary) -> void:
 	pv.free()
 
 
-## Win contest on the oval: the ring at every ball-up and throw-in from the call
-## to the clearance, on the contest; in open play round the ball, gliding.
+## Win contest on the oval: the ring at every ball-up and throw-in, planted on the
+## contest from the call to the clearance; in open play on the ball (_test_ball_in_the_ring).
 func _test_contest_playback(res: Dictionary) -> void:
 	var r2 := _with_call(res, "contest", [], 400)
 	var pv := _phone(r2, 1.0)
@@ -334,14 +395,38 @@ func _test_contest_playback(res: Dictionary) -> void:
 	var prev_at := Vector2.INF
 	var top := 0.0
 	var open_full := 0
+	# Planted: while the stoppage ring shows, its centre never moves.
+	var planted_at := Vector2.INF
+	var planted_moves := 0
+	var spans := 0
+	# From the call: a ball-up called in the play before it (the ball dead in a
+	# tackle or a pack) already has its ring showing when its own beat begins.
+	var was_stoppage := false
+	var called := 0
+	var called_on := 0
 	var guard := 0
 	while not d.idle() and guard < 60000:
 		guard += 1
+		var kind_before := str(d._beat.get("kind", ""))
 		pv._process(FRAME)
 		var kind := str(d._beat.get("kind", ""))
 		var k := int(d._beat.get("k", -1))
 		var sa := _alpha(pv, "stop", 0)
 		var oa := _alpha(pv, "open", 0)
+		var sring: Dictionary = pv._stop_ring[0]
+		if sa > 0.0 and not sring.is_empty():
+			if not planted_at.is_finite():
+				planted_at = sring["at"]
+				spans += 1
+			elif (sring["at"] as Vector2).distance_to(planted_at) > 0.01:
+				planted_moves += 1
+				planted_at = sring["at"]
+		else:
+			planted_at = Vector2.INF
+		if kind == "ballup" and kind_before != "ballup" and was_stoppage:
+			called += 1
+			called_on += 1 if sa > 0.0 else 0
+		was_stoppage = d.mode == "stoppage" and kind != "ballup" and kind != "throwin"
 		top = maxf(top, maxf(sa, oa))
 		other = maxf(other, maxf(_alpha(pv, "stop", 1), _alpha(pv, "open", 1)))
 		corr = maxf(corr, _alpha(pv, "corridor", 0))
@@ -363,7 +448,9 @@ func _test_contest_playback(res: Dictionary) -> void:
 				after = 0.0
 			else:
 				after += FRAME
-			if after > PitchView.MARK_FADE_SECS + FRAME and sa > 0.0:
+			# (unless the next ball-up is already called: its own ring, on its own spot)
+			var nxt: Dictionary = d.contest_mark(0)
+			if after > PitchView.MARK_FADE_SECS + FRAME and sa > 0.0 and (nxt.is_empty() or not bool(nxt["stop"])):
 				gone_late += 1
 		# The open-play ring only in live open play (after its fade).
 		if d.contest_mark(0).is_empty() or bool(d.contest_mark(0).get("stop", false)):
@@ -389,13 +476,69 @@ func _test_contest_playback(res: Dictionary) -> void:
 	_check(stoppages >= 5 and float(full_at) / float(stoppages) >= 0.8,
 			"Win contest: the ring comes in fully at the stoppages as the pack forms (%d of %d)" % [full_at, stoppages])
 	_check(on_spot, "...on the contest itself")
+	print("  contest: the ring planted in %d showings (%d moves); %d of %d called ball-ups ringed from the call" % [spans, planted_moves, called_on, called])
+	_check(spans >= 5 and planted_moves == 0, "...planted there from the call to the clearance: it never follows the ball in (%d moves in %d showings)" % [planted_moves, spans])
+	_check(called >= 3 and called_on == called, "...and on from the umpire's call, before the ball-up itself (%d of %d)" % [called_on, called])
 	_check(gone_late == 0, "...and goes out at the clearance, gone half a second after it (%d late frames)" % gone_late)
 	_check(open_full > 200, "In open play the ring round the ball shows (%d frames at full)" % open_full)
 	_check(open_wrong == 0, "...and only in live open play (%d frames off it)" % open_wrong)
 	_check(glide_most <= MatchMotion.SPRINT * FRAME * MatchDirector.TEMPO + 0.01,
-			"...gliding after the ball no faster than a sprint (%.2f m in a frame)" % glide_most)
+			"...moving with the ball no faster than a sprint (%.2f m in a frame)" % glide_most)
 	_check(other == 0.0 and corr == 0.0, "No ring for Melbourne on Balanced, and no corridor under Win contest")
 	_check(top <= FAINT_TOP + 0.0001, "...faint all the way (%.3f)" % top)
+	pv.free()
+
+
+## In open play the ball is inside the ring's pad in every frame the ring shows
+## (motion critic, 2026-10-18: the ring trailed the ball by its own radius). The
+## ring is on the ball while it moves at a player's pace; a ball faster than a
+## sprint (a kick or handball in flight) leaves the ring where it was, easing out,
+## and the ring eases back in where the ball comes down. So the ball is outside
+## the pad only in a frame the ring is already easing out, and never then with the
+## ring growing stronger. Drawn positions, on the phone, at 1x and 4x.
+func _test_ball_in_the_ring(res: Dictionary, speed: float) -> void:
+	var r2 := _with_call(res, "contest", [], 400)
+	var pv := _phone(r2, speed)
+	var d: MatchDirector = pv.director
+	var shown := 0
+	var on_ball := 0
+	var outside := 0
+	var outside_bad := 0
+	var worst_on := -INF       # metres past the pad (negative: room to spare)
+	var leavings := 0
+	var was_leaving := false
+	var prev := 0.0
+	var sc := pv._scale()
+	var guard := 0
+	while not d.idle() and guard < 60000:
+		guard += 1
+		pv._process(FRAME)
+		var oa := _alpha(pv, "open", 0)
+		var orr: Dictionary = pv._open_ring[0]
+		var leaving := pv.open_ring_leaving(0)
+		if leaving and not was_leaving:
+			leavings += 1
+		was_leaving = leaving
+		if oa > 0.0 and not orr.is_empty():
+			shown += 1
+			var dist := pv._w2s(orr["at"]).distance_to(pv.ball_point()) / sc
+			var room := pv.mark_pad_radius(float(orr["r"])) - pv.mark_ball_radius()
+			if not leaving:
+				on_ball += 1
+				worst_on = maxf(worst_on, dist - room)
+			elif dist > room:
+				outside += 1
+				if oa > prev + 0.000001:
+					outside_bad += 1
+			if dist > room and not leaving:
+				outside_bad += 1
+		prev = oa
+	print("  ball in the ring at %.0fx: %d frames shown, %d on the ball (at least %.2f m of pad to spare), %d easing out with the ball gone (%d eases)" % [
+			speed, shown, on_ball, -worst_on, outside, leavings])
+	_check(on_ball > 150 and worst_on <= 0.0,
+			"%.0fx: in open play the ball is inside the ring's pad in every frame the ring is on it (%d frames, worst %.2f m past the pad)" % [speed, on_ball, worst_on])
+	_check(outside_bad == 0 and leavings >= 5,
+			"%.0fx: ...and outside it only while the ring eases out after a ball faster than a sprint, never growing (%d bad frames, %d eases)" % [speed, outside_bad, leavings])
 	pv.free()
 
 

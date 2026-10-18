@@ -2218,9 +2218,10 @@ static func press_zone_field(x_side: float) -> float:
 # - Attack corridor: the corridor its lanes use (LANE_TABLE's outermost lane,
 #   plus a disc in the view), from the side's defensive 50 to the goal square,
 #   only while the side has the ball in play.
-# - Win contest: at a ball-up or throw-in, its pack's ring (PACK_RING) from the
-#   moment it is called until the clearance; in open play, the ring its midfield
-#   keeps round the ball (CONTEST_MID_RING) while the ball is live.
+# - Win contest: at a ball-up or throw-in, its pack's ring (PACK_RING) on the
+#   contest spot from the moment it is called until the clearance; in open play,
+#   the ring its midfield keeps round the ball (CONTEST_MID_RING) while the ball
+#   is live.
 const CORRIDOR_FROM := -35.0     # the side's defensive 50, from the centre (x up the ground)
 const CORRIDOR_TO := 76.0        # the front of the goal square (GOAL_X less its 9 m)
 const CORRIDOR_HALF := 14.25     # the outermost lane (LANE_TABLE)
@@ -2241,9 +2242,41 @@ func contest_mark(side: int) -> Dictionary:
 		return {}
 	if _ring_at.is_finite():
 		return {"at": _ring_at, "r": PACK_RING, "stop": true}
+	var called := _contest_called()
+	if called.is_finite():
+		return {"at": called, "r": PACK_RING, "stop": true}
 	if mode == "open" and not _stoppage_on():
-		return {"at": _struct_ball, "r": CONTEST_MID_RING, "stop": false}
+		return {"at": ball["pos"], "r": CONTEST_MID_RING, "stop": false}
 	return {}
+
+
+## The contest spot from the moment the umpire calls a ball-up (the ball dead in
+## a tackle or a pack), before the ball-up's own beat begins: where that beat will
+## plant its ring (_start_beat), so the ring is on the spot from the call and never
+## follows the ball in (motion critic, 2026-10-18). INF when no ball-up is called.
+## Reads only: _peek_loc leaves every cache and the random stream as it found them.
+func _contest_called() -> Vector2:
+	if mode != "stoppage" or _beat.is_empty():
+		return Vector2.INF
+	var nk := _next_real(int(_beat["k"]))
+	if nk < 0:
+		return Vector2.INF
+	var kind := str((events[nk] as Dictionary).get("kind", ""))
+	if kind != "ballup" and kind != "throwin":
+		return Vector2.INF
+	var rat := _peek_loc(nk)
+	return rat if kind == "ballup" else Vector2(rat.x, rat.y * 0.78)
+
+
+## _loc(k) without keeping anything: the spot, the cache and the random stream as before.
+func _peek_loc(k: int) -> Vector2:
+	if _locs.has(k):
+		return _locs[k]
+	var st := _rng.state
+	var p := _loc(k)
+	_locs.erase(k)
+	_rng.state = st
+	return p
 
 ## Debug only (capture_match --noshape): draw the calls without their shapes
 ## (the press, the flood, the stack and every P-12 shape), the sim untouched,

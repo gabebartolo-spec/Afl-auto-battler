@@ -215,6 +215,8 @@ func setup(p_result: Dictionary) -> void:
 	_open_fade = [0.0, 0.0]
 	_stop_ring = [{}, {}]
 	_open_ring = [{}, {}]
+	_open_leaving = [false, false]
+	_mark_ball = Vector2.INF
 	_ev_idx = 0
 	_last_actor = -1
 	_poss_side = -1
@@ -1058,9 +1060,10 @@ func _draw_press_zone(c: Vector2, a: float, b: float) -> void:
 ## moves nobody.
 ## - The corridor: the lanes' width plus a disc, from the side's defensive 50 to
 ##   the goal square, soft at its edges and ends, while the side has the ball.
-## - The contest ring: round a ball-up or throw-in, the pack's ring from the call
-##   to the clearance; in open play the midfield's ring round the
-##   ball, gliding after it no faster than a sprint. The players on the ring stand
+## - The contest ring: round a ball-up or throw-in, the pack's ring planted on
+##   the contest from the call to the clearance; in open play the midfield's ring
+##   on the ball while it moves at a player's pace, easing out when the ball goes
+##   faster than a sprint and back in where it comes down. The players on the ring stand
 ##   on its radius, so on a phone (a disc is 8.6 m across) a line there is under
 ##   their discs: the ring is drawn round the outside of them (radius plus a
 ##   disc), a faint pad of the colour inside, the rim at full strength.
@@ -1083,6 +1086,8 @@ var _stop_fade := [0.0, 0.0]
 var _open_fade := [0.0, 0.0]
 var _stop_ring := [{}, {}]         # {at, r}: the last stoppage ring, kept while it fades
 var _open_ring := [{}, {}]
+var _open_leaving := [false, false]   # the open ring easing out after a fast ball
+var _mark_ball := Vector2.INF      # where the ball was last frame (its speed)
 ## The layers in the order the last frame drew them (tests: a marking under the discs).
 var drawn_layers: Array = []
 
@@ -1090,24 +1095,71 @@ var drawn_layers: Array = []
 func _step_marks(delta: float) -> void:
 	var md := delta * speed * MatchDirector.TEMPO if playing else 0.0
 	var k := delta / MARK_FADE_SECS
+	# The ball's speed this frame: faster than a sprint is a kick or handball in
+	# flight (no player runs that fast: MatchMotion caps them at a sprint).
+	var bpos: Vector2 = director.ball.get("pos", Vector2.ZERO) if not director.ball.is_empty() else Vector2.ZERO
+	var fast := md > 0.0 and _mark_ball.is_finite() and bpos.distance_to(_mark_ball) > MatchMotion.SPRINT * md + 0.001
+	_mark_ball = bpos
 	for side in [0, 1]:
 		_corr_fade[side] = move_toward(float(_corr_fade[side]), 1.0 if director.corridor_mark_on(side) else 0.0, k)
 		var m: Dictionary = director.contest_mark(side)
 		var stop := not m.is_empty() and bool(m["stop"])
 		var open := not m.is_empty() and not bool(m["stop"])
-		if stop:
+		# The stoppage ring is planted on the contest from the call to the
+		# clearance. A new contest elsewhere while it still shows: the old ring
+		# goes out first, then the new one comes in on its own spot. It never slides.
+		var sr: Dictionary = _stop_ring[side]
+		if stop and not sr.is_empty() and float(_stop_fade[side]) > 0.0 				and (sr["at"] as Vector2).distance_to(m["at"]) > 0.01:
+			stop = false
+		elif stop:
 			_stop_ring[side] = {"at": m["at"], "r": m["r"]}
+		# The open-play ring is on the ball while the ball moves at a player's
+		# pace. When it goes faster than a sprint (a kick or handball in flight)
+		# the ring stays where it was and eases out, and eases back in where the
+		# ball comes down: nothing drags across the ground.
+		var on_ball := false
 		if open:
-			var was: Dictionary = _open_ring[side]
-			if was.is_empty() or float(_open_fade[side]) <= 0.0:
-				_open_ring[side] = {"at": m["at"], "r": m["r"]}
+			var orr: Dictionary = _open_ring[side]
+			if float(_open_fade[side]) <= 0.0:
+				_open_ring[side] = {"at": bpos, "r": m["r"]}
+				_open_leaving[side] = false
+				on_ball = not fast
+			elif fast:
+				_open_leaving[side] = true
+			elif bool(_open_leaving[side]):
+				# Come down inside the ring (a short handball): it carries on.
+				if (orr["at"] as Vector2).distance_to(bpos) <= mark_pad_radius(float(m["r"])) - mark_ball_radius():
+					_open_leaving[side] = false
+					on_ball = true
 			else:
-				# The ring glides after the ball's next spot, no faster than a
-				# sprint: a kick's flight never drags it across the ground.
-				was["at"] = (was["at"] as Vector2).move_toward(m["at"], MatchMotion.SPRINT * md)
-				was["r"] = m["r"]
+				on_ball = true
+			if on_ball and float(_open_fade[side]) > 0.0:
+				orr["at"] = (orr["at"] as Vector2).move_toward(bpos, MatchMotion.SPRINT * md)
+				orr["r"] = m["r"]
+		# Off the ball for any reason (a fast ball, or the ball out of open play):
+		# planted where it is, easing out.
+		if not on_ball and float(_open_fade[side]) > 0.0:
+			_open_leaving[side] = true
 		_stop_fade[side] = move_toward(float(_stop_fade[side]), 1.0 if stop else 0.0, k)
-		_open_fade[side] = move_toward(float(_open_fade[side]), 1.0 if open else 0.0, k)
+		_open_fade[side] = move_toward(float(_open_fade[side]), 1.0 if on_ball else 0.0, k)
+
+
+## The ring's pad, its radius in metres: inside the rim (the ring's edge, `r` plus a disc).
+func mark_pad_radius(r: float) -> float:
+	var s := _scale()
+	return r + (token_radius() / s if s > 0.0 else 0.0) - MARK_RIM
+
+
+## The ball's drawn radius on the turf, in metres (_draw_ball: 0.42 of a disc).
+func mark_ball_radius() -> float:
+	var s := _scale()
+	return 0.42 * token_radius() / s if s > 0.0 else 0.0
+
+
+## Whether the open-play ring is off the ball, planted and easing out (after a ball
+## faster than a sprint, or with the ball out of open play).
+func open_ring_leaving(side: int) -> bool:
+	return bool(_open_leaving[side])
 
 
 ## Whether any marking is showing or fading (the view keeps redrawing).
