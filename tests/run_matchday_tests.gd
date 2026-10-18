@@ -194,7 +194,10 @@ func _phone_match(sz: Vector2i) -> void:
 	var box: Node = m.find_child("CoachBox", true, false)
 	_check(box != null, "The match opens on your calls (%s)" % tag)
 	var text := _text(box)
-	_check(not text.contains("pts") and not text.contains("Expected points") and not text.contains("%"),
+	# Percentages are now the gates' own sizes (bible §4, director 2026-10-18:
+	# "full transparency behind each decision"); points and expected points
+	# are still the engine's and never shown.
+	_check(not text.contains("pts") and not text.contains("Expected points") and not text.contains("probability"),
 			"The first coach box shows no engine numbers (%s)" % tag)
 	for n in ["PlanPicker", "TagPicker", "FocusPicker_focus_mid", "FocusPicker_focus_fwd", "FocusPicker_focus_def",
 			"PepPicker", "RotationPicker", "LegsView", "TagNote"]:
@@ -372,7 +375,7 @@ func _phone_match(sz: Vector2i) -> void:
 			_check(((qsim._own[myside] as Dictionary)["duels"] as Dictionary).has(fid),
 					"A match-up you change stays your call (%s)" % tag)
 			var btext := _text(box)
-			_check(not btext.contains("%") and pts_word.search(btext) == null, "The match-ups show no engine numbers (%s)" % tag)
+			_check(not btext.contains("probability") and pts_word.search(btext) == null, "The match-ups show no engine numbers (%s)" % tag)
 	var small := []
 	for b in box.find_children("*", "Button", true, false):
 		if b.is_visible_in_tree() and b.size.y < 40:

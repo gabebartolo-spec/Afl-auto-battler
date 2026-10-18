@@ -959,8 +959,7 @@ func _show_coach_box() -> void:
 			NameInk.set_line(tag_note, "%s, your tagger, is on the bench. %s tags %s until he is back." % [
 					GameDB.player_display_name_by_id(str(calls["tagger_id"]), "Your tagger"), GameDB.player_display_name(who), target], _names())
 		else:
-			NameInk.set_line(tag_note, GateOdds.tag_note(GameDB.player_display_name(who), target, who,
-					float(sim.energy.get(str(who["id"]), 100.0))), _names())
+			NameInk.set_line(tag_note, GateOdds.tag_note(GameDB.player_display_name(who), target), _names())
 	# The tag is offered on their listed midfielders only (director, 2026-10-14:
 	# "Only listed midfielders"): the names, and "Other midfielder..." for the
 	# listed midfielders not already shown, which is not drawn when none is

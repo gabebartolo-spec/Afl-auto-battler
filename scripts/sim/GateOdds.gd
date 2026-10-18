@@ -38,11 +38,11 @@ const PLAN_COST := {
 
 # Who tags (the pre-bounce and break sheets).
 const TAG_GIVES := "%s of his own ball and contest work"
-const TAG_NOTE := "%s tags %s: he gives up %s of his own ball and contest work, whoever he is, and %s keeps about %s of his ball (a Tagger holds him to %s, an ordinary presser to %s; fresher legs and higher Pressure hold tighter)."
+const TAG_NOTE := "%s tags %s: he gives up %s of his own ball and contest work."
 
 # Skip to full time.
-const SKIP_FIRST := "Skip plays the match on the plan you took in, with no tag and no talk. Only a match-up changed here is kept; every call in the match takes its 'no change' answer."
-const SKIP_LATER := "Skip plays the rest on last quarter's calls and talk. Only a match-up changed here is kept; every call in the match takes its 'no change' answer."
+const SKIP_FIRST := "Skip plays the match on the plan you took in, no tag, no talk. Only a match-up changed here is kept; every call in the match takes 'no change'."
+const SKIP_LATER := "Skip plays the rest on last quarter's calls and talk. Only a match-up changed here is kept; every call in the match takes 'no change'."
 
 # Key match-ups (break chooser and the in-match card).
 const BACK_STATS := "Intercept %d · Marking %d"
@@ -131,9 +131,10 @@ static func tag_kept(tagger: Dictionary, legs: float) -> float:
 	return Roles.TAG_PLAIN - (Roles.TAG_PLAIN - Roles.TAG_WITH_TAGGER) * MatchSim.tag_hold(tagger, legs)
 
 
-static func tag_note(who_name: String, target_name: String, tagger: Dictionary, legs: float) -> String:
-	return TAG_NOTE % [who_name, target_name, tag_gives_pct(), target_name, pct(tag_kept(tagger, legs)),
-			pct(Roles.TAG_WITH_TAGGER), pct(Roles.TAG_PLAIN)]
+## The line under the tag call: the cost, whoever goes (each man's hold is on
+## his own card, MatchNotes.tagger_card).
+static func tag_note(who_name: String, target_name: String) -> String:
+	return TAG_NOTE % [who_name, target_name, tag_gives_pct()]
 
 
 static func minder_lines() -> Array:
