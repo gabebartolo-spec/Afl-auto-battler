@@ -24,7 +24,10 @@ extends RefCounted
 ##   speccy_front   the low, tight front-on speccy shot that freezes on the grab
 ##               (BroadcastVignette). Off, a spectacular mark plays the earlier shot.
 
-const KNOWN := ["preseason", "speccy_front"]
+##   training_report   the report after every fourth round: who improved, who
+##               fell back, and who can learn a new position (TrainingReport.gd).
+
+const KNOWN := ["preseason", "speccy_front", "training_report"]
 
 static var _forced := {}
 static var _from_args := {}
