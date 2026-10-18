@@ -26,7 +26,9 @@ static func build(index: int, narrow: bool, rebuild: Callable, show_rule: Callab
 			sk.name = "EventStakes_%d" % index
 			sk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(sk)
-		var silence := str((e.get("unanswered", {}) as Dictionary).get("hint", ""))
+		# What leaving it does, from the card's own data: its silent default and that
+		# choice's cost, or the price of saying nothing (StoryEngine.silence_line).
+		var silence := StoryEngine.silence_line(e) if bool(e.get("story", false)) else str((e.get("unanswered", {}) as Dictionary).get("hint", ""))
 		if silence != "":
 			var sl := NameInk.label(silence, names, UiKit.SECONDARY, UiKit.TEXT)
 			sl.name = "EventSilence_%d" % index

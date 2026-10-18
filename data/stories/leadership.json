@@ -81,6 +81,12 @@
 						"op": "xp",
 						"d": 4,
 						"who": "others"
+					},
+					{
+						"op": "slow_start",
+						"who": "subject",
+						"chance": 10,
+						"on": "week"
 					}
 				],
 				"result": "{name} takes the kids on Wednesday."
@@ -580,6 +586,10 @@
 						"op": "morale",
 						"d": 2,
 						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": -2
 					}
 				],
 				"result": "They talked it through."
@@ -815,6 +825,10 @@
 					{
 						"op": "flag",
 						"name": "cs_good"
+					},
+					{
+						"op": "expects_game",
+						"sting": 6
 					}
 				],
 				"result": "{name} talked it through."
@@ -891,6 +905,10 @@
 					{
 						"op": "flag",
 						"name": "cs_good"
+					},
+					{
+						"op": "expects_game",
+						"sting": 6
 					}
 				],
 				"result": "{name} knows you're still with him."
@@ -907,6 +925,11 @@
 					{
 						"op": "flag",
 						"name": "cs_good"
+					},
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "subject"
 					}
 				],
 				"result": "{name} appreciates it."
@@ -1072,6 +1095,10 @@
 					{
 						"op": "flag",
 						"name": "cc_start"
+					},
+					{
+						"op": "board",
+						"d": -2
 					}
 				],
 				"result": "You opened the talks early."

@@ -147,6 +147,7 @@ func _test_effects() -> void:
 	var deck := StoryDeck.all()
 	var wrong := []
 	var lines_missing := []
+	var one_sided := []
 	var clubs_checked := 0
 	for id in IDS:
 		var t := StoryDeck.by_id(deck, id)
@@ -166,6 +167,14 @@ func _test_effects() -> void:
 			var lines := StoryEngine.stakes_lines(opts[ci]["effects"], card["facts"])
 			if lines.is_empty():
 				lines_missing.append("%s/%s" % [id, opts[ci]["key"]])
+			# Every answer has an upside and a downside (director, 2026-10-18; the sizes are the story suite's check).
+			var has_gain := false
+			var has_cost := false
+			for l in lines:
+				has_gain = has_gain or l.begins_with(StoryEngine.GAIN_MARK)
+				has_cost = has_cost or l.begins_with(StoryEngine.COST_MARK)
+			if not (has_gain and has_cost):
+				one_sided.append("%s/%s: %s" % [id, opts[ci]["key"], " ".join(lines)])
 			var before := _snapshot(subj)
 			GameState.week_events = [card]
 			GameState.resolve_card(0, ci)
@@ -198,6 +207,7 @@ func _test_effects() -> void:
 	_check(wrong.is_empty(), "Every answer moves what its lines say: %s" % " | ".join(PackedStringArray(wrong.slice(0, 6))))
 	_check(clubs_checked >= 14, "...and the strand, running and drilling steps were really exercised (%d)" % clubs_checked)
 	_check(lines_missing.is_empty(), "Every answer carries a Gain or Cost line: %s" % " | ".join(PackedStringArray(lines_missing)))
+	_check(one_sided.is_empty(), "Every answer on the 11 cards states both a Gain and a Cost: %s" % " | ".join(PackedStringArray(one_sided)))
 	# Culture steps land on the culture page with their reason, dated the pre-season.
 	_career()
 	GameState.preseason_advance()

@@ -88,6 +88,10 @@
 						"op": "trust",
 						"d": 6,
 						"why": "You told him he was in your plans"
+					},
+					{
+						"op": "expects_game",
+						"sting": 12
 					}
 				],
 				"result": "{name} hears what he wanted to hear."
@@ -242,6 +246,10 @@
 						"op": "trust",
 						"d": 4,
 						"why": "You told him he was part of the plans"
+					},
+					{
+						"op": "expects_game",
+						"sting": 6
 					}
 				],
 				"result": "{name} goes home happier."
@@ -258,6 +266,10 @@
 						"op": "trust",
 						"d": -2,
 						"why": "You told him he had to earn his place"
+					},
+					{
+						"op": "xp",
+						"d": 6
 					}
 				],
 				"result": "{name} heads back to the track."
@@ -294,6 +306,10 @@
 						"op": "trust",
 						"d": 4,
 						"why": "You told him a deal was coming"
+					},
+					{
+						"op": "board",
+						"d": -2
 					}
 				],
 				"result": "{name} is reassured, for now."
@@ -358,6 +374,9 @@
 				"label": "Tell him it waits until the season's under way",
 				"note": "No commitment yet. He'll ask for what he's worth then: less if his form drops, more if he improves.",
 				"effects": [
+					{
+						"op": "open_price"
+					},
 					{
 						"op": "morale",
 						"d": -4

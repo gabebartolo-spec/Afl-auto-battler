@@ -46,6 +46,10 @@ const OPS := {
 	# (Culture.gd), weeks of running toward the fitness base, weeks of drilling the
 	# game plan (PreSeason.gd). They act on the club, not on a player.
 	"culture": false, "running": false, "drill": false,
+	# Lines with no lever of their own (director, 2026-10-18, row 24): a contract
+	# talk put off names the early premium it does not pay; a choice that holds a
+	# player back names the development (`d`, XP) the other choice would give him.
+	"open_price": true, "forgo_xp": true,
 }
 ## The biggest step a card may give a culture strand, and the most weeks of
 ## running or drilling it may add or take.
@@ -65,7 +69,7 @@ const HOLDS_WITH_TRUST := 45
 const PLAYER_FACTS := ["name", "first", "age", "games", "fit", "selected", "overall", "potential",
 		"pot_gap", "contract_years", "morale", "trust", "trust_band", "discipline", "backed",
 		"fit_rank", "talk_case", "kpi", "kpi_or_need", "explain_label", "talk_text", "sore_odds",
-		"ask", "early_price", "more_seasons", "extension_ok", "job", "real_named",
+		"sore_pct", "trial_ovr", "ask", "early_price", "more_seasons", "extension_ok", "job", "real_named",
 		"form", "form_games", "has_role2", "starting", "form_low", "role_avg", "role_word", "trial_word", "trial_home", "trial_avg", "trial_par", "trial_tail",
 		"leadership", "captain", "delegate_holds", "holds_at", "holds_trust_at",
 		# The finals cards: the ageing rule says this is his last season, the finals he has
@@ -293,6 +297,8 @@ static func _check_effect(where: String, e, player: bool) -> Array:
 		var dv := int(e.get("d", 0))
 		if dv == 0 or absi(dv) > int(CAPS[op]):
 			errs.append("%s: %s of %d is outside 1..%d" % [where, op, dv, int(CAPS[op])])
+	if op == "forgo_xp" and (int(e.get("d", 0)) < 1 or int(e.get("d", 0)) > int(CAPS["xp"])):
+		errs.append("%s: development given up of %d is outside 1..%d" % [where, int(e.get("d", 0)), int(CAPS["xp"])])
 	if op == "slow_start" or op == "loss_sting":
 		var ch := int(e.get("chance", 0))
 		if ch < 1 or ch > RISK_MAX:

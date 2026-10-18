@@ -7,8 +7,8 @@ extends RefCounted
 ## data/stories. `gs` is GameState.
 
 ## Trust lost when a promise made on a card is broken after the match.
-const BROKEN_PROMISE_TRUST := -8
-const BROKEN_RUN_TRUST := -10
+const BROKEN_PROMISE_TRUST := StoryEngine.BROKEN_PROMISE_TRUST
+const BROKEN_RUN_TRUST := StoryEngine.BROKEN_RUN_TRUST
 
 
 ## Your week of the season: the round, then the finals weeks after it.
@@ -281,6 +281,9 @@ static func player_fact(gs, p: Dictionary, selected: bool, i: Dictionary, fit_ra
 			"talk_text": ClubLife.talk_text(case, i), "verdict": str(i.get("verdict", "")),
 			"job": str(i.get("job", "")), "need": str(i.get("need", "")),
 			"sore_odds": ClubLife.odds(Injuries.chance(sore)),
+			"sore_pct": "about a %d%%" % roundi(Injuries.chance(sore) * 100.0),
+			# How he rates in the spot a role trial would play him (his usual rating when he has none).
+			"trial_ovr": gs.rating_as(p, trial_role(p)) if trial_role(p) != "" and p.has("attr") else ovr,
 			"ask": Contracts.money(Contracts.asking_salary(p)), "early_price": Contracts.money(early),
 			"more_seasons": "%s more season%s" % [MatchNotes.count_word(more), "" if more == 1 else "s"],
 			"extension_ok": ClubLife.extension_wanted(p, {}) and early - int(p.get("salary", 0)) <= cap_room,
@@ -406,6 +409,7 @@ static func apply_choice(gs, card: Dictionary, choice: int) -> String:
 		return "The moment has passed: he is no longer at the club."
 	var facts: Dictionary = (card.get("facts", {}) as Dictionary).duplicate()
 	facts["_tid"] = str(card.get("tid", ""))
+	facts["_result"] = str(opt.get("result", ""))
 	var applied := {}
 	var said: PackedStringArray = []
 	# A role trial that cannot start (he is not in the side now, or is picked
@@ -423,6 +427,9 @@ static func apply_choice(gs, card: Dictionary, choice: int) -> String:
 		if line != "":
 			said.append(line)
 	var out := " ".join(said) if not said.is_empty() else str(opt.get("result", ""))
+	# A promise made on a card that has its own result line: the line first, then what he now expects.
+	if bool(applied.get("_lead_result", false)) and str(opt.get("result", "")) != "":
+		out = str(opt["result"]) + " " + out
 	out = StoryEngine.fill_ranked(out, running_fitness(gs))
 	if out == "":
 		out = "Business as usual."
@@ -498,7 +505,7 @@ static func _apply(gs, e: Dictionary, p: Dictionary, facts: Dictionary, applied:
 			p["rested"] = true
 		"slow_start":
 			# A small chance, rolled once for the whole group (or the one player), from the
-			# save's seed: the same save answers the same way. Never announced; it shows on the day.
+			# save's seed: the same save answers the same way. The card names the chance; the roll shows on the day.
 			var hit := StoryEngine.risk_hit(int(gs.season.seed), int(facts.get("year", 0)), int(facts.get("round", 0)),
 					"%s|slow|%s|%s" % [facts.get("_tid", ""), e.get("who", "subject"), name], int(e.get("chance", 0)))
 			if hit:
@@ -534,6 +541,9 @@ static func _apply(gs, e: Dictionary, p: Dictionary, facts: Dictionary, applied:
 				q[str(e["op"])] = true
 		"expects_game":
 			p["expects_game"] = int(e.get("sting", 12))
+			if str(facts.get("_result", "")) != "":
+				applied["_lead_result"] = true
+				return "He's in the side this week." if gs.my_selection().is_empty() else "He expects a game this week."
 			return ("%s feels heard. He's in the side this week." if gs.my_selection().is_empty()
 					else "%s feels heard, and expects a game this week.") % name
 		"start_backing":
@@ -599,6 +609,6 @@ static func _extend(gs, p: Dictionary, name: String) -> String:
 		return "The cap no longer has room to extend %s now; it waits for the off-season." % name
 	p["salary"] = cost
 	p["contract_years"] = years
-	ClubLife.add_morale(p, 8)
+	ClubLife.add_morale(p, StoryEngine.EXTEND_MORALE)
 	return "%s signs on for %d more season%s at %s a season." % [name, years - 1,
 			"" if years == 2 else "s", Contracts.money(cost)]

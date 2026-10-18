@@ -159,6 +159,12 @@
 					{
 						"op": "morale",
 						"d": 4
+					},
+					{
+						"op": "slow_start",
+						"who": "subject",
+						"chance": 10,
+						"on": "week"
 					}
 				],
 				"result": "{name} helps paint the banner."

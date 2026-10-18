@@ -29,7 +29,7 @@
 			{
 				"key": "rest",
 				"label": "Rest him this week",
-				"note": "He'll be right for next week.",
+				"note": "He misses this round only.",
 				"effects": [
 					{
 						"op": "rest"
@@ -228,6 +228,12 @@
 						"op": "morale",
 						"d": 2,
 						"who": "others"
+					},
+					{
+						"op": "slow_start",
+						"who": "subject",
+						"chance": 10,
+						"on": "week"
 					}
 				],
 				"result": "{name} spends the week with the kid in rehab."
@@ -239,6 +245,10 @@
 					{
 						"op": "morale",
 						"d": -2
+					},
+					{
+						"op": "xp",
+						"d": 4
 					}
 				],
 				"result": "{name} sticks to his own program."

@@ -260,7 +260,7 @@
 		"when": {
 			"round_min": 8
 		},
-		"stakes": "A day off costs the week's extra development."
+		"stakes": "A day off gives up the development Monday's session brings."
 	},
 	{
 		"id": "training_time_trial",
@@ -646,8 +646,7 @@
 						"d": 12
 					},
 					{
-						"op": "sore",
-						"line": "He carries the new weight sore into Round 1, and there's {sore_odds} chance he breaks down for weeks."
+						"op": "sore"
 					}
 				],
 				"result": "{first} keeps adding size through the last blocks."
@@ -660,6 +659,10 @@
 						"op": "trust",
 						"d": 3,
 						"why": "You listened to the physio about his body"
+					},
+					{
+						"op": "forgo_xp",
+						"d": 12
 					}
 				],
 				"result": "{first} holds his weight and works on his speed instead."
