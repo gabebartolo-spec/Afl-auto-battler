@@ -80,7 +80,21 @@ func _build() -> void:
 	for i in range(PreSeason.block_count()):
 		if not GameState.preseason_block_open(i):
 			first = i + 1
-	if stop == "intra":
+	if stop == "papers":
+		if _wide():
+			# A PC: the story on the left, the ladder beside it.
+			var pcols := UiKit.hbox(28)
+			var pl := _papers_story()
+			pl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			pcols.add_child(pl)
+			var pr := _papers_ladder()
+			pr.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			pcols.add_child(pr)
+			page.add_child(pcols)
+		else:
+			page.add_child(_papers_story())
+			page.add_child(_papers_ladder())
+	elif stop == "intra":
 		if GameState.intra_played():
 			page.add_child(_intra_report())
 			page.add_child(_blocks_section(first, _wide()))
@@ -203,6 +217,8 @@ func _hero(stop: String) -> String:
 			return "The intra-club match"
 		"practice":
 			return "The practice match"
+		"papers":
+			return "The papers"
 	return "Week %d of 8" % mini(PreSeason.weeks(), GameState.preseason_week() + 1)
 
 
@@ -221,7 +237,129 @@ func _hero_sub(stop: String) -> String:
 			if GameState.practice_played():
 				return "End of week 7, against %s. It counts for nothing on the ladder; what it showed is below. Week 8 is a quiet week." % opp
 			return "End of week 7: one match against %s. It counts for nothing on the ladder." % opp
+		"papers":
+			return "Week 8. Training is done. This is the ladder the papers have printed, and what they want to know."
 	return "Training is under way."
+
+
+# ---------------------------------------------------------------------------
+# The papers: the story to answer, and the ladder they printed
+# ---------------------------------------------------------------------------
+## The one story, with the three answers (back it, deflect, talk it up), each
+## with what it gains and what it costs; or, once answered, what you said.
+func _papers_story() -> Control:
+	var v := UiKit.vbox(8)
+	v.name = "PapersStory"
+	var rec: Dictionary = GameState.papers_record()
+	var card: Dictionary = GameState.papers_card()
+	if card.is_empty():
+		var none := UiKit.lbl("The papers have no question for you this year.", UiKit.BODY, UiKit.TEXT)
+		none.name = "PapersNothing"
+		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(none)
+		return v
+	# Every name in the story wears his club's colour (NameInk).
+	var names := NameInk.from_lists(GameState.season.lists)
+	var title := NameInk.label(str(card.get("title", "")), names, UiKit.HEADING, UiKit.TEXT, true)
+	title.name = "PapersTitle"
+	v.add_child(title)
+	var text := NameInk.label(str(card.get("text", "")), names, UiKit.BODY, UiKit.TEXT)
+	text.name = "PapersText"
+	v.add_child(text)
+	if bool(rec.get("answered", false)):
+		v.add_child(UiKit.spacer(4))
+		var said := NameInk.label(str(rec.get("result", "")), names, UiKit.BODY, UiKit.TEXT, true)
+		said.name = "PapersResult"
+		v.add_child(said)
+		return v
+	var silence := str((card.get("unanswered", {}) as Dictionary).get("hint", ""))
+	if silence != "":
+		var sl := NameInk.label(silence, names, UiKit.SECONDARY, UiKit.TEXT)
+		sl.name = "PapersSilence"
+		v.add_child(sl)
+	var opts: Array = card.get("options", [])
+	for i in range(opts.size()):
+		var o: Dictionary = opts[i]
+		var col := UiKit.vbox(3)
+		var b := UiKit.btn(str(o.get("label", "")), UiKit.BODY, false)
+		b.name = "Papers_%d" % i
+		b.custom_minimum_size = Vector2(0, 48)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var index := i
+		b.pressed.connect(func():
+			GameState.papers_answer(index)
+			GameState.autosave()
+			_build())
+		col.add_child(b)
+		for line in StoryEngine.stakes_lines(o.get("effects", []), card.get("facts", {})):
+			var mark := ""
+			var kind := "Note"
+			if line.begins_with(StoryEngine.GAIN_MARK):
+				mark = "Gain:"
+				kind = "Gain"
+			elif line.begins_with(StoryEngine.COST_MARK):
+				mark = "Cost:"
+				kind = "Cost"
+			var cl := NameInk.label(line.substr(mark.length()).strip_edges() if mark != "" else line, names, UiKit.SECONDARY, UiKit.TEXT)
+			cl.name = "Papers%s_%d" % [kind, i]
+			if mark == "":
+				col.add_child(cl)
+				continue
+			var item := UiKit.hbox(6)
+			var mk := UiKit.lbl(mark, UiKit.SECONDARY, UiKit.TEXT, true)
+			mk.name = "Papers%sMark_%d" % [kind, i]
+			mk.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			mk.autowrap_mode = TextServer.AUTOWRAP_OFF
+			mk.custom_minimum_size = Vector2(40, 0)
+			item.add_child(mk)
+			cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			item.add_child(cl)
+			col.add_child(item)
+		v.add_child(col)
+	return v
+
+
+## The ladder the papers printed, best first: your club in bold, every club
+## in its own colour.
+func _papers_ladder() -> Control:
+	var v := UiKit.vbox(2)
+	v.name = "PapersLadder"
+	v.add_child(_section_head("The papers' ladder"))
+	var order: Array = GameState.papers_record().get("order", [])
+	# A PC is short: the ladder is two columns of nine, so all of it is in view.
+	var cols: Array = [v, v]
+	if _wide():
+		var pair := UiKit.hbox(24)
+		pair.name = "PapersLadderColumns"
+		var left := UiKit.vbox(2)
+		var right := UiKit.vbox(2)
+		left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		pair.add_child(left)
+		pair.add_child(right)
+		v.add_child(pair)
+		cols = [left, right]
+	for i in range(order.size()):
+		var code := str(order[i])
+		var row := UiKit.hbox(10)
+		row.name = "PapersRow_%d" % i
+		row.custom_minimum_size = Vector2(0, 28)
+		var pos := UiKit.figure(str(i + 1), UiKit.NUMBER)
+		pos.custom_minimum_size = Vector2(26, 0)
+		pos.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		pos.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(pos)
+		var mark := UiKit.club_marker(code, 20.0)
+		mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(mark)
+		var mine := code == GameState.my_club
+		var nm := UiKit.lbl(GameDB.club_name(code), UiKit.BODY, UiKit.club_name_colour(UiKit.club_ink(code)), mine)
+		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(nm)
+		(cols[0] if i < (order.size() + 1) / 2 else cols[1]).add_child(row)
+	return v
 
 
 # ---------------------------------------------------------------------------
@@ -887,7 +1025,8 @@ func _actions(stop: String) -> Control:
 	var v := UiKit.vbox(6)
 	v.name = "PreSeasonActions"
 	var setup := (stop == "intra" and not GameState.intra_played()) or (stop == "practice" and not GameState.practice_played())
-	var go := _primary("Start training" if stop == "plan" else ("Coach the match" if setup else "Back to training"))
+	var go := _primary("Start training" if stop == "plan" else ("Coach the match" if setup else
+			("On to Round 1" if stop == "papers" else "Back to training")))
 	go.name = "PreSeasonGo"
 	go.custom_minimum_size = Vector2(0, 48)
 	go.pressed.connect((_on_coach_practice if stop == "practice" else _on_coach) if setup else _on_go)

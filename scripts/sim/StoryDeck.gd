@@ -32,6 +32,9 @@ const OPS := {
 	"fresh": false, "heavy_legs": false, "expects_game": true, "start_backing": true,
 	"extend_early": true, "promise_win": false, "flag": false, "explain": true, "talk_note": true,
 	"role_trial": true,
+	# The papers (pre-season): talking the club up puts a finish on the record (the
+	# board's target never moves; mid-season, behind your own words, a card comes).
+	"on_record": false,
 	# The captain's cards: a dispute left to the captain, settled by his Leadership and his
 	# trust in you; a promised run for the young player the card names; the vice-captain
 	# takes the armband (through the Captaincy rules and their costs).
@@ -74,6 +77,11 @@ const PLAYER_FACTS := ["name", "first", "age", "games", "fit", "selected", "over
 const CLUB_FACTS := ["club", "opp", "round", "year", "losing_run", "winning_run", "ladder",
 		"board", "fit_count", "run_games", "finals_week", "captain_name", "vice_name", "vice_id",
 		"has_vice", "kid_name", "kid_id", "has_kid",
+		# The papers: who wrote it, the finish they tipped, the finish you named
+		# (claim_*), the board's goal in a coach's words, and how far below your own
+		# words the club now sits.
+		"paper", "writer", "pred_word", "pred_rank", "claim_word", "claim_rank", "goal_line",
+		"words_word", "words_behind", "ladder_word",
 		# The finals cards: where you stand on the ten (in, out or live), a week off in the
 		# finals, beaten in last week's final and still alive, and the Grand Final's story
 		# with this opponent (consecutive Grand Finals against them, last year's result, an

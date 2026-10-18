@@ -665,7 +665,38 @@ static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
 					_pct(int(e.get("chance", 0))), _pct(absi(int(e.get("d", 0))))]]]
 		"role_trial":
 			return [["gain", _trial_words(e)], ["cost", _trial_cost_words(e, facts)]]
+		"on_record":
+			return [["cost", _record_words(facts)]]
 	return []
+
+
+## A finish put on the record (the papers, pre-season): when the papers can come
+## back for it and what answering them then costs, read from the card that does
+## it (media_papers_reckoning), so the line cannot drift from it.
+const RECKONING_CARD := "media_papers_reckoning"
+
+
+static func _record_words(facts: Dictionary) -> String:
+	var t := StoryDeck.by_id(StoryDeck.all(), RECKONING_CARD)
+	var head := "You have put that finish on the record."
+	if t.is_empty():
+		return head + " The board's target stays where it is."
+	var costs := []
+	for c in t.get("choices", []):
+		for ce in c.get("effects", []):
+			if str(ce.get("op", "")) == "board" and int(ce.get("d", 0)) < 0:
+				costs.append(absi(int(ce["d"])))
+	costs.sort()
+	var needs: Dictionary = t.get("needs", {})
+	# The window counts from the week the finish goes on the record (this card's week).
+	var at := maxi(0, int(facts.get("round", 0)))
+	var quiet := absi(int((t.get("unanswered", {}) as Dictionary).get("board", 0)))
+	var price := ""
+	if not costs.is_empty():
+		price = _pct(int(costs[0])) if int(costs[0]) == int(costs[costs.size() - 1]) else "%s to %s" % [_pct(int(costs[0])), _pct(int(costs[costs.size() - 1]))]
+		price = ", and answering them then costs board confidence %s%s" % [price, (" (%s if you say nothing)" % _pct(quiet)) if quiet > 0 else ""]
+	return "%s If the club is below it between rounds %d and %d, the papers can come back for it once%s. The board's target stays where it is." % [
+			head, at + int(needs.get("after", 0)), at + int(needs.get("within", 0)), price]
 
 
 ## The words for one effect, gains and costs together (a choice's detail and a
