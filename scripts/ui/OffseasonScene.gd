@@ -352,7 +352,9 @@ func _show_talks() -> void:
 	_talk_overlay = box["overlay"]
 	_talk_overlay.name = "ContractTalks"
 	var v: VBoxContainer = box["body"]
-	v.add_child(_para(GameDB.player_display_name(p), 20, UiKit.TEXT))
+	var talk_name := _para(GameDB.player_display_name(p), 20, UiKit.TEXT)
+	talk_name.name = "TalkPlayerName"
+	v.add_child(NameLink.tappable(talk_name, str(p["id"])))
 	v.add_child(_para("Age %d  ·  %d OVR  ·  %s POT  ·  on %s now" % [int(p.get("age", 0)), int(p["overall"]),
 			str(GameState.pot_view(p)["text"]), Contracts.money(int(p.get("salary", 0)))], 13, UiKit.MUTED))
 	# For a free agent his terms include what his options add.
@@ -832,7 +834,10 @@ func _pick_grid(body: VBoxContainer, list: Array, chosen: Array, prefix: String)
 				Ratings.role_tag(p), int(p["overall"]), str(GameState.pot_view(p)["text"]),
 				int(p.get("age", 0)), "  ·  Untouchable" if GameState.is_untouchable(id) else ""], chosen.has(id))
 		b.name = prefix + id
-		b.pressed.connect(_toggle.bind(chosen, id))
+		b.pressed.connect(func():
+			if not NameLink.on_profile_tap(b):
+				_toggle(chosen, id))
+		NameLink.profile_tap_text(b, id)
 		body.add_child(b)
 
 
@@ -911,7 +916,9 @@ func _player_card(p: Dictionary, detail: String) -> PanelContainer:
 	var chip := UiKit.role_chip(Ratings.role_tag(p))
 	chip.custom_minimum_size.x = 72
 	h.add_child(chip)
-	h.add_child(UiKit.ellipsis(GameDB.player_display_name(p), UiKit.BODY, UiKit.TEXT, true))
+	var who := UiKit.ellipsis(GameDB.player_display_name(p), UiKit.BODY, UiKit.TEXT, true)
+	who.name = "PlayerName_" + str(p["id"])
+	h.add_child(NameLink.tappable(who, str(p["id"])))
 	info.add_child(_para(detail, 12, UiKit.MUTED))
 	return card
 

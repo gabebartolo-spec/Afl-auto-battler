@@ -262,6 +262,68 @@ static func open(from: Node, id: String) -> Control:
 	return sheet
 
 
+## Make a name that is a plain label (not inside a button) open his profile on a tap.
+## The whole width of its line is the target; a press that turns into a swipe
+## does nothing, so it still scrolls the page.
+static func tappable(c: Control, id: String) -> Control:
+	# A name in running text at line height, like a wired line: the screen sweep
+	# counts it with the inline name links, not as a button under 44 px.
+	c.set_meta("name_link_wired", true)
+	c.mouse_filter = Control.MOUSE_FILTER_PASS
+	c.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var down := [Vector2.INF]
+	c.gui_input.connect(func(ev: InputEvent) -> void:
+		if not (ev is InputEventMouseButton and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT):
+			return
+		var at: Vector2 = (ev as InputEventMouseButton).global_position
+		if ev.is_pressed():
+			down[0] = at
+		elif down[0] != Vector2.INF and at.distance_to(down[0]) <= 12.0:
+			down[0] = Vector2.INF
+			open(c, id))
+	return c
+
+
+## A name that sits in a row with a job of its own (a button): a small Profile tap
+## at the button's right edge, `PROFILE_W` wide. The caller leaves that room on the
+## right of the row's content. Swipes still reach the page (the tap is a button).
+const PROFILE_W := 56.0
+
+
+static func profile_tap(row: Button, id: String) -> Button:
+	var t := UiKit.btn("Profile", UiKit.FINE)
+	t.name = "Profile_" + id
+	t.flat = true
+	t.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+	t.offset_left = -PROFILE_W
+	t.offset_right = 0
+	t.add_theme_color_override("font_color", UiKit.MUTED)
+	t.pressed.connect(func(): open(row, id))
+	row.add_child(t)
+	return t
+
+
+## A button that carries its own words (a trade or contract pick): leave room for
+## the Profile tap on the right of its text, then add the tap.
+static func profile_tap_text(b: Button, id: String) -> Button:
+	for state in ["normal", "hover", "pressed", "hover_pressed", "focus", "disabled"]:
+		var sb := b.get_theme_stylebox(state)
+		if sb != null:
+			sb = sb.duplicate()
+			sb.content_margin_right = maxf(sb.content_margin_right, PROFILE_W)
+			b.add_theme_stylebox_override(state, sb)
+	return profile_tap(b, id)
+
+
+## True when the pointer is on `row`'s Profile tap: the press that opened a profile
+## also reaches the row under it, which must not act.
+static func on_profile_tap(row: Control) -> bool:
+	for c in row.get_children():
+		if str(c.name).begins_with("Profile_") and c is Control:
+			return (c as Control).get_global_rect().has_point(row.get_global_mouse_position())
+	return false
+
+
 ## Back closes a profile opened this way before the screen sees it. True when it did.
 static func close_open(scene: Node) -> bool:
 	if scene == null:

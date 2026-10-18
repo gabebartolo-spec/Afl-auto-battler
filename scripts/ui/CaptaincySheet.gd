@@ -265,7 +265,9 @@ static func _open_picker(host: Control, sheet: Dictionary, state: Dictionary, do
 		var h := UiKit.hbox(8)
 		h.set_anchors_preset(Control.PRESET_FULL_RECT)
 		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.offset_right = -NameLink.PROFILE_W
 		row.add_child(h)
+		NameLink.profile_tap(row, id)
 		var who := UiKit.vbox(0)
 		who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		who.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -278,6 +280,8 @@ static func _open_picker(host: Control, sheet: Dictionary, state: Dictionary, do
 			bits.append("named %s" % str(Captaincy.ROLE_WORDS[here[id]]).to_lower())
 		who.add_child(UiKit.ellipsis("  ·  ".join(bits), UiKit.SMALL, UiKit.MUTED))
 		row.pressed.connect(func():
+			if NameLink.on_profile_tap(row):
+				return
 			var d: Array = state["draft"]
 			# Into this spot, keeping its role (the first is the captain); out
 			# of any other spot he held.
