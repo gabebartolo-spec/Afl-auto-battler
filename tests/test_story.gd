@@ -2211,7 +2211,7 @@ func ", at + 5) - at)
 		if FileAccess.get_file_as_string(f).contains("Culture.club_effect("):
 			effect_readers.append(f.get_file())
 	_check(effect_readers == ["GameState.gd"], "Only GameState applies a culture effect (%s)" % ", ".join(effect_readers))
-	for kind in ["recovery", "sting", "resign_floor", "free_agent_score", "young_growth"]:
+	for kind in ["recovery", "sting", "resign_floor", "free_agent_score", "young_growth", "young_ceiling"]:
 		_check(gs.contains("culture_effect(") and gs.contains("\"%s\")" % kind), "Culture's %s effect is applied" % kind)
 	for st in ["standards", "together", "ambition"]:
 		_check(Culture.moves_line(st) != "", "%s says what moves it" % st)
@@ -2258,7 +2258,7 @@ func _test_culture_effects() -> void:
 			if x == 0.0:
 				_check(line == "", "%s %d: no line when it does nothing" % [strand, t])
 			else:
-				_check(line.contains("a little") or line.contains("keen"), "%s %d: size in words (%s)" % [strand, t, line])
+				_check(line.contains("a little") or line.contains("keen") or line.contains("quicker"), "%s %d: size in words (%s)" % [strand, t, line])
 				_check(not line.contains("%") and not line.contains("0."), "%s %d: no number on the line (%s)" % [strand, t, line])
 				if strand != "ambition":
 					var kind := "recovery" if strand == "standards" else "sting"
@@ -2270,8 +2270,10 @@ func _test_culture_effects() -> void:
 	_check(Culture.effect_line("together", -50) == "Players take a missed game a little worse.", "Togetherness, divided band")
 	_check(Culture.effect_line("ambition", 20) == "Players are a little more willing to stay and to join.", "Ambition, pushing to win now")
 	# Director, 2026-10-18: a patient club brings its young on; veterans' asks are not lower there.
-	_check(Culture.effect_line("ambition", -20) == "Young players come on a little quicker here."
-			and Culture.effect_line("ambition", -50) == "Young players come on a little quicker here.", "Ambition, patient and rebuilding")
+	_check(Culture.effect_line("ambition", -20) == "Young players come on quicker at a patient club."
+			and Culture.effect_line("ambition", -50) == "Young players come on quicker at a patient club.", "Ambition, patient and rebuilding")
+	_check(Culture.effect_of("young_ceiling", "ambition", "patient") == 1.0 and Culture.effect_of("young_ceiling", "ambition", "rebuild") == 1.0
+			and Culture.effect_of("young_ceiling", "ambition", "now") == 0.0, "Young players: a point more season ceiling at a patient club only")
 	for band in ["patient", "rebuild"]:
 		_check(Culture.effect_of("resign_floor", "ambition", band) == 0.0 and Culture.effect_of("free_agent_score", "ambition", band) == 0.0,
 				"A %s club gets no re-sign or free-agent tilt" % band)
@@ -2340,13 +2342,24 @@ func _test_culture_effects() -> void:
 	GameState.culture_effects_on = true
 	_check(on_kid == int(round(float(off_kid) * 1.05)) and on_kid > off_kid and on_old == off_old,
 			"Rebuilding: a 19-year-old earns 5%% more from the same game, a 29-year-old the same (%d v %d; %d v %d)" % [on_kid, off_kid, on_old, off_old])
+	# ...and has a point more room this season, inside POT; a veteran does not.
+	var kid2 := {"id": "k2", "age": 19.0, "overall": 60, "potential": 80, "club": "GEE", "season_start_ov": 60}
+	var capped := {"id": "k3", "age": 19.0, "overall": 62, "potential": 63, "club": "GEE", "season_start_ov": 60}
+	var vet2 := {"id": "o2", "age": 29.0, "overall": 70, "potential": 80, "club": "GEE", "season_start_ov": 70}
+	var c_on := [GameState.season_ceiling(kid2), GameState.season_ceiling(capped), GameState.season_ceiling(vet2)]
+	GameState.culture_effects_on = false
+	var c_off := [GameState.season_ceiling(kid2), GameState.season_ceiling(capped), GameState.season_ceiling(vet2)]
+	GameState.culture_effects_on = true
+	_check(int(c_on[0]) == int(c_off[0]) + 1 and int(c_on[1]) == maxi(int(c_off[1]), mini(int(c_off[1]) + 1, 63)) and int(c_on[2]) == int(c_off[2]),
+			"Rebuilding: a 19-year-old's season ceiling is a point higher (inside POT), a 29-year-old's the same (%s v %s)" % [str(c_on), str(c_off)])
 	GameState.culture_effects_on = false
 	_check(GameState.culture_effect("GEE", "recovery") == 0.0, "Off means off")
 	GameState.culture_effects_on = true
 
 
-## The player-effect fixture: one seeded stretch of Melbourne's season played
-## twice, culture's effects on and off, with Melbourne's culture set to a
+## The player-effect fixture: Melbourne's home-and-away season played twice,
+## culture's effects on and off (legs, morale and XP read over the first
+## FIXTURE_ROUNDS), with Melbourne's culture set to a
 ## well-run, very tight, rebuilding group. Everything else is the same seed. The
 ## sheet predicts fresher legs, players who take being left out better, and
 ## young players earning more development; each shows, and the size is printed.
@@ -2367,13 +2380,18 @@ func _culture_fixture_run(on: bool) -> Dictionary:
 	var young_ids := {}
 	for p in GameState.my_list:
 		if Culture.young_for_growth(p, GameState.season_year):
-			young_ids[str(p["id"])] = true
-	for r in range(FIXTURE_ROUNDS):
+			young_ids[str(p["id"])] = int(p.get("overall", 0))
+	var morale := 0.0
+	var r := 0
+	while not GameState.season.is_regular_done() and r < 30:
 		if GameState.week_event_pending():
 			GameState.resolve_week_event(0)
 		if GameState.media_conference_pending():
 			GameState.skip_media_conference()
 		GameState.advance()
+		r += 1
+		if r > FIXTURE_ROUNDS:
+			continue
 		var w := 0.0
 		for p in GameState.my_list:
 			w += Workload.value(p)
@@ -2381,29 +2399,39 @@ func _culture_fixture_run(on: bool) -> Dictionary:
 		for row in GameState.last_training_report.get("rows", []):
 			if young_ids.has(str(row["id"])):
 				young_xp += int(row["xp"])
-	var morale := 0.0
+		if r == FIXTURE_ROUNDS:
+			for p in GameState.my_list:
+				morale += float(ClubLife.morale(p))
+	var young_gain := 0.0
+	var young_n := 0
 	for p in GameState.my_list:
-		morale += float(ClubLife.morale(p))
+		if young_ids.has(str(p["id"])):
+			young_gain += float(int(p.get("overall", 0)) - int(young_ids[str(p["id"])]))
+			young_n += 1
 	var bands := "%s/%s/%s" % [Culture.band_key("standards", Culture.value(GameState.relations, "MEL", "standards")),
 			Culture.band_key("together", Culture.value(GameState.relations, "MEL", "together")),
 			Culture.band_key("ambition", Culture.value(GameState.relations, "MEL", "ambition"))]
 	GameState.culture_effects_on = true
 	return {"load": load_sum / float(FIXTURE_ROUNDS), "morale": morale / float(GameState.my_list.size()),
-			"young_xp": young_xp, "young": young_ids.size(), "bands": bands}
+			"young_xp": young_xp, "young": young_ids.size(), "bands": bands,
+			"young_gain": young_gain / float(maxi(1, young_n)), "rounds": r}
 
 
 func _test_culture_effects_fixture() -> void:
 	var off := _culture_fixture_run(false)
 	var on := _culture_fixture_run(true)
-	print("Culture fixture (Melbourne, %d rounds, seed %d): load %.2f v %.2f off | morale %.2f v %.2f off | young XP %d v %d off (%d young players) | bands %s" % [
-			FIXTURE_ROUNDS, SUITE_SEED, float(on["load"]), float(off["load"]), float(on["morale"]), float(off["morale"]),
-			int(on["young_xp"]), int(off["young_xp"]), int(on["young"]), str(on["bands"])])
+	print("Culture fixture (Melbourne, seed %d; first %d rounds): load %.2f v %.2f off | morale %.2f v %.2f off | young XP %d v %d off (%d young players) | bands %s | young OVR gain over the %d-round season %.2f v %.2f off" % [
+			SUITE_SEED, FIXTURE_ROUNDS, float(on["load"]), float(off["load"]), float(on["morale"]), float(off["morale"]),
+			int(on["young_xp"]), int(off["young_xp"]), int(on["young"]), str(on["bands"]), int(on["rounds"]),
+			float(on["young_gain"]), float(off["young_gain"])])
 	_check(str(on["bands"]) == "elite/very/rebuild" and str(off["bands"]) == "elite/very/rebuild",
 			"The fixture's culture holds for the stretch (%s, %s)" % [on["bands"], off["bands"]])
 	_check(float(on["load"]) < float(off["load"]), "A well-run group carries less load in its legs (%.2f v %.2f)" % [on["load"], off["load"]])
 	_check(float(on["morale"]) > float(off["morale"]), "A very tight group ends the stretch happier (%.2f v %.2f)" % [on["morale"], off["morale"]])
 	_check(float(on["young_xp"]) > float(off["young_xp"]) * 1.02,
 			"A rebuilding club's young players earn more development (%d v %d)" % [on["young_xp"], off["young_xp"]])
+	_check(float(on["young_gain"]) > float(off["young_gain"]),
+			"...and end the home-and-away season rated higher (%.2f v %.2f OVR gained)" % [on["young_gain"], off["young_gain"]])
 
 
 func _test_culture_sentences() -> void:

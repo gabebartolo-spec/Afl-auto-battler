@@ -8228,6 +8228,11 @@ func season_ceiling(p: Dictionary) -> int:
 	# Develop and manage (Conditioning): a point more room for the young.
 	if season != null and str(p.get("club", "")) != "":
 		full += fitness_ceiling_step(p)
+		# A patient or rebuilding club (Culture): a point more room for its young,
+		# inside POT, at every club alike.
+		var step := culture_ceiling_step(p)
+		if step > 0:
+			full = maxi(full, mini(full + step, int(p.get("potential", 0))))
 	# The season after he learns a position: a little more room, inside POT.
 	if int(p.get("learn_payback_year", 0)) == season_year:
 		full = maxi(full, mini(full + LEARN_PAYBACK, int(p.get("potential", 0))))
@@ -10136,6 +10141,15 @@ func culture_effect(code: String, kind: String) -> float:
 	if not culture_effects_on:
 		return 0.0
 	return Culture.club_effect(relations, code, kind, str(Culture.KIND_STRAND[kind]))
+
+
+## Points of season training ceiling a player's club culture adds (Ambition:
+## patient or rebuilding, for under-22s and first-season draftees); 0 elsewhere.
+func culture_ceiling_step(p: Dictionary) -> int:
+	var club := str(p.get("club", ""))
+	if club == "" or not Culture.young_for_growth(p, season_year):
+		return 0
+	return maxi(0, int(round(culture_effect(club, "young_ceiling"))))
 
 
 ## How much less than his lowest a player re-signs for at `code` (Ambition:
