@@ -952,7 +952,7 @@ func _show_coach_box() -> void:
 		var who = my_mids.get(str(calls["tagger_id"]), tagger)
 		var target := GameDB.player_display_name_by_id(str(calls["tag_id"]), "")
 		if str(calls["tag_id"]) == "":
-			NameInk.set_line(tag_note, "No tag: your midfielders play their own game, and their man runs free.", _names())
+			NameInk.set_line(tag_note, "No tag: your midfielders play their own game.", _names())
 		elif who == null:
 			NameInk.set_line(tag_note, "No midfielder on the ground to tag with.", _names())
 		elif str(calls["tagger_id"]) != "" and not my_mids.has(str(calls["tagger_id"])):

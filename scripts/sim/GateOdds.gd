@@ -38,7 +38,7 @@ const PLAN_COST := {
 
 # Who tags (the pre-bounce and break sheets).
 const TAG_GIVES := "%s of his own ball and contest work"
-const TAG_NOTE := "%s tags %s: he gives up %s of his own ball and contest work."
+const TAG_NOTE := "%s tags %s: he gives up %s of his own game."
 
 # Skip to full time.
 const SKIP_FIRST := "Skip plays the match on the plan you took in, no tag, no talk. Only a match-up changed here is kept; every call in the match takes 'no change'."
