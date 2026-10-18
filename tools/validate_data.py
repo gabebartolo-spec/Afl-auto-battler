@@ -262,6 +262,47 @@ def check_player_origin() -> list[str]:
     return problems
 
 
+def check_club_moves() -> list[str]:
+    """data/club_moves_2026.csv: players who changed club in the 2026 trade
+    period and free agency. Each one is a player on a 2026 list at his from
+    club (the 2026 season record, players_2026.csv, is not edited), the to club
+    is another real club, the kind is known, the date is inside the trade
+    period, a source is given, no player appears twice, and nobody who moved
+    is also in departures_2026.csv (a player on a new list is not leaving)."""
+    problems: list[str] = []
+    path = os.path.join(ROOT, "data", "club_moves_2026.csv")
+    with open(path, encoding="utf-8", newline="") as f:
+        rows = list(csv.DictReader(f))
+    with open(ENRICHED_PATH, encoding="utf-8", newline="") as f:
+        listed = {(r["first"], r["last"], r["dob"]): r["club"] for r in csv.DictReader(f)}
+    with open(os.path.join(ROOT, "data", "list_additions_2026.csv"), encoding="utf-8", newline="") as f:
+        for r in csv.DictReader(f):
+            listed[(r["first"], r["last"], r["dob"])] = r["club"]
+    with open(os.path.join(ROOT, "data", "departures_2026.csv"), encoding="utf-8", newline="") as f:
+        departed = {(r["first"], r["last"], r["dob"]) for r in csv.DictReader(f)}
+    seen: set = set()
+    for r in rows:
+        key = (r["first"], r["last"], r["dob"])
+        who = f"{r['first']} {r['last']}"
+        if key in seen:
+            problems.append(f"club move {who}: listed twice")
+        seen.add(key)
+        if listed.get(key) != r["from_club"]:
+            problems.append(f"club move {who}: not on {r['from_club']}'s 2026 list (the data has {listed.get(key)!r})")
+        if r["to_club"] not in CLUB_ORDER or r["to_club"] == r["from_club"]:
+            problems.append(f"club move {who}: to club {r['to_club']!r} is not another club")
+        if r["kind"] not in ("traded", "free_agent"):
+            problems.append(f"club move {who}: kind {r['kind']!r} is not traded or free_agent")
+        if not "2026-10-01" <= r["announced"] <= "2026-11-30":
+            problems.append(f"club move {who}: announced {r['announced']!r} is outside the 2026 trade period and free agency")
+        if not r["source_url"].startswith("http") or not r["checked"]:
+            problems.append(f"club move {who}: needs a source URL and a checked date")
+        if key in departed:
+            problems.append(f"club move {who}: also in departures_2026.csv")
+    print(f"  club moves: {len(rows)} players changed club")
+    return problems
+
+
 def check_trade_volume() -> list[str]:
     """tools/balance/afl_trade_volume.json: real AFL trade volume per year
     (DraftGuru). Counts must be sane: at least one player moved per player
@@ -467,6 +508,7 @@ def main() -> int:
     problems.extend(check_team_rates())
     problems.extend(check_trade_volume())
     problems.extend(check_player_origin())
+    problems.extend(check_club_moves())
     problems.extend(check_forge_locations())
     problems.extend(check_identity_rules())
     problems.extend(check_bio())
