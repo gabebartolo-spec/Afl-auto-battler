@@ -38,7 +38,7 @@ workload 49
 fitness 39
 match_visual 123
 match_motion 24
-match_marks 77
+match_marks 84
 league_balance 23
 calibration 17
 balance 13

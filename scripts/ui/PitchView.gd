@@ -216,6 +216,8 @@ func setup(p_result: Dictionary) -> void:
 	_stop_ring = [{}, {}]
 	_open_ring = [{}, {}]
 	_open_leaving = [false, false]
+	_open_wait = [0.0, 0.0]
+	_open_on = [0.0, 0.0]
 	_mark_ball = Vector2.INF
 	_ev_idx = 0
 	_last_actor = -1
@@ -1081,12 +1083,21 @@ const MARK_RIM_FEATHER := 1.5      # ...and its soft outer edge
 const MARK_PAD := 0.5              # the pad inside the rim, this share of the rim's strength
 const MARK_RIM_SAT := 0.4          # the rim's tint of the club colour (mark_rim_colour)
 const MARK_OPEN_SHARE := 1.0       # ...as strong (0.7 did not show on a phone at 1x)
+## The open-play ring's least time on (motion critic, 2026-10-18: a pad blinked on
+## for five frames round a mark taken just before a set shot). The ring comes in
+## only once the ball has been at a player's pace in open play this long (match
+## seconds at 1x: a quarter of that in real time at 4x), so a shorter touch gets no
+## pad; and once it shows it stays (easing out where it is) at least this long in
+## real seconds, at every speed.
+const MARK_OPEN_LEAST := 0.4
 var _corr_fade := [0.0, 0.0]
 var _stop_fade := [0.0, 0.0]
 var _open_fade := [0.0, 0.0]
 var _stop_ring := [{}, {}]         # {at, r}: the last stoppage ring, kept while it fades
 var _open_ring := [{}, {}]
 var _open_leaving := [false, false]   # the open ring easing out after a fast ball
+var _open_wait := [0.0, 0.0]       # match seconds (at 1x) the ball has been at a player's pace in open play
+var _open_on := [0.0, 0.0]         # real seconds the open ring has been showing
 var _mark_ball := Vector2.INF      # where the ball was last frame (its speed)
 ## The layers in the order the last frame drew them (tests: a marking under the discs).
 var drawn_layers: Array = []
@@ -1118,12 +1129,15 @@ func _step_marks(delta: float) -> void:
 		# the ring stays where it was and eases out, and eases back in where the
 		# ball comes down: nothing drags across the ground.
 		var on_ball := false
+		_open_wait[side] = float(_open_wait[side]) + delta * speed if open and not fast else 0.0
 		if open:
 			var orr: Dictionary = _open_ring[side]
 			if float(_open_fade[side]) <= 0.0:
-				_open_ring[side] = {"at": bpos, "r": m["r"]}
-				_open_leaving[side] = false
-				on_ball = not fast
+				# A new ring only once the touch has lasted MARK_OPEN_LEAST.
+				if float(_open_wait[side]) >= MARK_OPEN_LEAST - 0.0001:
+					_open_ring[side] = {"at": bpos, "r": m["r"]}
+					_open_leaving[side] = false
+					on_ball = true
 			elif fast:
 				_open_leaving[side] = true
 			elif bool(_open_leaving[side]):
@@ -1141,7 +1155,14 @@ func _step_marks(delta: float) -> void:
 		if not on_ball and float(_open_fade[side]) > 0.0:
 			_open_leaving[side] = true
 		_stop_fade[side] = move_toward(float(_stop_fade[side]), 1.0 if stop else 0.0, k)
-		_open_fade[side] = move_toward(float(_open_fade[side]), 1.0 if on_ball else 0.0, k)
+		var of := float(_open_fade[side])
+		if on_ball or of <= 0.0:
+			_open_fade[side] = move_toward(of, 1.0 if on_ball else 0.0, k)
+		else:
+			# Easing out: never gone before it has shown MARK_OPEN_LEAST in all.
+			var left := MARK_OPEN_LEAST - float(_open_on[side])
+			_open_fade[side] = move_toward(of, 0.0, minf(k, of * delta / left) if left > delta else k)
+		_open_on[side] = float(_open_on[side]) + delta if float(_open_fade[side]) > 0.0 else 0.0
 
 
 ## The ring's pad, its radius in metres: inside the rim (the ring's edge, `r` plus a disc).

@@ -154,13 +154,22 @@ func _test_when_marked(res: Dictionary) -> void:
 		d._locs[pk] = Vector2(14.0, -7.0)
 		d._beat = {"k": pk, "kind": str((res["events"][pk] as Dictionary).get("kind", ""))}
 		d.mode = "stoppage"
+		# Not yet called (the ball still held): no ring.
+		d.ball["mode"] = "held"
+		d.ball["pos"] = Vector2(-3.0, 11.0)
+		d._pin_called_ballup()
+		var early: Dictionary = d.contest_mark(0)
+		# The call: the ball dead in the tackle. The ball-up is pinned to the ball.
+		d.ball["mode"] = "dead"
 		var st: int = d._rng.state
+		d._pin_called_ballup()
 		var had: bool = d._locs.has(nb)
 		var mc: Dictionary = d.contest_mark(0)
 		var same: bool = d._rng.state == st and d._locs.has(nb) == had
 		var want: Vector2 = d._loc(nb)
-		_check(not mc.is_empty() and bool(mc["stop"]) and (mc["at"] as Vector2).distance_to(want) < 0.001 and same,
-				"...from the call (the ball dead before a ball-up) the ring is on the ball-up's spot (%s, the ball-up %s), reading it changes nothing (%s)" % [str(mc), str(want), str(same)])
+		_check(early.is_empty() and not mc.is_empty() and bool(mc["stop"]) and (mc["at"] as Vector2).distance_to(Vector2(-3.0, 11.0)) < 0.001
+				and want.distance_to(Vector2(-3.0, 11.0)) < 0.001 and same,
+				"...from the call (the ball dead before a ball-up) the ring and the ball-up are where the ball is (%s, the ball-up %s, before the call %s), reading it changes nothing (%s)" % [str(mc), str(want), str(early), str(same)])
 	d._beat = {}
 	d.mode = "open"
 	_check(not d.corridor_mark_on(0), "Win contest has no corridor")
@@ -200,15 +209,20 @@ func _test_fades(res: Dictionary) -> void:
 			pv._step_marks(1.0 / 60.0)
 		(c[1] as Callable).call()
 		# In: from nothing to full, frame by frame at 60 fps.
+		# (The open ring first waits for a touch of MARK_OPEN_LEAST: timed from its first frame.)
 		var first := -1.0
 		var reached := 0.0
+		var waited := 0.0
 		var step_most := 0.0
 		var prev := 0.0
 		var top := PitchView.MARK_ALPHA * (PitchView.MARK_OPEN_SHARE if kind == "open" else 1.0)
-		while reached < 3.0:
+		while reached < 3.0 and waited < 3.0:
 			pv._step_marks(1.0 / 60.0)
-			reached += 1.0 / 60.0
 			var a := _alpha(pv, kind, 0)
+			if first < 0.0 and a <= 0.0:
+				waited += 1.0 / 60.0
+				continue
+			reached += 1.0 / 60.0
 			if first < 0.0:
 				first = a
 			step_most = maxf(step_most, a - prev)
@@ -228,6 +242,9 @@ func _test_fades(res: Dictionary) -> void:
 		_check(t_out >= FADE_LEAST and t_out <= 0.75, "%s: ...and out over %.2f s" % [kind, t_out])
 		_check(step_most <= top / (FADE_LEAST * 60.0) * 1.6, "%s: no frame jumps more than an eased fade allows (%.4f)" % [kind, step_most])
 		_check(other == 0.0, "%s: nothing for the other side" % kind)
+		var wait_want := PitchView.MARK_OPEN_LEAST if kind == "open" else 0.0
+		_check(absf(waited - wait_want) <= 1.5 / 60.0,
+				"%s: it starts coming in %.2f s after its moment begins (%.2f s wanted: the open ring waits for a touch of %.1f s)" % [kind, waited, wait_want, PitchView.MARK_OPEN_LEAST])
 	_check(float(full["corridor"]) <= FAINT_TOP + 0.0001 and float(full["corridor"]) >= FAINT_LEAST,
 			"The corridor is faint: %.3f, the press wash's faint state (%.2f) at most" % [float(full["corridor"]), FAINT_TOP])
 	_check(float(full["stop"]) <= FAINT_TOP + 0.0001 and float(full["stop"]) >= FAINT_LEAST,
@@ -509,10 +526,50 @@ func _test_ball_in_the_ring(res: Dictionary, speed: float) -> void:
 	var was_leaving := false
 	var prev := 0.0
 	var sc := pv._scale()
+	# A ball-up under Win contest: from the umpire's call to the clearance the ball
+	# is inside the ring's pad in every frame (motion critic, 2026-10-18: the ring
+	# came in 15 m from the ball and the ball flew to it).
+	var bu_frames := 0
+	var bu_out := 0
+	var bu_worst := -INF
+	var bu_calls := 0
+	var bu_seen := {}
+	# No ring shows for less than MARK_OPEN_LEAST (a pad blinked on for 5 frames).
+	var run := {"stop": 0.0, "open": 0.0}
+	var runs := {"stop": 0, "open": 0}
+	var shortest := {"stop": INF, "open": INF}
 	var guard := 0
 	while not d.idle() and guard < 60000:
 		guard += 1
 		pv._process(FRAME)
+		for kind in ["stop", "open"]:
+			if _alpha(pv, kind, 0) > 0.0:
+				run[kind] = float(run[kind]) + FRAME
+			elif float(run[kind]) > 0.0:
+				runs[kind] = int(runs[kind]) + 1
+				shortest[kind] = minf(float(shortest[kind]), float(run[kind]))
+				run[kind] = 0.0
+		var bk := str(d._beat.get("kind", ""))
+		var bkk := int(d._beat.get("k", -1))
+		var cm: Dictionary = d.contest_mark(0)
+		if not cm.is_empty() and bool(cm["stop"]) and bkk >= 0:
+			var bu := -1
+			if bk == "ballup":
+				bu = bkk
+			elif bk != "throwin":
+				var nk := d._next_real(bkk)
+				if nk >= 0 and str((d.events[nk] as Dictionary).get("kind", "")) == "ballup":
+					bu = nk
+					if not bu_seen.has(nk):
+						bu_calls += 1
+			if bu >= 0:
+				bu_seen[bu] = true
+				bu_frames += 1
+				var bd := pv._w2s(cm["at"]).distance_to(pv.ball_point()) / sc
+				var broom := pv.mark_pad_radius(float(cm["r"])) - pv.mark_ball_radius()
+				bu_worst = maxf(bu_worst, bd - broom)
+				if bd > broom:
+					bu_out += 1
 		var oa := _alpha(pv, "open", 0)
 		var orr: Dictionary = pv._open_ring[0]
 		var leaving := pv.open_ring_leaving(0)
@@ -539,6 +596,17 @@ func _test_ball_in_the_ring(res: Dictionary, speed: float) -> void:
 			"%.0fx: in open play the ball is inside the ring's pad in every frame the ring is on it (%d frames, worst %.2f m past the pad)" % [speed, on_ball, worst_on])
 	_check(outside_bad == 0 and leavings >= 5,
 			"%.0fx: ...and outside it only while the ring eases out after a ball faster than a sprint, never growing (%d bad frames, %d eases)" % [speed, outside_bad, leavings])
+	print("  ball-ups at %.0fx: %d ball-ups (%d called before their beat), %d frames from the call to the clearance, the ball at least %.2f m inside the pad" % [
+			speed, bu_seen.size(), bu_calls, bu_frames, -bu_worst])
+	_check(bu_seen.size() >= 5 and bu_calls >= 3 and bu_out == 0,
+			"%.0fx: at a ball-up the ball is inside the ring's pad from the umpire's call to the clearance (%d ball-ups, %d called, %d frames outside, worst %.2f m past the pad)" % [speed, bu_seen.size(), bu_calls, bu_out, bu_worst])
+	print("  shortest showing at %.0fx: stoppage ring %.2f s (%d), open ring %.2f s (%d)" % [
+			speed, float(shortest["stop"]), int(runs["stop"]), float(shortest["open"]), int(runs["open"])])
+	_check(int(runs["open"]) >= 5 and int(runs["stop"]) >= 3
+			and float(shortest["open"]) >= PitchView.MARK_OPEN_LEAST - FRAME * 0.5
+			and float(shortest["stop"]) >= PitchView.MARK_OPEN_LEAST - FRAME * 0.5,
+			"%.0fx: no ring shows for less than %.1f s (shortest: open %.2f s of %d, stoppage %.2f s of %d)" % [
+			speed, PitchView.MARK_OPEN_LEAST, float(shortest["open"]), int(runs["open"]), float(shortest["stop"]), int(runs["stop"])])
 	pv.free()
 
 

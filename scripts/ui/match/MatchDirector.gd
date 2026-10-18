@@ -127,6 +127,9 @@ var _shadow := [[], []]
 ## Win contest: where the pack's ring is being set this beat (INF for none):
 ## the play's other runs keep clear of it (_clear_of_pack).
 var _ring_at := Vector2.INF
+## Win contest: ball-ups pinned to where the ball was when the umpire called them
+## (event k -> the shift from the logged spot), _pin_ballup.
+var _ballup_pin := {}
 
 
 # ---------------------------------------------------------------------------
@@ -141,6 +144,7 @@ func setup(result: Dictionary, p_events: Array) -> void:
 	flash = {}
 	arrivals = []
 	_locs = {}
+	_ballup_pin = {}
 	_busy = {}
 	_lead = {}
 	_beat = {}
@@ -334,6 +338,7 @@ func _tick(h: float) -> void:
 			cursor += 1
 		if not _run_phases(h if guard == 1 else 0.0):
 			break
+	_pin_called_ballup()
 	_struct_timer -= h
 	if _struct_timer <= 0.0:
 		_struct_timer = STRUCTURE_EVERY
@@ -389,6 +394,8 @@ func _start_beat(k: int) -> void:
 	var side := int(ev.get("side", -1))
 	if side >= 0 and not META.has(kind):
 		_poss = side
+	if kind == "ballup":
+		_pin_ballup(k)
 	match kind:
 		"sub", "final", "injury":
 			_phases = [{"t": "emit"}]
@@ -994,7 +1001,9 @@ func _loc(k: int) -> Vector2:
 		# longitudinal field position as the crossing.
 		p = Vector2(x, src.y * 0.78)
 	elif _possession(kind) and _restart(k) in ["ballup", "free", "loose"]:
-		p = Vector2(x, src.y + _rng.randf_range(-6.0, 6.0))
+		# (A pinned ball-up carries its shift on to the ball's next spot.)
+		var px := x + (_ballup_pin[pk] as Vector2).x if pk >= 0 and _ballup_pin.has(pk) else x
+		p = Vector2(px, src.y + _rng.randf_range(-6.0, 6.0))
 	else:
 		var hb := pk >= 0 and str((events[pk] as Dictionary).get("kind", "")) == "handball"
 		var dy_raw := ry - src.y
@@ -1030,6 +1039,44 @@ func _loc(k: int) -> Vector2:
 	p.y = clampf(p.y, -ymax, ymax)
 	_locs[k] = p
 	return p
+
+
+## Win contest: the ball-up is where the ball is when the umpire calls it (motion
+## critic, 2026-10-18: the ring came in on the logged spot 15 m off and the ball
+## then flew to it with nobody kicking it). Under that call the ball-up event `k`
+## is pinned to the ball (where its flight lands, if it is in the air), so the
+## ring, the pack and the ball agree from the call, and the ball's next spot keeps
+## the same shift. Once per ball-up; other calls keep the logged spot. Draws
+## nothing from the random stream.
+func _pin_ballup(k: int) -> void:
+	if _ballup_pin.has(k) or not (_plan_of(0) == "contest" or _plan_of(1) == "contest"):
+		return
+	var old := _peek_loc(k)
+	var at: Vector2 = ball["to"] if str(ball["mode"]) == "flight" else ball["pos"]
+	_locs[k] = at
+	var shift := at - old
+	_ballup_pin[k] = shift
+	var nk := _next_real(k)
+	if nk >= 0 and _locs.has(nk) and _restart(nk) == "ballup":
+		var q := (_locs[nk] as Vector2) + shift
+		q.x = clampf(q.x, -MatchMotion.GOAL_X, MatchMotion.GOAL_X)
+		var ymax := (MatchMotion.HALF_WID - 4.0) * sqrt(maxf(0.0,
+				1.0 - pow(q.x / (MatchMotion.HALF_LEN - 1.0), 2.0)))
+		q.y = clampf(q.y, -ymax, ymax)
+		_locs[nk] = q
+
+
+## The umpire's call: the ball dead in a tackle or a pack with a ball-up next.
+## Under Win contest the ball-up is pinned to the ball there and then.
+func _pin_called_ballup() -> void:
+	if mode != "stoppage" or _beat.is_empty() or str(ball["mode"]) != "dead":
+		return
+	var kind := str(_beat.get("kind", ""))
+	if kind == "ballup" or kind == "throwin":
+		return
+	var nk := _next_real(int(_beat["k"]))
+	if nk >= 0 and str((events[nk] as Dictionary).get("kind", "")) == "ballup":
+		_pin_ballup(nk)
 
 
 # ---------------------------------------------------------------------------
@@ -2264,6 +2311,10 @@ func _contest_called() -> Vector2:
 	var kind := str((events[nk] as Dictionary).get("kind", ""))
 	if kind != "ballup" and kind != "throwin":
 		return Vector2.INF
+	if kind == "ballup" and _plan_of(0) != "contest" and _plan_of(1) != "contest":
+		return Vector2.INF
+	if kind == "ballup" and not _ballup_pin.has(nk):
+		return Vector2.INF   # not called yet: the ball is not dead (_pin_called_ballup)
 	var rat := _peek_loc(nk)
 	return rat if kind == "ballup" else Vector2(rat.x, rat.y * 0.78)
 
