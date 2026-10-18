@@ -152,7 +152,7 @@ func _side_page(auto: bool) -> Control:
 					GameDB.club_name(str(nxt["code"]))], UiKit.NAME)
 			row.name = "WeekRow"
 			row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-			row.add_theme_color_override("font_color", UiKit.club_ink(GameState.my_club))
+			row.add_theme_color_override("font_color", UiKit.club_name_colour(UiKit.club_ink(GameState.my_club)))
 			row.pressed.connect(_open_week)
 			builder.after_bench = row
 		page.add_child(builder)
@@ -506,7 +506,7 @@ func handle_back() -> bool:
 ## the heading text must always read, and the guernsey beside it carries
 ## whose side it is (director, 2026-10-14).
 func _side_ink(code: String) -> Color:
-	return UiKit.club_ink(code)
+	return UiKit.club_name_colour(UiKit.club_ink(code))
 
 
 func _side_name(code: String, fs: int, marker := 18.0) -> Control:
