@@ -34,6 +34,10 @@ var draft: Draft = null
 var league_lists := {}
 var pending_match: Dictionary = {}
 var pending_sim: MatchSim = null
+## A fact on the hub's next-match card whose response was tapped (P-13): which call
+## the pre-bounce pane opens on, and the fact it restates above it. {"call", "plan",
+## "player_id", "fact"}. Never saved; the match screen takes it once.
+var call_intent: Dictionary = {}
 var pending_round_results: Array = []
 var _others := {}          # the round's other matches, running in the background
 var pending_phase := ""
@@ -3411,6 +3415,19 @@ func opponent_facts(code: String) -> Array:
 	if season == null or code == "" or not season.lists.has(code):
 		return []
 	return Matchup.facts(code, season.lists, season.selections, season.club_results(code))
+
+
+## The responses beside each of `facts` (FactOptions), from the sides the
+## engine will field: one array of options per fact, in the same order.
+func opponent_fact_options(code: String, facts: Array) -> Array:
+	var out := []
+	if season == null or code == "" or not season.lists.has(code):
+		return out
+	var theirs: Array = Squad.new(code, season.lists[code], false, code, season.selections.get(code, {})).ground
+	var mine: Array = my_squad().ground
+	for f in facts:
+		out.append(FactOptions.options(f, theirs, mine, season.lists[code]))
+	return out
 
 
 ## What comes next, in one line: "Next: Round 5 v Carlton at the MCG." ""
