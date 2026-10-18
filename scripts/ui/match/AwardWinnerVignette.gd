@@ -14,6 +14,8 @@ const ARMS_UP := 1.8
 const PACES := 0.9
 var club := ""
 var number := 0
+## False on draft night: the new man walks on and faces the room, no medal.
+var medal := true
 
 func setup_winner(code: String, jumper := 0, player_id := "") -> void:
 	club = code
@@ -80,7 +82,7 @@ func _draw() -> void:
 	else:
 		_figure(hip, scale, 0, "celebrate", "front", 0, 0, _look)
 	# The medal settles onto his chest on its ribbon; no invented facial likeness.
-	if _t >= WALK_END:
+	if medal and _t >= WALK_END:
 		var neck := _at(hip, scale, Vector2(0.0, 1.55))
 		var chest := _at(hip, scale, Vector2(0.0, 1.28))
 		var medal_y := lerpf(chest.y - 0.2 * PX_PER_M * scale, chest.y, smoothstep(WALK_END, 1.9, _t))

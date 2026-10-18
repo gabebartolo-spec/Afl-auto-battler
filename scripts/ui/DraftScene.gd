@@ -75,7 +75,15 @@ var _board_scroll: ScrollContainer
 var _history_scroll: ScrollContainer
 var _mine_scroll: ScrollContainer
 var _order_scroll: ScrollContainer
-var _ticker: Button
+## Draft night (P-15): the live board under the header, the stage beat on
+## your pick, and the board's replay of the rival picks that followed it.
+var _board: PanelContainer
+var _your_pick: Label
+var _recent_box: VBoxContainer
+var _shown_upto := -1        # pick_history entries the board shows; -1 is all of them
+var _replay_timer: Timer
+var _beat: Control
+var _beat_timer: Timer
 var _next_picks: Label
 var _finish_btn: Button
 var _pass_btn: Button
@@ -109,6 +117,14 @@ func _ready() -> void:
 	_search_timer.wait_time = 0.12
 	_search_timer.timeout.connect(func(): _refresh_board(true))
 	add_child(_search_timer)
+	_replay_timer = Timer.new()
+	_replay_timer.one_shot = true
+	_replay_timer.timeout.connect(_replay_step)
+	add_child(_replay_timer)
+	_beat_timer = Timer.new()
+	_beat_timer.one_shot = true
+	_beat_timer.timeout.connect(_end_beat)
+	add_child(_beat_timer)
 	get_viewport().size_changed.connect(_on_resize)
 	_build_layout()
 	# The recruiting panel meets once before each National Draft.
@@ -152,11 +168,13 @@ func _usable_size() -> Vector2:
 
 func _layout_signature() -> String:
 	var area := _usable_size()
-	return "%s/%s/%d" % [ScreenLayout.wide_view(area.x, area.y, 760.0),
-			area.y < 680.0, _grid_columns()]
+	return "%s/%s/%s/%d" % [ScreenLayout.wide_view(area.x, area.y, 760.0),
+			area.y < 680.0, area.y < RECENT_TALL, _grid_columns()]
 
 
 func _build_layout() -> void:
+	# A rebuild (rotation, a resize) never leaves draft night half-shown.
+	_finish_night()
 	_club_backdrop()
 	var area := _usable_size()
 	_wide = ScreenLayout.wide_view(area.x, area.y, 760.0)
@@ -301,10 +319,11 @@ func _header(title_text: String, sub: String) -> Control:
 	h.add_child(v)
 	v.add_child(UiKit.heading(title_text, UiKit.H1 if _short else 30))
 	if not _short:
-		v.add_child(UiKit.ellipsis(sub, UiKit.SMALL, UiKit.MUTED))
-	if not _club.is_empty():
-		# The guernsey of the club on the clock, where the club's small marker was.
-		h.add_child(_stage())
+		# Whole, never cut off: it wraps on a phone.
+		var sub_l := UiKit.lbl(sub, UiKit.SECONDARY, UiKit.MUTED)
+		sub_l.name = "DraftSubtitle"
+		sub_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(sub_l)
 	return h
 
 
@@ -364,6 +383,9 @@ func _hang(code: String) -> void:
 func _show_board() -> void:
 	_search_timer.stop()
 	UiKit.clear(_root)
+	_board = null
+	_your_pick = null
+	_recent_box = null
 	_role_labels.clear()
 	_role_buttons.clear()
 	_need_labels.clear()
@@ -372,25 +394,13 @@ func _show_board() -> void:
 	else:
 		if _draft.intake_mode:
 			_root.add_child(_header("%d National Draft" % GameState.season_year,
-					"%d prospects  /  keep your list  /  worst club picks first" % _draft.pool.size()))
+					"Lowest on the ladder picks first."))
 		else:
 			var sub := "%d  /  %d clubs  /  Snake draft" % [
 					GameState.season_year, _draft.clubs.size()]
 			_root.add_child(_header("League draft", sub))
-		_root.add_child(_summary())
-
-	_ticker = UiKit.btn("", UiKit.SECONDARY)
-	_ticker.name = "LatestRivalPick"
-	_ticker.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_ticker.clip_text = true
-	_ticker.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_ticker.custom_minimum_size.y = 44
-	_ticker.add_theme_stylebox_override("normal", UiKit.style(UiKit.INK, 8, 6))
-	_ticker.pressed.connect(func(): _select_tab("picks"))
-	_root.add_child(_ticker)
-	# On short landscape displays, show the ticker inside the activity pane
-	# instead of spending an entire row above the player pool.
-	_ticker.visible = not _short
+		_board = _live_board()
+		_root.add_child(_board)
 
 	_main_tabs = UiKit.hbox(3)
 	_main_tabs.visible = not _wide
@@ -436,23 +446,63 @@ func _compact_header() -> Control:
 	return h
 
 
-func _summary() -> Control:
+## The live board (P-15): the club on the clock in its guernsey and in words
+## ("Pick 12: Fremantle"), your next pick ("Your pick: 14, two away"), and the
+## last three picks under it. A tap opens the pick log (and finishes a replay).
+func _live_board() -> PanelContainer:
 	var p := UiKit.panel(UiKit.PANEL, 9, 7)
-	var h := UiKit.hbox(12)
-	p.add_child(h)
-	var v := UiKit.vbox(0)
+	p.name = "LiveBoard"
+	p.mouse_filter = Control.MOUSE_FILTER_STOP
+	p.tooltip_text = "Tap to see every club's selections."
+	p.gui_input.connect(_on_board_input)
+	var col := UiKit.vbox(6)
+	p.add_child(col)
+	var top := UiKit.hbox(10)
+	top.name = "OnTheClock"
+	col.add_child(top)
+	top.add_child(_stage())
+	var v := UiKit.vbox(1)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(v)
-	_status = UiKit.lbl("", UiKit.NAME, UiKit.EMPH, true)
+	v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	top.add_child(v)
+	_status = UiKit.lbl("", UiKit.NAME, UiKit.TEXT, true)
 	_status.name = "DraftStatus"
+	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(_status)
-	_round_info = UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+	_round_info = UiKit.lbl("", UiKit.SECONDARY, UiKit.MUTED)
+	_round_info.name = "ClockRound"
+	_round_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(_round_info)
-	_cap = UiKit.line("", 14, UiKit.TEXT, true)
+	_your_pick = UiKit.lbl("", UiKit.SECONDARY, UiKit.EMPH, true)
+	_your_pick.name = "YourNextPick"
+	_your_pick.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(_your_pick)
+	_recent_box = UiKit.vbox(2)
+	_recent_box.name = "RecentPicks"
+	if _wide:
+		# PC: the last three picks beside the club on the clock, in the same row,
+		# so the board uses the width rather than adding height.
+		v.size_flags_stretch_ratio = 0.8
+		_recent_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_recent_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		top.add_child(_recent_box)
+	else:
+		col.add_child(_recent_box)
+	_cap = UiKit.line("", UiKit.SECONDARY, UiKit.TEXT, true)
 	_cap.name = "SalaryCap"
 	_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	h.add_child(_cap)
+	_cap.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	top.add_child(_cap)
+	_ignore_mouse(col)
 	return p
+
+
+func _on_board_input(event: InputEvent) -> void:
+	if (event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT
+			and not event.is_pressed()) or (event is InputEventScreenTouch and not event.is_pressed()):
+		_finish_replay()
+		_select_tab("picks")
+		accept_event()
 
 
 # One row answers both "what does my list need?" and "show me those players":
@@ -534,13 +584,22 @@ func _footer() -> Control:
 
 
 func _on_pick_for_me() -> void:
+	_finish_night()
+	var before := _draft.pick_history.size()
 	if _draft.pick_for_me():
+		GameState.mark_dirty()
+		_last_batch_start = before
 		_refresh()
+		_after_my_pick(before)
 
 
 func _on_pass() -> void:
+	_finish_night()
+	var before := _draft.pick_history.size()
 	if _draft.user_pass():
+		_last_batch_start = before
 		_refresh()
+		_start_replay(before)
 
 
 func _select_tab(key: String) -> void:
@@ -1031,11 +1090,187 @@ func _player_row(p: Dictionary) -> Control:
 
 
 func _on_pick(player: Dictionary) -> void:
-	_last_batch_start = _draft.pick_history.size()
+	_finish_night()
+	var before := _draft.pick_history.size()
+	_last_batch_start = before
 	if _draft.pick(player):
 		GameState.mark_dirty()
 		_refresh()
+		_after_my_pick(before)
+
+
+## Your pick made (entry `at` of the pick history): at the National Draft, his
+## name is read on the stage, then the board replays the rival picks that
+## followed; elsewhere (and with motion off) it lands as before.
+func _after_my_pick(at: int) -> void:
+	if not _night_on() or at >= _draft.pick_history.size():
 		_land_my_pick()
+		return
+	_shown_upto = at + 1
+	_refresh_live()
+	_show_beat(_draft.pick_history[at])
+
+
+# ---------------------------------------------------------------------------
+# Draft night (P-15): the stage beat and the board's replay. Presentation only;
+# the model has already made every pick. Tests and captures see the end state
+# at once unless motion is on (UiKit.motion_on).
+# ---------------------------------------------------------------------------
+## Seconds the board shows each rival pick (lead, 2026-10-18: about 0.3 s).
+const REPLAY_STEP := 0.3
+## Seconds his name stays on the stage: the walk-on, the turn, arms up.
+const BEAT_TIME := 2.4
+
+
+func _night_on() -> bool:
+	return _draft.intake_mode and UiKit.motion_on()
+
+
+## Replay the picks from history entry `from` on, one at a time.
+func _start_replay(from: int) -> void:
+	if not _night_on() or from >= _draft.pick_history.size():
+		_finish_replay()
+		return
+	_shown_upto = from
+	_refresh_live()
+	_replay_timer.start(REPLAY_STEP)
+
+
+func _replay_step() -> void:
+	if _shown_upto < 0:
+		return
+	_shown_upto += 1
+	if _shown_upto >= _draft.pick_history.size():
+		_shown_upto = -1
+	else:
+		_replay_timer.start(REPLAY_STEP)
+	_refresh_live(true)
+
+
+func replaying() -> bool:
+	return _shown_upto >= 0
+
+
+func _finish_replay() -> void:
+	if is_instance_valid(_replay_timer):
+		_replay_timer.stop()
+	if _shown_upto >= 0:
+		_shown_upto = -1
+		_refresh_live()
+
+
+## Cut straight to the end of the night's show: the stage and the replay.
+func _finish_night() -> void:
+	if is_instance_valid(_beat_timer):
+		_beat_timer.stop()
+	if is_instance_valid(_beat):
+		_beat.queue_free()
+	_beat = null
+	_finish_replay()
+
+
+## The stage beat: the new man on the award stage in your club's guernsey, the
+## pick read out in words and the recruiter's one line. Over the pool (PC:
+## beside the pick log; phone: under the board). A tap ends it.
+func _show_beat(entry: Dictionary) -> void:
+	var p := _player_by_id(str(entry.get("player_id", "")))
+	if p.is_empty() or not is_instance_valid(_pool_panel):
+		_end_beat()
+		return
+	# PC: over the pool, beside the pick log. Phone: the whole workspace under
+	# the board, tabs included.
+	var area := _pool_panel.get_global_rect()
+	if not _wide:
+		area = (_pool_panel.get_parent() as Control).get_global_rect()
+		if is_instance_valid(_main_tabs) and _main_tabs.is_visible_in_tree():
+			area = area.merge(_main_tabs.get_global_rect())
+	var stage := Button.new()
+	stage.name = "DraftNightStage"
+	stage.flat = true
+	stage.focus_mode = Control.FOCUS_NONE
+	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+		stage.add_theme_stylebox_override(st, StyleBoxEmpty.new())
+	stage.tooltip_text = "Tap to carry on."
+	stage.position = area.position - get_global_rect().position
+	stage.size = area.size
+	stage.set_meta("announcement", DraftNight.announcement(int(entry["pick"]), _club, p))
+	stage.set_meta("recruiter", DraftNight.recruiter_line(p, _club))
+	add_child(stage)
+	_beat = stage
+	var panel := UiKit.panel(UiKit.BG, 0)
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	stage.add_child(panel)
+	var v := UiKit.vbox(0)
+	panel.add_child(v)
+	if GameState.vignettes_on():
+		var scene := AwardWinnerVignette.new()
+		scene.name = "DraftNightVignette"
+		scene.medal = false
+		scene.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		scene.custom_minimum_size = Vector2(0, 160)
+		v.add_child(scene)
+		scene.setup_winner(_club, 0, str(p.get("id", "")))
+	var words := MarginContainer.new()
+	for edge in ["left", "right"]:
+		words.add_theme_constant_override("margin_" + edge, 14)
+	words.add_theme_constant_override("margin_top", 10)
+	words.add_theme_constant_override("margin_bottom", 12)
+	if not GameState.vignettes_on():
+		words.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(words)
+	var say := UiKit.vbox(3)
+	say.alignment = BoxContainer.ALIGNMENT_CENTER
+	words.add_child(say)
+	# The pick in the club's ink, his name big, where from and what he plays,
+	# then the recruiter's line in his own words.
+	var pick_l := _beat_line("Pick %d, %s" % [int(entry["pick"]), GameDB.club_name(_club)],
+			UiKit.HEADING, UiKit.club_ink(_club, UiKit.BG), true)
+	pick_l.name = "BeatPick"
+	say.add_child(pick_l)
+	var name_l := _beat_line(GameDB.player_display_name(p), UiKit.TITLE, UiKit.TEXT, true)
+	name_l.name = "BeatName"
+	name_l.add_theme_font_override("font", UiKit.DISPLAY)
+	say.add_child(name_l)
+	var from := DraftNight.from_words(p)
+	var where_l := _beat_line(((from + ", ") if from != "" else "") + DraftNight.position_words(p),
+			UiKit.BODY, UiKit.TEXT)
+	where_l.name = "BeatFrom"
+	say.add_child(where_l)
+	var rec := _beat_line("“%s”" % DraftNight.recruiter_line(p, _club), UiKit.BODY, UiKit.TEXT)
+	rec.name = "BeatRecruiter"
+	say.add_child(rec)
+	_ignore_mouse(panel)
+	stage.pressed.connect(_end_beat)
+	# His name lands with weight, as UiKit.land does, on the label's own tween so
+	# a tap or Back that frees the stage first leaves nothing waiting on it.
+	var tw := name_l.create_tween()
+	tw.tween_interval(0.2)
+	tw.tween_callback(func() -> void:
+		Feel.press("land")
+		Feel.moved.append("land")
+		name_l.pivot_offset = name_l.size / 2.0
+		name_l.scale = Vector2(1.22, 1.22))
+	tw.tween_property(name_l, "scale", Vector2.ONE, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_beat_timer.start(BEAT_TIME)
+
+
+func _beat_line(text: String, fs: int, colour: Color, bold := false) -> Label:
+	var l := UiKit.lbl(text, fs, colour, bold)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	return l
+
+
+## The beat is over (its time, or a tap): back to the board, which replays
+## the rival picks that came after yours.
+func _end_beat() -> void:
+	if is_instance_valid(_beat_timer):
+		_beat_timer.stop()
+	if is_instance_valid(_beat):
+		_beat.queue_free()
+	_beat = null
+	if _shown_upto >= 0:
+		_start_replay(_shown_upto)
 
 
 ## Your pick lands with weight (director, 2026-10-11): the status line, and
@@ -1056,6 +1291,10 @@ func _land_my_pick() -> void:
 # ---------------------------------------------------------------------------
 ## Android Back and the top-bar back close the player first.
 func handle_back() -> bool:
+	# Back first cuts draft night's show to the end: the stage and the replay.
+	if is_instance_valid(_beat) or replaying():
+		_finish_night()
+		return true
 	# The recruiting meeting closes before the draft is left.
 	if is_instance_valid(_meeting):
 		_meeting.queue_free()
@@ -1071,6 +1310,7 @@ func handle_back() -> bool:
 ## options it came from; once a club is chosen it is the title, where the draft
 ## waits to be resumed.
 func back_to_menu() -> void:
+	_finish_night()
 	if _phase == "club":
 		GameState.new_career_setup_requested = true
 	Router.replace("main")
@@ -1737,21 +1977,8 @@ func _refresh() -> void:
 
 func _refresh_status() -> void:
 	var done := _draft.is_finished()
-	_hang(_club if done else str(_draft.current_club()))
-	_status.text = "Draft complete" if done else "Your pick #%d" % (_draft.pick_index + 1)
-	if not done and not _draft.is_user_turn():
-		_status.text = "%s on the clock" % GameDB.club_short(_draft.current_club())
-	_round_info.text = "%d / %d signed · Round %d of %d" % [_draft.count(), _draft.target_size,
-		mini(_draft.current_round(), _draft.target_size), _draft.target_size]
-	if _short:
-		_round_info.text = "%s · %d/%d signed · R%d/%d" % [_club, _draft.count(),
-				_draft.target_size, mini(_draft.current_round(), _draft.target_size), _draft.target_size]
 	if _draft.intake_mode:
-		# Rounds run until lists are full, so there is no fixed total to show.
-		_round_info.text = "%d signed · Round %d" % [_draft.count(), _draft.current_round()]
-		if _short:
-			_round_info.text = "%s · %d signed · R%d" % [_club, _draft.count(), _draft.current_round()]
-		_cap.text = "%d prospects left\nRuns until lists are full" % _draft.remaining_pool()
+		_cap.text = "%d prospects left" % _draft.remaining_pool()
 	else:
 		# The cap you have, and what you can actually spend on this pick once
 		# enough is kept to fill the rest of your list.
@@ -1774,8 +2001,11 @@ func _refresh_status() -> void:
 	for number in upcoming:
 		pick_labels.append("#%d" % int(number))
 	if _draft.intake_mode:
-		_next_picks.text = "%d signed\n%s" % [_draft.count(),
-				("Your next picks: " + ", ".join(pick_labels)) if not pick_labels.is_empty() else "No pick queued"]
+		# The board says the next pick; the footer the ones after it.
+		var later := pick_labels.slice(1)
+		_next_picks.text = "%d signed" % _draft.count()
+		if not later.is_empty():
+			_next_picks.text += "\nAfter that: " + ", ".join(later)
 	else:
 		_next_picks.text = "%d left to sign\nYour picks: %s" % [_draft.target_size - _draft.count(), ", ".join(pick_labels)]
 	var my_turn := _draft.is_user_turn()
@@ -1808,27 +2038,113 @@ func _refresh_status() -> void:
 			_next_picks.text = "Short %s.\nOthers will have to fill in." % short
 		else:
 			_next_picks.text = "Your list is ready.\nTime for round one."
-		_status.add_theme_color_override("font_color", UiKit.GOOD if _draft.is_valid() else UiKit.BAD)
 
-	var latest := {}
-	var new_rivals := 0
-	for i in range(_draft.pick_history.size() - 1, -1, -1):
-		var entry: Dictionary = _draft.pick_history[i]
-		if str(entry["club"]) != _club:
-			if latest.is_empty():
-				latest = entry
-			if i >= _last_batch_start:
-				new_rivals += 1
+	_refresh_live()
+
+
+## The live board from the pick history: everything, or during a replay the
+## first `_shown_upto` picks with the next one's club on the clock. `settle`
+## eases the newest pick in.
+func _refresh_live(settle := false) -> void:
+	if not is_instance_valid(_status):
+		return
+	var hist: Array = _draft.pick_history
+	var upto := hist.size() if _shown_upto < 0 else mini(_shown_upto, hist.size())
+	var clock_club := ""
+	var clock_pick := 0
+	var clock_round := 0
+	if upto < hist.size():
+		clock_club = str(hist[upto]["club"])
+		clock_pick = int(hist[upto]["pick"])
+		clock_round = int(hist[upto]["round"])
+	elif not _draft.is_finished():
+		clock_club = _draft.current_club()
+		clock_pick = _draft.pick_index + 1
+		clock_round = _draft.current_round()
+	var done := clock_club == ""
+	_hang(_club if done else clock_club)
 	if done:
-		_ticker.text = "League draft complete · View all %d picks ›" % _draft.pick_history.size()
-	elif new_rivals == 0 and not _draft.pick_history.is_empty() and _draft.is_user_turn():
-		_ticker.text = "Back-to-back picks · You're up again. View the pick log ›"
-	elif latest.is_empty():
-		_ticker.text = "League picks  ·  You're first on the clock. View the pick log ›"
+		_status.text = "Draft complete"
+		_status.add_theme_color_override("font_color", UiKit.GOOD if _draft.is_valid() else UiKit.BAD)
 	else:
-		_ticker.text = "Pick #%d · %s: %s · +%d picks ›" % [
-			latest["pick"], str(latest["club"]), _entry_player_name(latest), new_rivals]
-	_ticker.tooltip_text = _ticker.text + "\nTap to see every club's selections."
+		_status.text = DraftNight.clock_line(clock_pick, clock_club)
+		_status.add_theme_color_override("font_color", UiKit.club_ink(clock_club))
+	if _short:
+		_round_info.text = "%s · %d signed · R%d" % [_club, _draft.count(), _draft.current_round()]
+		if not _draft.intake_mode:
+			_round_info.text = "%s · %d/%d signed · R%d/%d" % [_club, _draft.count(),
+					_draft.target_size, mini(_draft.current_round(), _draft.target_size), _draft.target_size]
+	elif done:
+		_round_info.text = "%d picks made" % hist.size()
+	elif _draft.intake_mode:
+		# Rounds run until lists are full, so there is no fixed total to show.
+		_round_info.text = "Round %d" % clock_round
+	else:
+		_round_info.text = "Round %d of %d" % [mini(clock_round, _draft.target_size), _draft.target_size]
+	if is_instance_valid(_your_pick):
+		_your_pick.text = _your_pick_words(clock_pick, done)
+		_your_pick.visible = _your_pick.text != ""
+	if is_instance_valid(_recent_box):
+		_recent_rows(hist, upto, settle)
+
+
+## "Your pick: 14, two away", or why there is none.
+func _your_pick_words(clock_pick: int, done: bool) -> String:
+	if done:
+		return ""
+	if _draft.passed_clubs.has(_club):
+		return "You have passed: no more picks"
+	if _draft._list_full(_club):
+		return "Your list is full"
+	var upcoming := _draft.upcoming_picks(_club, 1)
+	if upcoming.is_empty():
+		return "No picks left"
+	return DraftNight.your_pick_line(int(upcoming[0]), clock_pick)
+
+
+## The last three picks the board shows, newest first: number, guernsey, name
+## and club; two on a phone shorter than RECENT_TALL, so the pool keeps its room
+## (on PC they sit beside the club on the clock and take no height).
+const RECENT := 3
+const RECENT_TALL := 780.0
+
+
+func _recent_rows(hist: Array, upto: int, settle: bool) -> void:
+	UiKit.clear(_recent_box)
+	if upto == 0:
+		var none := UiKit.lbl("No picks yet.", UiKit.SECONDARY, UiKit.MUTED)
+		none.name = "RecentNone"
+		_recent_box.add_child(none)
+		return
+	var shown := RECENT if _wide or _usable_size().y >= RECENT_TALL else RECENT - 1
+	for i in range(upto - 1, maxi(-1, upto - 1 - shown), -1):
+		var entry: Dictionary = hist[i]
+		var code := str(entry["club"])
+		var mine := code == _club
+		var row := UiKit.hbox(8)
+		row.name = "RecentPick_%d" % int(entry["pick"])
+		var number := UiKit.line("%d" % int(entry["pick"]), UiKit.SECONDARY, UiKit.TEXT if mine else UiKit.MUTED, mine)
+		number.custom_minimum_size.x = 26
+		number.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(number)
+		var marker := UiKit.club_marker(code, 20.0)
+		marker.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(marker)
+		# Phone: the name takes the row and the club sits at its end. PC: the club
+		# straight after the name, so the eye does not cross an empty row.
+		var who := UiKit.line(_entry_player_name(entry), UiKit.SECONDARY, UiKit.TEXT, mine) if _wide \
+				else UiKit.ellipsis(_entry_player_name(entry), UiKit.SECONDARY, UiKit.TEXT, mine)
+		if not _wide:
+			who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(who)
+		row.add_child(UiKit.line(GameDB.club_short(code), UiKit.SECONDARY, UiKit.club_ink(code), mine))
+		_ignore_mouse(row)
+		_recent_box.add_child(row)
+		if settle and i == upto - 1 and UiKit.motion_on():
+			# The newest pick settles in rather than snapping.
+			row.modulate.a = 0.0
+			row.create_tween().tween_property(row, "modulate:a", 1.0, 0.22) \
+					.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
 func _on_finish() -> void:
