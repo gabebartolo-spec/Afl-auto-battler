@@ -55,6 +55,8 @@ func _run() -> void:
 	await _plain_names(Vector2i(390, 844))
 	await _plain_names(Vector2i(1280, 720))
 	await _drag_over_name(Vector2i(390, 844))
+	await _line_pitch(Vector2i(390, 844))
+	await _line_pitch(Vector2i(1280, 720))
 	print("Name link tests: %d checks, %d failures" % [_checks, _failures.size()])
 	for f in _failures:
 		print("  FAIL: " + f)
@@ -92,6 +94,18 @@ func _training(club: String, sz: Vector2i) -> void:
 	current_scene = scene
 	var wide := sz.x >= 760
 	var other: Dictionary = mine[3]
+	# Every control NameLink-built on Training is thumb sized on the phone: each row's
+	# Profile tap is at least 44 x 44 and none of them reaches into the row's own tap.
+	if not wide:
+		var taps := scene.find_children("Profile_*", "Button", true, false)
+		_check(taps.size() >= 4, "%s: the rows carry Profile taps (%d)" % [tag, taps.size()])
+		for t in taps:
+			var tb := t as Button
+			_check(tb.size.x >= 44.0 and tb.size.y >= 44.0, "%s: %s is at least 44x44 (%s)" % [tag, tb.name, str(tb.size)])
+			var row := tb.get_parent() as Control
+			var rest := row.get_global_rect()
+			_check(tb.get_global_rect().position.x >= rest.position.x and tb.get_global_rect().end.x <= rest.end.x + 0.5,
+					"%s: %s stays inside its row" % [tag, tb.name])
 	# Phone: a row opens the plan first.
 	if not wide:
 		var row: Button = scene.find_child("Trainee_" + str(a["id"]), true, false)
@@ -339,5 +353,79 @@ func _plain_names(sz: Vector2i) -> void:
 	var why2: String = await Tap.tap(row)
 	await _settle()
 	_check(why2 == "" and did[0] == 1 and _sheet(page) == null, "%s: the rest of the row still does its job (%s)" % [tag, why2])
+	page.queue_free()
+	await _settle()
+
+
+## Names in stacked lines: a thumb that lands in the gap between two lines still opens
+## the name on the nearer line, and the two lines' strips never overlap.
+func _line_pitch(sz: Vector2i) -> void:
+	var tag := "pitch %dx%d" % [sz.x, sz.y]
+	_gs.reset()
+	_gs.start_season("FRE", _db.club_list("FRE"))
+	root.size = sz
+	var a: Dictionary = _gs.my_list[0]
+	var b: Dictionary = _gs.my_list[1]
+	var page := Control.new()
+	page.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(page)
+	current_scene = page
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 12)
+	v.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	page.add_child(v)
+	var lines := []
+	for p in [a, b]:
+		var r := RichTextLabel.new()
+		r.bbcode_enabled = true
+		r.fit_content = true
+		r.scroll_active = false
+		r.text = "%s kicks it long." % _nl.url(_db.player_display_name(p), str(p["id"]))
+		_nl.wire(r)
+		v.add_child(r)
+		lines.append(r)
+	await _settle()
+	var r1: Rect2 = (lines[0] as Control).get_global_rect()
+	var r2: Rect2 = (lines[1] as Control).get_global_rect()
+	var h1 := (lines[0] as Control).get_node_or_null("NameHit") as Control
+	var h2 := (lines[1] as Control).get_node_or_null("NameHit") as Control
+	_check(h1 != null and h2 != null, "%s: each line has a hit strip" % tag)
+	if h1 != null and h2 != null:
+		var g1 := h1.get_global_rect()
+		var g2 := h2.get_global_rect()
+		_check(g1.end.y <= g2.position.y + 0.5, "%s: the strips do not overlap (%s, %s)" % [tag, str(g1), str(g2)])
+		_check(g1.end.y > r1.end.y + 3.0 and g2.position.y < r2.position.y - 3.0, "%s: the strips reach into the gap" % tag)
+	# Find an x on the text where the exact tap opens him, then tap there but in the gap.
+	var x := 0.0
+	var found := false
+	var xx := r1.position.x + 4.0
+	while xx < r1.end.x and not found:
+		await _touch(Vector2(xx, r1.position.y + 6.0), true)
+		await _touch(Vector2(xx, r1.position.y + 6.0), false)
+		await _settle(2)
+		if _sheet(page) != null:
+			found = true
+			x = xx
+		xx += 5.0
+	_check(found, "%s: the name on the first line opens on the text (line %s, strip %s)" % [tag, str(r1), str(h1.get_global_rect()) if h1 != null else "none"])
+	_router.handle_back()
+	await _settle()
+	if found:
+		var below := Vector2(x, r1.end.y + 4.0)
+		await _touch(below, true)
+		await _touch(below, false)
+		await _settle(3)
+		_check(_sheet_name(_sheet(page)) == _db.player_display_name(a),
+				"%s: a tap in the gap just under the first line opens %s (got '%s')" % [tag, _db.player_display_name(a), _sheet_name(_sheet(page))])
+		_router.handle_back()
+		await _settle()
+		var above := Vector2(x, r2.position.y - 4.0)
+		await _touch(above, true)
+		await _touch(above, false)
+		await _settle(3)
+		_check(_sheet_name(_sheet(page)) == _db.player_display_name(b),
+				"%s: a tap in the gap just over the second line opens %s (got '%s')" % [tag, _db.player_display_name(b), _sheet_name(_sheet(page))])
+		_router.handle_back()
+		await _settle()
 	page.queue_free()
 	await _settle()
