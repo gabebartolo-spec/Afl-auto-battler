@@ -66,12 +66,16 @@ risk is theirs to take, and the results are explained clearly and objectively.
    deliberate copy: what the roaming interceptor did, whether the switched
    defender halted the forward's run. The player assesses whether it met their
    expectations.
-4. **Reading the game is the skill.** Success comes from taking clearly presented
-   information and making informed strategic decisions, in list management and in
-   the match. The exact science stays clouded by intuition and observable trends.
-5. **No number vomit, no excessive UI.** The player should not feel they will
-   develop arthritis from clicking. Obtuse stats and maths are described in
-   football terms whenever possible.
+4. **Reading the game is the skill.** Every decision gate says what each option
+   does for you and what it costs, with the size and the odds, in football words.
+   The game never says which option is better: every option carries a positive and
+   a negative, and the weighing is the coach's. Randomness is fine when the gate has
+   named the risk. (Director, 2026-10-18: "I still want the football language, but I
+   also want full transparency behind each decision and the impact it will have";
+   "the decision should still be relatively opaque and both options carrying
+   positives and negatives"; wording approved as written.)
+5. **No excessive UI.** The player should not feel they will develop arthritis
+   from clicking.
 
 ## The coach
 
