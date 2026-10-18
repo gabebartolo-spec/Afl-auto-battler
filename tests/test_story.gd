@@ -30,6 +30,10 @@ func run() -> void:
 	_test_folded_sizes()
 	_test_hints_in_words()
 	_test_choice_stakes_are_stated()
+	_test_every_option_has_a_cost()
+	_test_silent_defaults_announced()
+	_test_every_line_has_a_size()
+	_test_line_numbers_match_effects()
 	_test_trust_rules()
 	_test_engine_rules()
 	_test_arcs()
@@ -184,7 +188,7 @@ func _test_hints_in_words() -> void:
 			bad.append("%s: %s" % [t["id"], card["title"]])
 	_check(bad.is_empty(), "Every choice says what it does, in words, fully filled in: %s" % " | ".join(PackedStringArray(bad)))
 	var heavy := GameState.story_card("training_extra_session")
-	_check(str(heavy["options"][0]["detail"]).contains("development") and str(heavy["options"][0]["detail"]).contains("Heavy legs"),
+	_check(str(heavy["options"][0]["detail"]).to_lower().contains("development") and str(heavy["options"][0]["detail"]).contains("Heavy legs"),
 			"The heavy session's hint names both sides of it (%s)" % heavy["options"][0]["detail"])
 
 
@@ -194,15 +198,15 @@ func _test_hints_in_words() -> void:
 ## is worth to the coach is read straight off the effects here, apart from the
 ## engine's own wording, so the lines cannot drift from what the choice does.
 const GAIN_WORDS := {
-	"morale": "(?i)morale", "xp": "development", "board": "(?i)board confidence", "trust": "trusts you (a lot |a little )?more",
+	"morale": "(?i)morale", "xp": "(?i)development", "board": "(?i)board confidence", "trust": "trusts you ([0-9]+% )?more",
 	"fresh": "legs", "promise_win": "Win and", "extend_early": "signs on", "captaincy_swap": "takes the armband",
-	"rush_back": "cleared to play",
+	"rush_back": "cleared to play", "role_trial": "plays as a",
 }
 const COST_WORDS := {
-	"morale": "(?i)morale", "board": "(?i)board confidence", "trust": "trusts you (a lot |a little )?less",
-	"rest": "misses", "heavy_legs": "Heavy legs", "sore": "breaks down", "expects_game": "expects a game",
-	"start_backing": "expects to be picked", "back_kid": "is promised", "promise_win": "Lose and", "extend_early": "Locked in", "captaincy_swap": "mid-season",
-	"rush_back": "flares", "slow_start": "slowly", "loss_sting": "falls instead", "on_record": "on the record",
+	"morale": "(?i)morale", "board": "(?i)board confidence", "trust": "trusts you ([0-9]+% )?less",
+	"rest": "misses", "heavy_legs": "Heavy legs", "sore": "chance he is injured", "expects_game": "expects a game",
+	"start_backing": "expects to be picked", "back_kid": "is promised", "promise_win": "Lose or draw and", "extend_early": "Locked in", "captaincy_swap": "mid-season",
+	"rush_back": "hurt again", "slow_start": "slowly", "loss_sting": "also falls", "role_trial": "away from his usual spot", "on_record": "on the record",
 }
 const SAMPLE_FACTS := {"sore_odds": "about 1 in 6", "run_games": 3, "early_price": "$1m", "more_seasons": "two more seasons"}
 
@@ -229,10 +233,18 @@ func _stakes_in(effects: Array) -> Array:
 			gains.append(op)
 			costs.append_array([op, "morale", "trust"])
 			continue
-		if op == "rush_back":
+		if op == "rush_back" or op == "role_trial":
 			gains.append(op)
 			costs.append(op)
 			continue
+		# A promise lifts him now (a run thrills him; an early deal pleases him) and
+		# names what breaking it costs: his morale and his trust.
+		if op in ["start_backing", "back_kid", "extend_early"] and not gains.has("morale"):
+			gains.append("morale")
+		if op in ["expects_game", "start_backing", "back_kid"]:
+			for k in ["morale", "trust"]:
+				if not costs.has(k):
+					costs.append(k)
 		if op == "slow_start" or op == "on_record":
 			costs.append(op)
 			continue
@@ -321,7 +333,7 @@ func _test_choice_stakes_are_stated() -> void:
 	print("Choices that do nothing mechanical (%d): %s" % [nothing.size(), ", ".join(PackedStringArray(nothing))])
 	# The check itself must bite: a missing line, a gain or cost on the wrong line, a false one and a leftover brace are caught.
 	var heavy := [{"op": "heavy_legs", "who": "all"}, {"op": "xp", "d": 6}]
-	var good := PackedStringArray(["Gain: Some extra development for everyone.", "Cost: Heavy legs on game day, and more soft-tissue risk."])
+	var good := StoryEngine.stakes_lines(heavy, {})
 	_check(_stakes_problems(heavy, good).is_empty(), "The check passes the true lines for a gain and a cost")
 	_check(not _stakes_problems(heavy, PackedStringArray([good[1]])).is_empty(), "The check catches a gain left out")
 	_check(not _stakes_problems(heavy, PackedStringArray([good[0]])).is_empty(), "The check catches a cost left out")
@@ -333,7 +345,7 @@ func _test_choice_stakes_are_stated() -> void:
 	_check(not _stakes_problems(heavy, PackedStringArray([good[1], good[0]])).is_empty(), "The check catches costs before gains")
 	# Every effect line names the thing that moves; no mood word stands in for it.
 	var vague := RegEx.create_from_string("(?i)\\b(lift|lifts|flat|stings|sours|thrilled|a bit off|likes it|won't like)\\b")
-	var nouns := {"morale": "orale", "xp": "development", "board": "Board confidence", "trust": "trusts you", "rest": "game",
+	var nouns := {"morale": "orale", "xp": "evelopment", "board": "Board confidence", "trust": "trusts you", "rest": "game",
 			"sore": "sore", "fresh": "legs", "heavy_legs": "legs", "expects_game": "game", "start_backing": "games",
 			"promise_win": "board confidence", "extend_early": "a season"}
 	var unnamed := []
@@ -376,7 +388,7 @@ func _test_choice_stakes_are_stated() -> void:
 		var all_lines := ""
 		for c in t["choices"]:
 			all_lines += " ".join(StoryEngine.stakes_lines(c.get("effects", []), SAMPLE_FACTS))
-		for kw in ["breaks down", "heavy legs", "expects a game", "promise breaks", "lose and"]:
+		for kw in ["breaks down", "heavy legs", "expects a game", "promise breaks", "lose or draw"]:
 			if st.to_lower().contains(kw) and all_lines.to_lower().contains(kw):
 				repeats.append("%s (%s)" % [t["id"], kw])
 	_check(repeats.is_empty(), "A card's own stakes line never repeats the lines under its choices: %s" % " | ".join(PackedStringArray(repeats)))
@@ -1201,7 +1213,7 @@ func _test_role_card_shape() -> void:
 	p = _trial_candidate()
 	id = str(p["id"])
 	var quiet := GameState.story_card("media_papers_again", p)
-	_check(str((quiet["unanswered"] as Dictionary)["hint"]).contains("trusts you a little less"), "The silence hint names the trust cost: %s" % str(quiet["unanswered"]["hint"]))
+	_check(str((quiet["unanswered"] as Dictionary)["hint"]).contains("trusts you 2% less"), "The silence hint names the trust cost: %s" % str(quiet["unanswered"]["hint"]))
 	GameState.week_events = [quiet]
 	var b2 := GameState.board_confidence()
 	var t2 := Trust.value(GameState.relations, Trust.player_key(id))
@@ -1226,7 +1238,7 @@ func _test_front_group_words() -> void:
 		return
 	var d0 := str((card["options"] as Array)[0]["detail"])
 	var d1 := str((card["options"] as Array)[1]["detail"])
-	_check(d0.contains("trusts you more") and d0.contains("morale up a little") and d0.contains("morale down a little") and d0.contains("the group") and d1.contains("a little less"),
+	_check(d0.contains("trusts you 4% more") and d0.contains("morale up 3%") and d0.contains("morale down 3%") and d0.contains("the group") and d1.contains("2% less"),
 			"Card 3's trust lines differ in size: '%s' / '%s'" % [d0, d1])
 
 
@@ -1716,8 +1728,8 @@ func _test_captain_cards() -> void:
 
 func _test_group_words_are_sentence_case() -> void:
 	var words := StoryEngine._morale_words(-3, "all") + " " + StoryEngine._morale_words(-8, "others") + " " + StoryEngine._morale_words(-3, "side")
-	_check(words.contains("Morale down a little across the whole list.") and words.contains("Morale down in the rest of the group.")
-			and words.contains("Morale down a little across the side."), "A group's mood line is in sentence case and names morale (%s)" % words)
+	_check(words.contains("Morale down 3% across the whole list.") and words.contains("Morale down 8% in the rest of the group.")
+			and words.contains("Morale down 3% across the side."), "A group's mood line is in sentence case and names morale (%s)" % words)
 
 
 ## The paths a normal career rarely walks: a captain who can't settle a dispute, a stale
@@ -2711,3 +2723,179 @@ func _test_vacancy_is_filled() -> void:
 			"A vice who stepped up survives a reload")
 	_run_on(2)
 	_check(Captaincy.ids(GameState.captaincy_record("GEE"), "captain").size() == 1, "...and nothing changes on the rounds that follow")
+
+
+# --- Decision gates (director, 2026-10-18: every option states its upside and
+# downside with the size and the odds; an option with no downside is a design fault) ---
+
+## The 17 cards whose kind option used to win every number: every option now costs something.
+const GATED := ["board_billboards", "contracts_rivals_circling", "contracts_kid_wants_clarity",
+		"contracts_waited_manager_calls", "family_partner_job_offer", "family_newborn_no_sleep",
+		"family_partner_graduation", "family_house_settlement", "health_veteran_rehab_mentor",
+		"leadership_senior_runs_session", "captain_leaders_meeting", "captain_slump_start",
+		"captain_slump_mid", "captain_contract_start", "media_in_the_papers", "media_papers_again",
+		"members_cheer_squad"]
+## Options that still gain without a cost (2026-10-18). Their costs are a later sheet; this
+## list may only shrink: an entry that gains a cost must come off it, and no new one may join.
+const GAIN_ONLY_LEFT := ["community_hospital_visit/go", "finals_club_greats/in", "health_finals_light_week/light",
+		"captain_selection_word/talk", "captain_group_flat/dayoff", "captain_big_week/speak",
+		"captain_holding_group/noticed", "captain_slump_good/noticed", "captain_contract_signed/good",
+		"captain_succession_start/handover", "captain_succession_start/asks", "finals_last_season/quiet",
+		"finals_second_chance/burn", "finals_captain_last_word/him", "gf_last_game/him", "gf_last_game/calm",
+		"members_open_training/open", "members_open_training/closed", "finals_in/enjoy", "gf_milestone/banner",
+		"gf_milestone/club", "rivals_spy_at_training/let", "rivals_mouthing_off/calm", "gf_the_opponent/us",
+		"selection_talk_dropped/explain", "selection_talk_back/explain", "selection_talk_waiting/explain",
+		"finals_first_final/minder", "finals_first_final/alone", "gf_debut_year/away", "training_extra_session/recover",
+		"training_seniors_day_off/give", "training_time_trial/skip", "training_new_stoppage_setup/hold",
+		"training_backed_kid_flying/earned", "finals_week_off/semi"]
+const GAIN_ONLY_FLOOR := 36
+
+
+func _test_every_option_has_a_cost() -> void:
+	_start()
+	var p: Dictionary = GameState.my_list[4]
+	var gain_only := []
+	var gated_bad := []
+	for t in StoryDeck.all():
+		var card := GameState.story_card(str(t["id"]), p if str(t["subject"].get("kind", "")) == "player" else {})
+		# Every choice the card is written with, whether or not this week's facts show it.
+		for o in t["choices"]:
+			var lines := StoryEngine.stakes_lines(o.get("effects", []), card["facts"])
+			var gain := false
+			var cost := false
+			for l in lines:
+				gain = gain or l.begins_with(StoryEngine.GAIN_MARK)
+				cost = cost or l.begins_with(StoryEngine.COST_MARK)
+			var key := "%s/%s" % [t["id"], o["key"]]
+			if gain and not cost:
+				gain_only.append(key)
+			if GATED.has(str(t["id"])) and not cost:
+				gated_bad.append(key)
+	_check(gated_bad.is_empty(), "Every option on the 17 gated cards states a cost: %s" % ", ".join(PackedStringArray(gated_bad)))
+	var new_ones := gain_only.filter(func(k): return not GAIN_ONLY_LEFT.has(k))
+	var gone := GAIN_ONLY_LEFT.filter(func(k): return not gain_only.has(k))
+	_check(new_ones.is_empty(), "No option joins the gain-only list (a new card states a cost): %s" % ", ".join(PackedStringArray(new_ones)))
+	_check(gone.is_empty() and GAIN_ONLY_LEFT.size() <= GAIN_ONLY_FLOOR,
+			"The gain-only list only shrinks: take off the ones that now cost something (%s)" % ", ".join(PackedStringArray(gone)))
+	# The check bites: a gain-only option on a gated card is caught.
+	var bite := StoryEngine.stakes_lines([{"op": "morale", "d": 4}], {})
+	_check(bite.size() == 1 and bite[0].begins_with(StoryEngine.GAIN_MARK), "A gain-only option shows no Cost line, so the check would catch it")
+
+
+## A card that settles itself if the coach sims past it says so on its face, in
+## the engine's one line, with that choice's cost.
+func _test_silent_defaults_announced() -> void:
+	_start()
+	var p: Dictionary = GameState.my_list[4]
+	var bad := []
+	var n := 0
+	var want := 0
+	for t in StoryDeck.all():
+		if int(t.get("default", -1)) >= 0:
+			want += 1
+		var card := GameState.story_card(str(t["id"]), p if str(t["subject"].get("kind", "")) == "player" else {})
+		var line := StoryEngine.silence_line(card)
+		var d := int(card.get("default", -1))
+		if d >= 0 and d < (card["options"] as Array).size():
+			n += 1
+			var o: Dictionary = card["options"][d]
+			var cost := ""
+			for l in StoryEngine.stakes_lines(o["effects"], card["facts"]):
+				if l.begins_with(StoryEngine.COST_MARK):
+					cost = l.substr(StoryEngine.COST_MARK.length())
+			if not line.begins_with("If you leave this, it goes as \"%s\"" % str(o["label"])) \
+					or (cost != "" and not line.contains(cost.substr(1))) or line.contains("{"):
+				bad.append("%s: %s" % [t["id"], line])
+		elif (t.get("unanswered", {}) as Dictionary).is_empty() and line != "":
+			bad.append("%s says something where leaving it changes nothing: %s" % [t["id"], line])
+	# The international cards join the deck only with their switch on, so the count is the deck's own.
+	_check(n == want and n >= 6 and bad.is_empty(), "Every card with a silent default names it and its cost (%d of %d cards): %s" % [n, want, " | ".join(PackedStringArray(bad.slice(0, 4)))])
+	var sore := GameState.story_card("health_pulled_up_sore", p)
+	var sl := StoryEngine.silence_line(sore)
+	_check(sl.contains("Play him") and sl.contains("%") and sl.contains("chance"),
+			"The sore star's card says leaving it plays him, with the odds (%s)" % sl)
+	# Saying nothing's own price still reads as before, now with its size.
+	var quiet := GameState.story_card("media_in_the_papers", p)
+	_check(StoryEngine.silence_line(quiet) == "Say nothing: he trusts you 2% less.", "Saying nothing names its trust cost and size (%s)" % StoryEngine.silence_line(quiet))
+
+
+## Every Gain and Cost line carries its size: a percentage, a chance or a count of games.
+func _test_every_line_has_a_size() -> void:
+	_start()
+	var p: Dictionary = GameState.my_list[4]
+	var sized := RegEx.create_from_string("[0-9]+%|this week's game|takes the armband|cleared to play|next (one|two|three|four|five|six) game|games? away from his usual spot")
+	var bad := []
+	var parts_seen := 0
+	for t in StoryDeck.all():
+		var card := GameState.story_card(str(t["id"]), p if str(t["subject"].get("kind", "")) == "player" else {})
+		for o in card["options"]:
+			for e in o["effects"]:
+				for part in StoryEngine._effect_parts(e, card["facts"]):
+					if str(part[0]) == "note":
+						continue
+					parts_seen += 1
+					var s := StoryEngine.fill(str(part[1]), card["facts"])
+					if sized.search(s) == null or s.contains("{"):
+						bad.append("%s/%s %s: %s" % [t["id"], o["key"], e.get("op", ""), s])
+	_check(parts_seen >= 300 and bad.is_empty(), "Every gain and cost carries its size (%d phrases): %s" % [parts_seen, " | ".join(PackedStringArray(bad.slice(0, 5)))])
+	var sore := GameState.story_card("health_pulled_up_sore", p)
+	var play := " ".join(StoryEngine.stakes_lines(sore["options"][1]["effects"], sore["facts"]))
+	var pct := roundi(Injuries.chance(_with(p, "sore")) * 100.0)
+	_check(play.contains("about a %d%% chance he is injured" % pct), "Playing him sore states his own chance of injury (%d%%: %s)" % [pct, play])
+
+
+func _with(p: Dictionary, flag: String) -> Dictionary:
+	var q := p.duplicate()
+	q[flag] = true
+	return q
+
+
+## The numbers in the lines are the effects' own, and the rules' constants the
+## lines quote are the ones the game plays by.
+func _test_line_numbers_match_effects() -> void:
+	_start()
+	var p: Dictionary = GameState.my_list[4]
+	var bad := []
+	var checked := 0
+	for t in StoryDeck.all():
+		var card := GameState.story_card(str(t["id"]), p if str(t["subject"].get("kind", "")) == "player" else {})
+		for o in card["options"]:
+			for e in o["effects"]:
+				var op := str(e.get("op", ""))
+				var s := StoryEngine.fill(" ".join(PackedStringArray((StoryEngine._effect_parts(e, card["facts"]) as Array).map(func(x): return str(x[1])))), card["facts"])
+				var want := ""
+				match op:
+					"morale", "board", "trust":
+						want = "%d%%" % absi(StoryEngine.effect_d(e, card["facts"]))
+					"xp":
+						want = "%d%% of a senior game" % maxi(1, roundi(float(e["d"]) * 100.0 / float(GameState.XP_SENIOR_GAME)))
+					"slow_start":
+						want = "About a %d%% chance" % int(e["chance"])
+					"loss_sting":
+						want = "about a %d%% chance the side's morale also falls %d%%" % [int(e["chance"]), absi(int(e["d"]))]
+					"expects_game":
+						want = "morale falls up to %d%%, he trusts you %d%% less" % [int(e.get("sting", 12)), absi(ClubStories.BROKEN_PROMISE_TRUST)]
+				if want == "":
+					continue
+				checked += 1
+				if not s.contains(want):
+					bad.append("%s/%s %s wants '%s': %s" % [t["id"], o["key"], op, want, s])
+	_check(checked >= 300 and bad.is_empty(), "Every size in the lines is the effect's own (%d effects): %s" % [checked, " | ".join(PackedStringArray(bad.slice(0, 4)))])
+	_check(StoryEngine.SENIOR_GAME_XP == GameState.XP_SENIOR_GAME, "Development is quoted against the game's own senior-game XP")
+	_check(is_equal_approx(MatchSim._start_energy({"heavy_legs": true}), float(StoryEngine.HEAVY_LEGS_START))
+			and is_equal_approx(MatchSim._start_energy({"slow_start": true}), ClubLife.SLOW_LEGS)
+			and is_equal_approx(MatchSim._start_energy({"sore": true}), ClubLife.SORE_LEGS),
+			"The legs the lines quote are the legs the match starts them on")
+	var q: Dictionary = GameState.my_list[0]
+	var ask := Contracts.asking_salary(q)
+	_check(ClubLife.early_price(q) == ask + maxi(1, roundi(float(ask) * StoryEngine.EARLY_PREMIUM_PCT / 100.0)),
+			"An early deal's premium is the one the line quotes")
+	var heavy := " ".join(StoryEngine.stakes_lines([{"op": "heavy_legs", "who": "all"}], {}))
+	var fresh := " ".join(StoryEngine.stakes_lines([{"op": "fresh"}], {}))
+	_check(heavy.contains("%d%% more likely to be injured" % roundi((ClubLife.HEAVY_RISK - 1.0) * 100.0)) and not heavy.contains("soft-tissue")
+			and fresh.contains("%d%% less likely" % roundi((1.0 - ClubLife.FRESH_RISK) * 100.0)),
+			"Heavy and fresh legs quote the injury rule's own sizes, for every injury (%s / %s)" % [heavy, fresh])
+	var sting := " ".join(StoryEngine.stakes_lines([{"op": "loss_sting", "chance": 20, "d": -8}], {}))
+	_check(not sting.contains("instead") and sting.contains("also falls 8%"), "The finals sting says the fall comes on top of the lift (%s)" % sting)
+	var slow := " ".join(StoryEngine.stakes_lines([{"op": "slow_start", "who": "subject", "chance": 15, "on": "week"}], {}))
+	_check(slow.contains("this week's game") and slow.contains("15%") and slow.contains("for the first quarter"), "A slow start in the season names this week's game and its chance (%s)" % slow)

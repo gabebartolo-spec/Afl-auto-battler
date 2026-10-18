@@ -60,6 +60,10 @@
 					{
 						"op": "flag",
 						"name": "backed_in_papers"
+					},
+					{
+						"op": "expects_game",
+						"sting": 12
 					}
 				],
 				"result": "{name} stays in the side."
@@ -333,8 +337,7 @@
 					{
 						"op": "trust",
 						"d": 4,
-						"why": "You let him front the group",
-						"line": "He trusts you more."
+						"why": "You let him front the group"
 					},
 					{
 						"op": "delegate",
@@ -366,8 +369,7 @@
 					{
 						"op": "trust",
 						"d": -2,
-						"why": "You kept it between you two when he asked for the group",
-						"line": "He trusts you a little less."
+						"why": "You kept it between you two when he asked for the group"
 					}
 				],
 				"result": "You talk it through with {name} alone."
@@ -618,8 +620,7 @@
 						"who": "all"
 					},
 					{
-						"op": "on_record",
-						"line": "You have put that finish on the record. If the club is below it when the season is well on, the papers come back for it. The board's target stays where it is."
+						"op": "on_record"
 					},
 					{
 						"op": "flag",
@@ -698,8 +699,7 @@
 						"who": "all"
 					},
 					{
-						"op": "on_record",
-						"line": "You have put that finish on the record. If the club is below it when the season is well on, the papers come back for it. The board's target stays where it is."
+						"op": "on_record"
 					},
 					{
 						"op": "flag",

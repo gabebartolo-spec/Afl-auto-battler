@@ -148,6 +148,19 @@ func _show_season_wrap() -> void:
 			l.name = "WrapTrade_%d" % i
 			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(l)
+	# Free agents you were after who chose a rival, and why (P-18): the
+	# rival's name in its ink. This session's market only (not saved).
+	var lost: Array = GameState.fa_lost_lines()
+	if not lost.is_empty():
+		v.add_child(UiKit.spacer(4))
+		v.add_child(UiKit.lbl("Free agency", 14, UiKit.MUTED, true))
+		for i in range(lost.size()):
+			var club := str(lost[i]["club"])
+			var l := NameInk.label(str(lost[i]["text"]), {GameDB.club_name(club): club}, 14, UiKit.TEXT)
+			l.name = "WrapFreeAgent_%d" % i
+			if l is Label:
+				(l as Label).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(l)
 	var staff: Array = w.get("staff", [])
 	if not staff.is_empty():
 		v.add_child(UiKit.spacer(4))
@@ -426,7 +439,9 @@ func _event_card(index: int) -> Control:
 			sk.name = "EventStakes_%d" % index
 			sk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(sk)
-		var silence := str((e.get("unanswered", {}) as Dictionary).get("hint", ""))
+		# What leaving it does, from the card's own data: its silent default and that
+		# choice's cost, or the price of saying nothing (StoryEngine.silence_line).
+		var silence := StoryEngine.silence_line(e) if bool(e.get("story", false)) else str((e.get("unanswered", {}) as Dictionary).get("hint", ""))
 		if silence != "":
 			var sl := NameInk.label(silence, _league_names(), UiKit.SECONDARY, UiKit.TEXT)
 			sl.name = "EventSilence_%d" % index

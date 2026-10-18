@@ -191,6 +191,10 @@
 						"op": "trust",
 						"d": 6,
 						"why": "You told him the club would help his family settle"
+					},
+					{
+						"op": "board",
+						"d": -2
 					}
 				],
 				"result": "The club starts looking for work for his partner here."
@@ -243,9 +247,15 @@
 						"op": "trust",
 						"d": 4,
 						"why": "You eased off when the baby wasn't sleeping"
+					},
+					{
+						"op": "slow_start",
+						"who": "subject",
+						"chance": 15,
+						"on": "week"
 					}
 				],
-				"note": "He'll miss some development.",
+				"note": "He misses the development a full week brings.",
 				"result": "{first} gets a lighter week."
 			},
 			{
@@ -258,13 +268,17 @@
 					},
 					{
 						"op": "heavy_legs"
+					},
+					{
+						"op": "xp",
+						"d": 6
 					}
 				],
 				"result": "{first} trains as normal, on not much sleep."
 			}
 		],
 		"private": true,
-		"stakes": "A lighter week costs him some development."
+		"stakes": "A lighter week gives up the development a full week brings."
 	},
 	{
 		"id": "family_partner_graduation",
@@ -295,6 +309,12 @@
 						"op": "trust",
 						"d": 3,
 						"why": "You gave him the afternoon for his partner's graduation"
+					},
+					{
+						"op": "slow_start",
+						"who": "subject",
+						"chance": 15,
+						"on": "week"
 					}
 				],
 				"result": "{first} is at the graduation."
@@ -311,6 +331,10 @@
 						"op": "trust",
 						"d": -2,
 						"why": "You kept him at training for his partner's graduation"
+					},
+					{
+						"op": "xp",
+						"d": 4
 					}
 				],
 				"result": "{first} trains."
@@ -348,6 +372,12 @@
 						"op": "trust",
 						"d": 2,
 						"why": "You gave him the morning to buy his first house"
+					},
+					{
+						"op": "slow_start",
+						"who": "subject",
+						"chance": 10,
+						"on": "week"
 					}
 				],
 				"result": "{first} gets the keys."
@@ -359,6 +389,10 @@
 					{
 						"op": "morale",
 						"d": -2
+					},
+					{
+						"op": "xp",
+						"d": 4
 					}
 				],
 				"result": "{first} signs after training, a bit flat about it."

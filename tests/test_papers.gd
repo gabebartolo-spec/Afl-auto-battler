@@ -162,6 +162,7 @@ func _test_answers() -> void:
 		_check(not card.is_empty() and (card["options"] as Array).size() == 3,
 				"%s: the story has three answers" % kind)
 		var every := true
+		var sized := true
 		for i in range(3):
 			var lines := _lines(card, i)
 			var gain := false
@@ -169,8 +170,13 @@ func _test_answers() -> void:
 			for l in lines:
 				gain = gain or l.begins_with("Gain: ")
 				cost = cost or l.begins_with("Cost: ")
+				sized = sized and l.contains("%")
 			every = every and gain and cost
 		_check(every, "%s: every answer says what it gains and what it costs" % kind)
+		# Bible section 4 (director, 2026-10-18): every side carries its size, saying nothing too.
+		var quiet := StoryEngine.silence_line(card)
+		_check(sized and quiet.begins_with("Say nothing") and quiet.contains("%"),
+				"%s: every Gain and Cost line and the silence line carry a percentage (%s)" % [kind, quiet])
 		var text: String = str(card["title"]) + " " + str(card["text"])
 		for i in range(3):
 			text += " " + str(card["options"][i]["label"]) + " " + " ".join(_lines(card, i))
@@ -200,8 +206,18 @@ func _test_answers() -> void:
 	for l in _lines(card, 2):
 		if l.begins_with("Cost: "):
 			cost_line = l
-	_check(cost_line.contains("on the record") and cost_line.contains("season is well on") and cost_line.contains("target stays where it is"),
-			"The cost of talking up says what is held against you, and that the target does not move (%s)" % cost_line)
+	var reck := StoryDeck.by_id(StoryDeck.all(), "media_papers_reckoning")
+	var reck_board := []
+	for c in reck["choices"]:
+		for ce in c["effects"]:
+			if str(ce["op"]) == "board":
+				reck_board.append(absi(int(ce["d"])))
+	reck_board.sort()
+	_check(cost_line.contains("on the record") and cost_line.contains("the papers can come back for it once")
+			and cost_line.contains("board confidence %d%% to %d%%" % [int(reck_board[0]), int(reck_board[-1])])
+			and cost_line.contains("%d%% if you say nothing" % absi(int(reck["unanswered"]["board"])))
+			and cost_line.contains("target stays where it is"),
+			"The cost of talking up says when the papers come back, what answering them costs, and that the target does not move (%s)" % cost_line)
 	# Backing it, deflecting: nothing on the record.
 	for pair in [[0], [1]]:
 		_career()

@@ -844,6 +844,16 @@ Your career stays on your phone.",
 	# backing him names the promise, leaving him out names the missed game, and
 	# a finger on a button with lines under it still answers the card. The card
 	# does not repeat these lines under its heading.
+	# A card that settles itself when the week is played says so on its face, with that choice's cost.
+	_state.week_events = [_state.story_card("health_pulled_up_sore", _state.my_list[0])]
+	_router.go("hub")
+	await _settle()
+	var sore_node: Control = current_scene.find_child("EventSilence_0", true, false)
+	var sore_text := ""
+	if sore_node != null:
+		sore_text = str(sore_node.get_meta("plain")) if sore_node.has_meta("plain") else str(sore_node.get("text"))
+	_check(sore_text.begins_with("If you leave this, it goes as \"Play him\"") and sore_text.contains("%"),
+			"A card with a silent default names it and its odds on the card (%s)" % sore_text)
 	_state.week_events = [_state.story_card("training_kid_pushing", _state.my_list[0])]
 	_router.go("hub")
 	await _settle()
