@@ -365,6 +365,20 @@ func _test_event_decisions() -> void:
 	GameState.resolve_week_event(1)
 	_check(int(star["contract_years"]) == 1 and int(star["salary"]) == sal_before and ClubLife.morale(star) == 65,
 			"Waiting commits nothing and costs a little morale")
+	# Waiting's upside and its risk, sized from the price curve (bible §4).
+	var flat := {"id": "w_flat", "overall": 84, "age": 26.0, "morale": 70}
+	var up := flat.duplicate()
+	up["overall"] = 84 + GameState.SEASON_TRAIN_GAIN
+	var rise := Contracts.asking_salary(up) - Contracts.asking_salary(flat)
+	var waits := ClubLife.wait_words(flat, 84 + GameState.SEASON_TRAIN_GAIN)
+	_check(waits.contains("at most %d points" % GameState.SEASON_TRAIN_GAIN) and waits.contains(Contracts.money(rise))
+			and ClubLife.wait_words(flat, 84) == ClubLife.WAIT_FLAT
+			and RegEx.create_from_string("[0-9]").search(ClubLife.WAIT_LIFT + ClubLife.WAIT_FLAT) == null,
+			"Waiting says how far training can still lift his price this season (%s)" % waits)
+	var wait_card: Dictionary = GameState.story_card("contracts_wants_to_extend", star)
+	var wait_opt: Dictionary = (wait_card.get("options", []) as Array)[1] if (wait_card.get("options", []) as Array).size() > 1 else {}
+	_check(str(wait_opt.get("detail", "")).contains("At the off-season he asks") and not str(wait_opt.get("detail", "")).contains("{"),
+			"The Wait answer on the card carries what waiting can cost (%s)" % str(wait_opt.get("detail", "")))
 	GameState.week_event = GameState.story_card("contracts_wants_to_extend", star)
 	GameState.resolve_week_event(0)
 	_check(int(star["salary"]) == early and int(star["contract_years"]) == 3,
