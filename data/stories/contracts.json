@@ -324,5 +324,46 @@
 		},
 		"cooldown": 0,
 		"subject_cooldown": 0
+	},
+	{
+		"id": "contracts_new_club_approach",
+		"category": "contracts",
+		"scripted": true,
+		"cooldown": 0,
+		"subject_cooldown": 0,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"contract_years_max": 1
+			},
+			"pick": "highest:overall"
+		},
+		"title": [
+			"{new_club} have approached {name}"
+		],
+		"text": [
+			"He is out of contract at season's end and {new_club} are building their first list. They can sign any player his club has not re-signed. Re-sign him now and he stays."
+		],
+		"default": 1,
+		"choices": [
+			{
+				"key": "keep",
+				"label": "Re-sign him now",
+				"effects": [
+					{
+						"op": "new_club_keep"
+					}
+				]
+			},
+			{
+				"key": "go",
+				"label": "Let him go",
+				"effects": [
+					{
+						"op": "new_club_go"
+					}
+				]
+			}
+		]
 	}
 ]

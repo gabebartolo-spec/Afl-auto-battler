@@ -28,8 +28,13 @@ extends RefCounted
 ##               and their story beats. Off, generated classes are exactly as before.
 ##   training_report   the report after every fourth round: who improved, who
 ##               fell back, and who can learn a new position (TrainingReport.gd).
+##   expansion_package   how a new club builds its list (director, 2026-10-14):
+##               state-league signings, early draft picks, one out-of-contract
+##               player per rival club, and Canberra as a career choice
+##               (ExpansionBuild). Off, a new club arrives with the 36
+##               generated players it always did and Canberra always joins.
 
-const KNOWN := ["preseason", "speccy_front", "training_report", "international_prospects"]
+const KNOWN := ["preseason", "speccy_front", "training_report", "international_prospects", "expansion_package"]
 
 static var _forced := {}
 static var _from_args := {}

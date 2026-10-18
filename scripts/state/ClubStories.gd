@@ -39,6 +39,10 @@ static func pick(gs) -> Array:
 			if not c.is_empty():
 				cards.push_front(c)
 		gs.trial_result = {}
+	# A new club has asked about one of your players: that comes first.
+	var asked := ExpansionBuild.card(gs)
+	if not asked.is_empty():
+		cards.push_front(asked)
 	return cards
 
 
@@ -342,7 +346,7 @@ static func _milestone_next(gs, p: Dictionary) -> int:
 
 ## One card from the deck about `p` (or the club), built for this week whether
 ## or not it would come up: for tests and captures.
-static func card_for(gs, tid: String, p: Dictionary = {}) -> Dictionary:
+static func card_for(gs, tid: String, p: Dictionary = {}, extra: Dictionary = {}) -> Dictionary:
 	var deck := StoryDeck.all()
 	var t := StoryDeck.by_id(deck, tid)
 	if t.is_empty():
@@ -356,6 +360,11 @@ static func card_for(gs, tid: String, p: Dictionary = {}) -> Dictionary:
 				subj = f
 		if subj.is_empty():
 			subj = player_fact(gs, p, false, {}, 99, 0)
+	if tid == "contracts_new_club_approach" and extra.is_empty() and not p.is_empty():
+		extra = ExpansionBuild.card_facts(gs, p, ExpansionBuild.asking_club(gs))
+	if not extra.is_empty():
+		subj = subj.duplicate()
+		subj.merge(extra, true)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(tid)
 	return StoryEngine.build(deck, t, subj, ctx["club"], rng, gs.story_week())
@@ -503,6 +512,10 @@ static func _apply(gs, e: Dictionary, p: Dictionary, facts: Dictionary, applied:
 					else "%s is told he has a run of %s games. Pick him this week.") % [name, run]
 		"extend_early":
 			return _extend(gs, p, name)
+		"new_club_keep":
+			return ExpansionBuild.keep(gs, p)
+		"new_club_go":
+			return ExpansionBuild.let_go(gs, p)
 		"promise_win":
 			gs.board["promise"] = true
 		"explain":

@@ -505,6 +505,16 @@ static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
 			return [["gain", PROMISE_WIN_GAIN], ["cost", PROMISE_WIN_COST]]
 		"extend_early":
 			return [["gain", EXTEND_GAIN], ["cost", EXTEND_COST]]
+		"new_club_keep":
+			return [["gain", NEW_CLUB_KEEP_GAIN], ["cost", NEW_CLUB_KEEP_COST
+					+ ("" if bool(facts.get("keep_room", true)) else " {keep_note}")]]
+		"new_club_go":
+			var parts: Array = []
+			if int(facts.get("comp_after", 0)) > 0:
+				parts.append(["gain", "{comp_line}"])
+			parts.append(["cost", NEW_CLUB_GO_COST if int(facts.get("comp_after", 0)) > 0
+					else NEW_CLUB_GO_COST + " {comp_line}"])
+			return parts
 		"role_trial":
 			return [["gain", _trial_words(e)]]
 	var kind := ""
@@ -527,6 +537,9 @@ const SWAP_GAIN := "{vice_name} takes the armband; {name} stays in the leadershi
 const SWAP_COST := "Taking it off {name} mid-season drops his morale and he trusts you less. It uses your one change this season."
 const PROMISE_WIN_GAIN := "Win and board confidence goes up."
 const PROMISE_WIN_COST := "Lose and board confidence goes down."
+const NEW_CLUB_KEEP_GAIN := "He stays for {keep_seasons}."
+const NEW_CLUB_KEEP_COST := "{keep_price} a season against your cap."
+const NEW_CLUB_GO_COST := "He joins {new_club} when this season ends."
 const EXTEND_GAIN := "He signs on for {more_seasons}."
 const EXTEND_COST := "Locked in at {early_price} a season, whatever he does next."
 
@@ -570,6 +583,10 @@ static func _effect_words(e: Dictionary, facts: Dictionary) -> String:
 			return "He expects to be picked for the next {run_games} games; leave him out fit and the promise breaks."
 		"extend_early":
 			return "%s %s" % [EXTEND_GAIN, EXTEND_COST]
+		"new_club_keep":
+			return "%s %s" % [NEW_CLUB_KEEP_GAIN, NEW_CLUB_KEEP_COST]
+		"new_club_go":
+			return "%s {comp_line}" % NEW_CLUB_GO_COST
 		"promise_win":
 			return "%s %s" % [PROMISE_WIN_GAIN, PROMISE_WIN_COST]
 		"explain":

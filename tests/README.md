@@ -39,6 +39,7 @@ Floor is the fewest checks the suite may run (`expected_checks.txt`; a suite rep
 | `intake` | The National Draft model: the 2026 class, projection, season rollover | 2210 | 6 |
 | `intake_ui` | The National Draft on the shared draft screen | 500 | 4 |
 | `expansion` | Tasmania in 2028 and Canberra in 2030, and a Club Forge club entering with the career | 488 | 53 |
+| `expansion_package` | How a new club builds its list behind the switch `expansion_package`: off is exactly today; on gives state-league signings, early picks, the traded pick, out-of-contract signings, sign-on money, the Canberra choice, the approach card, saves both ways | 105 | 120 |
 | `finals` | The wildcard finals bracket, extra time, draws | 109 | 68 |
 | `save` | Saving and loading a career, including old-save migrations and the safe write: a failed or interrupted write never loses the career, and a failed swap leaves the newer save readable | 76 | 29 |
 | `chronology` | 2026 is history, careers start in 2027, and every system agrees | 31 | 4 |
