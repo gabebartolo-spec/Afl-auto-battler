@@ -179,10 +179,12 @@ skippable, readable culmination.
 
 - Write what a coach, recruiter, commentator or supporter would say. No engine words
   (modifier, coefficient, roll, tick).
-- A number appears only when it helps the player understand or decide: a score, a rating, a
-  contract, a ladder position, a margin. A percentage appears only as a real football rate
-  (disposal efficiency, accuracy). A simulation effect is described in words ("tires late",
-  "wins more clearances, concedes more if they get out"), never as a multiplier.
+- At a decision gate (a call, a card, a contract, a pick, a plan) each option states its
+  upside, its downside, the size and the odds, in football words and as percentages
+  ("their shots 25% more accurate", "misses 17% of the time"), and never which option is
+  better (director, 2026-10-18; bible §4). Off the gate, a number appears only when it
+  helps the player understand or decide: a score, a rating, a contract, a ladder position,
+  a margin, a real football rate.
 - Every line is scrutable: the player can see the effect it names.
 - Sentence case. Short. Nothing repeated that context already shows.
 - Labels name football things: Ladder, Players, Awards, Fixture, Trophies; never "Analytics",

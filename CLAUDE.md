@@ -39,9 +39,11 @@ supplies the vision, taste, AFL knowledge, priorities and final judgement.
 - **Mobile first, portrait first.** An Android phone in portrait is the
   reference design; desktop is secondary. No hover-only information, thumb-sized
   targets, deliberate scrolling, natural Android Back.
-- **No number vomit.** Show a number only when it helps the player understand
-  or decide. No hidden modifiers, coefficients or diagnostics; detail lives
-  behind deliberate drill-downs.
+- **Numbers belong at the decision gate (director, 2026-10-18).** Each option
+  states its upside, its downside, the size and the odds, in football words, as
+  percentages, and never which is better. Off the gate, show a number only when it
+  helps the player understand or decide; no hidden diagnostics on the main
+  surface, detail behind deliberate drill-downs.
 - **Visual references are selective.** AFCM is not a visual aspiration. Preserve the established editorial design; clean screens must still expose the facts needed for the current choice. Read the focused chapters linked from [genre research](docs/GENRE_ENJOYMENT_RESEARCH.md); director decisions and scoped accepted extensions are recorded in roadmap §9.2.
 - **No UI vomit.** One clear job per screen. If two elements answer the same
   question, keep the better one. Do not build UI just because data exists.
