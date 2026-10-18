@@ -34,6 +34,7 @@ func run() -> void:
 	_test_silent_defaults_announced()
 	_test_every_line_has_a_size()
 	_test_line_numbers_match_effects()
+	_test_trial_rating_and_old_cards()
 	_test_trust_rules()
 	_test_engine_rules()
 	_test_arcs()
@@ -199,7 +200,7 @@ func _test_hints_in_words() -> void:
 const GAIN_WORDS := {
 	"morale": "(?i)morale", "xp": "(?i)development", "board": "(?i)board confidence", "trust": "trusts you ([0-9]+% )?more",
 	"fresh": "legs", "promise_win": "Win and", "extend_early": "signs on", "captaincy_swap": "takes the armband",
-	"rush_back": "cleared to play", "role_trial": "plays as a",
+	"rush_back": "cleared to play", "role_trial": "plays as a", "rest": "can't get hurt",
 }
 const COST_WORDS := {
 	"morale": "(?i)morale", "board": "(?i)board confidence", "trust": "trusts you ([0-9]+% )?less",
@@ -232,7 +233,7 @@ func _stakes_in(effects: Array) -> Array:
 			gains.append(op)
 			costs.append_array([op, "morale", "trust"])
 			continue
-		if op == "rush_back" or op == "role_trial":
+		if op == "rush_back" or op == "role_trial" or op == "rest":
 			gains.append(op)
 			costs.append(op)
 			continue
@@ -2774,7 +2775,18 @@ func _test_every_option_has_a_cost() -> void:
 				gain_only.append(key)
 			if GATED.has(str(t["id"])) and not cost:
 				gated_bad.append(key)
-	_check(gated_bad.is_empty(), "Every option on the 17 gated cards states a cost: %s" % ", ".join(PackedStringArray(gated_bad)))
+		# On the card itself every option of the 17 shows a gain and a cost (bible §4).
+		if GATED.has(str(t["id"])):
+			for i in range((card["options"] as Array).size()):
+				var shown := StoryEngine.card_lines(card, i)
+				var g := false
+				var c := false
+				for l in shown:
+					g = g or l.begins_with(StoryEngine.GAIN_MARK)
+					c = c or l.begins_with(StoryEngine.COST_MARK)
+				if not (g and c):
+					gated_bad.append("%s/%s on the card (%s)" % [t["id"], card["options"][i]["key"], " ".join(shown)])
+	_check(gated_bad.is_empty(), "Every option on the 17 gated cards states a cost, and on the card a gain too: %s" % ", ".join(PackedStringArray(gated_bad)))
 	var new_ones := gain_only.filter(func(k): return not GAIN_ONLY_LEFT.has(k))
 	var gone := GAIN_ONLY_LEFT.filter(func(k): return not gain_only.has(k))
 	_check(new_ones.is_empty(), "No option joins the gain-only list (a new card states a cost): %s" % ", ".join(PackedStringArray(new_ones)))
@@ -2802,12 +2814,8 @@ func _test_silent_defaults_announced() -> void:
 		if d >= 0 and d < (card["options"] as Array).size():
 			n += 1
 			var o: Dictionary = card["options"][d]
-			var cost := ""
-			for l in StoryEngine.stakes_lines(o["effects"], card["facts"]):
-				if l.begins_with(StoryEngine.COST_MARK):
-					cost = l.substr(StoryEngine.COST_MARK.length())
-			if not line.begins_with("If you leave this, it goes as \"%s\"" % str(o["label"])) \
-					or (cost != "" and not line.contains(cost.substr(1))) or line.contains("{"):
+			# The choice it settles as, once; its gain and cost sit under its own button.
+			if line != "If you leave this, it goes as \"%s\"." % str(o["label"]) or line.contains("{"):
 				bad.append("%s: %s" % [t["id"], line])
 		elif (t.get("unanswered", {}) as Dictionary).is_empty() and line != "":
 			bad.append("%s says something where leaving it changes nothing: %s" % [t["id"], line])
@@ -2815,8 +2823,9 @@ func _test_silent_defaults_announced() -> void:
 	_check(n == want and n >= 6 and bad.is_empty(), "Every card with a silent default names it and its cost (%d of %d cards): %s" % [n, want, " | ".join(PackedStringArray(bad.slice(0, 4)))])
 	var sore := GameState.story_card("health_pulled_up_sore", p)
 	var sl := StoryEngine.silence_line(sore)
-	_check(sl.contains("Play him") and sl.contains("%") and sl.contains("chance"),
-			"The sore star's card says leaving it plays him, with the odds (%s)" % sl)
+	var play_lines := " ".join(StoryEngine.card_lines(sore, 1))
+	_check(sl == "If you leave this, it goes as \"Play him\"." and play_lines.contains("%") and play_lines.contains("chance"),
+			"The sore star's card says leaving it plays him; the odds sit under Play him (%s / %s)" % [sl, play_lines])
 	# Saying nothing's own price still reads as before, now with its size.
 	var quiet := GameState.story_card("media_in_the_papers", p)
 	_check(StoryEngine.silence_line(quiet) == "Say nothing: he trusts you 2% less.", "Saying nothing names its trust cost and size (%s)" % StoryEngine.silence_line(quiet))
@@ -2901,4 +2910,29 @@ func _test_line_numbers_match_effects() -> void:
 	var sting := " ".join(StoryEngine.stakes_lines([{"op": "loss_sting", "chance": 20, "d": -8}], {}))
 	_check(not sting.contains("instead") and sting.contains("also falls 8%"), "The finals sting says the fall comes on top of the lift (%s)" % sting)
 	var slow := " ".join(StoryEngine.stakes_lines([{"op": "slow_start", "who": "subject", "chance": 15, "on": "week"}], {}))
-	_check(slow.contains("this week's game") and slow.contains("15%") and slow.contains("for the first quarter"), "A slow start in the season names this week's game and its chance (%s)" % slow)
+	_check(slow.contains("this week's game") and slow.contains("15%") and slow.contains("at the first bounce"), "A slow start in the season names this week's game and its chance (%s)" % slow)
+
+
+## The rating a role trial's cost quotes is the one the game rates him at there; a
+## card saved before the sized lines (no sore_pct, injury_pct or trial_ovr) still
+## reads cleanly and still answers.
+func _test_trial_rating_and_old_cards() -> void:
+	_start()
+	var p := _trial_candidate()
+	var role := ClubStories.trial_role(p)
+	var card := GameState.story_card("media_papers_again", p)
+	_check(role != "" and int(card["facts"]["trial_ovr"]) == GameState.rating_as(p, role),
+			"A role trial's cost quotes his rating in that spot (%s: %s)" % [role, str(card["facts"].get("trial_ovr", ""))])
+	_start()
+	var q: Dictionary = {}
+	for r in GameState.my_list:
+		if int(r.get("injury_weeks", 0)) == 0 and q.is_empty():
+			q = r
+	var old := GameState.story_card("health_pulled_up_sore", q)
+	for k in ["sore_pct", "injury_pct", "trial_ovr"]:
+		(old["facts"] as Dictionary).erase(k)
+	var words := " ".join(StoryEngine.card_lines(old, 0)) + " " + " ".join(StoryEngine.card_lines(old, 1))
+	GameState.week_events = [old]
+	GameState.resolve_card(0, 1)
+	_check(not words.contains("{") and words.contains("1 in") and bool(old.get("resolved", false)) and bool(q.get("sore", false)),
+			"An older saved card reads without braces, keeps its 1-in-N odds and still answers (%s)" % words)

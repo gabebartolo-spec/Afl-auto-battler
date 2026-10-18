@@ -474,7 +474,7 @@ func _event_card(index: int) -> Control:
 			# then costs, one plain line each (a choice that does nothing
 			# mechanical shows nothing under it). Same text, same weight on
 			# every choice.
-			var lines := StoryEngine.stakes_lines(o.get("effects", []), e.get("facts", {}))
+			var lines := StoryEngine.card_lines(e, i) if bool(e.get("story", false)) else StoryEngine.stakes_lines(o.get("effects", []), e.get("facts", {}))
 			var rule_text := str(o.get("rule", ""))
 			if lines.is_empty() and rule_text == "":
 				row.add_child(b)

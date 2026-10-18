@@ -852,8 +852,18 @@ Your career stays on this device.",
 	var sore_text := ""
 	if sore_node != null:
 		sore_text = str(sore_node.get_meta("plain")) if sore_node.has_meta("plain") else str(sore_node.get("text"))
-	_check(sore_text.begins_with("If you leave this, it goes as \"Play him\"") and sore_text.contains("%"),
-			"A card with a silent default names it and its odds on the card (%s)" % sore_text)
+	_check(sore_text == "If you leave this, it goes as \"Play him\".",
+			"A card with a silent default names the choice it settles as, once (%s)" % sore_text)
+	# A finger on the line answers nothing; a finger on "Play him" below it answers the card.
+	var line_tap: String = await Tap.tap(sore_node) if sore_node != null else "missing"
+	await _settle()
+	var still_open := not bool(_state.week_events[0].get("resolved", false))
+	var play_btn: Button = current_scene.find_child("Event_1", true, false)
+	var play_tap: String = await Tap.tap(play_btn) if play_btn != null else "missing"
+	await _settle()
+	_check(line_tap == "" and still_open and play_tap == "" and bool(_state.week_events[0].get("resolved", false))
+			and int(_state.week_events[0].get("choice", -1)) == 1,
+			"A real tap on the default line answers nothing; a real tap on Play him answers it (%s / %s)" % [line_tap, play_tap])
 	_state.week_events = [_state.story_card("training_kid_pushing", _state.my_list[0])]
 	_router.go("hub")
 	await _settle()
