@@ -758,6 +758,7 @@ func _tribunal_card() -> Control:
 		var line := NameInk.label("%s — %s. %s case: %s." % [
 				name, sanction, hearing, str(row.get("case", "Difficult"))], _league_names(), 13, UiKit.TEXT, true)
 		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		line.name = "TribunalLine"
 		v.add_child(line)
 		var status := UiKit.lbl("Brownlow: ineligible unless the %s succeeds." % (
 				"appeal" if stage == "appeal" else "challenge"), 12, UiKit.MUTED, true)
