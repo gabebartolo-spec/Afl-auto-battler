@@ -227,6 +227,8 @@ func _build() -> void:
 	var week := _week_section(season)
 	var ladder := _ladder_section(season)
 	if _narrow():
+		if TrainingReport.hub_due(GameState):
+			page.add_child(TrainingReportSheet.hub_card(self, _go_retrain))
 		page.add_child(week)
 		page.add_child(UiKit.rule())
 		page.add_child(_standing_card())
@@ -239,6 +241,8 @@ func _build() -> void:
 		var left := UiKit.vbox(UiKit.SECTION)
 		left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cols.add_child(left)
+		if TrainingReport.hub_due(GameState):
+			left.add_child(TrainingReportSheet.hub_card(self, _go_retrain))
 		left.add_child(week)
 		left.add_child(UiKit.rule())
 		left.add_child(_standing_card())
@@ -274,6 +278,12 @@ func _build() -> void:
 		foot.add_child(row)
 	# Motion plays once per visit, not on every rebuild after an answer.
 	_settled = true
+
+
+## From the training report: Training, at that player's choice.
+func _go_retrain(id: String) -> void:
+	TrainingScene.open_player_id = id
+	Router.go("training")
 
 
 ## "Round 4", a finals week, or the season.
@@ -1299,6 +1309,8 @@ func _close_finals() -> void:
 func handle_back() -> bool:
 	if _pre_match != null:
 		return true     # the side is on its way out
+	if TrainingReportSheet.close_top(self):
+		return true
 	var plan_sheet := get_node_or_null("SeasonPlanSheet")
 	if plan_sheet != null and is_instance_valid(plan_sheet) and not plan_sheet.is_queued_for_deletion():
 		plan_sheet.queue_free()

@@ -1,3 +1,4 @@
+class_name TrainingScene
 extends Control
 ## Training. Every listed player is here. XP is personal and earned every
 ## game; each player's training plan spends it automatically after the game
@@ -9,6 +10,8 @@ const ROLE_NOUN := {"RUCK": "ruck", "MID": "midfielder", "DEF": "defender", "FWD
 const ROLE_TABS := [["", "All"], ["DEF", "DEF"], ["MID", "MID"], ["RUCK", "RUCK"], ["FWD", "FWD"]]
 const LONG_PRESS_SECONDS := 0.45
 
+## Set by the training report: open this player's page when Training opens.
+static var open_player_id := ""
 var _role := ""
 var _query := ""
 var _built_width := 0.0
@@ -54,6 +57,11 @@ func _ready() -> void:
 		if is_inside_tree() and not UiKit.keyboard_resize(self, _built_width):
 			_build())
 	_build()
+	if open_player_id != "":
+		var want := open_player_id
+		open_player_id = ""
+		if not GameState.list_player(want).is_empty():
+			_open_player(want)
 	if GameState.intro_due("training"):
 		GameState.set_setting("seen_training_intro", true)
 		_show_intro()
@@ -63,6 +71,8 @@ func _ready() -> void:
 ## player detail back to the list, before leaving Training. Returning false
 ## lets the router take the scene back to whatever was viewed before.
 func handle_back() -> bool:
+	if TrainingReportSheet.close_top(self):
+		return true
 	var plan_sheet := get_node_or_null("SeasonPlanSheet")
 	if plan_sheet != null and is_instance_valid(plan_sheet) and not plan_sheet.is_queued_for_deletion():
 		plan_sheet.queue_free()
@@ -196,9 +206,13 @@ func _summary() -> Control:
 		what.name = "TrainingNews"
 		what.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(what)
-		var reserves := GameState.reserves_summary_line()
-		if reserves != "":
-			v.add_child(UiKit.lbl(reserves, UiKit.SECONDARY, UiKit.MUTED))
+		var month := TrainingReportSheet.link(self, _open_player)
+		if month != null:
+			v.add_child(month)
+		else:
+			var reserves := GameState.reserves_summary_line()
+			if reserves != "":
+				v.add_child(UiKit.lbl(reserves, UiKit.SECONDARY, UiKit.MUTED))
 	else:
 		v.add_child(UiKit.lbl("No game played yet. Players develop after every match.", UiKit.BODY, UiKit.EMPH, true))
 	# The season plan in words, one tap from the season line.

@@ -47,6 +47,8 @@
     "scroll": 30,
     "nameink": 10,
     "keyboard": 30,
+    "international": 20,
+    "trainrep": 60,
     "preseason": 150,
     "plan_know": 60,
     "rowgap": 60,
