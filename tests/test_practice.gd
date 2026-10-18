@@ -429,6 +429,16 @@ func _test_screens_phone() -> void:
 	_check(GameState.practice_invites().size() == 2 and _label(scene, "PracticeCount") == "2 of 3 trialled"
 			and bool((scene.find_child("Trial_" + str(ids[0]), true, false) as Button).get_meta("chosen", false)),
 			"Phone: the two are marked and counted")
+	# The gate states both sides, sized from the rules (director, 2026-10-18).
+	var cost2 := _label(scene, "PracticeCost")
+	var gap2 := GameState.practice_trial_gap_pct(GameState.practice_invites())
+	_check(_label(scene, "PracticeGain").contains("%d%% tighter" % roundi((1.0 - float(PreSeason.tune("intra_seen_uncertainty"))) * 100.0))
+			and (cost2.contains("about %d%% below" % gap2) if gap2 > 0 else cost2.contains("no lower")),
+			"Phone: the trial's gain and cost carry their sizes, the cost for the two chosen (%s)" % cost2)
+	var risk := _label(scene, "PracticeRisk")
+	_check(risk.contains("%d%% of a normal match's injury risk" % roundi(float(PreSeason.tune("practice_injury_rate")) * 100.0))
+			and risk.contains("prospect cannot be hurt") and _label(scene, "PracticeGain").contains("He cannot be hurt"),
+			"Phone: the injury rule reads the same in both places: listed players at half risk, a prospect never hurt (%s)" % risk)
 	_check(await _tap(scene.find_child("Trial_" + str(ids[1]), true, false), "the same prospect"),
 			"Phone: a second tap takes it back")
 	_check(GameState.practice_invites().size() == 1, "Phone: ...and he is out")

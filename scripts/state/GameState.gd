@@ -3465,6 +3465,42 @@ func _practice_squad(code: String, is_home: bool, invites: Array) -> Dictionary:
 	return {"squad": sq, "ids": ids, "guests": guests}
 
 
+## What trialling costs your side for the day, for the stop's Cost line: how
+## far, as a percentage, each prospect rates below the starter he would replace
+## (the same swap _practice_squad makes), averaged over the ones chosen, or over
+## every prospect on offer before any is chosen. 0 when none rates below. Reads
+## the side; changes nothing.
+func practice_trial_gap_pct(invites: Array) -> int:
+	if season == null or not season.lists.has(my_club):
+		return 0
+	var sq := Squad.new(GameDB.club_name(my_club), season.lists[my_club], true, my_club, season.selections.get(my_club, {}))
+	var pool := []
+	for p in intra_prospects():
+		if invites.is_empty() or invites.has(str(p["id"])):
+			pool.append(p)
+	var total := 0.0
+	var n := 0
+	for p in pool:
+		var g := PreSeason.intra_guest(p, 0, my_club)
+		var at := -1
+		for pass_same in [true, false]:
+			for i in range(sq.ground.size()):
+				if pass_same and str(sq.ground[i]["role"]) != str(g.get("role", "")):
+					continue
+				if at < 0 or float(sq.ground[i]["overall"]) < float(sq.ground[at]["overall"]):
+					at = i
+			if at >= 0:
+				break
+		if at < 0:
+			continue
+		var starter := float(sq.ground[at]["overall"])
+		var slot := Ratings._for_slot(g, str(sq.ground[at]["role"]))
+		if starter > 0.0:
+			total += maxf(0.0, (starter - float(slot["overall"])) / starter * 100.0)
+			n += 1
+	return roundi(total / float(n)) if n > 0 else 0
+
+
 ## A practice match between two clubs: {"sim", "home", "away", "ids": {club:
 ## [ids]}, "guests": {club: [prospect ids]}}. Your side takes your game plan.
 func _practice_build(home: String, away: String, home_invites: Array, away_invites: Array) -> Dictionary:

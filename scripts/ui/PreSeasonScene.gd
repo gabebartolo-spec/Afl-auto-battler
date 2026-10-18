@@ -401,6 +401,7 @@ func _match_report(rep: Dictionary, prefix: String, pool: Array) -> Control:
 # The practice match: the club you play, your side and plan, who to trial
 # ---------------------------------------------------------------------------
 var _trial_count: Label
+var _trial_cost: Label
 var _trial_rows := {}       # prospect id -> Button
 
 
@@ -426,8 +427,9 @@ func _practice_setup() -> Control:
 		where.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		teams.add_child(where)
 		fixture.add_child(teams)
-	var at_home := UiKit.lbl("Both clubs trial prospects of their own. Injury risk is half a normal match's.",
+	var at_home := UiKit.lbl("Both clubs trial prospects of their own. Your listed players carry %d%% of a normal match's injury risk; a trialled prospect cannot be hurt." % roundi(float(PreSeason.tune("practice_injury_rate")) * 100.0),
 			UiKit.SECONDARY, UiKit.TEXT)
+	at_home.name = "PracticeRisk"
 	at_home.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	fixture.add_child(at_home)
 	v.add_child(fixture)
@@ -458,9 +460,8 @@ func _practice_setup() -> Control:
 	guests.name = "PracticeInvites"
 	guests.add_child(_section_head("Prospects to trial"))
 	var gain := _stake(guests, "Gain:", "PracticeGain")
-	gain.text = "His draft card gets a line on what he did against a senior side, and your recruiters' read of him is a little surer. He cannot be hurt."
-	var cost := _stake(guests, "Cost:", "PracticeCost")
-	cost.text = "He plays in place of the weakest starter in his line, so your side is a little weaker on the day."
+	gain.text = "His draft card gets a line on what he did against a senior side, and your recruiters' read of his rating is %d%% tighter. He cannot be hurt." % roundi((1.0 - float(PreSeason.tune("intra_seen_uncertainty"))) * 100.0)
+	_trial_cost = _stake(guests, "Cost:", "PracticeCost")
 	_trial_count = UiKit.lbl("", UiKit.BODY, UiKit.TEXT, true)
 	_trial_count.name = "PracticeCount"
 	guests.add_child(_trial_count)
@@ -496,6 +497,26 @@ func _refresh_trial() -> void:
 		_paint_choice(_trial_rows[id], invites.has(str(id)))
 	if _trial_count != null and is_instance_valid(_trial_count):
 		_trial_count.text = "%d of %d trialled" % [invites.size(), PreSeason.practice_guests()]
+	if _trial_cost != null and is_instance_valid(_trial_cost):
+		_trial_cost.text = _trial_cost_text(invites)
+
+
+## The trial's cost, sized: how far below the starters they replace the chosen
+## prospects rate (every prospect on offer, before any is chosen).
+func _trial_cost_text(invites: Array) -> String:
+	var gap := GameState.practice_trial_gap_pct(invites)
+	match invites.size():
+		0:
+			if gap <= 0:
+				return "A prospect plays in place of the weakest starter in his line; the prospects here rate no lower than the starters they would replace."
+			return "A prospect plays in place of the weakest starter in his line; on average the prospects here rate about %d%% below the starter they would replace, so your side is weaker on the day." % gap
+		1:
+			if gap <= 0:
+				return "He plays in place of the weakest starter in his line and rates no lower than him."
+			return "He plays in place of the weakest starter in his line and rates about %d%% below him, so your side is weaker on the day." % gap
+	if gap <= 0:
+		return "Each plays in place of the weakest starter in his line; they rate no lower than the starters they replace."
+	return "Each plays in place of the weakest starter in his line; on average they rate about %d%% below the starters they replace, so your side is weaker on the day." % gap
 
 
 ## A 2 px rule in the club's colour: the section belongs to your club.
