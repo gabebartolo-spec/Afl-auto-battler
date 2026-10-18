@@ -382,14 +382,19 @@ func _standing_card() -> Control:
 		cv.add_child(last)
 	# The board lives in Coaching; here only when your job is at risk.
 	if GameState.board_goal_text() != "":
-		var conf := GameState.board_confidence()
 		var warned := bool(GameState.board.get("warned", false))
-		# The board's own line for a poor season (Ruthless sets it higher).
-		if warned or conf < int(GameState.difficulty_rules()["poor_season_below"]):
+		# The warning fires under ClubLife.POOR_LINE on every board type.
+		var warning := GameState.board_warning()
+		if warned or warning != "":
 			var board_l := UiKit.lbl("Board: %s  ·  %s%s" % [GameState.board_state(), GameState.board_goal_text(),
 					"  (final warning)" if warned else ""], UiKit.SMALL, UiKit.BAD)
 			board_l.name = "BoardLine"
 			cv.add_child(board_l)
+			if warning != "":
+				var warn_l := UiKit.lbl(warning, UiKit.SMALL, UiKit.BAD)
+				warn_l.name = "BoardWarning"
+				warn_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				cv.add_child(warn_l)
 	return cv
 
 
@@ -439,7 +444,9 @@ func _event_card(index: int) -> Control:
 			sk.name = "EventStakes_%d" % index
 			sk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(sk)
-		var silence := str((e.get("unanswered", {}) as Dictionary).get("hint", ""))
+		# What leaving it does, from the card's own data: its silent default and that
+		# choice's cost, or the price of saying nothing (StoryEngine.silence_line).
+		var silence := StoryEngine.silence_line(e) if bool(e.get("story", false)) else str((e.get("unanswered", {}) as Dictionary).get("hint", ""))
 		if silence != "":
 			var sl := NameInk.label(silence, _league_names(), UiKit.SECONDARY, UiKit.TEXT)
 			sl.name = "EventSilence_%d" % index
