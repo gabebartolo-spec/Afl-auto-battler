@@ -9037,28 +9037,60 @@ func skip_media_conference() -> void:
 	autosave()
 
 
-func resolve_media_conference(option: int) -> void:
-	if media_conference.is_empty():
-		return
+## What a press answer's odds follow (MediaConference.chance): the group's
+## mood, a young side, who asked and what the question is about.
+func press_facts() -> Dictionary:
+	var total := 0
+	for p in my_list:
+		total += ClubLife.morale(p)
+	return {"morale": float(total) / float(maxi(1, my_list.size())) if not my_list.is_empty() else float(ClubLife.MORALE_BASE),
+			"young": int(media_conference.get("young", 0)), "journalist": str(media_conference.get("journalist", "")),
+			"key": str(media_conference.get("key", ""))}
+
+
+## The chance (percent) that the pending question's answer `option` lands its
+## first way; the gate shows it and resolve_media_conference rolls against it.
+func press_chance(option: int) -> int:
 	var opts: Array = media_conference.get("options", [])
 	if option < 0 or option >= opts.size():
-		return
+		return 0
+	return MediaConference.chance(MediaConference.kind_of(opts[option], option), press_facts())
+
+
+## The answer is a roll (bible; director 2026-10-18, ch. 30 row 33): drawn
+## once, now, from the career's press stream, against the odds the gate showed.
+## Returns how it landed ({"kind", "landed": "a"|"b", "chance", "line"}), {}
+## when there is nothing to answer.
+func resolve_media_conference(option: int) -> Dictionary:
+	if media_conference.is_empty():
+		return {}
+	var opts: Array = media_conference.get("options", [])
+	if option < 0 or option >= opts.size():
+		return {}
 	var picked: Dictionary = opts[option]
-	if not board.is_empty():
-		board["confidence"] = clampi(board_confidence() + int(picked.get("board", 0)), 0, 100)
+	var kind := MediaConference.kind_of(picked, option)
+	var odds := press_chance(option)
+	var key := str(media_conference.get("key", ""))
+	var round_no := int(media_conference.get("round", 0))
+	var landed := "a" if MediaConference.roll(career_seed, season_year, round_no, key, option) <= odds else "b"
+	var out: Dictionary = (MediaConference.ANSWERS[kind] as Dictionary)[landed]
+	if not board.is_empty() and int(out["board"]) != 0:
+		board["confidence"] = clampi(board_confidence() + int(out["board"]), 0, 100)
 		board["why"] = "Your post-match comments were noted by the board."
-	var morale_delta := int(picked.get("morale", 0))
+	var morale_delta := int(out["morale"])
 	if morale_delta != 0:
 		for p in my_list:
 			ClubLife.add_morale(p, morale_delta)
-	media_memory[str(media_conference.get("key", ""))] = int(media_conference.get("round", 0))
+	media_memory[key] = round_no
 	# What you said, so a journalist can hold you to it later this season.
-	media_memory["said|" + str(media_conference.get("key", ""))] = {"year": season_year, "option": option,
-			"opp": str(media_conference.get("opp", "")), "round": int(media_conference.get("round", 0))}
-	add_news("media", "Post-match: '%s'" % str(picked.get("label", "")))
+	media_memory["said|" + key] = {"year": season_year, "option": option,
+			"opp": str(media_conference.get("opp", "")), "round": round_no}
+	var line := MediaConference.after_line(kind, landed)
+	add_news("media", "Post-match: '%s' %s" % [str(picked.get("label", "")), line])
 	media_conference = {}
 	mark_dirty()
 	autosave()
+	return {"kind": kind, "landed": landed, "chance": odds, "line": line}
 
 
 
