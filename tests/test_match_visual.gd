@@ -45,6 +45,9 @@ func run() -> void:
 	_test_flood_shape(res)
 	_test_press_shape(res)
 	_test_centre_setups(res)
+	_test_call_shapes(res)
+	_test_call_playback(res)
+	_test_call_lines(res)
 	_test_farewell()
 	_test_match_ground()
 	_test_discs_apart()
@@ -635,7 +638,7 @@ func _test_boundary_collect(res: Dictionary) -> void:
 			d._pt += 1.0 / 30.0
 			for t in d.tokens:
 				MatchMotion.step(t, 1.0 / 30.0)
-			MatchMotion.separate(d.tokens)
+			MatchMotion.separate(d.tokens, 1.0 / 30.0)
 			if d._done(p):
 				done = true
 				break
@@ -1580,6 +1583,229 @@ func _test_centre_setups(res: Dictionary) -> void:
 	_check(crashed and dropped,
 			"Stacking puts the wings on the square's edge; flooding drops them behind the ball (%s / %s / %s)" % [str(plain), str(stack), str(flood)])
 	d._tac[0] = {}
+
+
+## P-12 (director, 2026-10-18: "the oval answers a structural call"): each call
+## that had no drawn shape now has one, from what the engine does with it,
+## measured against Balanced at three balls (side 0's back half, the middle, its
+## forward half), and only for the side whose recorded call it is.
+func _test_call_shapes(res: Dictionary) -> void:
+	var d := MatchDirector.new()
+	d.setup(res, res["events"])
+	var balls := [Vector2(-30.0, 6.0), Vector2(0.0, -4.0), Vector2(30.0, 8.0)]
+	# Side 0 (attacking +x) with `call`, `poss` in possession: where each of its
+	# players stands for each ball, and what the shape is made of.
+	var stand := func(call: Dictionary, poss: int, side := 0) -> Dictionary:
+		d._tac[side] = call.duplicate()
+		d._tac[side]["side"] = side
+		var pos := []
+		var wide := 0.0
+		var deep := 0.0
+		var ahead := 0
+		var mid_gap := 0.0
+		var star_gap := 0.0
+		var span := 0.0
+		var back := 0.0
+		var n := 0
+		for bp in balls:
+			var front := -1.0e9
+			var rear := 1.0e9
+			for t in d.tokens:
+				if int(t["side"]) != 0:
+					continue
+				var p: Vector2 = d._structure_spot(t, bp, poss)
+				pos.append(p)
+				wide += absf(p.y)
+				deep += p.x
+				n += 1
+				front = maxf(front, p.x)
+				rear = minf(rear, p.x)
+				if p.x > (bp as Vector2).x:
+					ahead += 1
+				if str(t["role"]) == "MID" or str(t["role"]) == "RUCK":
+					mid_gap += p.distance_to(bp)
+				if str(t["role"]) == "DEF":
+					back += p.x
+				if d._is_star(t):
+					star_gap += p.distance_to(bp)
+			span += front - rear
+		d._tac[side] = {}
+		return {"pos": pos, "wide": wide / n, "deep": deep / n, "ahead": ahead, "mid_gap": mid_gap,
+				"star_gap": star_gap / 9.0, "span": span / 3.0, "back": back}
+	var same := func(a: Dictionary, b: Dictionary) -> bool:
+		for i in range((a["pos"] as Array).size()):
+			if ((a["pos"] as Array)[i] as Vector2).distance_to((b["pos"] as Array)[i]) > 0.01:
+				return false
+		return true
+	var plain := {"plan": "balanced", "bursts": []}
+	var bal_has: Dictionary = stand.call(plain, 0)
+	var bal_not: Dictionary = stand.call(plain, 1)
+	# Attack corridor: narrower with the ball, the corridor full; nothing without it.
+	var att: Dictionary = stand.call({"plan": "attacking", "bursts": []}, 0)
+	_check(float(att["wide"]) <= 0.75 * float(bal_has["wide"]) and same.call(stand.call({"plan": "attacking", "bursts": []}, 1), bal_not),
+			"Attack corridor narrows into the corridor with the ball, by a quarter or more (%.1f m from the centre line against %.1f), and only with it" % [float(att["wide"]), float(bal_has["wide"])])
+	# Controlled tempo: wider with the ball and its lines in short around it.
+	var con: Dictionary = stand.call({"plan": "controlled", "bursts": []}, 0)
+	_check(float(con["wide"]) >= 1.15 * float(bal_has["wide"]) and float(con["span"]) <= float(bal_has["span"]) - 8.0
+			and same.call(stand.call({"plan": "controlled", "bursts": []}, 1), bal_not),
+			"Controlled tempo spreads wide with the ball (%.1f m against %.1f) and its lines come in short (%.0f m front to back against %.0f), only with the ball" % [float(con["wide"]), float(bal_has["wide"]), float(con["span"]), float(bal_has["span"])])
+	# Win contest: the midfield on the ball, both ways.
+	var ctn_has: Dictionary = stand.call({"plan": "contest", "bursts": []}, 0)
+	var ctn_not: Dictionary = stand.call({"plan": "contest", "bursts": []}, 1)
+	_check(float(ctn_has["mid_gap"]) <= 0.7 * float(bal_has["mid_gap"]) and float(ctn_not["mid_gap"]) <= 0.7 * float(bal_not["mid_gap"]),
+			"Win contest keeps its midfield on the ball, a third closer or more (%.0f and %.0f m in all against %.0f and %.0f)" % [float(ctn_has["mid_gap"]), float(ctn_not["mid_gap"]), float(bal_has["mid_gap"]), float(bal_not["mid_gap"])])
+	# ...and extra numbers at every stoppage: the centre bounce set up as a
+	# stack (a flood or stack burst still has the say), and a bigger pack at a
+	# ball-up.
+	d._tac[0] = {"side": 0, "plan": "contest", "bursts": []}
+	var centre_ok := d._centre_setup(0) == "stack" and d._centre_setup(1) == ""
+	d._tac[0] = {"side": 0, "plan": "contest", "bursts": ["flood"]}
+	centre_ok = centre_ok and d._centre_setup(0) == "flood"
+	var bu := -1
+	for i in range((res["events"] as Array).size()):
+		if str(res["events"][i].get("kind", "")) == "ballup" and d._next_real(i) >= 0:
+			bu = i
+			break
+	var packs := func(plan: String) -> Array:
+		d._tac[0] = {"side": 0, "plan": plan, "bursts": []}
+		var per := [0, 0]
+		for ph in d._ballup_phases(bu):
+			if str((ph as Dictionary)["t"]) == "pack":
+				for id in (ph as Dictionary)["members"]:
+					per[int(d.tokens[id]["side"])] += 1
+		return per
+	var pack_bal: Array = packs.call("balanced")
+	var pack_ctn: Array = packs.call("contest")
+	_check(centre_ok and bu >= 0 and int(pack_ctn[0]) > int(pack_bal[0]) and int(pack_ctn[0]) >= 3 + MatchDirector.CONTEST_PACK and int(pack_ctn[1]) == int(pack_bal[1]),
+			"Win contest sends extra numbers to every stoppage: a stacked centre bounce, a ball-up pack of %d against %d (the other side's %d unchanged)" % [int(pack_ctn[0]), int(pack_bal[0]), int(pack_ctn[1])])
+	d._tac[0] = {}
+	# Through stars: the three stars stand closest to the ball, with it only.
+	var st: Dictionary = stand.call({"plan": "through_stars", "bursts": []}, 0)
+	_check(float(st["star_gap"]) <= float(bal_has["star_gap"]) - 10.0 and same.call(stand.call({"plan": "through_stars", "bursts": []}, 1), bal_not),
+			"Through stars brings its three stars at least 10 m closer to the ball (%.0f m against %.0f), only with the ball" % [float(st["star_gap"]), float(bal_has["star_gap"])])
+	# ...and the men on them play them tighter (they know where it's going).
+	var tight := func(plan: String) -> float:
+		d._tac[0] = {"side": 0, "plan": plan, "bursts": []}
+		var gap := 0.0
+		for t in d.tokens:
+			if int(t["side"]) == 0 and d._is_star(t):
+				t["goal"] = d._structure_spot(t, balls[1], 0)
+		for t in d.tokens:
+			var o := int(t["match"])
+			if int(t["side"]) == 1 and o >= 0 and d._is_star(d.tokens[o]):
+				gap += (d._structure_spot(t, balls[1], 0) as Vector2).distance_to(d.tokens[o]["goal"])
+		d._tac[0] = {}
+		return gap
+	var gap_bal: float = tight.call("balanced")
+	var gap_st: float = tight.call("through_stars")
+	_check(gap_st < gap_bal - 3.0, "Their opponents stand tighter on the stars (%.0f m in all against %.0f)" % [gap_st, gap_bal])
+	# Throw numbers at it: numbers ahead of the ball with it, the backs high without it.
+	var sg_has: Dictionary = stand.call({"plan": "balanced", "bursts": ["surge"]}, 0)
+	var sg_not: Dictionary = stand.call({"plan": "balanced", "bursts": ["surge"]}, 1)
+	_check(int(sg_has["ahead"]) >= int(bal_has["ahead"]) + 6 and same.call(sg_not, bal_not),
+			"Throw numbers at it puts at least six more players ahead of the ball with it (%d against %d over three balls), a flood in reverse, and only with it" % [int(sg_has["ahead"]), int(bal_has["ahead"])])
+	# Slow it down: deeper both ways, wider with the ball.
+	var hd_has: Dictionary = stand.call({"plan": "balanced", "bursts": ["hold"]}, 0)
+	var hd_not: Dictionary = stand.call({"plan": "balanced", "bursts": ["hold"]}, 1)
+	_check(float(hd_has["deep"]) <= float(bal_has["deep"]) - 10.0 and float(hd_not["deep"]) <= float(bal_not["deep"]) - 10.0
+			and float(hd_has["wide"]) >= 1.15 * float(bal_has["wide"]),
+			"Slow it down sits at least 10 m deeper both ways (%.0f / %.0f against %.0f / %.0f) and spreads wide with the ball" % [float(hd_has["deep"]), float(hd_not["deep"]), float(bal_has["deep"]), float(bal_not["deep"])])
+	# The pace each call moves at comes from the engine's legs.
+	var paces := []
+	for c in [{"plan": "balanced", "bursts": []}, {"plan": "attacking", "bursts": []}, {"plan": "controlled", "bursts": []},
+			{"plan": "balanced", "bursts": ["surge"]}, {"plan": "balanced", "bursts": ["hold"]}]:
+		d._tac[0] = c
+		paces.append(d._call_pace(0))
+	d._tac[0] = {}
+	_check(is_equal_approx(float(paces[0]), 1.0) and float(paces[1]) > 1.0 and float(paces[2]) < 1.0 and float(paces[3]) > 1.0 and float(paces[4]) < 1.0,
+			"Attack corridor and Throw numbers at it move quicker, Controlled tempo and Slow it down slower (%s)" % str(paces))
+	# Only the recorded call: another side's call, a call with no shape here
+	# (the stack) and the capture switch all leave Balanced as it was.
+	var only := true
+	# (Through stars is left out: the men on its stars answering it is the point.)
+	for c in [{"plan": "attacking", "bursts": []}, {"plan": "controlled", "bursts": ["hold"]}, {"plan": "contest", "bursts": ["surge"]}]:
+		d._tac[1] = c.duplicate()
+		only = only and same.call(stand.call(plain, 0), bal_has) and same.call(stand.call(plain, 1), bal_not)
+		d._tac[1] = {}
+	only = only and same.call(stand.call({"plan": "balanced", "bursts": ["stack"]}, 0), bal_has)
+	MatchDirector.debug_no_press_shape = true
+	for c in [{"plan": "attacking", "bursts": ["surge"]}, {"plan": "contest", "bursts": ["hold"]}]:
+		only = only and same.call(stand.call(c, 0), bal_has)
+	MatchDirector.debug_no_press_shape = false
+	_check(only, "A shape changes only for the side whose call it is, and --noshape draws every call as Balanced")
+
+
+## Every call drawn through real playback: the calls change each passage (both
+## sides, every plan and short call), and nobody jumps, leaves the oval or
+## holds up the log.
+func _test_call_playback(res: Dictionary) -> void:
+	var evs: Array = (res["events"] as Array).slice(0, 640)
+	var opening := [{}, {}]
+	for e in res["timeline"]:
+		if int(e["at"]) == 0:
+			opening[int(e["side"])] = e
+	var calls := [[["attacking", ["surge"]], ["contest", ["hold"]]],
+			[["controlled", ["hold"]], ["through_stars", ["surge"]]],
+			[["through_stars", []], ["attacking", ["flood"]]],
+			[["contest", ["surge"]], ["controlled", []]]]
+	var tl := []
+	for k in range(calls.size()):
+		for side in range(2):
+			var e: Dictionary = (opening[side] as Dictionary).duplicate(true)
+			e["at"] = k * 160
+			e["side"] = side
+			e["plan"] = calls[k][side][0]
+			e["bursts"] = calls[k][side][1]
+			tl.append(e)
+	var r2 := res.duplicate()
+	r2["timeline"] = tl
+	var played := _play(r2, evs, 1.0 / 60.0 * 4.0)
+	_check(not played["stalled"] and (played["out"] as Array).size() == evs.size(),
+			"With every call drawn, playback releases all %d events (%d)" % [evs.size(), (played["out"] as Array).size()])
+	_check(int(played["nan"]) == 0 and int(played["outside"]) == 0 and float(played["max_step"]) < 2.2,
+			"With every call drawn, nobody leaves the oval or jumps (%d outside, largest step %.2f m)" % [int(played["outside"]), float(played["max_step"])])
+
+
+## The feed marks a call (P-12): a plan set at quarter time gives one start line,
+## carried on over a break it says so, and a short call running out gives one
+## end line - mid-quarter or at the break, never both. A short call's start
+## has the coach's call line already, so no second line.
+func _test_call_lines(res: Dictionary) -> void:
+	var evs: Array = res["events"]
+	var qs := []
+	for i in range(evs.size()):
+		if str(evs[i].get("kind", "")) == "quarter":
+			qs.append(i)
+	var walk := func(tl: Array) -> Array:
+		var mem := MatchNotes.call_state()
+		var out := []
+		for i in range(evs.size()):
+			for text in MatchNotes.call_lines(tl, i, evs[i], mem, "RIC", "SYD"):
+				out.append([i, str(text)])
+		return out
+	var ric := GameDB.club_name("RIC")
+	var open := [{"at": 0, "side": 0, "plan": "balanced", "bursts": []}, {"at": 0, "side": 1, "plan": "balanced", "bursts": []}]
+	var lines: Array = walk.call(open + [{"at": int(qs[0]) + 1, "side": 0, "plan": "attacking", "bursts": []}])
+	var starts := lines.filter(func(l): return str(l[1]).contains("is on until"))
+	var kept := lines.filter(func(l): return str(l[1]).contains("stays on until"))
+	_check(starts.size() == 1 and int(starts[0][0]) == int(qs[0]) + 1
+			and str(starts[0][1]) == "%s: Attack corridor is on until half time." % ric,
+			"A plan set at quarter time gives one start line, at the next bounce (%s)" % str(starts))
+	_check(kept.size() == 2 and str(kept[0][1]) == "%s: Attack corridor stays on until three-quarter time." % ric,
+			"...and a line at each later break while it stays on (%s)" % str(kept))
+	var burst: Array = walk.call(open + [{"at": 10, "side": 0, "plan": "balanced", "bursts": ["surge"]},
+			{"at": 40, "side": 0, "plan": "balanced", "bursts": []}])
+	_check(burst.size() == 1 and int(burst[0][0]) == 40 and str(burst[0][1]) == "%s: Throw numbers at it ends." % ric,
+			"A short call running out gives one end line, and its start none of its own (%s)" % str(burst))
+	var at_break: Array = walk.call(open + [{"at": 10, "side": 0, "plan": "balanced", "bursts": ["flood"]},
+			{"at": int(qs[0]) + 1, "side": 0, "plan": "balanced", "bursts": []}])
+	_check(at_break.size() == 1 and int(at_break[0][0]) == int(qs[0]) and str(at_break[0][1]) == "%s: Flood behind the ball ends at the break." % ric,
+			"A short call the break ends gives one line, at the break (%s)" % str(at_break))
+	var off: Array = walk.call([{"at": 0, "side": 0, "plan": "defensive", "bursts": []}, open[1],
+			{"at": int(qs[0]) + 1, "side": 0, "plan": "balanced", "bursts": []}])
+	_check(off.size() == 2 and str(off[0][1]) == "%s: Defensive press is on until quarter time." % ric
+			and str(off[1][1]) == "%s: Defensive press ends." % ric,
+			"A plan from the first bounce is marked, and so is its end (%s)" % str(off))
 
 
 ## FL-007: the guard of honour and chaired off after a milestone game. Who it honours,

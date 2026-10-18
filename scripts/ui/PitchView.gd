@@ -131,6 +131,12 @@ const NUDGE_CAP := 0.5
 static var nudge_full := false
 const NUDGE_EASE := 0.85
 const NUDGE_PASSES := 24
+## The draw-apart moves a disc no faster than a walk (MatchMotion.WALK, in the
+## match's own seconds): two discs closing on each other part over a moment and
+## never snap across (the motion critic, 2026-10-18: a disc hopping 4 m in one
+## frame as a pile re-sorted). Match seconds played since the last layout; -1
+## until the first one, which places the discs at once.
+var _nudge_h := -1.0
 var _nudge := PackedVector2Array()
 var _disc := PackedVector2Array()   # where each token is drawn, in pixels
 ## The bench: each side's five as small discs, along the bottom of the view (the
@@ -278,6 +284,8 @@ func progress() -> float:
 
 func _process(delta: float) -> void:
 	if playing:
+		if _nudge_h >= 0.0:
+			_nudge_h += delta * speed * MatchDirector.TEMPO
 		var out := director.advance(delta * speed)
 		for ev in out:
 			_track_quarter(ev)
@@ -1370,6 +1378,11 @@ func _layout_discs(tr: float) -> void:
 	if _nudge.size() != n:
 		_nudge.resize(n)
 		_nudge.fill(Vector2.ZERO)
+		_nudge_h = -1.0
+	# How far a disc may be moved apart, or back, since the last layout.
+	var budget := INF if nudge_full or _nudge_h < 0.0 else MatchMotion.WALK * _nudge_h * _scale()
+	_nudge_h = 0.0
+	var was := _nudge.duplicate()
 	var real := PackedVector2Array()
 	real.resize(n)
 	var pos := PackedVector2Array()
@@ -1405,7 +1418,13 @@ func _layout_discs(tr: float) -> void:
 				if off.length() > cap:
 					pos[i] = real[i] + off.limit_length(cap)
 	for i in range(n):
-		_nudge[i] = pos[i] - real[i]
+		var off := pos[i] - real[i]
+		if budget < INF:
+			off = was[i] + (off - was[i]).limit_length(budget)
+		if cap < INF:
+			off = off.limit_length(cap)
+		_nudge[i] = off
+		pos[i] = real[i] + off
 	_disc = pos
 
 
@@ -1459,6 +1478,12 @@ func disc_at_point(p: Vector2) -> int:
 ## step exactly as a drawn frame makes it.
 func disc_positions() -> PackedVector2Array:
 	_layout_discs(token_radius())
+	return _disc
+
+
+## Where the last drawn frame put the discs (no new layout step), for the
+## capture tool's motion print.
+func disc_positions_drawn() -> PackedVector2Array:
 	return _disc
 
 

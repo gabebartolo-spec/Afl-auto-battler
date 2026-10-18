@@ -201,6 +201,82 @@ static func press_trigger(timeline: Array, event_index: int, ev: Dictionary, sai
 	return presser if plan == "defensive" else -1
 
 
+## The coach's structural calls in the feed (P-12, director 2026-10-18: "the
+## oval answers a structural call"): a line when a side's game plan starts,
+## carries on over a break or ends, and when a short call (MatchSim.BURSTS)
+## runs out. A short call's start already has its line, the coach's call
+## ("Coach's call: Flood behind the ball for the rest of the quarter."), so it
+## gets no second one. Read from the match's recorded calls (timeline); a plan
+## is in force until the next break at least, when the coach can change it.
+## Every short call ends at the break (MatchSim.end_quarter).
+const PLAN_UNTIL := {1: "quarter time", 2: "half time", 3: "three-quarter time", 4: "the final siren"}
+
+
+## A fresh memory for call_lines, one a match.
+static func call_state() -> Dictionary:
+	return {"i": 0, "plan": ["", ""], "bursts": [[], []], "break": false, "changed": [false, false]}
+
+
+## The feed lines the event at `event_index` brings ([] for none), in order.
+## `state` (call_state) is updated: call once per released event, in order.
+static func call_lines(timeline: Array, event_index: int, ev: Dictionary, state: Dictionary,
+		home: String, away: String) -> Array:
+	var out := []
+	var clubs := [GameDB.club_name(home), GameDB.club_name(away)]
+	var kind := str(ev.get("kind", ""))
+	var q := int(ev.get("q", 1))
+	var bursts: Array = state["bursts"]
+	var plans: Array = state["plan"]
+	if kind == "quarter":
+		# The break ends every short call still running.
+		for side in range(2):
+			for b in (bursts[side] as Array):
+				out.append("%s: %s ends at the break." % [clubs[side], _burst_label(str(b))])
+			bursts[side] = []
+		state["break"] = true
+		state["changed"] = [false, false]
+		return out
+	if kind == "final":
+		return out
+	var changed: Array = state["changed"]
+	while int(state["i"]) < timeline.size() 			and int((timeline[int(state["i"])] as Dictionary).get("at", 0)) <= event_index:
+		var e: Dictionary = timeline[int(state["i"])]
+		state["i"] = int(state["i"]) + 1
+		var side := int(e.get("side", 0))
+		if side < 0 or side > 1:
+			continue
+		var plan := MatchSim.plan_key(str(e.get("plan", "balanced")))
+		var was := str(plans[side])
+		if plan != was:
+			changed[side] = true
+			if plan != "balanced":
+				out.append("%s: %s is on until %s." % [clubs[side], CoachReport.plan_label(plan), _until(q)])
+			elif was != "" and was != "balanced":
+				out.append("%s: %s ends." % [clubs[side], CoachReport.plan_label(was)])
+			plans[side] = plan
+		var now: Array = e.get("bursts", [])
+		for b in (bursts[side] as Array):
+			if not now.has(b):
+				out.append("%s: %s ends." % [clubs[side], _burst_label(str(b))])
+		bursts[side] = now.duplicate()
+	if bool(state["break"]) and kind != "sub" and kind != "injury":
+		# The first play after a break: a plan kept on for the new quarter.
+		state["break"] = false
+		for side in range(2):
+			var kept := str(plans[side])
+			if not changed[side] and kept != "" and kept != "balanced" and q <= 4:
+				out.append("%s: %s stays on until %s." % [clubs[side], CoachReport.plan_label(kept), _until(q)])
+	return out
+
+
+static func _until(q: int) -> String:
+	return str(PLAN_UNTIL.get(q, "the end of extra time"))
+
+
+static func _burst_label(kind: String) -> String:
+	return str((MatchSim.BURSTS.get(kind, {}) as Dictionary).get("label", kind))
+
+
 # ---------------------------------------------------------------------------
 # Quarter-break facts
 # ---------------------------------------------------------------------------

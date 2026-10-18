@@ -81,6 +81,7 @@ var _ft_tab := "summary"        # summary (home), stats or report
 var _run_side := -1            # who kicked the last goal, and how many in a row
 var _run_len := 0
 var _press_said := [false, false]  # the Defensive press line, once a side
+var _call_mem := MatchNotes.call_state()  # the structural calls' lines (MatchNotes.call_lines)
 var _name_index := {}           # name -> club for NameInk, built once per match
 var _duel_mem := {}             # the feed's memory of the key match-ups (MatchNotes.duel_feed_line)
 var _matchup_overlay: Control
@@ -2997,6 +2998,7 @@ func _on_event(ev: Dictionary) -> void:
 	_duel_feed(ev)
 	_story_feed(ev)
 	_press_feed(event_index, ev)
+	_call_feed(event_index, ev)
 	if str(ev.get("kind", "")) == "goal":
 		_flash_score(int(ev.get("side", 0)))
 		_track_run(int(ev.get("side", 0)))
@@ -3953,6 +3955,16 @@ func _press_feed(event_index: int, ev: Dictionary) -> void:
 	var code := str(_res["home"] if presser == 0 else _res["away"])
 	_feed_text("%s  %s" % [_clock_text(int(ev.get("q", 1)), int(ev.get("min", 0))), MatchNotes.press_line(code)],
 			UiKit.TEXT, false, "PressLine")
+
+
+## A side's game plan starting, carrying on over a break or ending, and a short
+## call running out (P-12, MatchNotes.call_lines). A break's line comes after
+## the break's own score line.
+func _call_feed(event_index: int, ev: Dictionary) -> void:
+	for text in MatchNotes.call_lines(_res.get("timeline", []), event_index, ev, _call_mem,
+			str(_res["home"]), str(_res["away"])):
+		_feed_text("%s  %s" % [_clock_text(int(ev.get("q", 1)), int(ev.get("min", 0))), str(text)],
+				UiKit.TEXT, false, "CallLine")
 
 
 ## The battle in the feed, rarely (MatchNotes.duel_feed_line).
