@@ -1,7 +1,7 @@
 # Director decisions, 2026-10-18 morning
 
 Interview by the question tool after the overnight run (25 merges, chapters 28 and 29 built). His picks are in
-quotes where they were a labelled choice; rows 9 to 26 are his own words after the interview (15, 18 and 21 were labelled choices). Where a later decision of his differs, the later one wins. Nothing here
+quotes where they were a labelled choice; rows 9 to 29 are his own words after the interview (15, 18 and 21 were labelled choices). Where a later decision of his differs, the later one wins. Nothing here
 edits the bible.
 
 | # | Question | His answer | What follows |
@@ -32,6 +32,9 @@ edits the bible.
 | 24 | Pre-season story cards (#774, 11 cards behind the pre-season switch, sheet lead/preseason_cards_sheet.md): approve as written, card 5 as a captain vote, or change some | "Approve all 11" | #774 goes in with both sides on every option (card 2's "wait" gains the open price, card 3's "hold the weight" costs slower growth), sizes and odds in the gate format he picks (row 23); main re-sync, fresh captures, his look before merge |
 | 25 | International prospects (names and pathways sheet by country): names fine and switch on, names fine and keep it off, or change names | "Names fine, switch on" | lane intlon turns the switch international_prospects on by default: generated classes carry a prospect from overseas about one class in three, with the 11 story beats; saves unchanged |
 | 26 | Practice match (#747, pre-season week 7, behind the switch): the seven builder-chosen rules (opponent from a regional draw, your club at home, up to three prospects trialled in place of your weakest starters, no auto-fill, a reserves game's worth of development for both lists at half the injury rate, a second sighting overwrites the first note, the plan-familiarity hook) | "Approve the seven" | #747 ships behind the pre-season switch as built, after a main re-sync and fresh captures for his look |
+| 27 | Audit section 7, the gate format: A "about 1 in N" with points, goals, weeks or dollars; B percentages; C both | "B: percentages" | every gate's upside and downside carry percentages in football words ("their shots 25% more accurate", "misses 17% of the time"); the audit's examples are rewritten to B as lanes build them |
+| 28 | Audit section 8, the bible: consent to the replacement of §4 and §5, verbatim | "Yes, use it as written" | docs/DESIGN_BIBLE.md §4 replaced with the approved wording; §5 keeps only "No excessive UI"; CLAUDE.md "No number vomit" and the style guide's copy rule rewritten to match (PR #812). The press-conference "dice roll" line stays until he rules on it (the code's answers are fixed) |
+| 29 | Audit section 6, the ship-first order (key match-up ratings, risk-card multipliers, Who tags and Skip copy, the draft leak, story cards, club gates, the other no-downside options) | "Order stands" | lanes in that order, one or two at a time: storygates started first because its files were free; match-day items 1-3 as one lane after #804 lands; the draft leak after #805 and #806 land |
 
 Left open, no answer yet: the culture young-ceiling size (+1 stays until his playtest) and the Ruthless board warning level (confidence 35, under the 40 poor line).
 
