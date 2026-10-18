@@ -590,7 +590,7 @@ static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
 					["cost", "Locked in at {early_price} a season, %s over what he is worth today, whatever he does next." % _pct(EARLY_PREMIUM_PCT)]]
 		"promise_win":
 			return [["gain", "Win and board confidence goes up %s more than a win alone." % _pct(PROMISE_WIN_UP)],
-					["cost", "Lose and it falls %s more than a loss alone." % _pct(PROMISE_WIN_DOWN)]]
+					["cost", "Lose or draw and board confidence falls %s more than a loss alone." % _pct(PROMISE_WIN_DOWN)]]
 		"captaincy_swap":
 			return [["gain", "{vice_name} takes the armband; {name} stays in the leadership group."],
 					["cost", "Taking it off {name} mid-season: his morale falls %s and he trusts you %s less. It uses your one change this season." % [
@@ -668,8 +668,8 @@ static func _slow_words(e: Dictionary) -> String:
 	var legs := _pct(100 - roundi(ClubLife.SLOW_LEGS))
 	var chance := _pct(int(e.get("chance", 0)))
 	if who == "subject":
-		return "About a %s chance he starts %s slowly, %s short of fresh legs at the first bounce." % [chance, when, legs]
-	return "About a %s chance %s starts %s slowly, every one of them %s short of fresh legs at the first bounce." % [
+		return "About a %s chance he starts %s slowly, %s short of fresh legs for the first quarter." % [chance, when, legs]
+	return "About a %s chance %s starts %s slowly, every one of them %s short of fresh legs for the first quarter." % [
 			chance, "the side" if who == "side" else "the whole list", when, legs]
 
 

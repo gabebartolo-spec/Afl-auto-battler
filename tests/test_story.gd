@@ -205,7 +205,7 @@ const GAIN_WORDS := {
 const COST_WORDS := {
 	"morale": "(?i)morale", "board": "(?i)board confidence", "trust": "trusts you ([0-9]+% )?less",
 	"rest": "misses", "heavy_legs": "Heavy legs", "sore": "chance he is injured", "expects_game": "expects a game",
-	"start_backing": "expects to be picked", "back_kid": "is promised", "promise_win": "Lose and", "extend_early": "Locked in", "captaincy_swap": "mid-season",
+	"start_backing": "expects to be picked", "back_kid": "is promised", "promise_win": "Lose or draw and", "extend_early": "Locked in", "captaincy_swap": "mid-season",
 	"rush_back": "hurt again", "slow_start": "slowly", "loss_sting": "also falls", "role_trial": "away from his usual spot",
 }
 const SAMPLE_FACTS := {"sore_odds": "about 1 in 6", "run_games": 3, "early_price": "$1m", "more_seasons": "two more seasons"}
@@ -388,7 +388,7 @@ func _test_choice_stakes_are_stated() -> void:
 		var all_lines := ""
 		for c in t["choices"]:
 			all_lines += " ".join(StoryEngine.stakes_lines(c.get("effects", []), SAMPLE_FACTS))
-		for kw in ["breaks down", "heavy legs", "expects a game", "promise breaks", "lose and"]:
+		for kw in ["breaks down", "heavy legs", "expects a game", "promise breaks", "lose or draw"]:
 			if st.to_lower().contains(kw) and all_lines.to_lower().contains(kw):
 				repeats.append("%s (%s)" % [t["id"], kw])
 	_check(repeats.is_empty(), "A card's own stakes line never repeats the lines under its choices: %s" % " | ".join(PackedStringArray(repeats)))
@@ -2894,4 +2894,4 @@ func _test_line_numbers_match_effects() -> void:
 	var sting := " ".join(StoryEngine.stakes_lines([{"op": "loss_sting", "chance": 20, "d": -8}], {}))
 	_check(not sting.contains("instead") and sting.contains("also falls 8%"), "The finals sting says the fall comes on top of the lift (%s)" % sting)
 	var slow := " ".join(StoryEngine.stakes_lines([{"op": "slow_start", "who": "subject", "chance": 15}], {"finals_week": 0}))
-	_check(slow.contains("this week's game") and slow.contains("15%"), "A slow start in the season names this week's game and its chance (%s)" % slow)
+	_check(slow.contains("this week's game") and slow.contains("15%") and slow.contains("for the first quarter"), "A slow start in the season names this week's game and its chance (%s)" % slow)
