@@ -54,6 +54,22 @@ func _build() -> void:
 	train.pressed.connect(func(): Router.go("training"))
 	_root.add_child(UiKit.top_bar("My list", true, train))
 
+	# On a phone the Shape pane is the whole page below the title: the board
+	# is 600 px of oval and a bench under a header of standing, captaincy and
+	# culture, taller than the screen, so the page scrolls to the foot of the
+	# oval and the bench (the sweep, 2026-10-18: it ran to y 1005 on 844). A
+	# swipe that starts on a guernsey still scrolls it: the kit lets drags
+	# through every button inside a scroll. The Full list pane scrolls its
+	# own rows.
+	var host: BoxContainer = _root
+	if _narrow() and _pane == "shape":
+		var page := UiKit.vbox(9)
+		page.name = "ShapePage"
+		var page_scroll := UiKit.scroll(page)
+		page_scroll.name = "ShapeScroll"
+		_root.add_child(page_scroll)
+		host = page
+
 	# How the side stacks up, in words, and who is available.
 	var injured := 0
 	for p in GameState.my_list:
@@ -62,11 +78,11 @@ func _build() -> void:
 	var head := UiKit.lbl(GameState.my_line_standing_text(), UiKit.SMALL, UiKit.TEXT)
 	head.name = "LineStanding"
 	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_root.add_child(head)
+	host.add_child(head)
 	var count := "%d players" % GameState.my_list.size()
 	if injured > 0:
 		count += "  ·  %d injured" % injured
-	_root.add_child(UiKit.lbl(count, UiKit.SMALL, UiKit.MUTED))
+	host.add_child(UiKit.lbl(count, UiKit.SMALL, UiKit.MUTED))
 	var named := PackedStringArray()
 	var cap_rec := GameState.captaincy_record(GameState.my_club)
 	for id in Captaincy.ids(cap_rec):
@@ -92,18 +108,18 @@ func _build() -> void:
 		if h != null:
 			(h as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		(cap_link.get_child(0) as BoxContainer).add_theme_constant_override("separation", 16)
-	_root.add_child(cap_link)
+	host.add_child(cap_link)
 	var culture_link := CultureSheet.entry_row()
 	culture_link.pressed.connect(func(): _open_culture())
 	for link in [cap_link, culture_link]:
 		var value: Node = link.find_child("SectionLeadsTo", true, false)
 		if value is Label:
 			(value as Label).add_theme_color_override("font_color", UiKit.TEXT)
-	_root.add_child(culture_link)
+	host.add_child(culture_link)
 
 	if _narrow():
 		var tabs := UiKit.hbox(2)
-		_root.add_child(tabs)
+		host.add_child(tabs)
 		var shape_tab := UiKit.tab("Shape", _pane == "shape")
 		shape_tab.pressed.connect(func():
 			_pane = "shape"
@@ -121,7 +137,7 @@ func _build() -> void:
 	else:
 		body = UiKit.hbox(10)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_root.add_child(body)
+	host.add_child(body)
 
 	if not _narrow() or _pane == "shape":
 		body.add_child(_shape_panel())
@@ -130,7 +146,10 @@ func _build() -> void:
 
 
 func _shape_panel() -> Control:
-	var left := UiKit.panel(UiKit.PANEL, 12)
+	# On a phone the page's scroll rail takes 20 px of the width; the panel's
+	# padding gives some of it back so the cards keep their full names (the
+	# sweep: "Andy Moniz-Wakefield" needs 116 px, the squeezed card gave 114).
+	var left := UiKit.panel(UiKit.PANEL, 6 if _narrow() else 12)
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	left.custom_minimum_size = Vector2(0, 220)

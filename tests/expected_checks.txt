@@ -24,6 +24,7 @@ training 107
 selection 54
 matchup 96
 matchday 552
+calls 8
 roles 218
 injuries 31
 awards 22
@@ -50,4 +51,5 @@ preseason 163
 keyboard 445
 nameink 16
 plan_know 96
+rowgap 110
 planpane 152

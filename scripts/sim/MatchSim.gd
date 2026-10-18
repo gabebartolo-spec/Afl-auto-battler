@@ -948,7 +948,7 @@ func _tag_parts(side: int) -> Array:
 	var theirs := 0.0
 	var ours := 0.0
 	var tagged := _on_ground(side, _tag_id(1 - side))
-	if not tagged.is_empty() and taggable(tagged):
+	if not tagged.is_empty() and can_be_tagged(tagged):
 		theirs = (1.0 - _tag_share(1 - side)) * _mid_value(tagged, n_centre, n_mids)
 	if _tag_id(side) != "" and not _on_ground(1 - side, _tag_id(side)).is_empty():
 		var t = tagger_of(side)
@@ -1299,7 +1299,7 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String, ctx: Diction
 	# A Crumber lives at the feet of the pack: he is there when it spills.
 	if purpose == "crumb" and _trait(p, "crumber"):
 		out *= CRUMBER_AT_FEET
-	if id == str(ctx["their_tag"]) and taggable(p) and (carrying or purpose == "shooter" or purpose == "crumb"):
+	if id == str(ctx["their_tag"]) and can_be_tagged(p) and (carrying or purpose == "shooter" or purpose == "crumb"):
 		out *= float(ctx["tag_share"])
 	# Our tagger is playing the man, not the ball.
 	if carrying and id == str(ctx["tagger"]):
@@ -4223,10 +4223,10 @@ func _drop_tag_on(id: String) -> void:
 func tag_target_ok(owner: int, id: String) -> bool:
 	var g := _on_ground(owner, id)
 	if not g.is_empty():
-		return midfielder_on_ground(g)
+		return can_be_tagged(g)
 	for p in (squads[owner] as Squad).bench:
 		if str(p["id"]) == id:
-			return midfielder_on_ground(p)
+			return can_be_tagged(p)
 	return false
 
 
@@ -4293,9 +4293,14 @@ func _auto_rotate(side: int) -> void:
 	var policy: Dictionary = ROTATION_POLICIES.get(rotation_policy[side], ROTATION_POLICIES["normal"])
 	var worst := -1
 	var worst_e := 101.0
+	var named_tagger := str((tactics[side] as Dictionary).get("tagger_id", "")) if _tag_id(side) != "" else ""
 	for i in range(sq.ground.size()):
 		var p: Dictionary = sq.ground[i]
 		if str(_held.get(str(p["id"]), "")) == "keep":
+			continue
+		# The tagger the coach named stays on the ground while his tag is on
+		# (director, 2026-10-14); he still tires, and injuries still apply.
+		if named_tagger != "" and str(p["id"]) == named_tagger:
 			continue
 		var e := float(energy.get(str(p["id"]), 100.0))
 		var line := float(policy["star"]) if int(p["overall"]) >= STAR_OVR else float(policy["role"])
@@ -5299,9 +5304,18 @@ func _lost_quarter(side: int, q: int) -> bool:
 	return pts.call(side) < pts.call(1 - side)
 
 
-## A tag is a midfield job: only a midfielder (centre or wing) can be tagged.
+## A tag is a midfield job: only a midfielder (centre or wing) is picked for
+## one by the AI and the match moments.
 static func taggable(p: Dictionary) -> bool:
 	return midfielder_on_ground(p)
+
+
+## What the coach may tag: anyone who can play midfield, by his first or
+## second position, wherever he lines up today (director, 2026-10-14: a
+## mid/forward like Rankine could not be tagged). A ruck or defender with no
+## midfield position still cannot.
+static func can_be_tagged(p: Dictionary) -> bool:
+	return Ratings.positions(p).has("MID")
 
 
 ## Playing in the midfield today and a midfielder by position. The match-day
