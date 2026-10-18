@@ -102,7 +102,13 @@ What that showed, and what the view does about it:
   the boundary line and out of the pockets the phone's bench strip covers; no
   two of a side's spots stand within 7 m (they part front to back); and in
   possession each line (backs, midfield, forwards) keeps at least 12 m of
-  spread across the ground (standard deviation), Balanced's narrowest line.
+  spread across the ground (standard deviation), Balanced's narrowest line,
+  except under Attack corridor, which keeps its lanes instead (below).
+- **Draw order is stable.** Lower on the screen is drawn over higher, then by
+  player id, and the order is kept from frame to frame: two discs change
+  places only once one has passed the other by more than a disc's radius. The
+  man with the ball is drawn over everyone; the ball changing hands is the only
+  thing that lifts a disc to the top at once.
 
 ## The coach's calls on the oval
 
@@ -115,9 +121,9 @@ Each structural call has a shape, read from the match's recorded calls
 | Defensive press | one band around the ball in their back half or the middle, narrower, with the press-zone wash |
 | Flood behind the ball | the midfield folds back between ball and goal, the half-forwards push up |
 | Stack the stoppage | the wings on the square's edge at a centre bounce, crashing in at the bounce |
-| Attack corridor | with the ball the side packs the corridor (each line no narrower than the 12 m floor) and the ball goes down the middle, zig-zagging across it so each receiver leads in his own lane (no switch of play); moves quicker |
+| Attack corridor | with the ball the whole side narrows into the corridor, each man in his own lane: each line of three keeps its left-to-right order a disc apart (9.5 m, never under 7 m), the midfield's lanes between the backs' and forwards' so two lines never share a lane where they meet, the wings a little up the ground; the ball goes to the receiver's lane and he leads up it, nobody comes onto the ball (no switch of play); moves quicker |
 | Controlled tempo | spreads wide with the ball, its lines short around it; moves slower |
-| Win contest | the midfield stays on the ball, round it 9.5 m off, each on his own side; at every centre bounce, ball-up and throw-in one more in the pack (six of its discs within 6 m of the ball at most), the wings sprinting in round it and both half-lines a beat later, 9 m off, through the clearance (none at a marking contest: the engine gives it no edge there) |
+| Win contest | the midfield stays on the ball, round it 10.5 m off, each on his own side, and in open play the two of its half lines nearest the ball shadow it with them: numbers round the ball; at every centre bounce, ball-up and throw-in one more in the pack, and the pack is a ring, not a stack: the rucks and one more a side on the ball (inside 3 m), the rest 8 m round it between them, everyone else 13 m off until the ball is up; the wings sprint in round it and both half-lines a beat later, 13 m off, through the clearance (none at a marking contest: the engine gives it no edge there) |
 | Through stars | with the ball the three stars stand closest to it and lead first when the log has one getting it next, their opponents stay glued to them, and the rest of the side sets up on the side of the ground of the star nearest the ball-carrier |
 | Throw numbers at it | with the ball the midfield and the half-back line run past where the chain is going (the furthest lead already on), the forwards stay ahead of it and the back pockets come up, on the engine's quicker legs (up to a sprint) |
 | Slow it down | sits deeper with and without the ball (the backs 18 m, the midfield and forwards 24 m), spreads wide with the ball; moves slower, with shorter, slower leads that start only when they must. Carriers hold the ball no longer: the engine's hold chains have more disposals in the same minutes |
@@ -125,7 +131,10 @@ Each structural call has a shape, read from the match's recorded calls
 Every shape moves its side at least 8 m from Balanced, measured as the phone
 draws it (`tests/test_match_motion.gd`): from the discs on the upright oval,
 over the frames the call applies, depth calls relative to the ball and to the
-other side.
+other side. Balanced is also the bar for crowding: Attack corridor, about 45%
+narrower, keeps its heavy overlaps within 130% of Balanced's, its file-of-three
+frames within 2 points and no file longer than Balanced's longest, on the same
+events.
 
 The feed marks a plan when it starts ("Fremantle: Win contest is on until half
 time."), when it carries on over a break and when it ends, and a short call
@@ -167,9 +176,9 @@ movement model's clock. A full match takes about 4 to 5 minutes at the default
 - `tests/test_match_motion.gd` (suite `match_motion`) plays 640 events with
   every call on both sides on the phone's upright oval at 1x and 4x and holds
   the motion limits frame by frame from the discs as drawn (a sprint, the
-  walking draw-apart, the visible share of each side's discs, line widths, the
-  boundary and bench margins, the Win contest pack), and measures each call
-  against Balanced.
+  walking draw-apart, the visible share of each side's discs, line widths and
+  the corridor's lanes, the boundary and bench margins, the Win contest pack and
+  its ring, the draw order), and measures each call against Balanced.
 - `tests/test_match_visual.gd` (in `tools/run_tests.sh`) covers:
   - the log, score and stats are unchanged after playback;
   - no event is mutated;

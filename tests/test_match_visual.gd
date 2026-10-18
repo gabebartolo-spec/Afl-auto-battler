@@ -1931,9 +1931,7 @@ func _test_discs_apart() -> void:
 			if str(pv.director.ball.get("mode", "")) == "held" and holder >= 0:
 				ball_off = maxf(ball_off, pv.ball_point().distance_to(drawn[holder]) / pv._scale())
 				var order := pv.draw_order()
-				if order.size() != drawn.size() or int(order[-1]) != holder \
-						or int(pv.director.tokens[order[-2]]["side"]) == int(pv.director.tokens[holder]["side"]) \
-						or int(pv.director.tokens[order[-3]]["side"]) == int(pv.director.tokens[holder]["side"]):
+				if order.size() != drawn.size() or int(order[-1]) != holder:
 					top_ok = false
 		closest = sqrt(closest)
 		real_closest = sqrt(real_closest)
@@ -1945,7 +1943,7 @@ func _test_discs_apart() -> void:
 			_check(not pv.playing and worst_nudge_discs <= PitchView.NUDGE_CAP + 0.01,
 					"%s: a disc is drawn within half its width of its player (%.2f of a disc at most; closest pair %.2f of one, the players %.2f)" % [
 					str(view[2]), worst_nudge_discs, closest, real_closest])
-		_check(top_ok, "%s: the man with the ball is drawn last, over the two opponents nearest him" % str(view[2]))
+		_check(top_ok, "%s: the man with the ball is drawn on top of every disc" % str(view[2]))
 		_check(moved_engine == 0, "%s: drawing the discs apart moves no player" % str(view[2]))
 		_check(ball_off <= 1.0, "%s: a held ball is drawn at its holder's disc (%.2f m off)" % [str(view[2]), ball_off])
 		_check(worst_nudge_m < 20.0, "%s: no disc is drawn far from its player (%.1f m at most)" % [str(view[2]), worst_nudge_m])

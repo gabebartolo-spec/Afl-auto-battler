@@ -194,6 +194,7 @@ func setup(p_result: Dictionary) -> void:
 	clash = bool((_kits[1] as Dictionary).get("clash", false))
 	_nudge = PackedVector2Array()
 	_disc = PackedVector2Array()
+	_order = []
 	_flip_pending = false
 	_trail = []
 	mini_figures = GameState.match_figures_on()
@@ -1428,38 +1429,56 @@ func _layout_discs(tr: float) -> void:
 	_disc = pos
 
 
-## The order the discs are drawn in, last on top: the farthest from the ball
-## first, and last of all the two opponents nearest the man with the ball, then
-## the man himself, so where discs still overlap the ones that matter show whole.
+## The order the discs are drawn in, last on top: lower on the screen over
+## higher, then the player id, and the man with the ball over everyone. The
+## order is kept from frame to frame: two discs change places only once one has
+## passed the other on screen by more than a disc's radius (the motion critic,
+## 2026-10-18: discs swapping in front of each other as players neared the ball).
+## Only the ball changing hands lifts a disc to the top at once.
+var _order: Array = []
+
+
 func draw_order() -> Array:
 	var n := director.tokens.size()
-	var ball_pos: Vector2 = director.ball.get("pos", Vector2.ZERO)
+	if _order.size() != n:
+		_order = range(n)
+		_order.sort_custom(func(a, b): return _disc_at(a).y < _disc_at(b).y \
+				or (_disc_at(a).y == _disc_at(b).y and a < b))
+	var ys := PackedFloat32Array()
+	ys.resize(n)
+	for i in range(n):
+		ys[i] = _disc_at(i).y
+	var r := token_radius()
+	# Neighbours swap only when the one drawn first is lower by more than a
+	# radius; every swap undoes one such crossing, so this always ends.
+	var moved := true
+	var guard := 0
+	while moved and guard < n * n:
+		moved = false
+		for k in range(n - 1):
+			guard += 1
+			var a: int = _order[k]
+			var b: int = _order[k + 1]
+			if ys[a] > ys[b] + r:
+				_order[k] = b
+				_order[k + 1] = a
+				moved = true
+	var out := _order.duplicate()
+	var carrier := top_disc()
+	if carrier >= 0:
+		out.erase(carrier)
+		out.append(carrier)
+	return out
+
+
+## The player drawn on top of everyone: the man with the ball, or the last to
+## have it while it is in the air; -1 for none.
+func top_disc() -> int:
+	var n := director.tokens.size()
 	var carrier := int(director.ball.get("holder", -1))
 	if carrier < 0 or carrier >= n:
 		carrier = director.actor if director.actor >= 0 and director.actor < n else -1
-	var rows := []
-	for i in range(n):
-		rows.append([(director.tokens[i]["pos"] as Vector2).distance_squared_to(ball_pos), i])
-	rows.sort_custom(func(a, b): return a[0] > b[0] if a[0] != b[0] else a[1] < b[1])
-	var out := []
-	for r in rows:
-		out.append(int(r[1]))
-	if carrier >= 0:
-		var side := int(director.tokens[carrier]["side"])
-		var at: Vector2 = director.tokens[carrier]["pos"]
-		var opp := []
-		for i in range(n):
-			if int(director.tokens[i]["side"]) != side:
-				opp.append([(director.tokens[i]["pos"] as Vector2).distance_squared_to(at), i])
-		opp.sort_custom(func(a, b): return a[0] < b[0] if a[0] != b[0] else a[1] < b[1])
-		var top := []
-		for k in range(mini(2, opp.size()) - 1, -1, -1):
-			top.append(int(opp[k][1]))
-		top.append(carrier)
-		for id in top:
-			out.erase(id)
-			out.append(id)
-	return out
+	return carrier
 
 
 ## The player whose disc is drawn at `p` (a point in this view), -1 for none: the
