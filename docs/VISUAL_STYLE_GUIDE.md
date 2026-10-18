@@ -154,8 +154,9 @@ last.
 
 ### 4.4 Decision sheet (coach's break, contract, event)
 What happened in two lines, the choice as a segmented control or at most three secondary buttons
-each with a one-line consequence in plain words, one primary action. No numbers unless the number
-is the decision (a cost, a term).
+each stating its upside, downside, size and odds in plain words (bible §4, director 2026-10-18),
+never which is better, one primary action. Off the gate, no numbers unless the number is the
+decision (a cost, a term).
 
 ### 4.5 Leaderboard (stats)
 A picker for the stat, one toggle (totals or per game), then leaderboard rows. One stat at a time

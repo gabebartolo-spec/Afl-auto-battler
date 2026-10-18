@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Intent on the button, never odds (director, 2026-10-18, proposal P-62).
 
+SUPERSEDED (bible §4, director 2026-10-18, later the same day): every decision gate now shows each
+option's upside, downside, size and odds, as percentages in football words. This lint enforces the old
+rule and is to be retired or turned into a check that each gate names a positive and a negative; the
+transparency work owns that change. Only this note was edited, not the behaviour.
+
 Fails on any player-facing string in scripts/ui/**/*.gd or data/stories/** that
 quotes odds: a percent sign, or "chance" / "odds" / "probability" / "percent"
 next to a number (a digit or a format or story placeholder). A call button
