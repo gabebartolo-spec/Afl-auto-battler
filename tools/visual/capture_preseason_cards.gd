@@ -2,9 +2,10 @@ extends SceneTree
 ## The pre-season card stop (row 39, slice 5) for the lead's check and the director's look.
 ## Needs a real renderer:
 ##   godot --path . --script tools/visual/capture_preseason_cards.gd -- --out /tmp/precards --club FRE [--size 1280x720]
-## Writes <out>_recruit.png (card 1, a named player), <out>_camp.png (card 4, three choices)
-## and <out>_starlast.png (card 9, the time trial's back marker). Each stop is the real
-## pre-season screen after week 3, with the card forced so it is the one on show.
+## Writes <out>_<NN>_<card>.png for each of the 11 cards (01_recruit ... 11_heated), and
+## <out>_<NN>_<card>_low.png scrolled to the foot when the card runs past the screen. Each
+## stop is the real pre-season screen after week 3, with the card and its player forced so
+## it is the one on show.
 
 var W := 390
 var H := 844
@@ -71,8 +72,22 @@ func _run() -> void:
 	var trial: Dictionary = state.preseason_trial()
 	var recruit: Dictionary = state.my_list[6]
 	recruit["joined"] = state.season_year - 1
+	var senior: Dictionary = state.my_list[2]
+	senior["contract_years"] = 1
+	senior["age"] = maxf(29.0, float(senior.get("age", 29.0)))
+	var young: Dictionary = state.my_list[12]
+	young["age"] = 20.0
+	young["potential"] = int(young.get("overall", 60)) + 10
+	var knee: Dictionary = state.my_list[9]
+	knee["injury_weeks"] = 3
+	knee["injury_kind"] = "knee"
+	var kid: Dictionary = state.list_player(str((trial["best"] as Array)[0]))
 	var star: Dictionary = state.list_player(str((trial["worst"] as Array)[0]))
-	for shot in [["pre_recruit_behind", recruit, "recruit"], ["pre_camp", {}, "camp"], ["pre_star_last", star, "starlast"]]:
+	var shots := [["pre_recruit_behind", recruit, "01_recruit"], ["pre_contract_talk", senior, "02_contract"],
+			["pre_bulking_up", young, "03_bulking"], ["pre_camp", {}, "04_camp"], ["pre_leaders_vote", {}, "05_leaders"],
+			["pre_knee_return", knee, "06_knee"], ["pre_flag_hangover", {}, "07_flag"], ["pre_kid_flying", kid, "08_kid"],
+			["pre_star_last", star, "09_starlast"], ["pre_members_open", {}, "10_members"], ["pre_sim_heated", {}, "11_heated"]]
+	for shot in shots:
 		var card: Dictionary = state.story_card(str(shot[0]), shot[1])
 		print(shot[2], " card: ", card.get("title", "EMPTY"))
 		state.week_events = [card]
@@ -81,4 +96,9 @@ func _run() -> void:
 		await _frames(12)
 		print("scene ", current_scene.name, " stop ", state.preseason_stop())
 		await _shot(out + "_" + str(shot[2]) + ".png")
+		var page: Node = current_scene.find_child("PreSeasonPage", true, false)
+		var sc := page.get_parent() as ScrollContainer if page != null else null
+		if sc != null and sc.get_v_scroll_bar().max_value > sc.size.y + 4.0:
+			sc.scroll_vertical = int(sc.get_v_scroll_bar().max_value)
+			await _shot(out + "_" + str(shot[2]) + "_low.png")
 	quit()
