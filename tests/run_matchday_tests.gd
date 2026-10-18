@@ -1442,19 +1442,20 @@ func _club_ink_all() -> void:
 	# primary-action red). Part 1: name markup, every club in turn.
 	var ni = load("res://scripts/ui/NameInk.gd")
 	var markup_bad := []
+	var reds_seen := 0
 	for code in codes:
 		var c2 := str(code)
 		var squad: Array = db.club_list(c2)
 		if squad.is_empty():
-			markup_bad.append("%s has no players" % c2)
-			continue
+			continue  # an expansion club with no list in this fixture: nothing to check
+		reds_seen += 1 if reds.has(c2) else 0
 		var who: String = db.player_display_name(squad[0])
 		var bb: String = ni.markup(who, ni.from_clubs([c2]))
 		var raw := "[color=#%s]" % uk.club_ink(c2).to_html(false)
 		var shown := "[color=#%s]" % uk.club_name_colour(uk.club_ink(c2)).to_html(false)
 		if not bb.contains(shown) or (reds.has(c2) and bb.contains(raw)):
 			markup_bad.append("%s %s" % [c2, bb])
-	_check(markup_bad.is_empty(), "Every club's player name markup uses the name colour, never a red club's raw ink (%s)" % str(markup_bad))
+	_check(markup_bad.is_empty() and reds_seen == reds.size(), "Every club's player name markup uses the name colour, never a red club's raw ink (%s, %d red clubs checked)" % [str(markup_bad), reds_seen])
 	# Part 2: no screen script hands a raw club ink to a name label or its font colour.
 	var raw_paint := []
 	var stack: Array = ["res://scripts/ui"]
