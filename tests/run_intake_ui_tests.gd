@@ -718,6 +718,9 @@ func _draft_night_screen(size: Vector2i) -> void:
 		_check(yours.text == dn.your_pick_line(next_mine, int(first_rival["pick"])),
 				"And says how far away your next pick is (%s: %s)" % [tag, yours.text])
 		_check(ui.find_child("DraftNightStage", true, false) == null, "A rival's pick gets no stage (%s)" % tag)
+		var picks_tab: Button = ui.find_child("SideTab_picks" if size.x >= 760 else "Tab_picks", true, false)
+		_check(picks_tab != null and picks_tab.text == "Picks (%d)" % (at + 1),
+				"The pick log holds back the picks the board has not shown (%s: %s)" % [tag, picks_tab.text if picks_tab else "-"])
 		await create_timer(0.75).timeout
 		_check(ui.find_child("DraftNightStage", true, false) == null and status.text != "Pick %d: %s" % [int(first_rival["pick"]), _db.club_name(str(first_rival["club"]))],
 				"The rival picks fill in one by one, with no stage (%s: %s)" % [tag, status.text])
@@ -727,6 +730,9 @@ func _draft_night_screen(size: Vector2i) -> void:
 		_check(not ui.call("replaying") and status.text == "Pick %d: Fremantle" % next_mine
 				and yours.text == "Your pick: %d, now" % next_mine,
 				"A tap on the board finishes the replay: you are on the clock again (%s: %s)" % [tag, status.text])
+		picks_tab = ui.find_child("SideTab_picks" if size.x >= 760 else "Tab_picks", true, false)
+		_check(picks_tab != null and picks_tab.text == "Picks (%d)" % draft.pick_history.size(),
+				"Then the pick log has every pick (%s: %s)" % [tag, picks_tab.text if picks_tab else "-"])
 	# Back cuts the show to the end, beat and replay alike.
 	if draft.is_user_turn():
 		var pick_me: Button = ui.find_child("PickForMe", true, false)

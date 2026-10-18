@@ -625,8 +625,8 @@ func _refresh_tabs() -> void:
 	for item in [["pool", "Pool"], ["picks", "Picks"], ["squad", "My list"], ["order", "Order"]]:
 		var key: String = item[0]
 		var label := str(item[1])
-		if key == "picks" and not _draft.pick_history.is_empty():
-			label += " (%d)" % _draft.pick_history.size()
+		if key == "picks" and _shown_picks() > 0:
+			label += " (%d)" % _shown_picks()
 		var b := UiKit.tab(label, _tab == key)
 		b.name = "Tab_" + key
 		b.pressed.connect(_select_tab.bind(key))
@@ -1107,7 +1107,7 @@ func _after_my_pick(at: int) -> void:
 		_land_my_pick()
 		return
 	_shown_upto = at + 1
-	_refresh_live()
+	_refresh_shown()
 	_show_beat(_draft.pick_history[at])
 
 
@@ -1132,7 +1132,7 @@ func _start_replay(from: int) -> void:
 		_finish_replay()
 		return
 	_shown_upto = from
-	_refresh_live()
+	_refresh_shown()
 	_replay_timer.start(REPLAY_STEP)
 
 
@@ -1144,11 +1144,27 @@ func _replay_step() -> void:
 		_shown_upto = -1
 	else:
 		_replay_timer.start(REPLAY_STEP)
-	_refresh_live(true)
+	_refresh_shown(true)
 
 
 func replaying() -> bool:
 	return _shown_upto >= 0
+
+
+## How many picks the board and the pick log show: all of them, or during a
+## replay the ones it has reached.
+func _shown_picks() -> int:
+	var all: int = _draft.pick_history.size()
+	return all if _shown_upto < 0 else mini(_shown_upto, all)
+
+
+## The live board, the pick log and its tab, as far as the replay has reached.
+func _refresh_shown(settle := false) -> void:
+	_refresh_live(settle)
+	if is_instance_valid(_main_tabs):
+		_refresh_tabs()
+	if is_instance_valid(_history_box):
+		_refresh_history()
 
 
 func _finish_replay() -> void:
@@ -1156,7 +1172,7 @@ func _finish_replay() -> void:
 		_replay_timer.stop()
 	if _shown_upto >= 0:
 		_shown_upto = -1
-		_refresh_live()
+		_refresh_shown()
 
 
 ## Cut straight to the end of the night's show: the stage and the replay.
@@ -1702,7 +1718,8 @@ func _build_activity() -> PanelContainer:
 func _refresh_history() -> void:
 	UiKit.clear(_history_box)
 	var entries := []
-	for i in range(_draft.pick_history.size() - 1, -1, -1):
+	# During draft night's replay the log holds back the picks the board has not shown.
+	for i in range(_shown_picks() - 1, -1, -1):
 		var entry: Dictionary = _draft.pick_history[i]
 		if _history_club.is_empty() or str(entry["club"]) == _history_club:
 			entries.append(entry)
