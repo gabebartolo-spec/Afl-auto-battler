@@ -98,7 +98,7 @@ static func markup(text: String, index: Dictionary) -> String:
 	var at := 0
 	for s in spans:
 		out += _escape(text.substr(at, int(s[0]) - at))
-		var col := UiKit.club_ink(str(s[2]))
+		var col := UiKit.club_name_colour(UiKit.club_ink(str(s[2])))
 		var shown := text.substr(int(s[0]), int(s[1]) - int(s[0]))
 		var ink := "[color=#%s]%s[/color]" % [col.to_html(false), _escape(shown).replace(" ", NBSP)]
 		var id := str(index.get("#" + shown, ""))

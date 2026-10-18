@@ -1438,6 +1438,46 @@ func _club_ink_all() -> void:
 		if reds.has(c) != (nm == uk.TEXT) and c != "COL":
 			red_bad.append("%s name %s" % [c, nm.to_html(false)])
 	_check(red_bad.is_empty(), "A red-ink club's name is plain TEXT, every other club's name is its ink (Adelaide's is gold since 2026-10-14) (%s)" % str(red_bad))
+	# No name is painted in a raw red ink anywhere (found 2026-10-18: a Melbourne name read as the
+	# primary-action red). Part 1: name markup, every club in turn.
+	var ni = load("res://scripts/ui/NameInk.gd")
+	var markup_bad := []
+	var reds_seen := 0
+	for code in codes:
+		var c2 := str(code)
+		var squad: Array = db.club_list(c2)
+		if squad.is_empty():
+			continue  # an expansion club with no list in this fixture: nothing to check
+		reds_seen += 1 if reds.has(c2) else 0
+		var who: String = db.player_display_name(squad[0])
+		var bb: String = ni.markup(who, ni.from_clubs([c2]))
+		var raw := "[color=#%s]" % uk.club_ink(c2).to_html(false)
+		var shown := "[color=#%s]" % uk.club_name_colour(uk.club_ink(c2)).to_html(false)
+		if not bb.contains(shown) or (reds.has(c2) and bb.contains(raw)):
+			markup_bad.append("%s %s" % [c2, bb])
+	_check(markup_bad.is_empty() and reds_seen == reds.size(), "Every club's player name markup uses the name colour, never a red club's raw ink (%s, %d red clubs checked)" % [str(markup_bad), reds_seen])
+	# Part 2: no screen script hands a raw club ink to a name label or its font colour.
+	var raw_paint := []
+	var stack: Array = ["res://scripts/ui"]
+	while not stack.is_empty():
+		var dir_path: String = stack.pop_back()
+		for sub in DirAccess.get_directories_at(dir_path):
+			stack.append(dir_path + "/" + sub)
+		for f in DirAccess.get_files_at(dir_path):
+			if not f.ends_with(".gd"):
+				continue
+			var src := FileAccess.get_file_as_string(dir_path + "/" + f)
+			var n_line := 0
+			for ln in src.split("
+"):
+				n_line += 1
+				var t: String = ln.strip_edges()
+				if t.begins_with("#"):
+					continue
+				var paints: bool = (t.contains("lbl(") or t.contains("line(") or t.contains("ellipsis(") or t.contains("font_color")) 						and (t.contains("UiKit.club_ink(") or t.contains("UiKit.club_ink_second(")) 						and not t.contains("club_name_colour(")
+				if paints:
+					raw_paint.append("%s:%d" % [f, n_line])
+	_check(raw_paint.is_empty(), "No screen paints a name label in a raw club ink (use UiKit.club_name_colour) (%s)" % str(raw_paint))
 
 
 func _pc_break_worst_case(club := "COL") -> void:
@@ -3202,7 +3242,7 @@ func _break_panes_layout() -> void:
 		await _matchup_rows(m, box, tag)
 		var mq: Control = box.find_child("MinderQuestion", true, false)
 		var opp_code := str(sim.squads[1 - int(sim.moment_side)].code)
-		var ink_club: String = "[color=#%s]%s[/color]" % [UK.club_ink(opp_code).to_html(false), db.club_name(opp_code).replace(" ", NB)]
+		var ink_club: String = "[color=#%s]%s[/color]" % [UK.club_name_colour(UK.club_ink(opp_code)).to_html(false), db.club_name(opp_code).replace(" ", NB)]
 		_check(mq is RichTextLabel and (mq as RichTextLabel).text.contains(ink_club),
 				"The club name in Who covers (%s)? wears the club's ink (%s: %s)" % [db.club_name(opp_code), tag, "" if mq == null else str(mq.get("text"))])
 		if sz.x >= 1200:
@@ -3266,7 +3306,7 @@ func _break_panes_layout() -> void:
 					if not _plain_of(ans).contains(sur):
 						continue
 					named += 1
-					_check(ans.text.contains("[color=#%s]%s" % [UK.club_ink(str(pair[1])).to_html(false), sur.replace(" ", NB)]),
+					_check(ans.text.contains("[color=#%s]%s" % [UK.club_name_colour(UK.club_ink(str(pair[1]))).to_html(false), sur.replace(" ", NB)]),
 							"%s wears %s's ink on the key match-ups row (%s)" % [sur, pair[1], tag])
 			_check(named >= 2, "The key match-ups row names players (%d, %s)" % [named, tag])
 		var inks: Array = UK.club_ink_pair(str(sim.squads[0].code), str(sim.squads[1].code))
@@ -3276,7 +3316,7 @@ func _break_panes_layout() -> void:
 			var count := 0
 			for n in (wrap.find_children("StandoutName", "Label", true, false) if wrap != null else []):
 				count += 1
-				if (n as Label).get_theme_color("font_color") != (inks[side] as Color):
+				if (n as Label).get_theme_color("font_color") != UK.club_name_colour(inks[side] as Color):
 					plain.append((n as Label).text)
 			_check(count >= 1 and plain.is_empty(), "Best so far names for side %d wear his club's ink (%s, %d, not: %s)" % [side, tag, count, str(plain)])
 		m2.queue_free()
