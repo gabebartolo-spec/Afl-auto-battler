@@ -679,7 +679,7 @@ func _runner(id: String, place: String, node_name: String) -> Control:
 	n.name = node_name
 	n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	n.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	h.add_child(n)
+	h.add_child(NameLink.tappable(n, id) if not p.is_empty() else n)
 	if not p.is_empty():
 		var role := UiKit.lbl(str(UiKit.ROLE_LABEL.get(str(p.get("role", "")), str(p.get("role", "")))),
 				UiKit.SECONDARY, UiKit.TEXT)

@@ -802,6 +802,11 @@ static func loose_question() -> String:
 	return "Who plays loose behind the ball?"
 
 
+## The question the Tag call asks, over its choices (an assistant tagger is a follow-up).
+static func tag_question() -> String:
+	return "Tag which player?"
+
+
 ## Your loose man's intercepts this match, in a line: "Jake Lever: 4
 ## intercepts so far." Nothing hidden: the number is his match stat.
 static func loose_tally_line(who: String, n: int) -> String:

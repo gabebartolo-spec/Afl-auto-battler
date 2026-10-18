@@ -112,6 +112,7 @@ func _box_score(size: Vector2i) -> void:
 	body.add_child(load("res://scripts/ui/match/BoxScore.gd").new().setup(res))
 	await _settle(8)
 	_audit(bg, "boxscore %dx%d" % [size.x, size.y])
+	_inked(bg, str(res["home"]), str(res["away"]), "boxscore %dx%d" % [size.x, size.y])
 	bg.queue_free()
 	await _settle(2)
 
@@ -139,6 +140,8 @@ func _match_sheets(size: Vector2i) -> void:
 	_check(sheet != null, "break stats sheet opens at %dx%d" % [size.x, size.y])
 	if sheet != null:
 		_audit(sheet, "break stats %dx%d" % [size.x, size.y])
+		var bres: Dictionary = scene.get("_res")
+		_inked(sheet, str(bres["home"]), str(bres["away"]), "break stats %dx%d" % [size.x, size.y])
 		if size.x >= 1280:
 			_one_page(sheet, "break stats %dx%d" % [size.x, size.y])
 			_wide_sheet(sheet, "break stats %dx%d" % [size.x, size.y], size)
@@ -157,6 +160,8 @@ func _match_sheets(size: Vector2i) -> void:
 	_check(ft != null, "full time opens at %dx%d" % [size.x, size.y])
 	if ft != null:
 		_audit(ft, "full time stats %dx%d" % [size.x, size.y])
+		var fres: Dictionary = scene.get("_res")
+		_inked(ft, str(fres["home"]), str(fres["away"]), "full time stats %dx%d" % [size.x, size.y])
 		if size.x >= 1280:
 			_one_page(ft.find_child("StatsColumns", true, false), "full time stats %dx%d" % [size.x, size.y])
 			_wide_sheet(ft, "full time stats %dx%d" % [size.x, size.y], size)
@@ -165,6 +170,28 @@ func _match_sheets(size: Vector2i) -> void:
 			_phone_scorers(ft, "full time stats %dx%d" % [size.x, size.y])
 	scene.queue_free()
 	await _settle(4)
+
+
+## Both clubs treated alike (director A1, 2026-10-14: club ink wherever a club or a player is
+## named): each club's name and score, and every goalkicker and best-rated name under it, wear
+## that club's ink (UiKit.club_ink_pair), not plain white for one of them.
+func _inked(node: Node, home: String, away: String, tag: String) -> void:
+	var inks: Array = load("res://scripts/ui/UiKit.gd").club_ink_pair(home, away)
+	for side in [0, 1]:
+		var head: Node = node.find_child("BoxHeader_%d" % side, true, false)
+		_check(head != null, "%s: the score header for side %d is there" % [tag, side])
+		if head != null:
+			var fig: Node = head.find_child("BoxScore_%d" % side, true, false)
+			_check(fig is Label and (fig as Label).get_theme_color("font_color") == (inks[side] as Color),
+					"%s: side %d's score is in its club's ink" % [tag, side])
+		var col: Node = node.find_child("BoxPlayers_%d" % side, true, false)
+		var names: Array = col.find_children("BoxPlayerName_*", "Label", true, false) if col != null else []
+		_check(names.size() >= 2, "%s: side %d lists goalkickers and best-rated players (%d)" % [tag, side, names.size()])
+		var plain := []
+		for n in names:
+			if (n as Label).get_theme_color("font_color") != (inks[side] as Color):
+				plain.append((n as Label).text)
+		_check(plain.is_empty(), "%s: every player name for side %d is in his club's ink (not: %s)" % [tag, side, str(plain)])
 
 
 ## The score and team numbers sit side by side, and the sheet's scroll holds them all.

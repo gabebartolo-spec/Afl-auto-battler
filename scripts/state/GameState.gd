@@ -4347,6 +4347,11 @@ func _club_xp(club: String, p: Dictionary, base: int, staff: Dictionary, on_grou
 	var plan_xp := Conditioning.xp_mult(fitness_plan(club), p)
 	if plan_xp != 1.0:
 		gain = int(round(float(gain) * plan_xp))
+	# A patient club brings its young players on a touch quicker (Culture).
+	if Culture.young_for_growth(p, season_year):
+		var grow := culture_effect(club, "young_growth")
+		if grow != 0.0:
+			gain = int(round(float(gain) * (1.0 + grow)))
 	return gain
 
 
@@ -4708,8 +4713,10 @@ func _after_round(results: Array) -> void:
 		var week := "%d|%s|%d" % [season_year, "R" if regular else "F",
 				season.round_index if regular else (season.finals.get("weeks", []) as Array).size()]
 		var recovery_mults := {}
+		for code in season.lists:
+			recovery_mults[code] = 1.0 + culture_effect(str(code), "recovery")
 		if my_club != "":
-			recovery_mults[my_club] = ClubBudget.recovery_mult(
+			recovery_mults[my_club] = float(recovery_mults.get(my_club, 1.0)) * ClubBudget.recovery_mult(
 					department_budget_level("high_performance"))
 		Workload.advance_week(season.lists, results, week, recovery_mults)
 	_process_injuries(results)
@@ -5391,9 +5398,10 @@ func open_offseason() -> void:
 				continue  # he retires at the rollover: no contract, no free agency
 			var why := Contracts.ai_release_reason(p, list, salary_cap)
 			if why == "" or list.size() <= Contracts.MIN_LIST:
-				# Rivals bargain by the same rules: the least he takes for that term.
+				# Rivals bargain by the same rules: the least he takes for that term
+				# (a club pushing to win now keeps him a little cheaper, as yours does).
 				var years := Contracts.ai_years(p)
-				_resign(p, years, Contracts.lowest(p, years))
+				_resign(p, years, Contracts.lowest(p, years) - culture_resign_discount(code, p, years))
 			else:
 				# A player they wanted but could not fit can earn them a pick;
 				# one they delisted cannot.
@@ -5535,7 +5543,8 @@ func offer_contract(player_id: String, salary: int, years: int) -> Dictionary:
 	if my_payroll() - int(p.get("salary", 0)) + salary > salary_cap:
 		return {"ok": false, "answer": "", "reason": "Not enough cap room for %s a season." % Contracts.money(salary)}
 	var name := GameDB.player_display_name(p)
-	var reply := Contracts.respond(p, salary, years, int(talks.get("failed", 0)))
+	var reply := Contracts.respond(p, salary, years, int(talks.get("failed", 0)),
+			-culture_resign_discount(my_club, p, years))
 	var out := {"ok": false, "answer": str(reply["answer"]), "salary": int(reply["salary"])}
 	match str(reply["answer"]):
 		"accept":
@@ -5846,6 +5855,9 @@ func _add_offer(p: Dictionary, code: String, open: Dictionary, role: String, ft:
 	if not p.has("offers"):
 		p["offers"] = []
 	var o := {"club": code, "salary": int(open["salary"]), "years": int(open["years"]), "role": role, "finish_t": ft}
+	var amb := culture_effect(code, "free_agent_score")
+	if amb != 0.0:
+		o["amb"] = amb
 	if filler:
 		o["filler"] = true
 	(p["offers"] as Array).append(o)
@@ -5994,6 +6006,7 @@ func offer_free_agent(player_id: String, salary: int, years: int) -> Dictionary:
 	mine["years"] = years
 	mine["role"] = fa_role(p, my_club)
 	mine["finish_t"] = _finish_t(my_club)
+	mine["amb"] = culture_effect(my_club, "free_agent_score")
 	var rivals_left := false
 	for o in p["offers"]:
 		if str(o["club"]) != my_club and not bool(o.get("withdrawn", false)):
@@ -8215,6 +8228,11 @@ func season_ceiling(p: Dictionary) -> int:
 	# Develop and manage (Conditioning): a point more room for the young.
 	if season != null and str(p.get("club", "")) != "":
 		full += fitness_ceiling_step(p)
+		# A patient or rebuilding club (Culture): a point more room for its young,
+		# inside POT, at every club alike.
+		var step := culture_ceiling_step(p)
+		if step > 0:
+			full = maxi(full, mini(full + step, int(p.get("potential", 0))))
 	# The season after he learns a position: a little more room, inside POT.
 	if int(p.get("learn_payback_year", 0)) == season_year:
 		full = maxi(full, mini(full + LEARN_PAYBACK, int(p.get("potential", 0))))
@@ -8778,7 +8796,7 @@ func _board_after_round(results: Array) -> void:
 		var staff: Dictionary = club_staff(my_club)
 		for p in my_list:
 			soft[str(p["id"])] = CoachEffects.soften(staff, p)
-	ClubLife.morale_after_match(my_list, played, margin > 0, soft)
+	ClubLife.morale_after_match(my_list, played, margin > 0, soft, culture_effect(my_club, "sting"))
 	# A player promised a run (Backing): each game he plays counts towards it.
 	# Left out while fit, the promise breaks and it stings, once, and the run
 	# is over; unable to play, the run waits. His one-week expectation is
@@ -8839,7 +8857,7 @@ func _rival_morale_after_round(results: Array) -> void:
 			if not staff.is_empty():
 				for p in list:
 					soft[str(p["id"])] = CoachEffects.soften(staff, p)
-			ClubLife.morale_after_match(list, played, int(score[side]) > int(score[1 - side]), soft)
+			ClubLife.morale_after_match(list, played, int(score[side]) > int(score[1 - side]), soft, culture_effect(code, "sting"))
 
 
 ## A notable user match may produce one short press conference.
@@ -10111,6 +10129,33 @@ func set_captaincy(new_slots: Array) -> Dictionary:
 	captaincy[my_club] = rec
 	mark_dirty()
 	return pv
+
+
+## Off only for an audit that measures what culture's effects add.
+var culture_effects_on := true
+
+
+## One culture effect at a club (Culture.effect_of): the same rule for every
+## club; 0 for a club with a neutral strand (an older save has none).
+func culture_effect(code: String, kind: String) -> float:
+	if not culture_effects_on:
+		return 0.0
+	return Culture.club_effect(relations, code, kind, str(Culture.KIND_STRAND[kind]))
+
+
+## Points of season training ceiling a player's club culture adds (Ambition:
+## patient or rebuilding, for under-22s and first-season draftees); 0 elsewhere.
+func culture_ceiling_step(p: Dictionary) -> int:
+	var club := str(p.get("club", ""))
+	if club == "" or not Culture.young_for_growth(p, season_year):
+		return 0
+	return maxi(0, int(round(culture_effect(club, "young_ceiling"))))
+
+
+## How much less than his lowest a player re-signs for at `code` (Ambition:
+## pushing to win now), in dollars; the same for your club and every rival.
+func culture_resign_discount(code: String, p: Dictionary, years: int) -> int:
+	return int(round(float(Contracts.lowest(p, years)) * culture_effect(code, "resign_floor")))
 
 
 # ---------------------------------------------------------------------------
