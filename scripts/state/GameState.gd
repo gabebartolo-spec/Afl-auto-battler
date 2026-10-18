@@ -1459,6 +1459,22 @@ func begin_real_lists() -> void:
 			p["comp_eligible"] = false
 			p["contract_years"] = 0
 			free_agents.append(p)
+	# The 2026 trade period and free agency (data/club_moves_2026.csv): those
+	# players are on their new club's list. data_club stays the club he played
+	# 2026 for, so his record still runs through 2026 there (start_season).
+	var joined := {}
+	for code in active:
+		for p in (league_lists[code] as Array).duplicate():
+			var mv := GameDB.club_move(p)
+			if mv.is_empty() or str(mv["from"]) != code or not league_lists.has(str(mv["to"])):
+				continue
+			(league_lists[code] as Array).erase(p)
+			p["data_club"] = str(p.get("data_club", code))
+			p["club"] = str(mv["to"])
+			(league_lists[str(mv["to"])] as Array).append(p)
+			joined[str(mv["to"])] = true
+	for code in joined:
+		unique_jumpers(league_lists[code])
 	intake_assignments = []
 	# The real 2026 class, and the career's own prospect if it has one.
 	var cls: Array = _career_copies(GameDB.draftees)

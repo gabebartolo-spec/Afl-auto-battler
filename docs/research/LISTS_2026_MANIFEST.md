@@ -1,6 +1,6 @@
 # 2026 club lists: completeness manifest (ARD-M5-016)
 
-The 2026 real lists game mode needs every club's real end-of-2026 list. `data/players_2026.csv` has the 669 players who played a senior game in 2026. Clubs also had registered players who never played a senior game; they are listed here and in `data/list_additions_2026.csv`. No fictional fillers. Checked 2026-10-09.
+The 2026 real lists game mode needs every club's real end-of-2026 list. `data/players_2026.csv` has the 669 players who played a senior game in 2026. Clubs also had registered players who never played a senior game; they are listed here and in `data/list_additions_2026.csv`. No fictional fillers. Checked 2026-10-09. The 2026 trade period and free agency came after this build; see [TRADE_PERIOD_2026_LIST_CHANGES.md](TRADE_PERIOD_2026_LIST_CHANGES.md) for the 30 players who changed club, the two new signings (808 registered now) and the retirements and delistings announced since.
 
 ## Counts
 
