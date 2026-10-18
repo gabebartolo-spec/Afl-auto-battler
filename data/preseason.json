@@ -134,6 +134,12 @@
 		"building": 2,
 		"rebuilding": 1
 	},
+	"papers_claim_up": 4,
+	"papers_breakout_age": 22.0,
+	"papers_short_wins_pos": 14,
+	"papers_after": 6,
+	"papers_within": 22,
+	"papers_places": 1,
 	"_why": {
 		"weeks": "Length of the pre-season. Week 8 is a quiet week with no training choice.",
 		"blocks": "First and last training week of each block.",
@@ -175,6 +181,12 @@
 		"drill_max_plans": "The most plans one Game plan block drills.",
 		"fade_rounds": "Rounds a plan can go unplayed before the side knows it a step less (slowly; the off-season slip is a step on every plan).",
 		"ai_plan_block": "The block an AI club gives to drilling its usual plan, by cycle phase (0 is the first block). Its Game plan block replaces that block's own focus.",
+		"papers_claim_up": "Places above the paper's ladder the coach names when he talks the club up (never above first). The board's goal does not move.",
+		"papers_breakout_age": "The papers tip a breakout among players of this age or younger.",
+		"papers_short_wins_pos": "For a club whose goal is 'win seven games', the papers are taken to doubt it when they have it finishing below this place.",
+		"papers_after": "Weeks into the season before a talked-up finish can be held against the club.",
+		"papers_within": "Weeks after that the papers can still come back for it.",
+		"papers_places": "How many places below its own words the club must sit for the papers to come back.",
 		"intra_spare_number": "Invited prospects wear spare jumper numbers from this one up, skipping any a listed player wears."
 	}
 }

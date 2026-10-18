@@ -44,6 +44,12 @@ const DEFAULTS := {
 	"heavy_week_injury": 0.008,
 	"soft_tissue_kinds": ["hamstring", "calf", "groin", "quad"],
 	"ai_old_age": 28.0,
+	"papers_claim_up": 4,
+	"papers_breakout_age": 22.0,
+	"papers_short_wins_pos": 14,
+	"papers_after": 6,
+	"papers_within": 22,
+	"papers_places": 1,
 	"intra_week": 5,
 	"intra_side_size": 23,
 	"intra_injury_rate": 0.5,
@@ -74,8 +80,11 @@ const BASES := ["thin", "sound", "strong"]
 const DEFAULT_BASE := "sound"
 ## The weeks after which the pre-season stops for the coach: {week: stop}.
 ## The time trial, the intra-club match, then the practice match against
-## another club at the end of the last block.
-const STOPS := {3: "trial", 5: "intra", 7: "practice"}
+## another club at the end of the last block; the papers in the quiet last week.
+const STOPS := {3: "trial", 5: "intra", 7: "practice", 8: "papers"}
+## The weeks after which a story card may stop the pre-season: the end of each
+## block (a card never comes in the quiet last week). At most one a block.
+const STORY_WEEKS := [3, 5, 7]
 
 static var _data := {}
 
@@ -684,3 +693,89 @@ static func drill_sentence(plans: Array) -> String:
 	if names.size() == 1:
 		return "Fluency in %s rises a step for every %d weeks on it." % [names[0], int(tune("drill_step_weeks"))]
 	return "Fluency in %s and %s rises a step for every %d weeks on each, sharing the weeks between them." % [names[0], names[1], int(tune("drill_step_weeks"))]
+
+
+# ---------------------------------------------------------------------------
+# The papers (director, 2026-10-13: "Predict, and you answer"). Week 8: the
+# papers print a ladder and one story about your club; you answer it. Talking
+# the club up lifts the board's mood now and puts a finish on the record: if
+# the club is behind its own words by mid-season a card comes ("A reckoning
+# later, no new target"). The board's goal never moves.
+# ---------------------------------------------------------------------------
+const PAPER_KINDS := ["finish", "breakout", "pressure"]
+## The card each story is, in data/stories/media.json.
+const PAPER_CARD := {"finish": "media_papers_finish", "breakout": "media_papers_breakout",
+		"pressure": "media_papers_pressure"}
+## Who writes it: the ladder is Dev Mehta's; the doubts and the pressure are Gary Haddon's.
+const PAPER_WRITER := {"finish": "stats", "breakout": "sycophant", "pressure": "muckraker"}
+
+
+static func papers_seed(career_seed: int, year: int, club: String) -> int:
+	return hash("%d|papers|%d|%s" % [career_seed, year, club])
+
+
+## The paper's ladder, best first. `ratings`: club -> the side it would pick,
+## as TeamRating reads it, with this pre-season's injuries counted. Near-ties
+## go to last year's finish (0 = none, last), then the board's own list ranking
+## (`expect`), then the code, so the same lists always print the same ladder.
+static func predicted_order(ratings: Dictionary, last: Dictionary, expect: Dictionary) -> Array:
+	var codes: Array = ratings.keys()
+	codes.sort_custom(func(a, b):
+		if int(ratings[a]) != int(ratings[b]):
+			return int(ratings[a]) > int(ratings[b])
+		var la := int(last.get(a, 0))
+		var lb := int(last.get(b, 0))
+		la = la if la > 0 else 99
+		lb = lb if lb > 0 else 99
+		if la != lb:
+			return la < lb
+		var ea := int(expect.get(a, 99))
+		var eb := int(expect.get(b, 99))
+		if ea != eb:
+			return ea < eb
+		return str(a) < str(b))
+	return codes
+
+
+## The finish the coach names when he talks the club up: a few places above
+## the paper's, never above first.
+static func claim_rank(predicted: int) -> int:
+	return clampi(predicted - int(tune("papers_claim_up")), 1, maxi(1, predicted))
+
+
+## How far below its own words the club sits (0 when level or ahead).
+static func places_behind(position: int, claim: int) -> int:
+	if claim <= 0 or position <= 0:
+		return 0
+	return maxi(0, position - claim)
+
+
+## Is the club behind its words enough for the papers to come back?
+static func reckoning_due(position: int, claim: int) -> bool:
+	return claim > 0 and places_behind(position, claim) >= int(tune("papers_places"))
+
+
+## Does the paper rate the club below the board's goal? The goal's position
+## for a ladder goal; for "win seven games" a finish outside the club's
+## papers_short_wins_pos.
+static func finishes_short(goal: Dictionary, predicted: int) -> bool:
+	if goal.has("pos"):
+		return predicted > int(goal["pos"])
+	return predicted > int(tune("papers_short_wins_pos"))
+
+
+## Which story the papers run: one of `eligible`, by the pre-season's own seed.
+static func pick_paper(eligible: Array, seed: int) -> String:
+	if eligible.is_empty():
+		return "finish"
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed
+	return str(eligible[rng.randi_range(0, eligible.size() - 1)])
+
+
+## "13th".
+static func ordinal(n: int) -> String:
+	var suffix := "th"
+	if n % 100 < 11 or n % 100 > 13:
+		suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+	return "%d%s" % [n, suffix]
