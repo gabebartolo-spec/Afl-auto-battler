@@ -710,7 +710,10 @@ func _week_section(season: Season) -> Control:
 		# The football: two or three facts, then anything on our side.
 		var facts := GameState.opponent_facts(opp)
 		var notes := GameState.my_week_notes()
-		if not facts.is_empty() or not notes.is_empty():
+		# The one who got away (P-16): a player who left you and lines up for
+		# them, from what the club kept. Nothing when there is no one.
+		var former := GameState.former_players(opp).slice(0, FormerPlayers.SHOWN)
+		if not facts.is_empty() or not notes.is_empty() or not former.is_empty():
 			nv.add_child(UiKit.spacer(4))
 		# The first fact leads (the danger man, the thing to plan for); the
 		# rest follow in body copy, so three lines are not three equals.
@@ -719,6 +722,12 @@ func _week_section(season: Season) -> Control:
 			var fl := NameInk.label(str(f["text"]), _league_names(), UiKit.NAME if i == 0 else UiKit.BODY, UiKit.TEXT, i == 0)
 			fl.name = "Fact_%d" % i
 			nv.add_child(fl)
+		for i in range(former.size()):
+			var row: Dictionary = former[i]
+			var gl := NameInk.label(FormerPlayers.poster_line(row, GameDB.player_display_name(row["p"]),
+					GameDB.club_name(opp)), _league_names(), UiKit.BODY, UiKit.TEXT)
+			gl.name = "FormerPlayer_%d" % i
+			nv.add_child(gl)
 		for i in range(notes.size()):
 			var nl := NameInk.label(str(notes[i]["text"]), _league_names(), UiKit.BODY,
 					UiKit.BAD if str(notes[i].get("key", "")) == "own_injury" else UiKit.TEXT)
