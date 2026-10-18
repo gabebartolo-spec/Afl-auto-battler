@@ -326,6 +326,8 @@ func _test_tag_targets() -> void:
 	away.ground[di] = Ratings._for_slot(ruck, "MID")
 	_check(not sim.tag_target_ok(1, str(ruck["id"])), "A ruck in a midfield slot is not a target")
 	ruck["role2"] = "MID"
+	# A ruck by his own position (the copy came from a defender's slot).
+	ruck["own_role"] = "RUCK"
 	away.ground[di] = Ratings._for_slot(ruck, "MID")
 	_check(not sim.tag_target_ok(1, str(ruck["id"])), "...nor when midfield is his second position: no one tags ruckmen (director, 2026-10-18)")
 

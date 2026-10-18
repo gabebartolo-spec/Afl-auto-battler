@@ -858,18 +858,20 @@ func _fact_options() -> void:
 
 	# No one tags ruckmen (director, 2026-10-18): across every club's list, a
 	# ruck-first player is never a tag target, whatever else he lists.
+	var RT = load("res://scripts/sim/Ratings.gd")
+	var MSX = load("res://scripts/sim/MatchSim.gd")
 	var ruck_seen := 0
 	var ruck_ok := true
 	var clubs_seen := 0
 	for code in _state.season.lists:
 		clubs_seen += 1
 		for p in _state.season.lists[code]:
-			if str(Ratings.positions(p)[0]) == "RUCK":
+			if str(RT.positions(p)[0]) == "RUCK":
 				ruck_seen += 1
 				var in_mid: Dictionary = (p as Dictionary).duplicate(true)
 				in_mid["own_role"] = "RUCK"
 				in_mid["role"] = "MID"
-				ruck_ok = ruck_ok and not MatchSim.can_be_tagged(p) and not MatchSim.taggable(in_mid)
+				ruck_ok = ruck_ok and not MSX.can_be_tagged(p) and not MSX.taggable(in_mid)
 	_check(ruck_ok and clubs_seen >= 18 and ruck_seen > 18,
 			"No ruck-first player on any club's list can be tagged, even picked in the midfield (%d clubs, %d rucks)" % [clubs_seen, ruck_seen])
 
@@ -1357,6 +1359,9 @@ func _names(opts: Array) -> Array:
 func _gate_odds() -> void:
 	var GO = load("res://scripts/sim/GateOdds.gd")
 	var Ms = load("res://scripts/sim/MatchSim.gd")
+	var RL = load("res://scripts/sim/RL.gd")
+	var RT = load("res://scripts/sim/Ratings.gd")
+	var MU = load("res://scripts/sim/MU.gd")
 	var digits := RegEx.create_from_string("[0-9]")
 	var templates := [GO.GAIN, GO.COST, GO.TAG_GAIN, GO.TAG_COST, GO.MATCHUP_GAIN, GO.MATCHUP_COST_NEXT,
 			GO.MATCHUP_COST_LOOSE, GO.MINDER_GAIN, GO.MINDER_COST, GO.RUCK_GAIN, GO.RUCK_COST, GO.LOOSE_GAIN,
@@ -1369,7 +1374,7 @@ func _gate_odds() -> void:
 	_check(literal.is_empty(), "No match-day gate template carries a number of its own (%s)" % str(literal))
 	var pct := func(x: float) -> String: return GO.pct(x)
 	var tag: Array = GO.tag_lines()
-	_check(str(tag[0]).contains(pct.call(Roles.TAG_WITH_TAGGER)) and str(tag[0]).contains(pct.call(Roles.TAG_PLAIN))
+	_check(str(tag[0]).contains(pct.call(RL.TAG_WITH_TAGGER)) and str(tag[0]).contains(pct.call(RL.TAG_PLAIN))
 			and str(tag[1]).contains(pct.call(Ms.TAGGER_COST)) and GO.tag_gives().contains(pct.call(1.0 - Ms.TAGGER_BALL)),
 			"Tag: the hold a Tagger and anyone else leave, and the share of his own game given up (%s / %s)" % tag)
 	var md: Array = GO.minder_lines()
@@ -1390,7 +1395,7 @@ func _gate_odds() -> void:
 	_check(GO.skip_line(1).contains("plan you took in") and GO.skip_line(3).contains("last quarter's calls")
 			and GO.skip_line(3).contains("no change") and GO.skip_line(1).contains("Only a match-up changed here is kept"),
 			"Skip says what it plays with and that the sheet's other changes are not kept")
-	var mins := func(k: String) -> String: return str(roundi(float(Ms.BURSTS[k]["chains"]) * float(Ms.GAME_MINUTES) / float(Ratings.T["chains_per_game"])))
+	var mins := func(k: String) -> String: return str(roundi(float(Ms.BURSTS[k]["chains"]) * float(Ms.GAME_MINUTES) / float(RT.T["chains_per_game"])))
 	var surge: Array = GO.burst_lines("surge", 60)
 	_check(str(surge[0]).contains(pct.call(Ms.SURGE_CONTEST)) and str(surge[0]).contains(pct.call(Ms.SURGE_GOAL - 1.0)) and str(surge[0]).contains(mins.call("surge") + " minutes")
 			and str(surge[1]).contains(pct.call(Ms.SURGE_OPP_GOAL - 1.0)) and str(surge[1]).contains(pct.call(Ms.SURGE_PACE - 1.0)),
@@ -1400,7 +1405,7 @@ func _gate_odds() -> void:
 			and str(hold[1]).contains(pct.call(1.0 - Ms.HOLD_GOAL)) and str(hold[1]).contains(pct.call(1.0 - Ms.BACK_GAIN)),
 			"Slow it down: up and down from its constants (%s / %s)" % hold)
 	var stack: Array = GO.burst_lines("stack", 15)
-	_check(str(stack[0]).contains(pct.call(Ms.STACK_CONTEST)) and str(stack[0]).contains(pct.call(float(Ratings.T["contest_clamp"])))
+	_check(str(stack[0]).contains(pct.call(Ms.STACK_CONTEST)) and str(stack[0]).contains(pct.call(float(RT.T["contest_clamp"])))
 			and str(stack[1]).contains(pct.call(Ms.STACK_OPP_GOAL - 1.0)), "Stack the stoppage: the edge, its cap and its cost (%s / %s)" % stack)
 	_check(str(GO.burst_lines("flood", 20, false)[0]).ends_with(GO.TO_BREAK), "Before the last quarter a call that outlasts it runs to the break")
 	var flood: Array = GO.burst_lines("flood", 15)
@@ -1408,7 +1413,7 @@ func _gate_odds() -> void:
 			and str(flood[1]).contains(pct.call(1.0 - Ms.FLOOD_GOAL)), "Flood: to the siren, both sides from its constants (%s / %s)" % flood)
 	var fwd := {"id": "f", "role": "FWD", "height_cm": 196, "attr": {"marking": 80}}
 	var back := {"id": "d", "role": "DEF", "height_cm": 192, "attr": {"intercept": 74, "marking": 68}}
-	var want := clampf(Matchups.MARK_BASE + (Matchups.forward_air(fwd) - Matchups.defender_air(back) - Matchups.DUEL_CENTRE) / Matchups.DUEL_SCALE,
-			Matchups.MARK_FLOOR, Matchups.DUEL_CAP)
-	_check(is_equal_approx(Matchups.mark_chance(fwd, back), want) and GO.back_stats(back) == "Intercept 74 · Marking 68 · 192 cm",
+	var want := clampf(MU.MARK_BASE + (MU.forward_air(fwd) - MU.defender_air(back) - MU.DUEL_CENTRE) / MU.DUEL_SCALE,
+			MU.MARK_FLOOR, MU.DUEL_CAP)
+	_check(is_equal_approx(MU.mark_chance(fwd, back), want) and GO.back_stats(back) == "Intercept 74 · Marking 68 · 192 cm",
 			"A back's card: Intercept, Marking and height, and the mark chance the duel rule gives (%.3f, %s)" % [want, GO.back_stats(back)])
