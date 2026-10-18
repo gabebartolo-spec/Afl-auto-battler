@@ -14,28 +14,28 @@ func run() -> void:
 	failures.clear()
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
-	_test_history_and_snake_order()
-	_test_position_guidance()
-	_test_dual_position_coverage()
-	_test_position_status()
-	_test_complete_small_draft()
-	_test_real_money_cap()
-	_test_real_pool()
-	_test_player_name_modes()
-	_test_plausible_names()
-	_test_no_double_names()
-	_test_cap_guard()
-	_test_stuck_draft_recovery()
-	_test_finished_list_reachability()
-	_test_funded_scouting()
-	_test_asset_valuation()
-	_test_combine_scouting()
-	_test_scouted_league_board()
-	_test_rival_says_why()
-	_test_draft_reasons_change_nothing()
-	_test_real_drafts_reasons_change_nothing()
+	_t("_test_history_and_snake_order")
+	_t("_test_position_guidance")
+	_t("_test_dual_position_coverage")
+	_t("_test_position_status")
+	_t("_test_complete_small_draft")
+	_t("_test_real_money_cap")
+	_t("_test_real_pool")
+	_t("_test_player_name_modes")
+	_t("_test_plausible_names")
+	_t("_test_no_double_names")
+	_t("_test_cap_guard")
+	_t("_test_stuck_draft_recovery")
+	_t("_test_finished_list_reachability")
+	_t("_test_funded_scouting")
+	_t("_test_asset_valuation")
+	_t("_test_combine_scouting")
+	_t("_test_scouted_league_board")
+	_t("_test_rival_says_why")
+	_t("_test_draft_reasons_change_nothing")
+	_t("_test_real_drafts_reasons_change_nothing")
 	GameState.replay_seed = 0
-	print("Draft tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Draft", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -43,6 +43,11 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _pool() -> Array:

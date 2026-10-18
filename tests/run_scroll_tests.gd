@@ -31,6 +31,11 @@ func _check(condition: bool, message: String) -> void:
 		_failures.append(message)
 		push_error(message)
 
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
+
 
 func _settle(n := 6) -> void:
 	for i in range(n):
@@ -52,15 +57,15 @@ func _run() -> void:
 		root.size = size
 		await _settle()
 		for key in SCREENS:
-			await _screen(str(key), size)
+			await _t("_test_screen", [str(key), size])
 	for size in SIZES:
 		root.size = size
 		await _settle()
-		await _hub_round1(size)
+		await _t("_test_hub_round1", [size])
 	print("SCROLLTABLE")
 	for line in _table:
 		print(line)
-	print("Scroll tests: %d checks, %d failures" % [_checks, _failures.size()])
+	print(Ran.line("Scroll", self))
 	for f in _failures:
 		print("  FAIL: " + f)
 	quit(1 if not _failures.is_empty() else 0)
@@ -137,7 +142,7 @@ func _thumb(bar: ScrollBar) -> Rect2:
 	return Rect2(Vector2(r.position.x, top), Vector2(r.size.x, grab_h))
 
 
-func _screen(key: String, size: Vector2i) -> void:
+func _test_screen(key: String, size: Vector2i) -> void:
 	await _open(key)
 	var scene := current_scene
 	var found: Array = []
@@ -401,7 +406,7 @@ func _resize(sc: ScrollContainer, label: String, res: Array) -> void:
 ## The hub before Round 1 (a contract card on the page, the whole ladder
 ## below): every part is reachable by scrolling and ends fully inside the
 ## visible page, and the card's answer takes a real tap at its position.
-func _hub_round1(size: Vector2i) -> void:
+func _test_hub_round1(size: Vector2i) -> void:
 	var tag := "hub round 1 %dx%d" % [size.x, size.y]
 	_state.reset()
 	_state.start_season("WBD", _db.club_list("WBD"))

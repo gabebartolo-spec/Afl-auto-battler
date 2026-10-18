@@ -30,6 +30,21 @@ func _run() -> void:
 	_state.settings_path = "user://test_settings.cfg"
 	_state.show_real_names = false
 	_db = root.get_node("GameDB")
+	await _t("_test_board")
+	await _settle()
+	await _t("_test_start_season_footer")
+	await _t("_test_intake_combine")
+	await _t("_test_search_keyboard")
+	await _t("_test_rotation")
+	await _t("_test_phone_browser_never_wide")
+	await _t("_test_stage")
+	await _t("_test_rival_why")
+	print(Ran.line("Draft UI", self))
+	quit(0 if _failures.is_empty() else 1)
+
+
+## The board on every viewport: picks, filters, history and reopening (the checks written in _run).
+func _test_board() -> void:
 	_state.reset()
 	_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(),
 			_db.active_clubs(2026).duplicate(), 12345)
@@ -58,8 +73,8 @@ func _run() -> void:
 	_check(badge.mouse_filter == Control.MOUSE_FILTER_PASS,
 			"Position badges do not block touch scrolling")
 	badge.free()
-	await _test_inspect(ui)
-	await _test_projected_row(ui)
+	await _t("_test_inspect", [ui])
+	await _t("_test_projected_row", [ui])
 	ui.set("_role", "DEF")
 	ui.set("_search", "Jack")
 	ui.set("_sort", "value")
@@ -84,9 +99,9 @@ func _run() -> void:
 			_check_layout(ui, label + " / " + tab)
 		ui.call("_select_tab", "pool")
 
-	await _test_career_stage_filters(ui)
-	await _test_style_and_trait_filters(ui)
-	await _test_position_filters(ui)
+	await _t("_test_career_stage_filters", [ui])
+	await _t("_test_style_and_trait_filters", [ui])
+	await _t("_test_position_filters", [ui])
 
 	# No-results recovery resets controls as well as their backing values.
 	ui.call("_clear_filters")
@@ -96,8 +111,8 @@ func _run() -> void:
 	_check(ui.get("_available_only") == true, "Clear filters restores availability")
 	var finish: Button = ui.find_child("StartSeason", true, false)
 	_check(finish.disabled, "Season cannot start before a valid draft is complete")
-	await _test_side_shape(ui)
-	await _test_pick_keeps_scroll(ui)
+	await _t("_test_side_shape", [ui])
+	await _t("_test_pick_keeps_scroll", [ui])
 
 	# Reopening uses the same draft; it must not replay AI turns.
 	var history: Array = _state.draft.pick_history.duplicate(true)
@@ -111,16 +126,6 @@ func _run() -> void:
 	_check(_state.draft.pick_history == history, "Reopening never makes additional picks")
 	_check(_state.draft.count() == roster_before, "Reopening preserves the user's roster")
 	ui.queue_free()
-	await _settle()
-	await _test_start_season_footer()
-	await _test_intake_combine()
-	await _test_search_keyboard()
-	await _test_rotation()
-	await _test_phone_browser_never_wide()
-	await _test_stage()
-	await _test_rival_why()
-	print("Draft UI tests: %d checks, %d failures" % [_checks, _failures.size()])
-	quit(0 if _failures.is_empty() else 1)
 
 ## The draft's footer tells the truth about the finished list, and Start season
 ## does what the footer says: a list short at a position starts and says who
@@ -447,7 +452,7 @@ func _test_intake_combine() -> void:
 	_check(list_is_scouted, "The intake list keeps a scouted range instead of revealing exact OVR")
 	ui.queue_free()
 	await _settle()
-	await _test_combine_pool()
+	await _t("_test_combine_pool")
 	root.size = old_size
 
 
@@ -1238,6 +1243,11 @@ func _check(condition: bool, message: String) -> void:
 ## P-18: open a prospect's sheet with a real tap, draft someone else, and the
 ## rival picks that follow say, in one line under the ticker, why a club took
 ## or passed on him, with the club's name in its ink. Opening no one: no line.
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 func _test_rival_why() -> void:
 	root.size = Vector2i(390, 844)
 	_state.reset()

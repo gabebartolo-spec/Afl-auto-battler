@@ -15,15 +15,15 @@ func run() -> void:
 	failures.clear()
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
-	_test_teaching()
-	_test_tactics()
-	_test_man_management()
-	_test_assistant()
-	_test_in_career()
+	_t("_test_teaching")
+	_t("_test_tactics")
+	_t("_test_man_management")
+	_t("_test_assistant")
+	_t("_test_in_career")
 	GameState.delete_saved_career()
 	CoachEffects.table = {}
 	GameState.replay_seed = 0
-	print("Coach effects tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Coach effects", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -31,6 +31,11 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _coach(job: String, v: int, spec := "") -> Dictionary:

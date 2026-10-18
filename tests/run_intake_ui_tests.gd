@@ -36,6 +36,17 @@ func _run() -> void:
 	_state.replay_seed = SUITE_SEED
 	_db = root.get_node("GameDB")
 	_state.reset()
+	await _t("_test_intake_by_taps")
+	await _t("_test_pass_and_pick_for_me", [Vector2i(390, 844)])
+	await _t("_test_pass_and_pick_for_me", [Vector2i(1280, 720)])
+	await _t("_test_pick_order_and_untouchable_ui")
+	print(Ran.line("Intake UI", self))
+	_state.replay_seed = 0
+	quit(0 if _failures.is_empty() else 1)
+
+
+## The National Draft on the shared screen, driven by taps, through to the new list (the checks written in _run).
+func _test_intake_by_taps() -> void:
 	var first_year := int(_state.season_year)
 	_state.start_season("COL", _db.club_list("COL"))
 	var season = _state.season
@@ -280,16 +291,10 @@ func _run() -> void:
 	_check(all_landed, "Every intake signing is on the new list")
 	ui.queue_free()
 	await _settle()
-	await _pass_and_pick_for_me(Vector2i(390, 844))
-	await _pass_and_pick_for_me(Vector2i(1280, 720))
-	await _pick_order_and_untouchable_ui()
-	print("Intake UI tests: %d checks, %d failures" % [_checks, _failures.size()])
-	_state.replay_seed = 0
-	quit(0 if _failures.is_empty() else 1)
 
 
 ## Real taps on "Pick for me" and "Pass" at one screen size.
-func _pass_and_pick_for_me(size: Vector2i) -> void:
+func _test_pass_and_pick_for_me(size: Vector2i) -> void:
 	var tag := "%dx%d" % [size.x, size.y]
 	_state.reset()
 	_state.replay_seed = SUITE_SEED
@@ -349,7 +354,7 @@ func _pass_and_pick_for_me(size: Vector2i) -> void:
 
 ## The hub's draft line in the last rounds (P-47) and the untouchable mark on
 ## My list, by a real tap (P-49), on a phone.
-func _pick_order_and_untouchable_ui() -> void:
+func _test_pick_order_and_untouchable_ui() -> void:
 	_state.reset()
 	_state.replay_seed = SUITE_SEED
 	_state.start_season("COL", _db.club_list("COL"))
@@ -512,3 +517,8 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)

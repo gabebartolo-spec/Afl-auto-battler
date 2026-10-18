@@ -15,29 +15,29 @@ func run() -> void:
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
-	_test_rules()
-	_test_season_flow()
-	_test_events()
-	_test_backing_rules()
-	_test_backing_flow()
-	_test_backing_card_guard()
-	_test_fact_talks()
-	_test_backing_lasts_the_season()
-	_test_firsts_rules()
-	_test_firsts_flow()
-	_test_firsts_goals()
-	_test_first_goal_candidates()
-	_test_sacking()
-	_test_board_patience()
-	_test_team_form()
-	_test_board_confidence()
-	_test_coaching_hub()
-	_test_how_we_play_reads()
-	_test_how_we_play_quiet()
-	_test_how_we_play_unlocks_on_the_third_game()
+	_t("_test_rules")
+	_t("_test_season_flow")
+	_t("_test_events")
+	_t("_test_backing_rules")
+	_t("_test_backing_flow")
+	_t("_test_backing_card_guard")
+	_t("_test_fact_talks")
+	_t("_test_backing_lasts_the_season")
+	_t("_test_firsts_rules")
+	_t("_test_firsts_flow")
+	_t("_test_firsts_goals")
+	_t("_test_first_goal_candidates")
+	_t("_test_sacking")
+	_t("_test_board_patience")
+	_t("_test_team_form")
+	_t("_test_board_confidence")
+	_t("_test_coaching_hub")
+	_t("_test_how_we_play_reads")
+	_t("_test_how_we_play_quiet")
+	_t("_test_how_we_play_unlocks_on_the_third_game")
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
-	print("Club tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Club", self))
 
 
 ## A sit-down card from the deck about `p`, opening on `case` with the facts
@@ -56,6 +56,11 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _test_rules() -> void:
@@ -267,8 +272,8 @@ func _test_events() -> void:
 		if float(sim.energy[str(p["id"])]) > 88.0:
 			legs_ok = false
 	_check(legs_ok, "Heavy legs start the match below full energy")
-	_test_event_tradeoffs()
-	_test_event_decisions()
+	_t("_test_event_tradeoffs")
+	_t("_test_event_decisions")
 
 
 ## Every card is a trade-off: neither answer is all upside.

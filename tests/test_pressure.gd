@@ -14,15 +14,15 @@ func run() -> void:
 	failures.clear()
 	checks = 0
 	GameDB.reload()
-	_test_zones()
-	_test_acts_and_reconcile()
-	_test_role_pressure_matters()
-	_test_high_pressure_forward()
-	_test_rating_formula()
-	_test_player_rating()
-	_test_creating()
-	_test_live_path()
-	print("Pressure tests: %d checks, %d failures" % [checks, failures.size()])
+	_t("_test_zones")
+	_t("_test_acts_and_reconcile")
+	_t("_test_role_pressure_matters")
+	_t("_test_high_pressure_forward")
+	_t("_test_rating_formula")
+	_t("_test_player_rating")
+	_t("_test_creating")
+	_t("_test_live_path")
+	print(Ran.line("Pressure", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -30,6 +30,11 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _lists() -> Array:

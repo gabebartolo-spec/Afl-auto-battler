@@ -34,6 +34,11 @@ func _check(condition: bool, message: String) -> void:
 		_failures.append(message)
 		push_error(message)
 
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
+
 
 func _settle(n := 6) -> void:
 	for i in range(n):
@@ -53,18 +58,18 @@ func _run() -> void:
 	for size in SIZES:
 		root.size = size
 		await _settle()
-		await _box_score(size)
-		await _match_sheets(size)
+		await _t("_test_box_score", [size])
+		await _t("_test_match_sheets", [size])
 		if size == SIZES[0]:
-			await _calls_seeds(size)
+			await _t("_test_calls_seeds", [size])
 		for key in SCREENS:
-			await _screen(str(key), size)
+			await _t("_test_screen", [str(key), size])
 		for section in ["ladder", "players", "ratings", "awards", "trophies"]:
 			load("res://scripts/ui/StatsHubScene.gd").current = section
 			await _open("stats")
-			_audit(current_scene, "stats %s %dx%d" % [section, size.x, size.y])
+			_t("_test_audit", [current_scene, "stats %s %dx%d" % [section, size.x, size.y]])
 		load("res://scripts/ui/StatsHubScene.gd").current = "fixture"
-	print("Row gap tests: %d checks, %d failures" % [_checks, _failures.size()])
+	print(Ran.line("Row gap", self))
 	for f in _failures:
 		print("  FAIL: " + f)
 	quit(1 if not _failures.is_empty() else 0)
@@ -89,13 +94,13 @@ func _open(key: String) -> void:
 	await _settle(8)
 
 
-func _screen(key: String, size: Vector2i) -> void:
+func _test_screen(key: String, size: Vector2i) -> void:
 	await _open(key)
-	_audit(current_scene, "%s %dx%d" % [key, size.x, size.y])
+	_t("_test_audit", [current_scene, "%s %dx%d" % [key, size.x, size.y]])
 
 
 ## The match stats sheet as MatchScene hosts it: the box score in a full-width body.
-func _box_score(size: Vector2i) -> void:
+func _test_box_score(size: Vector2i) -> void:
 	var squad = load("res://scripts/sim/Squad.gd")
 	var sim = load("res://scripts/sim/MatchSim.gd").new(
 			squad.new("ADE", _db.club_list("ADE"), true, "ADE"),
@@ -111,7 +116,7 @@ func _box_score(size: Vector2i) -> void:
 	bg.add_child(body)
 	body.add_child(load("res://scripts/ui/match/BoxScore.gd").new().setup(res))
 	await _settle(8)
-	_audit(bg, "boxscore %dx%d" % [size.x, size.y])
+	_t("_test_audit", [bg, "boxscore %dx%d" % [size.x, size.y]])
 	_inked(bg, str(res["home"]), str(res["away"]), "boxscore %dx%d" % [size.x, size.y])
 	bg.queue_free()
 	await _settle(2)
@@ -121,7 +126,7 @@ func _box_score(size: Vector2i) -> void:
 ## PC the score and the team numbers fit one screen (director, 2026-10-14: "having to
 ## scroll down to see the stats part is bad"), which a 1280x720 window must show with
 ## nothing to scroll; a phone stacks them and scrolls.
-func _match_sheets(size: Vector2i) -> void:
+func _test_match_sheets(size: Vector2i) -> void:
 	_state.reset()
 	_state.career_seed = 2026
 	_state.replay_seed = 2026
@@ -139,7 +144,7 @@ func _match_sheets(size: Vector2i) -> void:
 	var sheet = scene.find_child("BreakStatsSheet", true, false)
 	_check(sheet != null, "break stats sheet opens at %dx%d" % [size.x, size.y])
 	if sheet != null:
-		_audit(sheet, "break stats %dx%d" % [size.x, size.y])
+		_t("_test_audit", [sheet, "break stats %dx%d" % [size.x, size.y]])
 		var bres: Dictionary = scene.get("_res")
 		_inked(sheet, str(bres["home"]), str(bres["away"]), "break stats %dx%d" % [size.x, size.y])
 		if size.x >= 1280:
@@ -159,7 +164,7 @@ func _match_sheets(size: Vector2i) -> void:
 	var ft = scene.find_child("FullTime", true, false)
 	_check(ft != null, "full time opens at %dx%d" % [size.x, size.y])
 	if ft != null:
-		_audit(ft, "full time stats %dx%d" % [size.x, size.y])
+		_t("_test_audit", [ft, "full time stats %dx%d" % [size.x, size.y]])
 		var fres: Dictionary = scene.get("_res")
 		_inked(ft, str(fres["home"]), str(fres["away"]), "full time stats %dx%d" % [size.x, size.y])
 		if size.x >= 1280:
@@ -216,7 +221,7 @@ func _one_page(node: Node, tag: String) -> void:
 
 ## Full time on the Stats tab at 1280x720 over several matches (different clubs, seeds and
 ## numbers of calls): the calls block is inside the page every time, not one lucky game.
-func _calls_seeds(size: Vector2i) -> void:
+func _test_calls_seeds(size: Vector2i) -> void:
 	for pair in [["ADE", 2026], ["MEL", 2031], ["GWS", 2040], ["WCE", 2052], ["RIC", 2067], ["FRE", 2075]]:
 		_state.reset()
 		_state.career_seed = int(pair[1])
@@ -334,7 +339,7 @@ func _phone_scorers(sheet: Node, tag: String) -> void:
 	_check(worst <= MAX_GAP, tag + ": a scorer's name and figure %d px apart ('%s')" % [int(worst), who])
 
 
-func _audit(scene: Node, tag: String) -> void:
+func _test_audit(scene: Node, tag: String) -> void:
 	# A phone's row is as wide as the phone: only a screen with room is held to it.
 	if root.size.x < 900:
 		return

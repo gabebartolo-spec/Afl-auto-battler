@@ -29,7 +29,7 @@ For art checks, use the existing `art-qa-critic` (see `STATUS.md` and `docs/VISU
 ## Ground rules for every team
 
 1. **Assigned work only.** A roadmap item is context, not authorisation. The spawn prompt names what was assigned and by whom.
-2. **One owner per file.** Two teammates on one file overwrite each other. Hot files (`MatchSim`, `GameState`, roadmap section files, `CLAUDE.md`, `tests.yml`, `tests/expected_checks.txt`) get one owner or none. Teammates that write code each use their own worktree and branch (`afl-team-pr`); no `git stash`.
+2. **One owner per file.** Two teammates on one file overwrite each other. Hot files (`MatchSim`, `GameState`, roadmap section files, `CLAUDE.md`, `tests.yml`) get one owner or none. Teammates that write code each use their own worktree and branch (`afl-team-pr`); no `git stash`.
 3. **Nobody edits the bible.** Teammates propose, under "For the director". Plan approval in a team is granted by the lead without review, so it is not a director gate.
 4. **The director's calls stay the director's.** A teammate never declares balance settled, art approved or a feature accepted.
 5. **Start with 3 to 5 teammates**, review and audit work first. Size tasks to a clear deliverable.

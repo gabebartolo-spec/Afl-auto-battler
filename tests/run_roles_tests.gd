@@ -34,21 +34,21 @@ func _run() -> void:
 	suite.run()
 	_checks += suite.checks
 	_failures.append_array(suite.failures)
-	await _selection_tests()
-	await _selection_pages_tests()
-	await _skip_match_tests()
-	await _week_ink_tests()
-	await _team_changes_tests()
-	await _backing_ui_tests()
-	await _captaincy_ui_tests()
-	await _culture_ui_tests()
-	await _captain_card_ui_tests()
-	print("Roles + selection tests: %d checks, %d failures" % [_checks, _failures.size()])
+	await _t("_test_selection_tests")
+	await _t("_test_selection_pages_tests")
+	await _t("_test_skip_match_tests")
+	await _t("_test_week_ink_tests")
+	await _t("_test_team_changes_tests")
+	await _t("_test_backing_ui_tests")
+	await _t("_test_captaincy_ui_tests")
+	await _t("_test_culture_ui_tests")
+	await _t("_test_captain_card_ui_tests")
+	print(Ran.line("Roles + selection", self, [suite]))
 	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
 
 
-func _selection_tests() -> void:
+func _test_selection_tests() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.start_season("COL", db.club_list("COL"))
@@ -381,7 +381,7 @@ func _synergy_words() -> String:
 ## Team selection without scrolling (director, 2026-10-13): a phone has "The
 ## side" and "This week" a tap apart, a PC shows both; nothing scrolls for a
 ## normal side; every control sits beside the line it belongs to.
-func _selection_pages_tests() -> void:
+func _test_selection_pages_tests() -> void:
 	var db = root.get_node("GameDB")
 	for club in ["FRE", "WBD"]:
 		_state.reset()
@@ -521,7 +521,7 @@ func _selection_pages_tests() -> void:
 ## A coach who skips the match: the plan he last used (set in the pre-bounce
 ## menu) is the plan the sim plays, and the match-ups are the assistant's
 ## until he changes one.
-func _skip_match_tests() -> void:
+func _test_skip_match_tests() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.start_season("FRE", db.club_list("FRE"))
@@ -617,7 +617,7 @@ func _selection_profile_tests() -> void:
 
 ## The team sheet: after a match, a player who is injured is out, and the
 ## player who comes in is named in for him.
-func _team_changes_tests() -> void:
+func _test_team_changes_tests() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.autosave_enabled = false
@@ -661,7 +661,7 @@ func _team_changes_tests() -> void:
 ## Selection: a player with few senior games can be backed from his profile;
 ## the screen then says what was promised, and the profile says so too. A
 ## player with a long record is not offered it.
-func _backing_ui_tests() -> void:
+func _test_backing_ui_tests() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.start_season("COL", db.club_list("COL"))
@@ -776,7 +776,7 @@ func _profile_of(ui: Node, id: String) -> void:
 
 ## Captaincy over My list, by real taps: the way in, the rules and costs on the
 ## page, a pick from the list, Confirm, and the record afterwards.
-func _captaincy_ui_tests() -> void:
+func _test_captaincy_ui_tests() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.career_seed = SUITE_SEED
@@ -863,7 +863,7 @@ func _captaincy_ui_tests() -> void:
 
 ## A captain's card on the hub: what each choice does sits under its button, the
 ## buttons are thumb-sized, and a real tap answers it.
-func _captain_card_ui_tests() -> void:
+func _test_captain_card_ui_tests() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.career_seed = SUITE_SEED
@@ -929,7 +929,7 @@ func _captain_card_ui_tests() -> void:
 
 ## Club culture over My list, by real taps: the way in, the words, the reasons
 ## one tap away.
-func _culture_ui_tests() -> void:
+func _test_culture_ui_tests() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.career_seed = SUITE_SEED
@@ -1082,7 +1082,12 @@ func _check(condition: bool, message: String) -> void:
 ## The week's headings are the club's readable ink on the dark page, for every
 ## club (the raw club colour was dark purple on dark purple), and the week
 ## says each fact once.
-func _week_ink_tests() -> void:
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
+func _test_week_ink_tests() -> void:
 	var db = root.get_node("GameDB")
 	var uk = load("res://scripts/ui/UiKit.gd")
 	var bad := []

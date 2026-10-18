@@ -427,9 +427,8 @@ Branch `claude/moment-consequences` (pending merge).
 
 **Fix (`tools/run_tests.sh`):**
 - Every suite runs on a fixed frame clock (`--fixed-fps 60`). Under the same load, matchday ran all 293.
-- Every suite has a check floor in `tests/expected_checks.txt`, taken from a full run under the fixed clock.
-  - A suite that reports fewer checks fails: "checks went missing".
-  - A suite with no floor fails until one is added.
+- Every suite had a check floor, taken from a full run under the fixed clock; a suite that reported fewer checks failed.
+  - Retired 2026-10-18 (test suite audit section 4): the floors caught no real defect, and the fixed clock and the script-error rule had already removed the cause. Each suite now runs its test functions through `tests/functions_ran.gd` and reports "K of M functions"; a function that never ran or made no check fails by name.
 - A check a suite skips on purpose prints `SKIP: <reason>`, and the summary counts it.
 - The one matchday block that could skip without a failure (the key match-up Change button) now starts with a required check.
 

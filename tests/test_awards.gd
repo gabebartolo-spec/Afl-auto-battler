@@ -18,15 +18,15 @@ func run() -> void:
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
-	_test_vote_arithmetic()
-	_test_brownlow_eligibility()
-	_test_norm_smith_rules()
-	_test_comeback_records()
-	_test_bf_names()
-	_test_full_season()
+	_t("_test_vote_arithmetic")
+	_t("_test_brownlow_eligibility")
+	_t("_test_norm_smith_rules")
+	_t("_test_comeback_records")
+	_t("_test_bf_names")
+	_t("_test_full_season")
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
-	print("Awards tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Awards", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -34,6 +34,11 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _one_match() -> Dictionary:

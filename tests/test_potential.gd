@@ -19,18 +19,18 @@ func run() -> void:
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
-	_test_every_player_has_potential()
-	_test_history_and_pedigree()
-	_test_rehab_rollover()
-	_test_growth_is_capped()
-	_test_training_discount()
-	_test_draftee_potential()
-	_test_youth_pace()
-	_test_pick_values_held()
-	_test_save_and_backfill()
+	_t("_test_every_player_has_potential")
+	_t("_test_history_and_pedigree")
+	_t("_test_rehab_rollover")
+	_t("_test_growth_is_capped")
+	_t("_test_training_discount")
+	_t("_test_draftee_potential")
+	_t("_test_youth_pace")
+	_t("_test_pick_values_held")
+	_t("_test_save_and_backfill")
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
-	print("Potential tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Potential", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -38,6 +38,11 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _real(name: String) -> Dictionary:

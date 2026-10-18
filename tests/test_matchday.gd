@@ -19,24 +19,24 @@ func run() -> void:
 	checks = 0
 	GameDB.reload()
 	var res := _match(11)
-	_test_feed(res)
-	_test_lead_and_breaks()
-	_test_quarter_facts(res)
-	_test_standout_levers()
-	_test_half_time_keys()
-	_test_legs_words()
-	_test_full_time()
-	_test_report_roles(res)
-	_test_rating()
-	_test_report_glance()
-	_test_lift_skips_short_games()
-	_test_no_green_decoration()
-	_test_club_markers()
-	_test_palette_snapshot()
-	_test_headlines()
-	_test_comeback_telling()
-	_test_comeback_sentences()
-	print("Matchday tests: %d checks, %d failures" % [checks, failures.size()])
+	_t("_test_feed", [res])
+	_t("_test_lead_and_breaks")
+	_t("_test_quarter_facts", [res])
+	_t("_test_standout_levers")
+	_t("_test_half_time_keys")
+	_t("_test_legs_words")
+	_t("_test_full_time")
+	_t("_test_report_roles", [res])
+	_t("_test_rating")
+	_t("_test_report_glance")
+	_t("_test_lift_skips_short_games")
+	_t("_test_no_green_decoration")
+	_t("_test_club_markers")
+	_t("_test_palette_snapshot")
+	_t("_test_headlines")
+	_t("_test_comeback_telling")
+	_t("_test_comeback_sentences")
+	print(Ran.line("Matchday", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -44,6 +44,11 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _match(seed: int, a := "COL", b := "CAR") -> Dictionary:
