@@ -56,7 +56,7 @@ const HOLDS_WITH_TRUST := 45
 const PLAYER_FACTS := ["name", "first", "age", "games", "fit", "selected", "overall", "potential",
 		"pot_gap", "contract_years", "morale", "trust", "trust_band", "discipline", "backed",
 		"fit_rank", "talk_case", "kpi", "kpi_or_need", "explain_label", "talk_text", "sore_odds",
-		"ask", "early_price", "more_seasons", "extension_ok", "job", "real_named",
+		"sore_pct", "trial_ovr", "ask", "early_price", "more_seasons", "extension_ok", "job", "real_named",
 		"form", "form_games", "has_role2", "starting", "form_low", "role_avg", "role_word", "trial_word", "trial_home", "trial_avg", "trial_par", "trial_tail",
 		"leadership", "captain", "delegate_holds", "holds_at", "holds_trust_at",
 		# The finals cards: the ageing rule says this is his last season, the finals he has
