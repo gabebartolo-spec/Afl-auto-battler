@@ -588,6 +588,13 @@ func _test_private_cards() -> void:
 	var leaks := []
 	var reachable := 0
 	for t in private:
+		# Fit the club to the card's own timing (a round window), so only the name rule is left.
+		for k in (t.get("when", {}) as Dictionary):
+			var wk := str(k)
+			if wk.ends_with("_min"):
+				(ctx["club"] as Dictionary)[wk.trim_suffix("_min")] = float(t["when"][k])
+			elif wk.ends_with("_max"):
+				(ctx["club"] as Dictionary)[wk.trim_suffix("_max")] = float(t["when"][k])
 		for named in [true, false]:
 			var players := []
 			for f in ctx["players"]:
