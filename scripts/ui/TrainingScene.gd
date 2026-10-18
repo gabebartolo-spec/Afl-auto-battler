@@ -1,3 +1,4 @@
+class_name TrainingScene
 extends Control
 ## Training. Every listed player is here. XP is personal and earned every
 ## game; each player's training plan spends it automatically after the game
@@ -9,6 +10,8 @@ const ROLE_NOUN := {"RUCK": "ruck", "MID": "midfielder", "DEF": "defender", "FWD
 const ROLE_TABS := [["", "All"], ["DEF", "DEF"], ["MID", "MID"], ["RUCK", "RUCK"], ["FWD", "FWD"]]
 const LONG_PRESS_SECONDS := 0.45
 
+## Set by the training report: open this player's page when Training opens.
+static var open_player_id := ""
 var _role := ""
 var _query := ""
 var _built_width := 0.0
@@ -27,6 +30,7 @@ var _hold_serial := 0
 ## a tap nor a long press.
 var _press_scroll := 0
 var _press_pos := Vector2.ZERO
+const ROW_PROFILE_W := 56.0
 const DRAG_SLOP := 12.0   # the list's scroll deadzone
 var _root: VBoxContainer
 var _list_scroll: ScrollContainer
@@ -54,6 +58,11 @@ func _ready() -> void:
 		if is_inside_tree() and not UiKit.keyboard_resize(self, _built_width):
 			_build())
 	_build()
+	if open_player_id != "":
+		var want := open_player_id
+		open_player_id = ""
+		if not GameState.list_player(want).is_empty():
+			_open_player(want)
 	if GameState.intro_due("training"):
 		GameState.set_setting("seen_training_intro", true)
 		_show_intro()
@@ -63,6 +72,8 @@ func _ready() -> void:
 ## player detail back to the list, before leaving Training. Returning false
 ## lets the router take the scene back to whatever was viewed before.
 func handle_back() -> bool:
+	if TrainingReportSheet.close_top(self):
+		return true
 	var plan_sheet := get_node_or_null("SeasonPlanSheet")
 	if plan_sheet != null and is_instance_valid(plan_sheet) and not plan_sheet.is_queued_for_deletion():
 		plan_sheet.queue_free()
@@ -161,6 +172,7 @@ func _build() -> void:
 ## own colours. It may not push the list down or squeeze the news, so on a
 ## phone it is as tall as the news it stands beside and no wider than before;
 ## on a wide screen it leads the news from the left.
+const TRADE_OFF_LINE := "Games earn the points and each costs more as a stat climbs: a plan is a choice of what he improves."
 const HERO_NARROW := 72.0
 const HERO_WIDE := 96.0
 
@@ -190,14 +202,21 @@ func _summary() -> Control:
 	if int(report.get("count", 0)) > 0:
 		v.add_child(UiKit.lbl(str(report.get("label", "Last game")), 15, UiKit.EMPH, true))
 		var line := GameState.training_summary_line()
-		var what := UiKit.lbl(line if line != "" else "Training: no rating changes from the last game.", UiKit.SECONDARY,
-				UiKit.GOOD if line != "" else UiKit.MUTED)
+		var what: Control
+		if line != "":
+			what = _news_line(line)
+		else:
+			what = UiKit.lbl("Training: no rating changes from the last game.", UiKit.SECONDARY, UiKit.MUTED)
+			what.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		what.name = "TrainingNews"
-		what.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(what)
-		var reserves := GameState.reserves_summary_line()
-		if reserves != "":
-			v.add_child(UiKit.lbl(reserves, UiKit.SECONDARY, UiKit.MUTED))
+		var month := TrainingReportSheet.link(self, _open_player)
+		if month != null:
+			v.add_child(month)
+		else:
+			var reserves := GameState.reserves_summary_line()
+			if reserves != "":
+				v.add_child(UiKit.lbl(reserves, UiKit.SECONDARY, UiKit.MUTED))
 	else:
 		v.add_child(UiKit.lbl("No game played yet. Players develop after every match.", UiKit.BODY, UiKit.EMPH, true))
 	# The season plan in words, one tap from the season line.
@@ -214,6 +233,11 @@ func _summary() -> Control:
 		warn.name = "PausedWarning"
 		warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(warn)
+	# What it costs and what it buys, in one line (P-63).
+	var trade := UiKit.lbl(TRADE_OFF_LINE, UiKit.SMALL, UiKit.TEXT)
+	trade.name = "TrainingTradeOff"
+	trade.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(trade)
 	return panel
 
 
@@ -397,6 +421,10 @@ func _end_player_hold(id: String) -> void:
 
 
 func _press_player(id: String) -> void:
+	# The press that opened his profile also reaches the row under it.
+	var tap := find_child("Profile_" + id, true, false)
+	if tap is Control and (tap as Control).is_visible_in_tree() and (tap as Control).get_global_rect().has_point(get_global_mouse_position()):
+		return
 	if _suppress_open.has(id):
 		_suppress_open.erase(id)
 		return
@@ -479,7 +507,8 @@ func _player_row(p: Dictionary) -> Control:
 	var h := UiKit.hbox(8)
 	h.set_anchors_preset(Control.PRESET_FULL_RECT)
 	h.offset_left = 8
-	h.offset_right = -8
+	# Room at the right for the profile tap.
+	h.offset_right = -ROW_PROFILE_W
 	b.add_child(h)
 	h.add_child(UiKit.role_chip(Ratings.role_tag(p)))
 	var info := UiKit.vbox(1)
@@ -518,7 +547,49 @@ func _player_row(p: Dictionary) -> Control:
 	b.button_down.connect(_begin_player_hold.bind(id))
 	b.button_up.connect(_end_player_hold.bind(id))
 	b.pressed.connect(_press_player.bind(id))
+	b.add_child(_profile_tap(id))
 	return b
+
+
+## The row's own way to his profile: a tap at the right edge, beside his rating.
+## The rest of the row still selects him (and a long press still starts a group).
+func _profile_tap(id: String) -> Control:
+	var t := UiKit.btn("Profile", UiKit.FINE)
+	t.name = "Profile_" + id
+	t.flat = true
+	t.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+	t.offset_left = -ROW_PROFILE_W
+	t.offset_right = 0
+	t.add_theme_color_override("font_color", UiKit.MUTED)
+	t.pressed.connect(func(): NameLink.open(self, id))
+	return t
+
+
+## His name at the head of the plan: tap it for his profile.
+func _name_header(p: Dictionary) -> Control:
+	var b := UiKit.btn(GameDB.player_display_name(p) + "  ›", 20)
+	b.name = "PlayerNameLink"
+	b.flat = true
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		var flat := UiKit.style(Color.TRANSPARENT, 0, 0)
+		flat.set_border_width_all(0)
+		flat.content_margin_top = 6
+		flat.content_margin_bottom = 6
+		b.add_theme_stylebox_override(state, flat)
+	b.clip_text = true
+	b.custom_minimum_size.y = 44
+	b.add_theme_color_override("font_color", UiKit.TEXT)
+	b.pressed.connect(func(): NameLink.open(self, str(p["id"])))
+	return b
+
+
+## The last game's training news with each name a tap to his profile.
+func _news_line(line: String) -> Control:
+	var ids := {}
+	for q in GameState.my_list:
+		ids[GameDB.player_display_name(q)] = str(q["id"])
+	return NameLink.line(line, ids, UiKit.SECONDARY, UiKit.GOOD)
 
 
 ## The plan under his name, said as a plan: "Training as a key defender",
@@ -586,7 +657,7 @@ func _detail_panel() -> Control:
 	_detail_scroll = UiKit.scroll(body)
 	outer.add_child(_detail_scroll)
 	# Who he is and where he stands.
-	body.add_child(UiKit.ellipsis(GameDB.player_display_name(p), 20, UiKit.TEXT, true))
+	body.add_child(_name_header(p))
 	var duty := GameState.last_duty(_selected)
 	body.add_child(UiKit.lbl("%s  ·  %s" % [Ratings.role_tag(p), duty if duty != "" else "Not yet played"],
 			13, UiKit.MUTED))
@@ -810,10 +881,9 @@ func _ignore_mouse(node: Control) -> void:
 func _potential_note(p: Dictionary) -> String:
 	var mult := Potential.training_multiplier(p)
 	if bool(p.get("rehab", false)):
-		return "Rehab: back near his %d POT after this season. Training %d%% off until then." % [
-				int(p["potential"]), int(round((1.0 - mult) * 100.0))]
+		return "Rehab: back near his %d POT after this season. Training is cheaper until then." % int(p["potential"])
 	if mult < 0.95:
-		return "Room to grow: training %d%% off below his potential." % int(round((1.0 - mult) * 100.0))
+		return "Room to grow: training is cheaper while he is below his potential."
 	var gap := int(p.get("potential", p["overall"])) - int(p["overall"])
 	if gap < 0:
 		return "Past his projected peak: every point costs far more."

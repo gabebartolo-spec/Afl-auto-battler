@@ -227,6 +227,8 @@ func _build() -> void:
 	var week := _week_section(season)
 	var ladder := _ladder_section(season)
 	if _narrow():
+		if TrainingReport.hub_due(GameState):
+			page.add_child(TrainingReportSheet.hub_card(self, _go_retrain))
 		page.add_child(week)
 		page.add_child(UiKit.rule())
 		page.add_child(_standing_card())
@@ -239,6 +241,8 @@ func _build() -> void:
 		var left := UiKit.vbox(UiKit.SECTION)
 		left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cols.add_child(left)
+		if TrainingReport.hub_due(GameState):
+			left.add_child(TrainingReportSheet.hub_card(self, _go_retrain))
 		left.add_child(week)
 		left.add_child(UiKit.rule())
 		left.add_child(_standing_card())
@@ -274,6 +278,12 @@ func _build() -> void:
 		foot.add_child(row)
 	# Motion plays once per visit, not on every rebuild after an answer.
 	_settled = true
+
+
+## From the training report: Training, at that player's choice.
+func _go_retrain(id: String) -> void:
+	TrainingScene.open_player_id = id
+	Router.go("training")
 
 
 ## "Round 4", a finals week, or the season.
@@ -345,6 +355,13 @@ func _standing_card() -> Control:
 		var tl := UiKit.lbl(str(outlook["line"]), UiKit.SECONDARY, UiKit.MUTED)
 		tl.name = "MyTeamOutlook"
 		cv.add_child(tl)
+	# The last rounds on: where your first pick falls if the season ended today.
+	var pick_line := GameState.pick_order_line()
+	if pick_line != "":
+		var pl := UiKit.lbl(pick_line, UiKit.SECONDARY, UiKit.TEXT)
+		pl.name = "DraftPickLine"
+		pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		cv.add_child(pl)
 	var form := GameState.club_form_info(GameState.my_club)
 	cv.add_child(_form_row(form))
 	var last := _last_match_button()
@@ -354,7 +371,8 @@ func _standing_card() -> Control:
 	if GameState.board_goal_text() != "":
 		var conf := GameState.board_confidence()
 		var warned := bool(GameState.board.get("warned", false))
-		if warned or conf < ClubLife.WARN_LINE:
+		# The board's own line for a poor season (Ruthless sets it higher).
+		if warned or conf < int(GameState.difficulty_rules()["poor_season_below"]):
 			var board_l := UiKit.lbl("Board: %s  ·  %s%s" % [GameState.board_state(), GameState.board_goal_text(),
 					"  (final warning)" if warned else ""], UiKit.SMALL, UiKit.BAD)
 			board_l.name = "BoardLine"
@@ -557,7 +575,6 @@ func _show_news() -> void:
 	_news_overlay.name = "NewsFeed"
 	var v: VBoxContainer = box["body"]
 	v.add_child(UiKit.heading("League news", UiKit.H1))
-	v.add_child(UiKit.lbl("Difficulty: %s" % str(GameState.difficulty_rules()["label"]), 12, UiKit.MUTED))
 	var last_when := ""
 	for item in GameState.news:
 		var when := "%d  %s" % [int(item["year"]), str(item["when"])]
@@ -644,6 +661,7 @@ func _week_section(season: Season) -> Control:
 		if not _settled:
 			UiKit.reveal(poster)
 		nv.add_child(poster)
+		nv.add_child(_match_way())
 		var marquee := MarqueeGames.tradition(str(mine["home"]), str(mine["away"]))
 		if not marquee.is_empty():
 			var marquee_line := UiKit.lbl(str(marquee["name"]), UiKit.SMALL, UiKit.EMPH, true)
@@ -692,7 +710,10 @@ func _week_section(season: Season) -> Control:
 		# The football: two or three facts, then anything on our side.
 		var facts := GameState.opponent_facts(opp)
 		var notes := GameState.my_week_notes()
-		if not facts.is_empty() or not notes.is_empty():
+		# The one who got away (P-16): a player who left you and lines up for
+		# them, from what the club kept. Nothing when there is no one.
+		var former := GameState.former_players(opp).slice(0, FormerPlayers.SHOWN)
+		if not facts.is_empty() or not notes.is_empty() or not former.is_empty():
 			nv.add_child(UiKit.spacer(4))
 		# The first fact leads (the danger man, the thing to plan for); the
 		# rest follow in body copy, so three lines are not three equals.
@@ -701,6 +722,12 @@ func _week_section(season: Season) -> Control:
 			var fl := NameInk.label(str(f["text"]), _league_names(), UiKit.NAME if i == 0 else UiKit.BODY, UiKit.TEXT, i == 0)
 			fl.name = "Fact_%d" % i
 			nv.add_child(fl)
+		for i in range(former.size()):
+			var row: Dictionary = former[i]
+			var gl := NameInk.label(FormerPlayers.poster_line(row, GameDB.player_display_name(row["p"]),
+					GameDB.club_name(opp)), _league_names(), UiKit.BODY, UiKit.TEXT)
+			gl.name = "FormerPlayer_%d" % i
+			nv.add_child(gl)
 		for i in range(notes.size()):
 			var nl := NameInk.label(str(notes[i]["text"]), _league_names(), UiKit.BODY,
 					UiKit.BAD if str(notes[i].get("key", "")) == "own_injury" else UiKit.TEXT)
@@ -751,6 +778,7 @@ func _tribunal_card() -> Control:
 		var line := NameInk.label("%s — %s. %s case: %s." % [
 				name, sanction, hearing, str(row.get("case", "Difficult"))], _league_names(), 13, UiKit.TEXT, true)
 		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		line.name = "TribunalLine"
 		v.add_child(line)
 		var status := UiKit.lbl("Brownlow: ineligible unless the %s succeeds." % (
 				"appeal" if stage == "appeal" else "challenge"), 12, UiKit.MUTED, true)
@@ -799,6 +827,24 @@ func _form_colour(f: float) -> Color:
 	return UiKit.MUTED
 
 
+## How you take the match (director, 2026-10-18, P-14): Watch it, Key moments
+## (top speed, stopping for your calls, the goals and the breaks) or Skip
+## straight to full time. The last one chosen comes up chosen; the main button
+## takes the match that way and says so (_play_label).
+func _match_way() -> Control:
+	return UiKit.choice_grid("MatchWay", [["watch", "Watch"], ["key", "Key moments"], ["skip", "Skip"]],
+			GameState.match_way(), 3, func(key: String) -> void:
+				GameState.set_match_way(key)
+				for b in find_children("PlayMatch", "Button", true, false):
+					(b as Button).text = _play_label())
+
+
+## The main button's words: Skip chosen says what the match screen's own
+## control says; Watch and Key moments play the match.
+func _play_label() -> String:
+	return "Skip to full time" if GameState.match_way() == "skip" else "Play match"
+
+
 ## The week's decision buttons: the primary action last, where the thumb is.
 func _week_actions(season: Season) -> Control:
 	var buttons: Array = []
@@ -830,7 +876,9 @@ func _week_actions(season: Season) -> Control:
 		buttons.append(week)
 	else:
 		buttons.append(_nav_button("Pick the side", func(): Router.go("selection")))
-		buttons.append(_nav_button("Play match", _on_play_match, true))
+		var play := _nav_button(_play_label(), _on_play_match, true)
+		play.name = "PlayMatch"
+		buttons.append(play)
 	var row := UiKit.hbox(8)
 	row.name = "WeekActions"
 	for b in buttons:
@@ -908,6 +956,13 @@ func _footer(season: Season, with_sim := true) -> Control:
 					sb.content_margin_left = 4
 					sb.content_margin_right = 4
 					b.add_theme_stylebox_override(state, sb)
+		# Each button is at least as wide as its own label, so the row's spare
+		# width is shared out beyond that and none is cut short ("Sim the we...").
+		var sb_n: StyleBox = b.get_theme_stylebox("normal")
+		var pad := sb_n.get_margin(SIDE_LEFT) + sb_n.get_margin(SIDE_RIGHT) if sb_n != null else 16.0
+		var font: Font = b.get_theme_font("font")
+		var fs: int = b.get_theme_font_size("font_size")
+		b.custom_minimum_size.x = ceilf(font.get_string_size(b.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + pad) + 1.0
 		row.add_child(b)
 	return row
 
@@ -1082,8 +1137,9 @@ func _on_play_match() -> void:
 		return
 	if _pre_match != null or _starting_match:
 		return
-	if not GameState.vignettes_on():
-		# Vignettes off (Settings): no banner scene, straight to the match.
+	if not GameState.vignettes_on() or GameState.match_way() == "skip":
+		# Vignettes off (Settings), or Skip chosen: no banner scene, straight
+		# to the match.
 		_starting_match = true
 		if not GameState.prepare_interactive_match():
 			_starting_match = false
@@ -1285,6 +1341,8 @@ func _close_finals() -> void:
 func handle_back() -> bool:
 	if _pre_match != null:
 		return true     # the side is on its way out
+	if TrainingReportSheet.close_top(self):
+		return true
 	var plan_sheet := get_node_or_null("SeasonPlanSheet")
 	if plan_sheet != null and is_instance_valid(plan_sheet) and not plan_sheet.is_queued_for_deletion():
 		plan_sheet.queue_free()

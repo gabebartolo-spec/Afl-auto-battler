@@ -284,6 +284,19 @@ static func player_fact(gs, p: Dictionary, selected: bool, i: Dictionary, fit_ra
 			"milestone_next": _milestone_next(gs, p), "injured_weeks": int(p.get("injury_weeks", 0)),
 			"rushable": int(p.get("injury_weeks", 0)) > 0 and str(p.get("injury_kind", "")) != "concussion",
 			"overall_rank": all_rank, "told_players": gs.story_flag_set(id, "farewell_told")}
+	# International prospects' cards: where he comes from and how far into his career he is.
+	var country: Dictionary = InternationalProspects.country(str(p.get("intl", "")))
+	var career := Career.of(p)
+	var career_goals := int(career.get("goals", 0))
+	if int(career.get("through", 0)) < int(gs.season_year):
+		career_goals += int((gs.season_tally.get(id, {}) as Dictionary).get("goals", 0))
+	out["intl"] = not country.is_empty()
+	out["intl_region"] = str(country.get("region", ""))
+	out["from"] = str(country.get("from", country.get("name", "")))
+	out["demonym"] = str(country.get("demonym", ""))
+	out["home_club"] = str(p.get("draft_team", ""))
+	out["seasons_listed"] = int(gs.season_year) - int(p.get("drafted_year", int(gs.season_year) - 99))
+	out["goals"] = career_goals
 	# The result of his role trial, for the card that reports it.
 	var tr: Dictionary = gs.trial_result
 	if not tr.is_empty() and str(tr.get("id", "")) == id:

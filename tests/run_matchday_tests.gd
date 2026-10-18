@@ -43,6 +43,7 @@ func _run() -> void:
 	await _ground_fit()
 	_state.replay_seed = SUITE_SEED
 	await _plan_at_first_bounce()
+	await _break_panes_layout()
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
 		await _coach_descriptions(sz)
 		await _tag_targets(sz)
@@ -70,6 +71,7 @@ func _run() -> void:
 	await _game_feel_effects()
 	_broken_calls()
 	await _vignettes_off_match()
+	await _match_way_poster()
 	_appearance()
 	# Battery: nothing is redrawn unless it changes, and never above 60 fps.
 	_check(bool(ProjectSettings.get_setting("application/run/low_processor_mode", false))
@@ -214,9 +216,9 @@ func _phone_match(sz: Vector2i) -> void:
 	# every one of them is already a name.
 	var tag_sim = _state.pending_sim
 	var opp_side: Array = (m.get("_res")["roster"][1 - int(m.get("_my_side"))] as Array).filter(
-			func(r): return bool(m.call("_taggable_now", tag_sim, r)) and bool(m.call("_listed_midfielder", tag_sim, r)))
+			func(r): return bool(m.call("_taggable_now", tag_sim, r)) and bool(m.call("_can_play_midfield", tag_sim, r)))
 	var named := tag_choices.size() - 1
-	_check((tag_other != null and tag_other.text == "Other midfielder…") or named == opp_side.size(),
+	_check((tag_other != null and tag_other.text == "Other player…") or named == opp_side.size(),
 			"Every listed midfielder is a name or behind Other midfielder (%s: %d of %d named)" % [tag, named, opp_side.size()])
 	if tag_other != null:
 		tag_other.emit_signal("pressed")
@@ -610,16 +612,16 @@ func _coach_descriptions(sz: Vector2i) -> void:
 		var w: String = await Tap.tap(b)
 		_check(w == "", "A finger picks the %s pep talk (%s: %s)" % [k, tag, w])
 		await _settle()
-		var note: Label = box.find_child("PepNote", true, false)
-		_check(note != null and note.is_visible_in_tree() and note.text != "" and note.text == report.pep_summary(k),
+		var note: Control = box.find_child("PepNote", true, false)
+		_check(note != null and note.is_visible_in_tree() and _flat(_text(note)) != "" and _flat(_text(note)) == _flat(report.pep_summary(k)),
 				"The %s pep talk shows its own description (%s)" % [k, tag])
-		pep_seen[note.text if note != null else ""] = true
+		pep_seen[_flat(_text(note)) if note != null else ""] = true
 	_check(pep_seen.size() == 4, "Each pep talk has its own words (%s)" % tag)
 	var composed: Button = box.find_child("PepPicker_steady", true, false)
 	await Tap.tap(composed)
 	await _settle()
-	var pn: Label = box.find_child("PepNote", true, false)
-	_check(pn != null and pn.text.begins_with("Keep them as they are"), "Back on Composed, its words return (%s)" % tag)
+	var pn: Control = box.find_child("PepNote", true, false)
+	_check(pn != null and _text(pn).begins_with("Keep them as they are"), "Back on Composed, its words return (%s)" % tag)
 
 	# Rotations: Normal as much as the other two, and never the legs report.
 	var rot_seen := {}
@@ -628,12 +630,12 @@ func _coach_descriptions(sz: Vector2i) -> void:
 		var rw: String = await Tap.tap(rb)
 		_check(rw == "", "A finger picks the %s rotation (%s: %s)" % [k, tag, rw])
 		await _settle()
-		var rn: Label = box.find_child("RotationNote", true, false)
-		_check(rn != null and rn.is_visible_in_tree() and rn.text == str(policies[k]["text"]),
+		var rn: Control = box.find_child("RotationNote", true, false)
+		_check(rn != null and rn.is_visible_in_tree() and _flat(_text(rn)) == _flat(str(policies[k]["text"])),
 				"The %s rotation shows its own description (%s)" % [k, tag])
-		_check(rn != null and rn.text != legs_text and not box.find_child("LegsView", true, false).is_ancestor_of(rn),
+		_check(rn != null and _text(rn) != legs_text and not box.find_child("LegsView", true, false).is_ancestor_of(rn),
 				"The rotation words are not the legs report (%s: %s)" % [k, str(k)])
-		rot_seen[rn.text if rn != null else ""] = true
+		rot_seen[_flat(_text(rn)) if rn != null else ""] = true
 	_check(rot_seen.size() == policies.size(), "Each rotation has its own words (%s)" % tag)
 
 	# Tag: "No tag" says so; a name brings the tagger line back.
@@ -849,14 +851,14 @@ func _tag_targets(sz: Vector2i) -> void:
 			named_ids[str(b.name).trim_prefix("TagPickerGrid_")] = true
 	var listed_ids := {}
 	for id in eligible:
-		if bool(m.call("_listed_midfielder", sim, {"id": id})):
+		if bool(m.call("_can_play_midfield", sim, {"id": id})):
 			listed_ids[id] = true
 	_check(other != null or named_ids.size() == listed_ids.size(),
 			"Every listed midfielder is a name or behind Other midfielder (%s: %d of %d named)" % [tag, named_ids.size(), listed_ids.size()])
 	var pick: Button = null
 	if other != null:
 		var why: String = await Tap.tap(other)
-		_check(why == "" and other.text == "Other midfielder…", "A finger opens Other midfielder (%s: %s %s)" % [tag, other.text, why])
+		_check(why == "" and other.text == "Other player…", "A finger opens Other midfielder (%s: %s %s)" % [tag, other.text, why])
 		await _settle()
 		var sheet: Node = m.find_child("PlayerSheet", true, false)
 		var rows: Array = sheet.find_children("Sheet_*", "Button", true, false) if sheet != null else []
@@ -1212,6 +1214,8 @@ func _one_line_break(sz: Vector2i) -> void:
 	# a tag is picked, and picking one moves nothing.
 	await Tap.tap(tag_row)
 	await _settle()
+	# Loaded, not named: the autoloads are not there when this script compiles.
+	var rt = load("res://scripts/sim/Ratings.gd")
 	var tp: Node = m.find_child("TagPicker", true, false)
 	var names: Array = []
 	var not_listed := []
@@ -1224,7 +1228,7 @@ func _one_line_break(sz: Vector2i) -> void:
 		if pick == null:
 			pick = b
 		var p: Dictionary = sim._on_ground(1 - me, id)
-		if not p.is_empty() and str(p.get("own_role", p.get("role", ""))) != "MID":
+		if not p.is_empty() and not rt.positions(p).has("MID"):
 			not_listed.append(names.back())
 	_check(pick != null and not_listed.is_empty(), "The tag names are their listed midfielders only (%s: %s)" % [tag, str(not_listed)])
 	if them == "MEL":
@@ -1232,17 +1236,19 @@ func _one_line_break(sz: Vector2i) -> void:
 		# midfield second) are both taggable in the sim at half time here.
 		var through := []
 		for p in (sim.squads[1 - me] as Object).ground:
-			if sim.tag_target_ok(1 - me, str(p["id"])) and str(p.get("own_role", p.get("role", ""))) != "MID":
+			if sim.tag_target_ok(1 - me, str(p["id"])) and not rt.positions(p).has("MID"):
 				through.append(str(p["id"]))
 		var offered := through.filter(func(id): return tp.find_child("TagPickerGrid_" + str(id), true, false) != null)
-		_check(not through.is_empty() and offered.is_empty(),
+		# Nobody who cannot play midfield is offered (with the new reading of "can
+		# play midfield" there may be no such man on the ground at all).
+		_check(offered.is_empty(),
 				"A ruck or defender running through the middle is not among the tag names (%s: %d such, %d offered)" % [tag, through.size(), offered.size()])
 		# "Other midfielder..." lists their listed midfielders not already
 		# named, and is not drawn when none is left: nobody running through
 		# the middle is behind it either.
 		var listed_n := 0
 		for r in (m.call("_roster_side", 1 - me) as Array):
-			if bool(m.call("_taggable_now", sim, r)) and bool(m.call("_listed_midfielder", sim, r)):
+			if bool(m.call("_taggable_now", sim, r)) and bool(m.call("_can_play_midfield", sim, r)):
 				listed_n += 1
 		var other: Button = tp.find_child("TagPickerOther", true, false)
 		if other != null:
@@ -1255,7 +1261,7 @@ func _one_line_break(sz: Vector2i) -> void:
 				var rid := str(b.name).trim_prefix("Sheet_")
 				if through.has(rid) or tp.find_child("TagPickerGrid_" + rid, true, false) != null:
 					stray.append(rid)
-			_check(w_other == "" and other.text == "Other midfielder…" and stray.is_empty() and rest.size() == listed_n - names.size(),
+			_check(w_other == "" and other.text == "Other player…" and stray.is_empty() and rest.size() == listed_n - names.size(),
 					"Other midfielder lists only their listed midfielders not already named (%s: %d listed, %d named, %d behind, off %s%s)"
 					% [tag, listed_n, names.size(), rest.size(), str(stray), (", " + w_other) if w_other != "" else ""])
 			m.call("handle_back")
@@ -1489,10 +1495,7 @@ func _pc_break_worst_case(club := "COL") -> void:
 	_check(worst <= 608.0 - 8.0, "...with at least 8 px to spare (%s: %.0f of 608)" % [club, worst])
 	_check(heights.size() == 1, "Choosing another call never changes the sheet's height (%s: %s)" % [club, str(heights.keys())])
 	# The synergies line is a fact for the game plan: it sits in that call.
-	var syn: Node = null
-	for l in box.find_children("*", "Label", true, false) if box != null else []:
-		if (l as Label).text.begins_with("Your synergies"):
-			syn = l
+	var syn: Node = box.find_child("SynergyBlock", true, false) if box != null else null
 	var plan_body: Node = box.find_child("CallBody_plan", true, false) if box != null else null
 	_check(syn == null or (plan_body != null and plan_body.is_ancestor_of(syn)),
 			"The synergies line sits with the game plan it informs (%s)" % club)
@@ -1632,8 +1635,16 @@ func _main_ruck_picker(sz: Vector2i) -> void:
 			continue
 		var rucks: Array = m.call("_my_rucks", sim)
 		var note: Label = box.find_child("MainRuckNote", true, false)
-		_check(note != null and note.text.begins_with("No main ruck: whoever is in the ruck spot goes up."),
-				"With nobody named, it says the ruck spot decides (%s)" % tag)
+		var best_id := str(rucks[0]["id"])
+		var best_nm: String = db.player_display_name(rucks[0])
+		_check(box.find_child("MainRuckPicker_", true, false) == null and not _any_text(pick, "No main ruck"),
+				"The Main ruck call has no \"No main ruck\" choice (%s)" % tag)
+		var pick_btn: Button = box.find_child("MainRuckPicker_" + best_id, true, false)
+		var other_btn: Button = box.find_child("MainRuckPicker_" + str(rucks[1]["id"]), true, false)
+		_check(pick_btn != null and pick_btn.text.contains("Your assistant's pick") and other_btn != null
+				and not other_btn.text.contains("assistant"), "The assistant's pick, the best Ruck rating, is marked (%s)" % tag)
+		_check(note != null and note.text.begins_with("%s goes up at every stoppage" % best_nm),
+				"With nobody named by the coach, the assistant's pick goes up (%s)" % tag)
 		var b: Button = box.find_child("MainRuckPicker_" + str(rucks[1]["id"]), true, false)
 		var rr := roundi(float((rucks[1]["attr"] as Dictionary).get("ruck", 0.0)))
 		_check(b != null and b.text.contains("Ruck %d" % rr), "His card shows his Ruck rating, %d (%s)" % [rr, tag])
@@ -2773,8 +2784,11 @@ func _broken_calls() -> void:
 ## the football is identical. Then the hub's Play match, the press conference
 ## and the awards night with them off.
 func _vignettes_off_match() -> void:
-	var with_on: Dictionary = await _drive_match(true)
+	# The vignettes-on match is taken in Key moments (P-14), the vignettes-off one
+	# watched: the same match either way, so one pair proves both.
+	var with_on: Dictionary = await _drive_match(true, "key")
 	var with_off: Dictionary = await _drive_match(false)
+	_key_moments_checks(with_on, with_off)
 	print("Vignettes on: %d scenes, calls %s, %s. Off: %d scenes, calls %s, %s." % [int(with_on["vignettes"]),
 			str(with_on["kinds"]), str(with_on["score"]), int(with_off["vignettes"]), str(with_off["kinds"]),
 			str(with_off["score"])])
@@ -2881,7 +2895,7 @@ func _vignettes_off_match() -> void:
 ## A seeded live match played through the match screen, every call answered
 ## with its first choice. With the centre ball-up call forced in the last
 ## quarter, so the one call with a scene of its own always comes.
-func _drive_match(vignettes: bool) -> Dictionary:
+func _drive_match(vignettes: bool, way := "watch") -> Dictionary:
 	var db = root.get_node("GameDB")
 	_state.set_vignettes_on(vignettes)
 	_state.set_bounce_scene_every_match(true)
@@ -2889,6 +2903,7 @@ func _drive_match(vignettes: bool) -> Dictionary:
 	_state.replay_seed = SUITE_SEED
 	_state.start_season("COL", db.club_list("COL"))
 	root.size = Vector2i(390, 844)
+	_state.set_match_way(way)
 	_state.prepare_interactive_match()
 	var seen := [0]
 	var watch := func(n: Node) -> void:
@@ -2898,8 +2913,22 @@ func _drive_match(vignettes: bool) -> Dictionary:
 			seen[0] += 1
 	node_added.connect(watch)
 	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	# Key moments holds 1x for 1.8 real seconds after a stop; a tenth here keeps
+	# the suite quick and leaves what stops the match the same.
+	m.set("km_hold_seconds", 0.1)
 	root.add_child(m)
 	await _settle()
+	var km_word: Control = m.find_child("KeyMomentsState", true, false)
+	var km_shown := km_word != null and km_word.is_visible_in_tree() and str((km_word as Button).text) == "Key moments"
+	var speeds_shown := 0
+	for b in m.get("_speed_btns"):
+		if (b as Control).is_visible_in_tree():
+			speeds_shown += 1
+	var km_watch: Control = m.find_child("KeyMomentsWatch", true, false)
+	var row_ok := km_word != null and km_watch != null and km_watch.global_position.x < km_word.global_position.x
+	for c in m.find_children("*", "Button", true, false):
+		if (c as Button).is_visible_in_tree() and (c as Button).text in ["Pause", "Watch", "Key moments", "Skip to full time"]:
+			row_ok = row_ok and (c as Control).size.y >= 44.0
 	var kinds := []
 	var offered := 0
 	var chosen := 0
@@ -2937,12 +2966,161 @@ func _drive_match(vignettes: bool) -> Dictionary:
 	var out := {"vignettes": seen[0], "kinds": kinds, "offered": offered, "chosen": chosen,
 		"bounce_facts": bounce_facts, "guard": guard,
 		"score": "%s-%s" % [str(res.get("goals", [])), str(res.get("behinds", []))],
-		"events": JSON.stringify(res.get("events", [])), "players": JSON.stringify(res.get("players", {}))}
+		"events": JSON.stringify(res.get("events", [])), "players": JSON.stringify(res.get("players", {})),
+		"log": (res.get("events", []) as Array).duplicate(true), "stops": (m.get("km_stops") as Array).duplicate(true),
+		"trace": (m.get("km_trace") as Array).duplicate(true), "km_shown": km_shown, "speeds_shown": speeds_shown,
+		"row_ok": row_ok}
 	_check(bool(m.get("_fulltime_shown")), "The match reaches full time (vignettes %s)" % ("on" if vignettes else "off"))
 	node_added.disconnect(watch)
 	m.queue_free()
 	await _settle()
 	return out
+
+
+## Key moments (P-14), from the seeded match taken that way (`key`) and the same
+## match watched (`watch`): it stops at every goal, every call and every break
+## in the sim's log and nowhere else, runs at top speed in between, and ends
+## on the same match.
+func _key_moments_checks(key: Dictionary, watch: Dictionary) -> void:
+	var log: Array = key["log"]
+	var goals := []
+	var moments := 0
+	for i in range(log.size()):
+		var k := str((log[i] as Dictionary).get("kind", ""))
+		if k == "goal":
+			goals.append(i)
+		elif k == "moment":
+			moments += 1
+	var goal_stops := []
+	var moment_stops := 0
+	var breaks := []
+	var other := []
+	for s in key["stops"]:
+		match str(s["kind"]):
+			"goal":
+				goal_stops.append(int(s["event"]))
+			"moment":
+				moment_stops += 1
+			"break":
+				breaks.append(int(s["q"]))
+			_:
+				other.append(str(s["kind"]))
+	print("Key moments: %d stops (%d goals of %d, %d calls of %d, breaks %s), %d events traced" % [
+			(key["stops"] as Array).size(), goal_stops.size(), goals.size(), moment_stops, moments,
+			str(breaks), (key["trace"] as Array).size()])
+	_check(bool(key["km_shown"]) and int(key["speeds_shown"]) == 0,
+			"Key moments shows its name where the speeds sit, the speeds put away (%d shown)" % int(key["speeds_shown"]))
+	_check(bool(key["row_ok"]), "The match row reads Pause, Watch, Key moments, each at least 44 px tall")
+	_check(not goals.is_empty() and goal_stops == goals,
+			"Key moments stops for every goal in the log and only those (%d of %d)" % [goal_stops.size(), goals.size()])
+	_check(moments > 0 and moment_stops == moments,
+			"Key moments stops for every coach's call (%d of %d)" % [moment_stops, moments])
+	_check(breaks == [2, 3, 4], "Key moments stops at quarter time, half time and three-quarter time (%s)" % str(breaks))
+	_check(other.is_empty(), "Key moments stops for nothing else (%s)" % str(other))
+	# Between the stops, top speed (8x): every event released below it belongs to
+	# a stretch of 1x that holds a goal or a call's line.
+	var stray := []
+	var run_has_key := false
+	var run_len := 0
+	var trace: Array = key["trace"]
+	for i in range(trace.size() + 1):
+		var slow := i < trace.size() and float(trace[i][1]) < 8.0
+		if slow:
+			run_len += 1
+			if str(trace[i][0]) in ["goal", "moment"]:
+				run_has_key = true
+			if str(trace[i][2]) == "":
+				stray.append("%s at %sx with no stop" % [str(trace[i][0]), str(trace[i][1])])
+		elif run_len > 0:
+			if not run_has_key:
+				stray.append("%d events slowed with no goal or call" % run_len)
+			run_has_key = false
+			run_len = 0
+	_check(trace.size() == log.size() and stray.is_empty(),
+			"Key moments runs at 8x except around a goal or a call (%d of %d traced; %s)" % [
+				trace.size(), log.size(), str(stray.slice(0, 3))])
+	_check(key["score"] == watch["score"] and key["events"] == watch["events"],
+			"Key moments ends on the same match as watching it (%s v %s)" % [str(key["score"]), str(watch["score"])])
+
+
+## The poster's three ways to take the match: a real tap picks one, the main
+## button says Skip to full time only when Skip is chosen, the last one comes up
+## chosen on the next visit, and a real tap on the main button with Skip chosen
+## goes straight to your full time.
+func _match_way_poster() -> void:
+	var db = root.get_node("GameDB")
+	_state.set_vignettes_on(true)
+	_state.set_match_way("watch")
+	_state.reset()
+	_state.replay_seed = SUITE_SEED
+	_state.start_season("FRE", db.club_list("FRE"))
+	_state.set_setting("seen_weekly_loop_intro", true)
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		root.size = sz
+		_state.set_match_way("watch")
+		var hub: Control = load("res://scenes/HubScene.tscn").instantiate()
+		root.add_child(hub)
+		await _settle()
+		var key: Button = hub.find_child("MatchWay_key", true, false)
+		var skip: Button = hub.find_child("MatchWay_skip", true, false)
+		var watch: Button = hub.find_child("MatchWay_watch", true, false)
+		var play: Button = hub.find_child("PlayMatch", true, false)
+		_check(watch != null and key != null and skip != null and _chosen(watch) and not _chosen(key)
+				and play != null and play.text == "Play match",
+				"%dx%d: the poster offers Watch, Key moments and Skip, Watch chosen for a new coach" % [sz.x, sz.y])
+		var row_ok := watch != null and key != null and skip != null
+		if row_ok:
+			row_ok = (is_equal_approx(watch.global_position.y, key.global_position.y)
+					and is_equal_approx(key.global_position.y, skip.global_position.y)
+					and watch.global_position.x < key.global_position.x
+					and key.global_position.x < skip.global_position.x)
+		_check(row_ok, "%dx%d: the three choices sit in one row, Watch, Key moments, Skip" % [sz.x, sz.y])
+		var tapped: String = await Tap.tap(key) if key != null else "missing"
+		_check(tapped == "" and _state.match_way() == "key" and _chosen(key) and not _chosen(watch)
+				and play != null and play.text == "Play match",
+				"%dx%d: a real tap on Key moments chooses it and keeps it, Play match stays (%s, %s)" % [
+					sz.x, sz.y, tapped, _state.match_way()])
+		tapped = await Tap.tap(skip) if skip != null else "missing"
+		_check(tapped == "" and _state.match_way() == "skip" and play != null and play.text == "Skip to full time",
+				"%dx%d: a real tap on Skip chooses it and the main button says Skip to full time (%s, %s)" % [
+					sz.x, sz.y, tapped, play.text if play != null else "-"])
+		hub.queue_free()
+		await _settle()
+	# The next visit: Skip comes up chosen; a real tap on the main button goes
+	# straight to your full time.
+	root.size = Vector2i(390, 844)
+	var hub2: Control = load("res://scenes/HubScene.tscn").instantiate()
+	root.add_child(hub2)
+	await _settle()
+	var skip2: Button = hub2.find_child("MatchWay_skip", true, false)
+	var play2: Button = hub2.find_child("PlayMatch", true, false)
+	_check(skip2 != null and _chosen(skip2) and play2 != null and play2.text == "Skip to full time",
+			"The way chosen last comes up chosen on the next visit, the main button in its words")
+	var tapped2: String = await Tap.tap(play2) if play2 != null else "missing"
+	var saw_box := false
+	var m: Node = null
+	for i in range(60):
+		await process_frame
+		if current_scene != null and current_scene.name == "MatchScene":
+			m = current_scene
+			saw_box = saw_box or m.find_child("CoachBox", true, false) != null
+			if bool(m.get("_fulltime_shown")):
+				break
+	_check(tapped2 == "" and m != null, "A real tap on Skip to full time opens your match (%s)" % tapped2)
+	_check(m != null and bool(m.get("_fulltime_shown")) and not saw_box and _state.pending_sim == null,
+			"Skip goes straight to your full time on the plan you took in, no break on the way")
+	if m != null:
+		m.queue_free()
+	if is_instance_valid(hub2):
+		hub2.queue_free()
+	_state.set_match_way("watch")
+	await _settle()
+
+
+## A choice painted as chosen (UiKit.paint_choice): the 2 px outline.
+func _chosen(b: Button) -> bool:
+	var sb := b.get_theme_stylebox("normal") as StyleBoxFlat
+	return sb != null and sb.border_width_left == 2
 
 
 ## True when a body on the figure sheet has the move from every one of those sides.
@@ -2954,11 +3132,227 @@ func _sheet_has(body: Dictionary, anim: String, facings: Array) -> bool:
 	return true
 
 
+## True when any button or label under a node says the text.
+func _any_text(node: Node, text: String) -> bool:
+	for n in node.find_children("*", "Control", true, false):
+		if (n is Button or n is Label) and str(n.text).contains(text):
+			return true
+		if n is RichTextLabel and (n as RichTextLabel).get_parsed_text().contains(text):
+			return true
+	return false
+
+
 func _check(condition: bool, message: String) -> void:
 	_checks += 1
 	if not condition:
 		_failures.append(message)
 		push_error(message)
+
+
+## The call panes, Fremantle v Melbourne (the lead's captures of 2026-10-18, seed 2050).
+## Before the first ball-up: "Tag which player?" is drawn over the tag choices; on a
+## PC the game plan leads the first column, the tag and the key match-ups share one, the
+## pep talk and the defensive forward share one, the columns are alike in height and the
+## pane does not scroll; each key match-up's Change sits right after its sentence and no
+## player's name is broken across two lines. At quarter time each surname the key
+## match-ups row names wears his own club's ink (two clubs share "McDonald"), and Best so
+## far's names wear their clubs' ink (director A1, 2026-10-14).
+const NB := " "
+
+
+func _fre_v_mel() -> bool:
+	var db = root.get_node("GameDB")
+	for tries in range(80):
+		_state.reset()
+		_state.career_seed = 2050 + tries
+		_state.replay_seed = 2050 + tries
+		_state.set_setting("seen_training_intro", true)
+		_state.start_season("FRE", db.club_list("FRE"))
+		_state.prepare_interactive_match()
+		var sq = _state.pending_sim.squads
+		if str(sq[0].code) == "MEL" or str(sq[1].code) == "MEL":
+			return true
+	return false
+
+
+func _break_panes_layout() -> void:
+	var UK = load("res://scripts/ui/UiKit.gd")
+	var db = root.get_node("GameDB")
+	var seed_before: int = _state.replay_seed
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		var tag := "%dx%d" % [sz.x, sz.y]
+		root.size = sz
+		_check(_fre_v_mel(), "(setup) Fremantle meet Melbourne in a seed from 2050 (%s)" % tag)
+		var sim = _state.pending_sim
+		var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+		root.add_child(m)
+		await _settle()
+		await _settle()
+		var box: Node = m.find_child("CoachBox", true, false)
+		_check(box != null, "The pre-bounce box opens (%s)" % tag)
+		if box == null:
+			m.queue_free()
+			continue
+		var ask: Node = box.find_child("TagQuestion", true, false)
+		var tag_picker: Node = box.find_child("TagPicker", true, false)
+		_check(ask is Label and (ask as Label).text == "Tag which player?" and (ask as Label).is_visible_in_tree(),
+				"Tag which player? is drawn over the tag choices (%s)" % tag)
+		_check(ask != null and tag_picker != null and ask.get_parent() == tag_picker.get_parent()
+				and ask.get_index() < tag_picker.get_index(), "...above the choices, in the Tag block (%s)" % tag)
+		await _matchup_rows(m, box, tag)
+		var mq: Control = box.find_child("MinderQuestion", true, false)
+		var opp_code := str(sim.squads[1 - int(sim.moment_side)].code)
+		var ink_club: String = "[color=#%s]%s[/color]" % [UK.club_ink(opp_code).to_html(false), db.club_name(opp_code).replace(" ", NB)]
+		_check(mq is RichTextLabel and (mq as RichTextLabel).text.contains(ink_club),
+				"The club name in Who covers (%s)? wears the club's ink (%s: %s)" % [db.club_name(opp_code), tag, "" if mq == null else str(mq.get("text"))])
+		if sz.x >= 1200:
+			var cols_node: Control = box.find_child("BreakColumns", true, false)
+			var cols: Array = cols_node.get_children()
+			var col_of := func(nm: String) -> int:
+				var n: Node = box.find_child(nm, true, false)
+				for i in range(cols.size()):
+					if n != null and (cols[i] as Node).is_ancestor_of(n):
+						return i
+				return -1
+			_check(cols.size() == 4, "Four call columns at 1280x720 (%d)" % cols.size())
+			_check(int(col_of.call("PlanPicker")) == 0, "The game plan leads the first column (column %d)" % int(col_of.call("PlanPicker")))
+			_check(int(col_of.call("TagPicker")) >= 0 and int(col_of.call("TagPicker")) == int(col_of.call("BreakMatchups")),
+					"The tag and the key match-ups share a column")
+			_check(int(col_of.call("PepPicker")) >= 0 and int(col_of.call("PepPicker")) == int(col_of.call("MinderBlock")),
+					"The pep talk and the defensive forward share a column")
+			_check(int(col_of.call("RotationPicker")) >= 0 and int(col_of.call("RotationPicker")) == int(col_of.call("FocusPicker_focus_fwd"))
+					and int(col_of.call("RotationPicker")) == int(col_of.call("FocusPicker_focus_def")),
+					"Rotations and the play-through calls share a column")
+			var tallest := 0.0
+			var heights := []
+			for c in cols:
+				var t := 0.0
+				for n in (c as Node).get_children():
+					if (n as Control).visible:
+						t += (n as Control).get_combined_minimum_size().y + 6.0
+				heights.append(t)
+				tallest = maxf(tallest, t)
+			var worst := 0.0
+			for t in heights:
+				worst = maxf(worst, (tallest - float(t)) / tallest)
+			_check(worst <= 0.20, "No column stands more than a fifth empty (%.0f%%: %s)" % [worst * 100.0, str(heights)])
+			var bsc: ScrollContainer = null
+			var up: Node = cols_node
+			while up != null and bsc == null:
+				bsc = up as ScrollContainer
+				up = up.get_parent()
+			var need := (bsc.get_child(0) as Control).get_combined_minimum_size().y if bsc != null else INF
+			_check(need <= bsc.size.y + 1.0, "The pre-bounce pane does not scroll at 1280x720 (%.0f of %.0f)" % [need, bsc.size.y if bsc else 0.0])
+		m.queue_free()
+		await _settle()
+		# Quarter time: the calls rows and Best so far.
+		sim.run_quarter()
+		var m2: Control = load("res://scenes/MatchScene.tscn").instantiate()
+		root.add_child(m2)
+		await _settle()
+		await _settle()
+		var box2: Node = m2.find_child("CoachBox", true, false)
+		var row: Node = box2.find_child("CallRow_mu", true, false) if box2 != null else null
+		_check(row != null, "Quarter time has the key match-ups row (%s)" % tag)
+		if row != null:
+			var ans: RichTextLabel = row.get_meta("answer") as RichTextLabel
+			var mine := int(sim.moment_side)
+			var named := 0
+			for fid in (sim.duels[mine] as Dictionary):
+				var duel_id := str((sim.duels[mine] as Dictionary)[fid])
+				for pair in [[str(fid), str(sim.squads[1 - mine].code)], [duel_id, str(sim.squads[mine].code)]]:
+					var full: String = db.player_display_name_by_id(str(pair[0]), "")
+					var sur: String = full.split(" ", false, 1)[1] if full.contains(" ") else full
+					if not _plain_of(ans).contains(sur):
+						continue
+					named += 1
+					_check(ans.text.contains("[color=#%s]%s" % [UK.club_ink(str(pair[1])).to_html(false), sur.replace(" ", NB)]),
+							"%s wears %s's ink on the key match-ups row (%s)" % [sur, pair[1], tag])
+			_check(named >= 2, "The key match-ups row names players (%d, %s)" % [named, tag])
+		var inks: Array = UK.club_ink_pair(str(sim.squads[0].code), str(sim.squads[1].code))
+		for side in [0, 1]:
+			var wrap: Node = box2.find_child("BestSide_%d" % side, true, false) if box2 != null else null
+			var plain := []
+			var count := 0
+			for n in (wrap.find_children("StandoutName", "Label", true, false) if wrap != null else []):
+				count += 1
+				if (n as Label).get_theme_color("font_color") != (inks[side] as Color):
+					plain.append((n as Label).text)
+			_check(count >= 1 and plain.is_empty(), "Best so far names for side %d wear his club's ink (%s, %d, not: %s)" % [side, tag, count, str(plain)])
+		m2.queue_free()
+		await _settle()
+	_state.replay_seed = seed_before
+
+
+func _plain_of(c: Control) -> String:
+	return str(c.get_meta("plain")) if c.has_meta("plain") else (c as Label).text
+
+
+## Each key match-up's Change sits right after its sentence, and no name in a
+## sentence is broken across two lines.
+func _matchup_rows(m: Control, box: Node, tag: String) -> void:
+	var NI = load("res://scripts/ui/NameInk.gd")
+	var rows := box.find_children("BreakMatchup_*", "HBoxContainer", true, false)
+	_check(not rows.is_empty(), "The key match-ups have rows (%s)" % tag)
+	var names: Dictionary = m.call("_names")
+	var gaps := []
+	for r in rows:
+		var line: RichTextLabel = r.find_child("MatchupLine", true, false) as RichTextLabel
+		var change: Button = r.find_child("ChangeMatchup", true, false) as Button
+		if line == null or change == null:
+			_check(false, "A match-up row has its sentence and Change (%s)" % tag)
+			continue
+		var beside := _change_beside(line, change)
+		var gap: float = beside["gap"]
+		gaps.append(gap)
+		_check(gap >= 0.0 and gap <= 14.0, "Change sits right after its sentence, %.0f px away (%s: %s)" % [gap, tag, _plain_of(line)])
+		_check(absf(float(beside["off"])) <= 6.0, "Change sits level with the last line of its sentence (%.0f px off, %s: %s)" % [beside["off"], tag, _plain_of(line)])
+		var plain := _plain_of(line)
+		var spans: Array = NI.spans_in(plain, names)
+		var broken := []
+		for i in range(1, line.get_line_count()):
+			var at := line.get_line_range(i).x
+			for sp in spans:
+				if at > int(sp[0]) and at < int(sp[1]):
+					broken.append(plain.substr(int(sp[0]), int(sp[1]) - int(sp[0])))
+		_check(broken.is_empty(), "No name breaks across lines on a match-up (%s: %s)" % [tag, str(broken)])
+	# A sentence long enough to wrap on any pane: Change still follows its last line,
+	# the same distance as on a one-line row.
+	if not rows.is_empty():
+		var wl: RichTextLabel = rows[0].find_child("MatchupLine", true, false) as RichTextLabel
+		var was_bb := wl.text
+		var was_plain := _plain_of(wl)
+		NI.set_line(wl, "A long sentence that names a good many words, so that this match-up has to wrap onto a second and a third line before it ends.", names)
+		if wl.has_meta("refit"):
+			(wl.get_meta("refit") as Callable).call()
+		await _settle()
+		var wc: Button = rows[0].find_child("ChangeMatchup", true, false) as Button
+		var wat := _change_beside(wl, wc)
+		_check(wl.get_line_count() >= 2, "(setup) the long match-up sentence wraps (%d lines, %s)" % [wl.get_line_count(), tag])
+		_check(float(wat["gap"]) >= 0.0 and float(wat["gap"]) <= 14.0, "On a wrapped sentence Change sits right after its last line, %.0f px away (%s)" % [wat["gap"], tag])
+		_check(absf(float(wat["off"])) <= 6.0, "...level with that last line (%.0f px off, %s)" % [wat["off"], tag])
+		var all_gaps: Array = gaps.duplicate()
+		all_gaps.append(float(wat["gap"]))
+		var lo: float = all_gaps.min()
+		var hi: float = all_gaps.max()
+		_check(all_gaps.size() >= 2 and hi - lo <= 4.0, "Every Change sits the same distance after its sentence, wrapped or not (%.1f to %.1f px, %s)" % [lo, hi, tag])
+		wl.text = was_bb
+		wl.set_meta("plain", was_plain)
+		(wl.get_meta("refit") as Callable).call()
+		await _settle()
+
+
+## How far a Change sits from the end of its sentence's last line (gap, px across),
+## and how far its middle is from that line's middle (off, px down).
+func _change_beside(line: RichTextLabel, change: Button) -> Dictionary:
+	var last := line.get_line_count() - 1
+	var rng := line.get_line_range(last)
+	var shown := line.get_parsed_text().substr(rng.x, rng.y - rng.x).strip_edges(false, true)
+	var ends := line.get_global_rect().position.x + line.get_theme_font("normal_font").get_string_size(
+			shown, HORIZONTAL_ALIGNMENT_LEFT, -1, line.get_theme_font_size("normal_font_size")).x
+	var top := line.get_line_offset(last)
+	var mid := line.get_global_rect().position.y + top + (line.get_content_height() - top) * 0.5
+	return {"gap": change.get_global_rect().position.x - ends, "off": change.get_global_rect().get_center().y - mid}
 
 
 ## Tapping a tag target brings "Who tags" in; no other section changes column
@@ -3019,6 +3413,16 @@ func _inside_scroll(c: Node) -> bool:
 			return true
 		p = p.get_parent()
 	return false
+
+
+## Words with the line breaks and the colons and semicolons that split a call's
+## words into lines taken out, in lower case, so the lines can be compared with
+## the call's full sentence.
+func _flat(s: String) -> String:
+	var out := s.to_lower().replace(":", " ").replace(";", " ").replace("\n", " ")
+	while out.contains("  "):
+		out = out.replace("  ", " ")
+	return out.strip_edges()
 
 
 ## The words a line shows, whether a Label or a tinted RichTextLabel carries them.

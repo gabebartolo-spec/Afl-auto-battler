@@ -231,7 +231,7 @@ func _run() -> void:
 			"No Continue Career without a save")
 
 	# --- the menu is the title and a few actions, no setup -------------------
-	_check(current_scene.find_child("Difficulty_hard", true, false) == null
+	_check(current_scene.find_child("BoardPatience_ruthless", true, false) == null
 			and current_scene.find_child("NameMode_real", true, false) == null,
 			"The menu itself carries no setup controls")
 	_check(not _screen_text().contains("players ·") and not _screen_text().contains("Quit"),
@@ -299,6 +299,45 @@ func _run() -> void:
 	var tagline: Label = current_scene.find_child("Tagline", true, false)
 	_check(tagline != null and tagline.text == "Build your dynasty.",
 			"The minimal menu uses the approved tagline")
+
+	# --- the offline promise and the browser's storage line (P-70, P-71) -----------
+	var promise: Label = current_scene.find_child("OfflinePromise", true, false)
+	_check(promise != null and promise.text == "Plays offline. No ads, no account.
+Your career stays on your phone.",
+			"The menu prints the offline promise in the approved words")
+	_check(promise != null and promise.visible and promise.autowrap_mode != TextServer.AUTOWRAP_OFF,
+			"The promise is on screen as two deliberate lines")
+	_check(not WebStorage.should_ask(false, false) and WebStorage.should_ask(true, false)
+			and not WebStorage.should_ask(true, true),
+			"The browser is asked to keep the save only on the web, and only until it has answered")
+	_check(WebStorage.is_final("granted") and WebStorage.is_final("refused")
+			and not WebStorage.is_final("pending") and not WebStorage.is_final(""),
+			"A pending or empty answer keeps the question open")
+	_check(WebStorage.notice_due("refused", false) and not WebStorage.notice_due("refused", true)
+			and not WebStorage.notice_due("granted", false) and not WebStorage.notice_due("unsupported", false),
+			"The line is due only when the browser refused and it has not been shown before")
+	_check(current_scene.find_child("StorageNotice", true, false) == null,
+			"No storage line on a desktop or phone menu, nor before the browser answers")
+	_state.set_setting(WebStorage.SHOWN_KEY, false)
+	current_scene.call("_on_storage_answer", "granted")
+	await _settle()
+	_check(current_scene.find_child("StorageNotice", true, false) == null,
+			"A granted request shows no line")
+	current_scene.call("_on_storage_answer", "refused")
+	await _settle()
+	var notice: Label = current_scene.find_child("StorageNotice", true, false)
+	_check(notice != null and notice.text == "Your browser may clear this save when space is short."
+			and bool(_state.get_setting(WebStorage.SHOWN_KEY, false)),
+			"A refusal shows the one plain line and remembers it was shown")
+	_router.to_main_menu(false)
+	await _settle()
+	current_scene.call("_on_storage_answer", "refused")
+	await _settle()
+	_check(current_scene.find_child("StorageNotice", true, false) == null,
+			"The line is not shown again on a later visit")
+	var presets := FileAccess.get_file_as_string("res://export_presets.cfg")
+	_check(presets.contains("user_data_backup/allow=true"),
+			"The Android export turns on the system's own backup of the save")
 
 	# --- settings: appearance and player names apply at once -----------------
 	current_scene.find_child("MenuSettings", true, false).emit_signal("pressed")
@@ -504,6 +543,43 @@ func _run() -> void:
 			"A small window at 300% follows the OS scaling (the small-window floor then applies)")
 	_check(is_equal_approx(dens.call(2880, 1800, 2.0, 0), 2.25),
 			"A Mac reporting its own scale still fills the screen")
+	# --- the web canvas scales like the desktop window (director, 2026-10-18: "Yes, scale it") ---
+	# A browser at 1440p and ratio 1 drew 2560 units: 13-unit text. The window is
+	# the canvas in physical pixels (css size x the page's pixel ratio).
+	var web_layout_script = load("res://scripts/core/ScreenLayout.gd")
+	var web_bad := []
+	for row in [[1280, 720, 1.0, 1280], [1920, 1080, 1.0, 1280], [2560, 1440, 1.0, 1280],
+			[3840, 2160, 1.0, 1280], [3840, 2160, 2.0, 1280], [3840, 2160, 3.0, 1280], [1280, 720, 2.0, 1280]]:
+		var px := Vector2(float(row[0]) * float(row[2]), float(row[1]) * float(row[2]))
+		var units: float = px.x / float(web_layout_script.web_density(px, float(row[2])))
+		if absf(units - float(row[3])) > 1.0:
+			web_bad.append("%sx%s at %s -> %.0f units wide" % [row[0], row[1], row[2], units])
+	_check(web_bad.is_empty(), "A browser window at 720p, 1080p, 1440p and 4K draws a ~1280-unit canvas (%s)" % [web_bad])
+	web_bad = []
+	for row in [[390, 844, 1.0], [390, 844, 3.0], [412, 915, 1.0], [412, 915, 3.0], [360, 800, 2.0], [440, 956, 2.0]]:
+		var px := Vector2(float(row[0]) * float(row[2]), float(row[1]) * float(row[2]))
+		var units: float = px.x / float(web_layout_script.web_density(px, float(row[2])))
+		if absf(units - float(row[0])) > 0.5:
+			web_bad.append("%sx%s at %s -> %.1f units wide" % [row[0], row[1], row[2], units])
+	_check(web_bad.is_empty(), "A phone's browser keeps its 360-440 unit canvas at its own pixel ratio (%s)" % [web_bad])
+	var web_wide: float = 800.0 / float(web_layout_script.web_density(Vector2(800, 1100), 1.0))
+	_check(web_wide <= 480.5 and float(web_layout_script.web_density(Vector2(1280, 720), 0.5)) == 1.0,
+			"A portrait window wider than a phone is zoomed to 480 units; a ratio under 1 counts as 1 (%.0f)" % web_wide)
+	# The real node, on the web path: the same sizes end to end through _update_scale.
+	var web_window_before: Vector2i = root.size
+	var web_ends := []
+	for row in [[2560, 1440, 1.0, 1280, 720], [3840, 2160, 3.0, 1280, 720], [1170, 2532, 3.0, 390, 844], [1080, 1920, 1.0, 480, 853]]:
+		web_layout_script.web_ratio_test = float(row[2])
+		root.size = Vector2i(int(row[0]), int(row[1]))
+		await _settle()
+		layout._update_scale()
+		if root.content_scale_size != Vector2i(int(row[3]), int(row[4])):
+			web_ends.append("%s at %s -> %s" % [Vector2i(row[0], row[1]), row[2], root.content_scale_size])
+	web_layout_script.web_ratio_test = 0.0
+	root.size = web_window_before
+	await _settle()
+	layout._update_scale()
+	_check(web_ends.is_empty(), "ScreenLayout on the web path sets the canvas the rule gives (%s)" % [web_ends])
 	# Screen size (director, 2026-10-08: the game on a 4K TV from the couch):
 	# TV draws everything 1.6x bigger; Standard puts it back.
 	# In a PC-sized window: the small-window floor stops a 320-wide one.
@@ -524,37 +600,44 @@ func _run() -> void:
 	root.size = window_before
 	await _settle()
 
-	# --- new career setup: names and difficulty, applied only on start -------
+	# --- new career setup: names and the two dials, applied only on start ----
 	current_scene.find_child("NewCareer", true, false).emit_signal("pressed")
 	await _settle()
-	var hard_btn: Button = current_scene.find_child("Difficulty_hard", true, false)
-	_check(hard_btn != null and current_scene.find_child("NameMode_real", true, false) != null,
-			"New career asks for player names and difficulty")
-	if hard_btn != null:
-		hard_btn.emit_signal("pressed")
+	var ruthless_btn: Button = current_scene.find_child("BoardPatience_ruthless", true, false)
+	var cutthroat_btn: Button = current_scene.find_child("RivalRecruiting_cutthroat", true, false)
+	_check(ruthless_btn != null and cutthroat_btn != null and current_scene.find_child("NameMode_real", true, false) != null,
+			"New career asks for player names and the two difficulty dials")
+	var note: Label = current_scene.find_child("BoardPatienceNote", true, false)
+	var rival_note: Label = current_scene.find_child("RivalRecruitingNote", true, false)
+	_check(note != null and note.visible and note.text == DifficultyDials.text("board_patience", "fair")
+			and rival_note != null and rival_note.visible and rival_note.text == DifficultyDials.text("rival_recruiting", "shrewd"),
+			"Each dial starts on its middle step and says what it means in one sentence")
+	var every_trade := true
+	for key in DifficultyDials.order("rival_recruiting"):
+		every_trade = every_trade and DifficultyDials.text("rival_recruiting", key).contains("trade")
+	_check(every_trade, "Every rival recruiting sentence says it is about trades")
+	if ruthless_btn != null:
+		ruthless_btn.emit_signal("pressed")
 		await _settle()
-	_check(_state.new_career_difficulty() == "normal", "A pick changes nothing before the career starts")
-	current_scene.find_child("DifficultyInfo", true, false).emit_signal("pressed")
-	await _settle()
-	var note: Label = current_scene.find_child("DifficultyNote", true, false)
-	_check(note != null and note.visible and note.text == str(_state.DIFFICULTIES["hard"]["text"]),
-			"The ? explains the picked difficulty on request")
-	# Difficulty changes one rule, the trade margin, so every difficulty says
-	# it in trade terms and nothing else (the lever-truth audit: the help once
-	# promised rival development and XP that no difficulty changes).
-	var only_trades := true
-	for key in _state.DIFFICULTY_ORDER:
-		var rules: Dictionary = _state.DIFFICULTIES[key]
-		only_trades = only_trades and rules.keys().size() == 3 and rules.has("trade_margin") \
-				and str(rules["text"]).contains("trade")
-	_check(only_trades, "Each difficulty changes only the trade margin, and its text says so")
+	_check(_state.new_career_dial("board_patience") == "fair" and _state.new_career_dial("rival_recruiting") == "shrewd",
+			"A pick changes nothing before the career starts")
+	_check(note != null and note.text == DifficultyDials.text("board_patience", "ruthless"),
+			"The sentence follows the picked step")
+	# No percentage or multiplier ever reaches the screen: every step is a name and a sentence.
+	var plain := true
+	for dial in DifficultyDials.DIALS:
+		for key in DifficultyDials.order(dial):
+			plain = plain and not DifficultyDials.text(dial, key).contains("%") \
+					and not DifficultyDials.label(dial, key).contains("%")
+	_check(plain, "No step shows a percentage")
 	_router.handle_back(false)
 	await _settle()
 	_check(_router.current() == "main" and current_scene.find_child("NewCareerSetup", true, false) == null
-			and _state.new_career_difficulty() == "normal", "Back leaves the setup without changing anything")
+			and _state.new_career_dial("board_patience") == "fair", "Back leaves the setup without changing anything")
 	current_scene.find_child("NewCareer", true, false).emit_signal("pressed")
 	await _settle()
-	current_scene.find_child("Difficulty_hard", true, false).emit_signal("pressed")
+	current_scene.find_child("BoardPatience_ruthless", true, false).emit_signal("pressed")
+	current_scene.find_child("RivalRecruiting_cutthroat", true, false).emit_signal("pressed")
 	current_scene.find_child("NameMode_real", true, false).emit_signal("pressed")
 	_check(current_scene.find_child("ForgedClub_in", true, false) != null, "New career offers your Forge club")
 	# On a phone, where the setup form scrolls.
@@ -563,14 +646,19 @@ func _run() -> void:
 	await _settle()
 	var tut_off = current_scene.find_child("Tutorials_off", true, false)
 	var tut_tap: String = await Tap.tap(tut_off) if tut_off != null else "missing"
+	var board_btn = current_scene.find_child("BoardPatience_ruthless", true, false)
+	var rival_btn = current_scene.find_child("RivalRecruiting_cutthroat", true, false)
+	var board_tap: String = await Tap.tap(board_btn) if board_btn != null else "missing"
+	var rival_tap: String = await Tap.tap(rival_btn) if rival_btn != null else "missing"
 	root.size = win_was
 	await _settle()
 	_check(tut_tap == "", "New career offers Tutorials On/Off, and Off takes a real tap (%s)" % tut_tap)
+	_check(board_tap == "" and rival_tap == "", "Both difficulty dials take a real tap on a phone (%s %s)" % [board_tap, rival_tap])
 	current_scene.find_child("StartCareer", true, false).emit_signal("pressed")
 	await _settle()
 	_check(_router.current() == "draft", "Starting the career goes on to choosing a club")
-	_check(_state.new_career_difficulty() == "hard" and _state.difficulty == "hard"
-			and _state.show_real_names, "The career starts with the picks made")
+	_check(_state.new_career_dial("board_patience") == "ruthless" and _state.board_patience == "ruthless"
+			and _state.rival_recruiting == "cutthroat" and _state.show_real_names, "The career starts with the picks made")
 	var brought := false
 	for d in _state.draftee_pool:
 		brought = brought or (str(d["id"]) == _state.custom_prospect_id and str(d.get("last", "")) == "Forge")
@@ -582,7 +670,8 @@ func _run() -> void:
 			"Your Forge club is in this career's League Draft")
 	_state.set_forge_player({})
 	_state.set_forge_club({})
-	_state.set_new_career_difficulty("normal")
+	_state.set_new_career_dial("board_patience", "fair")
+	_state.set_new_career_dial("rival_recruiting", "shrewd")
 	_state.set_show_real_names(false)
 	_state.reset()
 	# Tutorials belong to the career: kept through save and load, changed in Settings.
@@ -682,6 +771,9 @@ func _run() -> void:
 	_check(not digits and not lp_text.to_lower().contains("recommend") and not lp_text.to_lower().contains("should")
 			and not lp_text.to_lower().contains("best choice") and not lp_text.to_lower().contains("suits you"),
 			"The plans and strengths are words, with no advice")
+	var trade_line: Label = hwp.find_child("PlanTradeOff", true, false) if hwp != null else null
+	_check(trade_line != null and trade_line.is_visible_in_tree() and trade_line.text.contains("gives something up"),
+			"How we play says in a line that a plan costs something and buys an edge (P-63)")
 	_check(lp_rows.all(func(b): return (b as Button).size.y >= 44), "Each strength is a thumb-sized tap")
 	if not lp_rows.is_empty():
 		var detail: Label = (lp_rows[0] as Node).get_parent().find_child("Detail", false, false)
@@ -1584,6 +1676,30 @@ func _run() -> void:
 	await _settle()
 	var hub_settings: Button = current_scene.find_child("HubSettings", true, false)
 	_check(hub_settings != null and hub_settings.size.y >= 44, "Settings is on the hub's top bar")
+	var board_was: String = _state.board_patience
+	var rivals_was: String = _state.rival_recruiting
+	# The hub's board line follows the board's own line for a poor season: at
+	# confidence 35 a Ruthless board (line 40) is worried, a Fair one (line 30) is not.
+	var conf_was: int = _state.board_confidence()
+	var warned_was: bool = bool(_state.board.get("warned", false))
+	_state.board["confidence"] = 35
+	_state.board["warned"] = false
+	_state.board_patience = "ruthless"
+	_router.go("hub")
+	await _settle()
+	var ruthless_line: Label = current_scene.find_child("BoardLine", true, false)
+	var ruthless_text := ruthless_line.text if ruthless_line != null else ""
+	_state.board_patience = "fair"
+	_router.go("hub")
+	await _settle()
+	var fair_line: Label = current_scene.find_child("BoardLine", true, false)
+	_check(ruthless_text.begins_with("Board: In trouble") and fair_line == null,
+			"On Ruthless a coach at 35 is told the board is worried; on Fair he is not (ruthless '%s', fair %s)" % [ruthless_text, "shown" if fair_line != null else "none"])
+	_state.board["confidence"] = conf_was
+	_state.board["warned"] = warned_was
+	hub_settings = current_scene.find_child("HubSettings", true, false)
+	_state.board_patience = "patient"
+	_state.rival_recruiting = "cutthroat"
 	if hub_settings != null:
 		hub_settings.emit_signal("pressed")
 		await _settle()
@@ -1592,6 +1708,18 @@ func _run() -> void:
 			and current_scene.find_child("OptionsNewCareer", true, false) != null
 			and current_scene.find_child("OptionsVersion", true, false) != null,
 			"Settings in a career has speed, main menu, New career and version")
+	var ver_label: Label = current_scene.find_child("OptionsVersion", true, false) as Label
+	var project_version := str(ProjectSettings.get_setting("application/config/version", ""))
+	_check(ver_label != null and project_version != ""
+			and ver_label.text.begins_with("Version " + project_version),
+			"Settings shows the version read from project.godot config/version (%s)" % project_version)
+	var dials_line: Label = current_scene.find_child("OptionsCareerDials", true, false)
+	_check(dials_line != null and dials_line.visible
+			and dials_line.text == "This career: Patient board · Cut-throat rivals."
+			and not dials_line.text.contains("%"),
+			"Settings shows the career's two dial steps in one read-only line")
+	_state.board_patience = board_was
+	_state.rival_recruiting = rivals_was
 	if eight != null:
 		eight.emit_signal("pressed")
 		await _settle()
@@ -1636,12 +1764,14 @@ func _run() -> void:
 	await _test_season_awards()
 	await _test_back_arrow_taps()
 	await _test_finals_card_taps()
+	await _test_remembered()
 	_test_type_roles()
 	await _test_names_fit()
 	_state.delete_saved_career()
 	await _new_career_keeps_the_save()
 	await _new_career_canberra_choice()
 	await _pc_hub_and_list_layout()
+	await _list_shape_fits_phones()
 	print("Career UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
@@ -1666,6 +1796,131 @@ func _test_back_arrow_taps() -> void:
 			why = await Tap.tap(b)
 			await _settle()
 		_check(_router.current() == "hub", "Tapping back on %s gets you out (%s)" % [key, why if why != "" else "ok"])
+
+
+## P-37, the club remembers him (director, 2026-10-18). A seeded Fremantle list:
+## one player with a premiership, a best and fairest, a debut with a goal in it
+## and an injury he came back from; another with only the injury; a third with
+## nothing. The sheet shows the three that matter most, newest first, and the
+## injury waits; the release confirm says the one biggest fact, and a real tap on
+## Release then Cancel leaves him and every fact where they were.
+func _test_remembered() -> void:
+	var sheet_script = load("res://scripts/ui/PlayerSheet.gd")
+	var facts_script = load("res://scripts/sim/CareerFacts.gd")
+	var kit = load("res://scripts/ui/UiKit.gd")
+	_state.reset()
+	_state.career_seed = 7737
+	_state.replay_seed = 7737
+	_state.start_season("FRE", _db.club_list("FRE"))
+	var year: int = _state.season_year
+	var young: Array = _state.my_list.filter(func(q): return float(q.get("age", 30.0)) < 26.0)
+	var star: Dictionary = young[0]
+	var hurt: Dictionary = young[1]
+	var blank: Dictionary = young[2]
+	var star_id := str(star["id"])
+	star["career"] = {"games": 12, "goals": 14, "through": year - 1, "unknown": [],
+			"stints": [["FRE", year - 2, year - 1, 12, 14]]}
+	star["firsts"] = {"debut": {"year": year - 2, "label": "Round 7"}, "goal": {"year": year - 2, "label": "Round 7"}}
+	_state.honour_roll = [{"year": year - 1, "my_club": "FRE", "premier": "", "my_bf": [{"id": star_id}]},
+			{"year": year - 2, "my_club": "FRE", "premier": "FRE", "my_bf": []}]
+	facts_script.add(_state.career_facts, star_id, facts_script.row(year - 1, "Round 3", "injury", "FRE", "", "hamstring"))
+	hurt["career"] = {"games": 5, "goals": 0, "through": year - 1, "unknown": [],
+			"stints": [["FRE", year - 1, year - 1, 5, 0]]}
+	facts_script.add(_state.career_facts, str(hurt["id"]), facts_script.row(year - 1, "Round 3", "injury", "FRE", "", "knee"))
+	blank["career"] = {"games": 0, "goals": 0, "through": year - 1, "unknown": [], "stints": []}
+	blank.erase("firsts")
+	blank.erase("backed")
+	_state.career_facts.erase(str(blank["id"]))
+	_state.season_tally.erase(str(blank["id"]))
+	for q in [star, hurt, blank]:
+		for key in ["injury_weeks", "injury_kind", "suspension_weeks"]:
+			q.erase(key)
+	root.size = Vector2i(390, 844)
+
+	# The sheet: three lines, newest first; the injury does not make the cut.
+	var host := Control.new()
+	host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(host)
+	var sheet: Control = sheet_script.open(host, star)
+	await _settle()
+	var lines := []
+	for i in range(5):
+		var l := sheet.find_child("Remembered_%d" % i, true, false) as Label
+		if l != null:
+			lines.append(l.text)
+	_check(lines == ["Best and fairest, %d." % (year - 1), "Premiership, %d." % (year - 2),
+			"Debuted in Round 7, %d, and kicked his first goal." % (year - 2)],
+			"His sheet has three remembered facts, newest first, and not the injury (%s)" % str(lines))
+	var title := sheet.find_child("WithUsTitle", true, false) as Label
+	var name_l := sheet.find_child("ProfileName", true, false) as Label
+	var ink: Color = kit.club_name_colour(kit.club_ink("FRE"))
+	_check(title != null and title.text == "With us" and title.get_theme_color("font_color").is_equal_approx(ink)
+			and name_l != null and name_l.get_theme_color("font_color").is_equal_approx(ink),
+			"The block and his name are in Fremantle's ink, not grey")
+	sheet.queue_free()
+	var sheet2: Control = sheet_script.open(host, hurt)
+	await _settle()
+	var l2 := sheet2.find_child("Remembered_0", true, false) as Label
+	_check(l2 != null and l2.text == "Knee injury in Round 3, %d; he came back." % (year - 1),
+			"With nothing bigger, the injury he came back from is on his sheet (%s)" % (l2.text if l2 != null else "none"))
+	sheet2.queue_free()
+	var sheet3: Control = sheet_script.open(host, blank)
+	await _settle()
+	_check(sheet3.find_child("WithUsTitle", true, false) == null,
+			"Someone yet to play for you has no With us block")
+	sheet3.queue_free()
+	host.queue_free()
+	await _settle()
+
+	# The release confirm, by a finger.
+	_state.season.round_index = _state.season.fixture.size()
+	_state.open_offseason()
+	for q in [star, hurt, blank]:
+		q["contract_years"] = 1
+		q.erase("retiring")
+		q.erase("resigned")
+	# Room to let one go: a list at its minimum cannot release anyone.
+	for i in range(3):
+		var extra: Dictionary = blank.duplicate(true)
+		extra["id"] = "rem_extra_%d" % i
+		_state.my_list.append(extra)
+	var scene: Control = load("res://scenes/OffseasonScene.tscn").instantiate()
+	root.add_child(scene)
+	await _settle()
+	var facts_before := (_state.career_facts.get(star_id, []) as Array).size()
+	var list_before: int = _state.my_list.size()
+	var row := scene.find_child("Contract_" + star_id, true, false)
+	var release: Button = row.find_child("Release", true, false) if row != null else null
+	var why: String = await Tap.tap(release) if release != null else "no Release button"
+	await _settle()
+	var said := scene.find_child("ReleaseRemembered", true, false) as Control
+	_check(why == "" and said != null and scene.find_child("ReleaseConfirmation", true, false) != null,
+			"A finger on Release opens the confirm (%s)" % why)
+	var said_text: String = (said as Label).text if said is Label else ""
+	_check(said_text == "He was with you for the %d premiership." % (year - 2),
+			"The confirm says the biggest remembered fact (%s)" % said_text)
+	var cancel: Button = scene.find_child("CancelRelease", true, false)
+	var why_c: String = await Tap.tap(cancel) if cancel != null else "no Cancel"
+	await _settle()
+	_check(why_c == "" and scene.find_child("ReleaseConfirmation", true, false) == null
+			and _state.my_list.size() == list_before
+			and (_state.career_facts.get(star_id, []) as Array).size() == facts_before,
+			"A finger on Cancel leaves him on the list and every fact kept (%s)" % why_c)
+	# A player with no past with you gets the same two buttons and no line.
+	var brow := scene.find_child("Contract_" + str(blank["id"]), true, false)
+	var brel: Button = brow.find_child("Release", true, false) if brow != null else null
+	var why_b: String = await Tap.tap(brel) if brel != null else "no Release button"
+	await _settle()
+	_check(why_b == "" and scene.find_child("ConfirmRelease", true, false) != null
+			and scene.find_child("ReleaseRemembered", true, false) == null,
+			"With nothing to remember the confirm is quiet (%s)" % why_b)
+	var go: Button = scene.find_child("ConfirmRelease", true, false)
+	var why_g: String = await Tap.tap(go) if go != null else "no confirm"
+	await _settle()
+	_check(why_g == "" and _state.list_player(str(blank["id"])).is_empty() and _state.my_list.size() == list_before - 1,
+			"A finger on Release player lets him go (%s)" % why_g)
+	scene.queue_free()
+	await _settle()
 
 
 ## The finals cards on a phone: a club on its week off (no match, so no Play match) is shown the
@@ -1781,11 +2036,17 @@ func _test_season_awards() -> void:
 	next.emit_signal("pressed")
 	_check(scene._done, "A tap completes the winner animation without advancing the award")
 	_check(var_to_str(_state.season_awards) == before, "Revealing awards does not mutate votes or results")
+	var seen := ""
 	for i in range(20):
 		if not is_instance_valid(ceremony):
 			break
+		for l in ceremony.find_children("*", "Label", true, false):
+			seen += (l as Label).text + " | "
 		next.emit_signal("pressed")
 		await _settle()
+	# Collingwood's best and fairest is the Copeland Trophy, named where the award is presented (P-54).
+	_check(seen.contains("Copeland Trophy") and not seen.contains("Best and fairest"),
+			"The awards screen presents Collingwood's best and fairest as the Copeland Trophy (%s)" % seen.substr(0, 400))
 	_check(not is_instance_valid(ceremony) and _state.season_awards.get("presentation_seen", false),
 		"Completing awards records viewing and returns to review")
 	_check(_state.save_career(), "Awards viewed state saves")
@@ -2060,3 +2321,102 @@ func _pc_hub_and_list_layout() -> void:
 	var cap_title: Control = cap.find_child("SectionTitle", true, false) if cap != null else null
 	_check(cap_title != null and cap_title.size.x >= 60.0, "The Captaincy label is visible beside the names (%.0f wide)" % (cap_title.size.x if cap_title != null else -1.0))
 	_check(cap != null and cap.size.x < 640.0 and cap.size.y >= 44.0, "My list's Captaincy row is not a bar across the PC window and is thumb high (%.0f x %.0f)" % [cap.size.x if cap != null else -1.0, cap.size.y if cap != null else -1.0])
+
+
+## The Shape pane on My list is reachable on a phone (the screen sweep,
+## 2026-10-18: the board ran to y 1005 on an 844 px screen and the tree had no
+## scroll). Every control in the pane is on screen, or inside a scroll that
+## brings it on screen; a finger's tap on a guernsey at the foot of the oval
+## opens his profile; a swipe that starts on a guernsey scrolls the pane.
+func _list_shape_fits_phones() -> void:
+	for sz in [Vector2i(360, 740), Vector2i(390, 844), Vector2i(412, 915)]:
+		var tag := "%dx%d" % [sz.x, sz.y]
+		root.size = sz
+		_state.reset()
+		_state.start_season("MEL", _db.club_list("MEL"))
+		_router.stack = []
+		_router.go("main")
+		await _settle()
+		_router.go("hub")
+		await _settle()
+		_router.go("list")
+		for i in range(6):
+			await _settle()
+		var win := Rect2(Vector2.ZERO, Vector2(sz))
+		var board: Control = current_scene.find_child("Best22Board", true, false)
+		_check(board != null, "My list's Shape pane shows the board (%s)" % tag)
+		if board == null:
+			continue
+		var stray := []
+		var count := 0
+		for c in board.find_children("*", "Control", true, false):
+			var ctl := c as Control
+			# The boxes that hold the oval and the bench are as tall as their
+			# contents; what a finger meets is the controls inside them.
+			if not ctl.is_visible_in_tree() or ctl.size.x <= 0.0 or ctl.size.y <= 0.0 or ctl is BoxContainer:
+				continue
+			count += 1
+			if win.encloses(ctl.get_global_rect()):
+				continue
+			var sc: ScrollContainer = null
+			var p := ctl.get_parent()
+			while p != null and sc == null:
+				if p is ScrollContainer:
+					sc = p
+				p = p.get_parent()
+			if sc == null:
+				stray.append("%s %s" % [ctl.name, str(ctl.get_global_rect())])
+				continue
+			sc.ensure_control_visible(ctl)
+			await process_frame
+			if not win.encloses(ctl.get_global_rect()):
+				stray.append("%s %s after scrolling" % [ctl.name, str(ctl.get_global_rect())])
+		_check(count > 20 and stray.is_empty(), "Every control in the Shape pane is on screen or a scroll away (%s: %d controls, %d stray, first %s)" % [tag, count, stray.size(), stray.slice(0, 2)])
+		# The foot of the oval and the last bench spot take a finger.
+		var sc2: ScrollContainer = current_scene.find_child("ShapeScroll", true, false)
+		_check(sc2 != null and sc2.get_v_scroll_bar().max_value > sc2.size.y, "The Shape pane scrolls (%s)" % tag)
+		var spot: Control = board.find_child("Spot_FF", true, false)
+		var bench: Control = board.find_child("BenchSpot_4", true, false)
+		_check(spot != null and bench != null, "The full forward and the last bench spot are there (%s)" % tag)
+		if spot == null or bench == null:
+			continue
+		var shown := [""]
+		board.inspect.connect(func(id: String): shown[0] = id)
+		var why: String = await Tap.tap(spot)
+		_check(why == "" and shown[0] != "", "A finger on the full forward at the foot of the oval opens his profile (%s: %s)" % [tag, why])
+		current_scene.call("_close_profile")
+		await _settle()
+		if sz.x != 390:
+			continue
+		# A swipe that begins on a guernsey scrolls the pane and opens nobody.
+		sc2 = current_scene.find_child("ShapeScroll", true, false)
+		board = current_scene.find_child("Best22Board", true, false)
+		var from: Control = board.find_child("Spot_C", true, false)
+		sc2.scroll_vertical = 0
+		await process_frame
+		var opened := [false]
+		board.inspect.connect(func(_id: String): opened[0] = true)
+		var a := from.get_global_rect().get_center()
+		var t := InputEventScreenTouch.new()
+		t.index = 0
+		t.position = a
+		t.pressed = true
+		Input.parse_input_event(t)
+		Input.flush_buffered_events()
+		for step in range(1, 9):
+			var d := InputEventScreenDrag.new()
+			d.index = 0
+			d.position = a + Vector2(0, -30.0 * step)
+			d.relative = Vector2(0, -30.0)
+			Input.parse_input_event(d)
+			Input.flush_buffered_events()
+			await process_frame
+		var up := InputEventScreenTouch.new()
+		up.index = 0
+		up.position = a + Vector2(0, -240.0)
+		up.pressed = false
+		Input.parse_input_event(up)
+		Input.flush_buffered_events()
+		await _settle()
+		_check(sc2.scroll_vertical > 100 and not opened[0], "A swipe starting on a guernsey scrolls the Shape pane and opens nobody (%s: scrolled %d)" % [tag, sc2.scroll_vertical])
+

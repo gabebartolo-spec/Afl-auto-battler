@@ -2,12 +2,8 @@ extends Node
 ## Persistent, deliberately quiet menu music. The playlist continues across
 ## management screens and pauses for MatchScene so match audio can stand alone.
 
-const TRACK_PATHS: Array[String] = [
-	"res://assets/audio/music/hub_after_hours.wav",
-	"res://assets/audio/music/draft_room_rain.wav",
-	"res://assets/audio/music/long_season.wav",
-	"res://assets/audio/music/matchday_morning.wav",
-]
+## Empty on purpose: the generated tracks were removed 2026-10-18; see assets/audio/music/README.md.
+const TRACK_PATHS: Array[String] = []
 const MUSIC_DB := -18.0
 
 var _player: AudioStreamPlayer

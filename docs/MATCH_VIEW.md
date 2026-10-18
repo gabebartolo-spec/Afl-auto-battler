@@ -94,6 +94,55 @@ What that showed, and what the view does about it:
 - **Movement** has acceleration, braking and reaction delays, so starts, stops
   and turns take time and paths curve. Sprint speed comes from the `carry`
   rating (presentation only).
+- **Motion limits, for every shape and call.** Nobody moves faster than a
+  sprint (15 m/s of match time) in any step, whatever moves him: a new spot, a
+  set-up's quicker reset, Throw numbers at it's legs. Bodies in a pile ease
+  apart at a walk (2.5 m/s), and discs drawn apart on screen move apart no
+  faster, so no disc ever snaps across. Every structure spot stays 5 m inside
+  the boundary line and out of the pockets the phone's bench strip covers; no
+  two of a side's spots stand within 7 m (they part front to back); and in
+  possession each line (backs, midfield, forwards) keeps at least 12 m of
+  spread across the ground (standard deviation), Balanced's narrowest line,
+  except under Attack corridor, which keeps its lanes instead (below).
+- **Draw order is stable.** Lower on the screen is drawn over higher, then by
+  player id, and the order is kept from frame to frame: two discs change
+  places only once one has passed the other by more than a disc's radius. The
+  man with the ball is drawn over everyone; the ball changing hands is the only
+  thing that lifts a disc to the top at once.
+
+## The coach's calls on the oval
+
+Each structural call has a shape, read from the match's recorded calls
+(`timeline`) and drawn only as far as the engine acts on it
+(`MatchSim.PLANS`, `MatchSim.BURSTS`):
+
+| Call | On the oval |
+|---|---|
+| Defensive press | one band around the ball in their back half or the middle, narrower, with the press-zone wash |
+| Flood behind the ball | the midfield folds back between ball and goal, the half-forwards push up |
+| Stack the stoppage | the wings on the square's edge at a centre bounce, crashing in at the bounce |
+| Attack corridor | with the ball the whole side narrows into the corridor, each man in his own lane: each line of three keeps its left-to-right order a disc apart (9.5 m, never under 7 m), the midfield's lanes between the backs' and forwards' so two lines never share a lane where they meet, the wings a little up the ground; the ball goes to the receiver's lane and he leads up it, nobody comes onto the ball (no switch of play); moves quicker |
+| Controlled tempo | spreads wide with the ball, its lines short around it; moves slower |
+| Win contest | the midfield stays on the ball, round it 10.5 m off, each on his own side, and in open play the two of its half lines nearest the ball shadow it with them: numbers round the ball; at every centre bounce, ball-up and throw-in one more in the pack, and the pack is a ring, not a stack: the rucks and one more a side on the ball (inside 3 m), the rest 8 m round it between them, everyone else 13 m off until the ball is up; the wings sprint in round it and both half-lines a beat later, 13 m off, through the clearance (none at a marking contest: the engine gives it no edge there) |
+| Through stars | with the ball the three stars stand closest to it and lead first when the log has one getting it next, their opponents stay glued to them, and the rest of the side sets up on the side of the ground of the star nearest the ball-carrier |
+| Throw numbers at it | with the ball the midfield and the half-back line run past where the chain is going (the furthest lead already on), the forwards stay ahead of it and the back pockets come up, on the engine's quicker legs (up to a sprint) |
+| Slow it down | sits deeper with and without the ball (the backs 18 m, the midfield and forwards 24 m), spreads wide with the ball; moves slower, with shorter, slower leads that start only when they must. Carriers hold the ball no longer: the engine's hold chains have more disposals in the same minutes |
+
+Every shape moves its side at least 8 m from Balanced, measured as the phone
+draws it (`tests/test_match_motion.gd`): from the discs on the upright oval,
+over the frames the call applies, depth calls relative to the ball and to the
+other side. Balanced is also the bar for crowding: Attack corridor, about 45%
+narrower, keeps its heavy overlaps within 130% of Balanced's, its file-of-three
+frames within 2 points and no file longer than Balanced's longest, on the same
+events.
+
+The feed marks a plan when it starts ("Fremantle: Win contest is on until half
+time."), when it carries on over a break and when it ends, and a short call
+when it runs out ("Fremantle: Throw numbers at it ends."). A short call's start
+is the coach's call line already. `capture_match --noshape` draws every call as
+Balanced, so a clip pair differs in the shape alone; `--upright --rect
+10,112,300,387 --size 390x844` draws the phone's upright oval where the match
+screen puts it.
 
 ## Your people on the oval
 
@@ -122,8 +171,29 @@ Presentation time runs `MatchDirector.TEMPO` (1.65) times faster than the
 movement model's clock. A full match takes about 4 to 5 minutes at the default
 4x and about 2 to 2.5 minutes at 8x.
 
+**Three ways to take your match** (director, 2026-10-18, P-14), chosen under the
+hub's poster and kept for the next match (setting `match_way`, Watch for a new
+coach): **Watch** plays it at your usual speed; **Skip** goes straight to your
+full time on the plan you took in (Skip to full time before the first bounce;
+the hub's main button then says "Skip to full time");
+**Key moments** plays at 8x and drops to 1x for each goal (from the play before
+it, the shot seen, until 1.8 s of play after it, its close-up if it has one), for
+each coach's call (the card, then until its line reaches the feed and a moment
+more) and for each quarter break (the break as always). Nothing else stops it:
+the other close-ups do not play. The feed still writes and the oval still draws
+at 8x. Watch and "Key moments" sit where the speeds do, in the poster's order; Watch
+watches the rest at your usual speed; Skip to full time works as always. It never answers a call for the coach,
+and the match, its log and the result are the same as watching
+(`tests/run_matchday_tests.gd`, the seeded match taken both ways).
+
 ## Checking it
 
+- `tests/test_match_motion.gd` (suite `match_motion`) plays 640 events with
+  every call on both sides on the phone's upright oval at 1x and 4x and holds
+  the motion limits frame by frame from the discs as drawn (a sprint, the
+  walking draw-apart, the visible share of each side's discs, line widths and
+  the corridor's lanes, the boundary and bench margins, the Win contest pack and
+  its ring, the draw order), and measures each call against Balanced.
 - `tests/test_match_visual.gd` (in `tools/run_tests.sh`) covers:
   - the log, score and stats are unchanged after playback;
   - no event is mutated;

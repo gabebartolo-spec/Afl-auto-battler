@@ -179,10 +179,12 @@ skippable, readable culmination.
 
 - Write what a coach, recruiter, commentator or supporter would say. No engine words
   (modifier, coefficient, roll, tick).
-- A number appears only when it helps the player understand or decide: a score, a rating, a
-  contract, a ladder position, a margin. A percentage appears only as a real football rate
-  (disposal efficiency, accuracy). A simulation effect is described in words ("tires late",
-  "wins more clearances, concedes more if they get out"), never as a multiplier.
+- At a decision gate (a call, a card, a contract, a pick, a plan) each option states its
+  upside, its downside, the size and the odds, in football words and as percentages
+  ("their shots 25% more accurate", "misses 17% of the time"), and never which option is
+  better (director, 2026-10-18; bible §4). Off the gate, a number appears only when it
+  helps the player understand or decide: a score, a rating, a contract, a ladder position,
+  a margin, a real football rate.
 - Every line is scrutable: the player can see the effect it names.
 - Sentence case. Short. Nothing repeated that context already shows.
 - Labels name football things: Ladder, Players, Awards, Fixture, Trophies; never "Analytics",
@@ -268,6 +270,14 @@ skippable, readable culmination.
 - 2x crops of anything with contact points; a clip for anything that moves.
 - The right art loaded, proven (not a fallback).
 - A real tap on any new or changed touch flow.
+- **The screen lint, before any capture reaches the lead.** Run `tools/run_screen_lint.sh <yourname>`
+  (hub, draft and pre-bounce pane at 390x844 and 1280x720; headless, no capture needed) and fix every FIX
+  line: tap targets under 44 px at phone width, text under 13 px, the same fact drawn twice, text under 4.5:1
+  against its panel. Lines marked "eyeball" (counts that share words but differ, like "26 prospects left" next
+  to "8 available") are yours to judge. For a screen the script does not reach, run
+  `tools/visual/screen_lint.gd` with `--screen res://scenes/X.tscn` and `--setup` (see its header). Contrast
+  is computed from the panel colours in the scene tree, not from a rendered frame, so it cannot see colour a
+  `_draw()` paints: the critic's pixel check still stands. Say in the report that the lint ran and its result.
 - Tests: no literal font sizes; no truncated names; every move a scene asks for exists on the
   sheet; the figure checks; the floors.
 - The lead's `art-qa-critic` pass before the director sees anything; one decision per question,

@@ -224,7 +224,7 @@ const ROLE_RANK := {"ground": 2, "bench": 1, "depth": 0}
 ## Never shown as a number; `offer_view` puts it in words.
 static func offer_score(p: Dictionary, o: Dictionary) -> float:
 	var wanted := int(wants(p)["years"])
-	return salary_score(int(o["salary"])) + 0.4 * float(mini(int(o["years"]), wanted)) \
+	return salary_score(int(o["salary"])) + 0.4 * float(mini(int(o["years"]), wanted)) + float(o.get("amb", 0.0)) \
 			+ float(ROLE_WEIGHT.get(str(o.get("role", "depth")), 0.0)) \
 			+ 0.8 * (1.0 - clampf(float(o.get("finish_t", 0.5)), 0.0, 1.0))
 
@@ -312,9 +312,10 @@ static func offer_view(p: Dictionary, o: Dictionary, other: Dictionary, club_nam
 		"security": 0.4 * float(mini(int(o["years"]), wanted) - mini(int(other["years"]), wanted)),
 		"role": float(ROLE_WEIGHT.get(str(o.get("role", "depth")), 0.0)) - float(ROLE_WEIGHT.get(str(other.get("role", "depth")), 0.0)),
 		"club": 0.8 * (float(other.get("finish_t", 0.5)) - float(o.get("finish_t", 0.5))),
+		"push": float(o.get("amb", 0.0)) - float(other.get("amb", 0.0)),
 	}
 	var top := ""
-	for k in ["money", "role", "security", "club"]:
+	for k in ["money", "role", "security", "club", "push"]:
 		if float(gaps[k]) > 0.0 and (top == "" or float(gaps[k]) > float(gaps[top])):
 			top = k
 	match top:
@@ -324,6 +325,8 @@ static func offer_view(p: Dictionary, o: Dictionary, other: Dictionary, club_nam
 			return "Clearer path into the best 23."
 		"security":
 			return "More contract security."
+		"push":
+			return "Prefers %s offer: they are pushing to win now." % (club_name + ("'" if club_name.ends_with("s") else "'s"))
 		"club":
 			return "Prefers %s offer after their stronger season." % (club_name + ("'" if club_name.ends_with("s") else "'s"))
 	return ""

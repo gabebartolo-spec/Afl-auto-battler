@@ -229,6 +229,12 @@ static func project(p: Dictionary) -> void:
 	if tk > 0.0:
 		a["pressure"] = float(a["pressure"]) + clampf((tk - 3.0) * 0.5, 0.0, 4.0)
 
+	# An international's code shapes his game (Gaelic footballers kick, rugby
+	# players contest); absent for everyone else, so nothing moves for them.
+	var bias: Dictionary = p.get("attr_bias", {})
+	for key in bias:
+		a[key] = float(a.get(key, target)) + float(bias[key])
+
 	a = fit_attributes(a, role, target)
 	for key in a:
 		a[key] = int(a[key])
@@ -583,6 +589,7 @@ static func generate_class(year: int, career_seed := 0) -> Array:
 				rucks += 1
 	_maybe_unicorn(out, year, career_seed)
 	GameDB.assign_aliases(out)
+	InternationalProspects.apply(out, year)
 	return out
 
 

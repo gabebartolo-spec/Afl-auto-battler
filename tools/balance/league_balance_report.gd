@@ -63,7 +63,8 @@ func _run() -> void:
 	gs.autosave_enabled = false
 	gs.save_path = "user://balance_probe.save"
 	gs.settings_path = "user://balance_probe.cfg"
-	gs.set_new_career_difficulty("normal")
+	gs.set_new_career_dial("board_patience", "fair")
+	gs.set_new_career_dial("rival_recruiting", "shrewd")
 	var args := _args()
 	if args.has("report"):
 		var md := build_report(str(args["report"]).split(",", false))

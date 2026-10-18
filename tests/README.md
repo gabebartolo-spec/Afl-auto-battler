@@ -61,7 +61,7 @@ Floor is the fewest checks the suite may run (`expected_checks.txt`; a suite rep
 | `awards` | Brownlow, Coleman, best and fairest, All-Australian | 22 | 49 |
 | `achievements` | Club achievements | 153 | 48 |
 | `contracts` | Contracts, free agency and trades (seeded: a clock seed once made the pick-limit check flaky) | 233 | 29 |
-| `league` | Difficulty and the league news feed | 47 | 52 |
+| `league` | The two difficulty dials (saved, old saves mapped, trade bargaining) and the league news feed | 60 | 52 |
 | `club` | The board, morale and the weekly event card | 199 | 103 |
 | `story` | The week's story cards: the deck's checks, cooldowns, arcs, trust, ten seasons of repeats, the save round trip, cards never moving the dice | 94 | - |
 | `nameink` | A player's name in running text wears his club's ink: the index from the lists, the markup, every club's ink readable on dark, the match feed and goal rows carrying both clubs' colours | 16 | - |
@@ -76,6 +76,9 @@ Floor is the fewest checks the suite may run (`expected_checks.txt`; a suite rep
 | `balance` | A long-career guard: three seasons must not inflate the league | 13 | 149 |
 | `assets` | The art and music as shipped: figure-sheet frames against the layout, vignettes playing their moves through, banners, music files, levels and the player | 95 | 3 |
 | `keyboard` | The phone keyboard on every screen with a text field: the window loses the keyboard's height (phone on its side, upright, tablet) and the same field keeps the focus and its text; text arriving the way the engine's web keyboard sends it fills the field and filters the list; the web export has the phone keyboard on | 445 | - |
+| `international` | International prospects (switch `international_prospects`): one or two per generated class over 150 seeded years, never none or three, from seven countries; names from their own country's lists; raw but high-ceiling ratings shaped by their code; switched off the class is unchanged; one drafted, kept across a save and a season rollover; an old save loads | 1767 | - |
+| `namelink` | A player's name opens his profile: real touches at 390x844 and 1280x720 on the Training header, a row's Profile tap and a name in the week's news; a drag that starts on a name still scrolls; Back closes the profile and leaves the screen as it was. |
+| `trainrep` | The monthly training report: the block snapshot, a known riser with his stats, the retraining list matching the Training menu's own (and the club's two-project limit), the switch off leaving the hub as it was, an old save, and real taps on a phone and a PC (open, a name, a retraining entry, Close, Android Back) | 100 | - |
 
 By area:
 

@@ -51,6 +51,8 @@ func _run() -> void:
 	gs.set_setting("seen_training_intro", true)
 	gs.set_setting("seen_season_stats_intro", true)
 	gs.set_setting("seen_weekly_loop_intro", true)
+	load("res://scripts/core/Features.gd").set_on("international_prospects", true)   # the international beats
+	load("res://scripts/sim/StoryDeck.gd").reload()
 	gs.start_season(club, db.club_list(club))
 	for i in range(3):
 		gs.advance()
@@ -111,6 +113,8 @@ func _run() -> void:
 					if load("res://scripts/state/ClubStories.gd").trial_role(q) != "":
 						who = q
 						break
+		if str(tid).begins_with("intl_"):
+			who = _international_for(gs, db, t)
 		var e: Dictionary = gs.story_card(str(tid), who)
 		if e.is_empty():
 			push_error("capture_story_card: no card %s for this career" % tid)
@@ -149,3 +153,24 @@ func _show_card(scene: Control) -> void:
 	if n != null:
 		(n as ScrollContainer).ensure_control_visible(card)
 	await _frames(40)
+
+
+## An international prospect of the card's country, signed to your list (one drafted last year),
+## for the international beats (data/stories/international.json).
+func _international_for(gs, db, t: Dictionary) -> Dictionary:
+	var region := str(((t.get("subject", {}) as Dictionary).get("where", {}) as Dictionary).get("intl_region", ""))
+	var IP = load("res://scripts/sim/InternationalProspects.gd")
+	for y in range(2027, 2090):
+		for q in load("res://scripts/sim/Prospects.gd").generate_class(y, 2027):
+			if q.has("intl") and (region == "" or IP.region(q) == region):
+				q["id"] = "D2027_X%d" % y
+				q["draft_year"] = 2027
+				q["drafted_year"] = int(gs.season_year) - 1
+				q["drafted_type"] = "national"
+				q["xp"] = 0
+				q["xp_games"] = 0
+				load("res://scripts/sim/Contracts.gd").rookie_deal(q, int(gs.season_year) + 1)
+				db.register_draftees([q])
+				gs._join(gs.my_club, q)
+				return q
+	return {}
