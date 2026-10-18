@@ -858,8 +858,8 @@ Your career stays on this device.",
 	var sore_text := ""
 	if sore_node != null:
 		sore_text = str(sore_node.get_meta("plain")) if sore_node.has_meta("plain") else str(sore_node.get("text"))
-	_check(sore_text.begins_with("If you leave this, it goes as \"Play him\"") and sore_text.contains("%"),
-			"A card with a silent default names it and its odds on the card (%s)" % sore_text)
+	_check(sore_text == "If you leave this, it goes as \"Play him\".",
+			"A card with a silent default names the choice it settles as, once (%s)" % sore_text)
 	# A finger on the line answers nothing; a finger on "Play him" below it answers the card.
 	var line_tap: String = await Tap.tap(sore_node) if sore_node != null else "missing"
 	await _settle()
