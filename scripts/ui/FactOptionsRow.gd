@@ -53,6 +53,14 @@ func _button(fact_index: int, o: Dictionary, narrow: bool, on_pick: Callable) ->
 	var sub := UiKit.lbl(str(o["cost"]) if enabled else str(o["reason"]), UiKit.SMALL, UiKit.MUTED)
 	sub.name = "OptionSub"
 	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if not narrow:
+		# On one line, side by side, a wrapping label has no width of its own: in
+		# a row it shrinks to a single character and stands one letter to a line,
+		# a column some thousand units tall that pushed the ladder off the page.
+		# Wide, each phrase is as wide as its own words (the flow wraps whole
+		# options, never words); on a phone the vbox gives them the width.
+		head.autowrap_mode = TextServer.AUTOWRAP_OFF
+		sub.autowrap_mode = TextServer.AUTOWRAP_OFF
 	col.add_child(head)
 	col.add_child(sub)
 	if not enabled:
