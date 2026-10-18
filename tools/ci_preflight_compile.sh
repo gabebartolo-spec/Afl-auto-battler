@@ -69,6 +69,9 @@ if [ "${PREFLIGHT_SKIP_IMPORT:-0}" != 1 ]; then
 	echo "import: $(( $(date +%s) - start )) s"
 fi
 
+# PREFLIGHT_EXTRA="path path": more scripts to check (used to prove the check fails).
+# shellcheck disable=SC2206
+[ -n "${PREFLIGHT_EXTRA:-}" ] && runners+=(${PREFLIGHT_EXTRA})
 for r in "${runners[@]}"; do
 	[ -f "$r" ] || { note_error "test runner $r: file not found"; exit 1; }
 done
