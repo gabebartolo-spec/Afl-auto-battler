@@ -1187,17 +1187,17 @@ func _test_draft_card() -> void:
 	await _frames(tree, 3)
 
 
-## The switch as it ships: off, unless the command line or the project says so.
+## The switch as it ships: ON since 1.0.1 (director 2026-10-19: "1.0 isnt 1.0 without pre season").
 func _test_switch_default() -> void:
 	Features.clear("preseason")
-	_check(not bool(ProjectSettings.get_setting("features/preseason", false))
-			and FileAccess.get_file_as_string("res://project.godot").contains("preseason=false")
-			and not Features.on("preseason"),
-			"The pre-season switch ships off: an exported build, and any run that does not ask for it, has no pre-season")
-	Features.set_on("preseason", true)
-	_check(Features.on("preseason"), "A test or tool turns the switch on for itself")
+	_check(bool(ProjectSettings.get_setting("features/preseason", false))
+			and FileAccess.get_file_as_string("res://project.godot").contains("preseason=true")
+			and Features.on("preseason"),
+			"The pre-season switch ships on: an exported build plays the eight weeks before Round 1")
 	Features.set_on("preseason", false)
-	_check(not Features.on("preseason"), "...and off again")
+	_check(not Features.on("preseason"), "A test or tool turns the switch off for itself")
+	Features.set_on("preseason", true)
+	_check(Features.on("preseason"), "...and on again")
 	Features.clear("preseason")
 
 
