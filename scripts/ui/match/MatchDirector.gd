@@ -652,6 +652,11 @@ func _ballup_phases(k: int) -> Array:
 		var shape := _flight_shape("kick", d)
 		out.append({"t": "flight", "to": at, "dur": shape.x, "apex": shape.y, "recv": -1,
 				"mode": "stoppage"})
+	elif _ballup_pin.has(k) and (_ballup_pin[k] as Vector2).length() > 3.0:
+		# Pinned to the ball (Win contest): no flight to the logged spot, but the
+		# ball-up keeps the time that flight took, so the pack forms and every
+		# later beat runs when it did before the pin.
+		out.append({"t": "wait", "dur": _flight_shape("kick", (_ballup_pin[k] as Vector2).length()).x})
 	var nk := _next_real(k)
 	var winner := _actor_id(events[nk]) if nk >= 0 else -1
 	var members := _nearest(at, 0, _pack_n(0), [winner]) + _nearest(at, 1, _pack_n(1), [winner])

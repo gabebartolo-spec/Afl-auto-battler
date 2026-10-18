@@ -148,12 +148,16 @@ read as a swarm or a clump:
 - **Win contest**: at a ball-up or throw-in, a ring planted on the contest spot
   from the umpire's call (the ball dead in a tackle or a pack) to the clearance,
   its edge just outside the pack's 8 m ring (the ring plus a disc, so the ring's
-  players do not cover it); it never follows the ball in. In open play the same
+  players do not cover it); it never follows the ball in. Under this call the
+  ball-up is where the ball is when the umpire calls it (not the logged spot, which
+  could be 18 m off), so the ball sits inside the ring from the call; the ball-up
+  keeps its time. In open play the same
   ring round the ball at the midfield's 10.5 m, on the ball while it moves at a
   player's pace; when the ball goes faster than a sprint (a kick or handball in
   flight) the ring stays where it was and eases out, and eases back in where the
-  ball comes down, so nothing drags across the ground. A faint pad of the colour
-  inside, the rim a light tint of it.
+  ball comes down, so nothing drags across the ground. It comes in only once the
+  ball has been in hand 0.4 s (a quicker touch gets no ring) and, once on, shows
+  at least 0.4 s. A faint pad of the colour inside, the rim a light tint of it.
 
 Both are laid at the press wash's faint strength (0.3 at half, 0.15) and ease
 in and out over half a second. Where the press wash lies a marking only tops it
