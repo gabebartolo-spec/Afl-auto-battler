@@ -1413,7 +1413,8 @@ func _gate_odds() -> void:
 			and str(flood[1]).contains(pct.call(1.0 - Ms.FLOOD_GOAL)), "Flood: to the siren, both sides from its constants (%s / %s)" % flood)
 	var fwd := {"id": "f", "role": "FWD", "height_cm": 196, "attr": {"marking": 80}}
 	var back := {"id": "d", "role": "DEF", "height_cm": 192, "attr": {"intercept": 74, "marking": 68}}
-	var want := clampf(MU.MARK_BASE + (MU.forward_air(fwd) - MU.defender_air(back) - MU.DUEL_CENTRE) / MU.DUEL_SCALE,
+	var edge: float = MU.AERIAL_EDGE if load("res://scripts/sim/Traits.gd").has(fwd, "aerial") else 0.0
+	var want := clampf(MU.MARK_BASE + edge + (MU.forward_air(fwd) - MU.defender_air(back) - MU.DUEL_CENTRE) / MU.DUEL_SCALE,
 			MU.MARK_FLOOR, MU.DUEL_CAP)
 	_check(is_equal_approx(MU.mark_chance(fwd, back), want) and GO.back_stats(back) == "Intercept 74 · Marking 68 · 192 cm",
 			"A back's card: Intercept, Marking and height, and the mark chance the duel rule gives (%.3f, %s)" % [want, GO.back_stats(back)])
