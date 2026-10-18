@@ -15,7 +15,16 @@ extends RefCounted
 ## unhappy player asks 25% more to re-sign.
 
 const START_CONFIDENCE := 60
+## The season line a Fair or Patient board uses (the board dial's
+## poor_season_below, data/difficulty_dials.json): a season that ends under
+## it counts as poor and moves the board towards the final warning or sack.
 const WARN_LINE := 30
+## Where the hub starts warning the coach, the same on every board type
+## (director 2026-10-18, "Warn at 40"). The board's words keep each dial's own
+## season line (board_state), so Patient and Fair still read "Under pressure"
+## between 40 and 30; Ruthless differs in its season line and in how soon the
+## sack follows.
+const POOR_LINE := 40
 const MORALE_BASE := 70
 
 
@@ -86,9 +95,8 @@ static func after_match(confidence: int, margin: int, steps := [2, -2], losses_i
 
 
 ## The board's mood in words; the number stays behind the scenes. `line` is
-## the confidence under which a season ends poor (the board dial's
-## poor_season_below): under it the board is "In trouble"; the default is the
-## Fair line.
+## the confidence under which the board is "In trouble": the board dial's own
+## season line (poor_season_below); the default is the Fair line.
 static func board_state(confidence: int, line := WARN_LINE) -> String:
 	if confidence >= 80:
 		return "Very secure"
@@ -117,6 +125,22 @@ static func match_reason(goal: Dictionary, opp_name: String, margin: int, losses
 	if margin < 0:
 		return "The loss to %s puts %s under threat." % [opp_name, aim]
 	return "A draw with %s leaves the board where it was." % opp_name
+
+
+## The hub's warning once confidence is under POOR_LINE (any board type), "" above it.
+## It says what happens next, with the real lines: `season_line` is this
+## board's poor_season_below, `before_warning` its poor_seasons_before_warning,
+## `poor_seasons` the poor seasons so far. On a final warning the next poor
+## season is the sack.
+static func board_warning(confidence: int, warned: bool, season_line: int, before_warning := 1, poor_seasons := 0) -> String:
+	if confidence >= POOR_LINE:
+		return ""
+	var head := "Board confidence is poor (%d%%). " % confidence
+	if warned:
+		return head + "End the season under %d%% and you are sacked." % season_line
+	if poor_seasons + 1 >= before_warning:
+		return head + "End the season under %d%% and you get a final warning." % season_line
+	return head + "End the season under %d%% and the board marks it against you." % season_line
 
 
 ## Confidence after the season: goal met or missed, a flag on top.
