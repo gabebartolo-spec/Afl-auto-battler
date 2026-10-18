@@ -80,6 +80,7 @@ var _order_scroll: ScrollContainer
 var _board: PanelContainer
 var _your_pick: Label
 var _recent_box: VBoxContainer
+var _stage_pick := -1          # while the stage reads your pick, the board holds on it
 var _pool_rows_n := 0         # rows the pool shows (its filter line's count)
 var _shown_upto := -1        # pick_history entries the board shows; -1 is all of them
 var _replay_timer: Timer
@@ -469,6 +470,14 @@ func _live_board() -> PanelContainer:
 	_status = UiKit.lbl("", UiKit.NAME, UiKit.TEXT, true)
 	_status.name = "DraftStatus"
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if not _wide and _usable_size().y >= RECENT_TALL:
+		# Phone: room for two lines ("Pick 27: Greater Western Sydney"), so the
+		# board and the pool under it never jump as the clubs change (a short
+		# phone keeps the line for the pool instead).
+		var fnt := _status.get_theme_font("font")
+		var fs := _status.get_theme_font_size("font_size")
+		_status.custom_minimum_size.y = ceilf(fnt.get_height(fs) * 2.0 + _status.get_theme_constant("line_spacing"))
+		_status.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	v.add_child(_status)
 	_round_info = UiKit.lbl("", UiKit.SECONDARY, UiKit.MUTED)
 	_round_info.name = "ClockRound"
@@ -927,6 +936,10 @@ func _refresh_pool_info() -> void:
 	if _combine != "":
 		_board_info.text = "%d %s%s · best %s first" % [n, role_text,
 				"available" if _available_only else "players", str(Combine.test(_combine)[1]).to_lower()]
+	if _draft.intake_mode and _available_only and _role.is_empty() and _club_filter.is_empty() and _combine == "" \
+			and _search.strip_edges() == "" and _style.is_empty() and _trait.is_empty():
+		# The board already says how many are left: the line keeps only the order.
+		_board_info.text = sort_label.left(1).to_upper() + sort_label.substr(1)
 	if not _club_filter.is_empty():
 		_board_info.text += " · " + GameDB.club_short(_club_filter)
 	if not _career_stage.is_empty() and _draft.league_mode:
@@ -1144,6 +1157,7 @@ func _after_my_pick(at: int) -> void:
 		_land_my_pick()
 		return
 	_shown_upto = at + 1
+	_stage_pick = at
 	_refresh_shown()
 	_show_beat(_draft.pick_history[at])
 
@@ -1157,7 +1171,7 @@ func _after_my_pick(at: int) -> void:
 ## critic, same day: 0.45 s, so each name can be read before the next lands).
 const REPLAY_STEP := 0.45
 ## Seconds his name stays on the stage: the walk-on, the turn, arms up.
-const BEAT_TIME := 3.0
+const BEAT_TIME := 3.2
 ## Seconds the stage takes to fade back to the board, so the swap does not cut.
 const BEAT_FADE := 0.18
 
@@ -1225,10 +1239,13 @@ func _finish_night() -> void:
 	var leaving := get_node_or_null("DraftNightStageLeaving")
 	if leaving != null:
 		leaving.queue_free()
-	var had := is_instance_valid(_beat)
-	if had:
+	var had := is_instance_valid(_beat) or leaving != null or _stage_pick >= 0
+	if is_instance_valid(_beat):
 		_beat.queue_free()
 	_beat = null
+	_stage_pick = -1
+	if _shown_upto < 0 and had:
+		_refresh_shown()
 	_finish_replay()
 	if had:
 		_hold_pick_buttons(false)
@@ -1292,7 +1309,7 @@ func _show_beat(entry: Dictionary) -> void:
 	words.add_child(say)
 	# The pick in the club's ink, his name big, where from and what he plays,
 	# then the recruiter's line in his own words.
-	var pick_l := _beat_line("Pick %d, %s" % [int(entry["pick"]), GameDB.club_name(_club)],
+	var pick_l := _beat_line(DraftNight.clock_line(int(entry["pick"]), _club),
 			UiKit.HEADING, UiKit.club_ink(_club), true)
 	pick_l.name = "BeatPick"
 	say.add_child(pick_l)
@@ -1305,7 +1322,7 @@ func _show_beat(entry: Dictionary) -> void:
 			UiKit.BODY, UiKit.TEXT)
 	where_l.name = "BeatFrom"
 	say.add_child(where_l)
-	var rec := _beat_line("“%s”" % DraftNight.recruiter_line(p, _club), UiKit.BODY, UiKit.TEXT)
+	var rec := _beat_line("Recruiter: “%s”" % DraftNight.recruiter_line(p, _club), UiKit.BODY, UiKit.TEXT)
 	rec.name = "BeatRecruiter"
 	say.add_child(rec)
 	_ignore_mouse(panel)
@@ -1357,11 +1374,23 @@ func _end_beat() -> void:
 		var tw := leaving.create_tween()
 		tw.tween_property(leaving, "modulate:a", 0.0, BEAT_FADE).set_ease(Tween.EASE_IN)
 		tw.tween_callback(leaving.queue_free)
+		tw.tween_callback(_release_stage)
+		_beat = null
+		return
 	_beat = null
+	_release_stage()
+
+
+## The stage has gone: the board moves on from your pick and replays the
+## rival picks after it; Pick for me and Pass come back.
+func _release_stage() -> void:
+	var held := _stage_pick >= 0
+	_stage_pick = -1
 	if _shown_upto >= 0:
 		_start_replay(_shown_upto)
-	if had:
-		_hold_pick_buttons(false)
+	elif held:
+		_refresh_shown()
+	_hold_pick_buttons(false)
 
 
 ## Your pick lands with weight (director, 2026-10-11): the status line, and
@@ -1740,7 +1769,9 @@ func _build_activity() -> PanelContainer:
 	var title_label := UiKit.heading("Pick log", UiKit.H1)
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(title_label)
+	# The tab already says how many picks: the log's header does not repeat it.
 	_history_info = UiKit.line("", 12, UiKit.MUTED)
+	_history_info.visible = false
 	head.add_child(_history_info)
 	var clubs := UiKit.option()
 	clubs.name = "PickLogClubFilter"
@@ -1844,11 +1875,13 @@ func _history_row(entry: Dictionary) -> Control:
 	info.add_child(UiKit.ellipsis(_entry_player_name(entry), UiKit.NAME, UiKit.TEXT, true))
 	var club_row := UiKit.hbox(6)
 	info.add_child(club_row)
-	club_row.add_child(UiKit.club_badge(str(entry["club"]), 12, true))
-	var tag := "Your pick" if mine else "selected"
+	club_row.add_child(UiKit.club_badge(str(entry["club"]), UiKit.SMALL, true))
+	# The club code says who picked him; only your own pick and a release say more.
+	var tag := "Your pick" if mine else ""
 	if bool(entry.get("released", false)):
 		tag = "released"
-	club_row.add_child(UiKit.ellipsis(tag, UiKit.FINE, UiKit.EMPH if mine else UiKit.MUTED))
+	if tag != "":
+		club_row.add_child(UiKit.ellipsis(tag, UiKit.SMALL, UiKit.EMPH if mine else UiKit.MUTED))
 	h.add_child(UiKit.role_chip(str(entry["role"])))
 	if _draft.intake_mode:
 		var picked_player := _player_by_id(str(entry.get("player_id", "")))
@@ -2097,7 +2130,7 @@ func _refresh_status() -> void:
 		var later := pick_labels.slice(1)
 		_next_picks.text = "%d signed" % _draft.count()
 		if not later.is_empty():
-			_next_picks.text += "\nAfter that: " + ", ".join(later)
+			_next_picks.text += "\n%s: %s" % ["Your next pick" if later.size() == 1 else "Your next picks", ", ".join(later)]
 	else:
 		_next_picks.text = "%d left to sign\nYour picks: %s" % [_draft.target_size - _draft.count(), ", ".join(pick_labels)]
 	var my_turn := _draft.is_user_turn()
@@ -2142,6 +2175,9 @@ func _refresh_live(settle := false) -> void:
 		return
 	var hist: Array = _draft.pick_history
 	var upto := hist.size() if _shown_upto < 0 else mini(_shown_upto, hist.size())
+	if _stage_pick >= 0:
+		# The stage is reading your pick: the board stays on it until the stage has gone.
+		upto = mini(_stage_pick, hist.size())
 	var clock_club := ""
 	var clock_pick := 0
 	var clock_round := 0
@@ -2177,7 +2213,7 @@ func _refresh_live(settle := false) -> void:
 	else:
 		_round_info.text = "Round %d of %d" % [mini(clock_round, _draft.target_size), _draft.target_size]
 	if is_instance_valid(_your_pick):
-		_your_pick.text = _your_pick_words(clock_pick, done)
+		_your_pick.text = "" if _stage_pick >= 0 else _your_pick_words(clock_pick, done)
 		_your_pick.visible = _your_pick.text != ""
 	if is_instance_valid(_recent_box):
 		_recent_rows(hist, upto, settle)

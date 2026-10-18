@@ -6,20 +6,23 @@ extends BroadcastVignette
 ## his arms go up. His number is worn on the back, so it isn't shown here: the
 ## caption names him.
 
-const REVEAL_TIME := 2.6
+const REVEAL_TIME := 2.7
 ## Walk-on, plant the last step, turn to face us, then the arms go up: a
 ## small dip, arms out, hands up, arms full up (motion critic, 2026-10-18:
 ## no pose changes in a single frame, no camera move on the frame he stops).
 const WALK_END := 1.4
 const PLANT_END := 1.52
-const TURN_END := 1.76
-const ARMS_START := 1.9
-const ARMS_UP := 2.14
-## Seconds the raised arms take to ease into the top pose.
-const ARMS_SETTLE := 0.12
+## Each pose change: one frame (POSE_BLEND) of the next pose half over the
+## last, then the pose held (POSE_STEP in all). Never a longer cross-dissolve.
+const POSE_STEP := 0.12
+const POSE_BLEND := 0.04
+const TURN_END := PLANT_END + POSE_STEP
+const ARMS_START := 1.8
+## Idle, small dip, arms out, hands up, arms up: four changes.
+const ARMS_UP := ARMS_START + 4 * POSE_STEP
 ## One step of the walk, in metres: the gait is driven by the ground he covers,
 ## so the boots do not slide, and he lands his last step with his feet together.
-const STEP_M := 0.7
+const STEP_M := 0.55
 var club := ""
 var number := 0
 ## False on draft night: the new man walks on and faces the room, no medal.
@@ -70,14 +73,16 @@ func _draw() -> void:
 	var stage_y := h * 0.64          # the front edge of the stage, where he stands
 	# Room above him for his arms up (about 1.25 of his height) under the letterbox.
 	var scale := minf(w / 260.0, (stage_y - 16.0) / (FIGURE_PX * 1.25))
-	var walk := smoothstep(0.0, WALK_END, _t)
+	# Already walking as he comes on (the gait starts at once), easing to a stop.
+	var k_walk := clampf(_t / WALK_END, 0.0, 1.0)
+	var walk := 1.0 - (1.0 - k_walk) * (1.0 - k_walk)
 	var x0 := w * 0.23
 	var x := lerpf(x0, w * 0.5, walk)
 	# The camera from the back of the room: panning with him across the stage; once he
 	# has turned to us, in on him as the medal goes on; easing out a touch once his arms
 	# are up (VignetteCamera). Never a camera move starting on the frame he stops.
 	var G := VignetteCamera
-	var zoom: float = G.glide(G.glide(1.15, 1.28, _t, TURN_END, ARMS_START + 0.15), 1.16, _t, ARMS_UP + ARMS_SETTLE, REVEAL_TIME)
+	var zoom: float = G.glide(G.glide(1.15, 1.28, _t, TURN_END, ARMS_START + 0.15), 1.16, _t, ARMS_UP + POSE_BLEND, REVEAL_TIME)
 	var focus := Vector2(x, stage_y - 0.9 * PX_PER_M * scale)
 	_view = G.view(size, focus + G.breathe(_t, size), zoom)
 	draw_set_transform_matrix(_view)
@@ -92,28 +97,14 @@ func _draw() -> void:
 	if _t < WALK_END:
 		var gait := int((x - x0) / maxf(1.0, w * 0.5 - x0) * steps * 4.0)
 		_figure(hip, scale, 0, "walk", "front_r", gait % 8, 0, _look)
-	elif _t < PLANT_END:
-		_figure(hip, scale, 0, "walk", "front_r", planted, 0, _look)
-	elif _t < TURN_END:
-		# The turn to us, eased over three frames: the square-on stance comes in
-		# over the planted three-quarter one.
-		var k := ceilf((_t - PLANT_END) / (TURN_END - PLANT_END) * 3.0) / 4.0
-		_figure(hip, scale, 0, "walk", "front_r", planted, 0, _look)
-		_overlay(hip, scale, "idle", 0, k)
 	elif _t < ARMS_START:
-		_figure(hip, scale, 0, "idle", "front", 0, 0, _look)
-	elif _t < ARMS_UP:
-		# A small dip at the knees, arms out, hands up (the leap's take-off frames,
-		# both boots on the boards).
-		var f := 1 + mini(2, int((_t - ARMS_START) / (ARMS_UP - ARMS_START) * 3.0))
-		_figure(hip, scale, 0, "leap", "front", f, 0, _look)
-	elif _t < ARMS_UP + ARMS_SETTLE:
-		# Arms full up, easing into the pose over the hands-up frame.
-		var k2 := (_t - ARMS_UP) / ARMS_SETTLE
-		_figure(hip, scale, 0, "leap", "front", 3, 0, _look)
-		_overlay(hip, scale, "celebrate", 0, 0.35 + 0.65 * k2)
+		# He plants his last step, then turns square to us.
+		_poses(PLANT_END, [["walk", "front_r", planted], ["idle", "front", 0]], hip, scale)
 	else:
-		_figure(hip, scale, 0, "celebrate", "front", 0, 0, _look)
+		# A small dip at the knees, arms out, hands up (the leap's take-off frames,
+		# both boots on the boards), then arms full up.
+		_poses(ARMS_START, [["idle", "front", 0], ["leap", "front", 1], ["leap", "front", 2],
+				["leap", "front", 3], ["celebrate", "front", 0]], hip, scale)
 	# The medal settles onto his chest on its ribbon; no invented facial likeness.
 	if medal and _t >= WALK_END:
 		var neck := _at(hip, scale, Vector2(0.0, 1.55))
@@ -131,16 +122,24 @@ func _draw() -> void:
 	draw_rect(Rect2(0, h - 10, w, 10), Color.BLACK)
 
 
-## A pose drawn part-way over the one under it (alpha k), so a change of pose
-## eases instead of popping; no second shadow.
-func _overlay(hip: Vector2, scale: float, anim: String, frame: int, k: float) -> void:
-	if k <= 0.01:
+## A run of poses from t0: each new pose comes in over one frame (POSE_BLEND,
+## half over the last), then holds to the end of its POSE_STEP; the last holds.
+func _poses(t0: float, seq: Array, hip: Vector2, scale: float) -> void:
+	var e := maxf(0.0, _t - t0)
+	var i := mini(seq.size() - 1, int(e / POSE_STEP))
+	var into := e - i * POSE_STEP
+	if i > 0 and into < POSE_BLEND and int(e / POSE_STEP) < seq.size():
+		var was: Array = seq[i - 1]
+		_figure(hip, scale, 0, was[0], was[1], was[2], 0, _look)
+		var now: Array = seq[i]
+		_fig_alpha = 0.5
+		_no_shadow = true
+		_figure(hip, scale, 0, now[0], now[1], now[2], 0, _look)
+		_fig_alpha = 1.0
+		_no_shadow = false
 		return
-	_fig_alpha = minf(1.0, k)
-	_no_shadow = true
-	_figure(hip, scale, 0, anim, "front", frame, 0, _look)
-	_fig_alpha = 1.0
-	_no_shadow = false
+	var pose: Array = seq[i]
+	_figure(hip, scale, 0, pose[0], pose[1], pose[2], 0, _look)
 
 
 ## The room behind him: dark walls, warm wall lights, the stage with its club-colour

@@ -87,7 +87,7 @@ static func position_words(p: Dictionary) -> String:
 	return "midfielder"
 
 
-## The name read out: "Pick 14, Fremantle: Jed Walter, from the Sandringham
+## The name read out: "Pick 14: Fremantle. Jed Walter, from the Sandringham
 ## Dragons, key forward".
 static func announcement(pick_no: int, club: String, p: Dictionary) -> String:
 	var parts: PackedStringArray = [GameDB.player_display_name(p)]
@@ -95,7 +95,7 @@ static func announcement(pick_no: int, club: String, p: Dictionary) -> String:
 	if from != "":
 		parts.append(from)
 	parts.append(position_words(p))
-	return "Pick %d, %s: %s" % [pick_no, GameDB.club_name(club), ", ".join(parts)]
+	return "%s. %s" % [clock_line(pick_no, club), ", ".join(parts)]
 
 
 ## The recruiter's one line: what kind of footballer he is, then the one

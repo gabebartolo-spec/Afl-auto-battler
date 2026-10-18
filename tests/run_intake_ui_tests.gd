@@ -546,7 +546,7 @@ func _draft_night_words() -> void:
 			"height_cm": 195.0, "age": 18.4, "draft_team": "Sandringham Dragons", "club": "Sandringham Dragons",
 			"u18_gm": 12.0, "u18_gl": 2.4, "u18_mk": 5.0, "u18_di": 12.0, "u18_tk": 2.0}
 	var name: String = _db.player_display_name(walter)
-	_check(dn.announcement(14, "FRE", walter) == "Pick 14, Fremantle: %s, from the Sandringham Dragons, key forward" % name,
+	_check(dn.announcement(14, "FRE", walter) == "Pick 14: Fremantle. %s, from the Sandringham Dragons, key forward" % name,
 			"The name is read in words: %s" % dn.announcement(14, "FRE", walter))
 	_check(dn.from_words({"draft_team": "Claremont"}) == "from Claremont"
 			and dn.from_words({"draft_team": "Swan Districts"}) == "from Swan Districts"
@@ -699,12 +699,13 @@ func _draft_night_screen(size: Vector2i) -> void:
 	var from_l: Label = stage.find_child("BeatFrom", true, false)
 	var pick_l: Label = stage.find_child("BeatPick", true, false)
 	var rec_l: Label = stage.find_child("BeatRecruiter", true, false)
-	_check(pick_l != null and pick_l.text == "Pick %d, Fremantle" % mine_no and name_l != null
+	_check(pick_l != null and pick_l.text == "Pick %d: Fremantle" % mine_no and name_l != null
 			and name_l.text == _db.player_display_name(target) and from_l != null
 			and from_l.text == "%s, %s" % [dn.from_words(target), dn.position_words(target)],
 			"It says his name, where he is from and his position (%s: %s / %s)" % [tag,
 			name_l.text if name_l else "-", from_l.text if from_l else "-"])
-	_check(rec_l != null and rec_l.text.contains(dn.recruiter_line(target, "FRE")) and _night_forbidden(rec_l.text) == "",
+	_check(rec_l != null and rec_l.text.begins_with("Recruiter: ") and rec_l.text.contains(dn.recruiter_line(target, "FRE"))
+			and _night_forbidden(rec_l.text) == "",
 			"Then the recruiter's one line, with no grade in it (%s: %s)" % [tag, rec_l.text if rec_l else "-"])
 	var vignette: Control = stage.find_child("DraftNightVignette", true, false)
 	_check(vignette != null and vignette.get_script() == load("res://scripts/ui/match/AwardWinnerVignette.gd")
@@ -720,14 +721,14 @@ func _draft_night_screen(size: Vector2i) -> void:
 		_check(board != null and sr.position.y >= board.get_global_rect().end.y - 1 and viewport.grow(1).encloses(sr),
 				"Phone: the stage sits under the board, on screen, no scrolling (%s)" % tag)
 	_check(board != null and board.is_visible_in_tree(), "The board stays in view during the beat (%s)" % tag)
-	var newest: Control = ui.find_child("RecentPick_%d" % mine_no, true, false)
-	_check(newest != null and ui.call("replaying"), "The board shows your pick and holds the rivals' picks back (%s)" % tag)
+	_check(ui.call("replaying") and status.text == "Pick %d: Fremantle" % mine_no and not yours.is_visible_in_tree(),
+			"While the stage reads your pick the board stays on it and holds the rivals' picks back (%s: %s)" % [tag, status.text])
 	var strip_now: Control = ui.find_child("RecentPicks", true, false)
 	_check(strip_now != null and not strip_now.is_visible_in_tree(),
 			"The last-picks strip steps aside while the stage reads your pick (%s)" % tag)
 	var cap_l: Label = ui.find_child("SalaryCap", true, false)
-	_check(cap_l != null and cap_l.text == "%d prospects left" % (pool_info_want - 1),
-			"The board counts only your pick off the pool during the beat (%s: %s, want %d)" % [tag, cap_l.text if cap_l else "-", pool_info_want - 1])
+	_check(cap_l != null and cap_l.text == "%d prospects left" % pool_info_want,
+			"The board's count stays at your pick during the beat (%s: %s, want %d)" % [tag, cap_l.text if cap_l else "-", pool_info_want])
 	var pick_me_b: Button = ui.find_child("PickForMe", true, false)
 	var pass_b: Button = ui.find_child("PassPick", true, false)
 	_check(pick_me_b != null and pick_me_b.disabled and (pass_b == null or pass_b.disabled),
@@ -747,6 +748,8 @@ func _draft_night_screen(size: Vector2i) -> void:
 	var why: String = await Tap.tap(stage as Button)
 	await _settle()
 	_check(why == "" and ui.find_child("DraftNightStage", true, false) == null, "A tap ends the beat (%s: %s)" % [tag, why])
+	# The stage fades out first; then the board moves on.
+	await create_timer(float(ui.get_script().get_script_constant_map()["BEAT_FADE"]) + 0.06).timeout
 	var rivals: int = draft.pick_history.size() - at - 1
 	if rivals > 0:
 		var first_rival: Dictionary = draft.pick_history[at + 1]
@@ -760,8 +763,8 @@ func _draft_night_screen(size: Vector2i) -> void:
 		_check(cap_r != null and cap_r.text == "%d prospects left" % (draft.remaining_pool() + draft.pick_history.size() - (at + 1)),
 				"The prospects-left count holds back with the board (%s: %s)" % [tag, cap_r.text if cap_r else "-"])
 		var info_r: Label = ui.get("_board_info")
-		_check(info_r != null and info_r.text.begins_with("%d available" % (draft.remaining_pool() + draft.pick_history.size() - (at + 1))),
-				"So does the pool's count (%s: %s)" % [tag, info_r.text if info_r else "-"])
+		_check(info_r != null and info_r.text != "" and not info_r.text.left(1).is_valid_int(),
+				"The pool's line does not repeat the count the board gives (%s: %s)" % [tag, info_r.text if info_r else "-"])
 		var picks_tab: Button = ui.find_child("SideTab_picks" if size.x >= 760 else "Tab_picks", true, false)
 		_check(picks_tab != null and picks_tab.text == "Picks (%d)" % (at + 1),
 				"The pick log holds back the picks the board has not shown (%s: %s)" % [tag, picks_tab.text if picks_tab else "-"])

@@ -102,26 +102,30 @@ func _run() -> void:
 	var frame := 0
 	ui.call("_on_pick_for_me")
 	if clip:
-		# Every frame: the beat, its fade, five rival picks, then a finger on the board.
-		var picks_seen := 0
-		var last_status := ""
-		var tapped := false
-		var after_tap := 0
-		while frame < 600 and after_tap < 15:
+		# Every frame: the walk-on, the stage, its fade, every rival pick held its
+		# full time, then a finger on the Picks tab, held down for three frames.
+		var phase := 0          # 0 the night, 1 a beat before the tap, 2 finger down, 3 after
+		var wait := 0
+		while frame < 900 and phase < 4:
 			await process_frame
 			_shot("%s_clip_%03d.png" % [out, frame])
 			frame += 1
-			var st: Label = ui.find_child("DraftStatus", true, false)
-			if ui.find_child("DraftNightStage", true, false) == null and ui.call("replaying") and st != null:
-				if st.text != last_status:
-					picks_seen += 1
-					last_status = st.text
-				if picks_seen > 6 and not tapped:
-					tapped = true
-					_tap(ui.find_child("LiveBoard", true, false))
-			if tapped or (ui.find_child("DraftNightStage", true, false) == null and not ui.call("replaying")):
-				after_tap += 1
-		print("clip frames ", frame, " tapped ", tapped)
+			var night: bool = ui.find_child("DraftNightStage", true, false) != null 					or ui.find_child("DraftNightStageLeaving", true, false) != null or ui.call("replaying")
+			wait += 1
+			if phase == 0 and not night:
+				phase = 1
+				wait = 0
+			elif phase == 1 and wait >= 12:
+				_touch(ui.find_child("Tab_picks", true, false), true)
+				phase = 2
+				wait = 0
+			elif phase == 2 and wait >= 3:
+				_touch(ui.find_child("Tab_picks", true, false), false)
+				phase = 3
+				wait = 0
+			elif phase == 3 and wait >= 15:
+				phase = 4
+		print("clip frames ", frame)
 		quit(0)
 		return
 	await _wait(1.9)
@@ -135,15 +139,13 @@ func _run() -> void:
 	quit(0)
 
 
-## A finger's tap at the control's centre (as tests/tap.gd does).
-func _tap(c: Control) -> void:
+## A finger down (or up) at the control's centre (as tests/tap.gd does).
+func _touch(c: Control, down: bool) -> void:
 	if c == null:
 		return
-	var at: Vector2 = load("res://tests/tap.gd").screen_point(c)
-	for down in [true, false]:
-		var touch := InputEventScreenTouch.new()
-		touch.index = 0
-		touch.position = at
-		touch.pressed = down
-		Input.parse_input_event(touch)
-		Input.flush_buffered_events()
+	var touch := InputEventScreenTouch.new()
+	touch.index = 0
+	touch.position = load("res://tests/tap.gd").screen_point(c)
+	touch.pressed = down
+	Input.parse_input_event(touch)
+	Input.flush_buffered_events()
