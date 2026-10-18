@@ -396,7 +396,7 @@ const PLAN_ODDS := "Odds: the peak lands within %d weeks of plan about %s of the
 const PLAN_ODDS_SURE := "Odds: the peak lands within %d weeks of plan every season."
 const PLAN_UP_STEADY := "Upside: the same legs every week, with no heavy weeks and no extra soft-tissue risk."
 const PLAN_DOWN_STEADY := "Downside: no peak, so the side is no fresher in September than in March."
-const PLAN_UP_DEVELOP := "Upside: players 22 and under earn %s more development XP, and with the plan on since the bye they have %d more %s of room to grow this season. %s fewer soft-tissue injuries all year."
+const PLAN_UP_DEVELOP := "Upside: players %d and under earn %s more development XP, and with the plan on since the bye they have %d more %s of room to grow this season. %s fewer soft-tissue injuries all year."
 const PLAN_DOWN_DEVELOP := "Downside: all year the side tires %s faster and has %s less in the legs."
 
 
@@ -488,7 +488,8 @@ static func plan_effect(plan: String, hp_level: int) -> String:
 			lines.append(PLAN_DOWN_STEADY)
 		"develop":
 			var d := -DEVELOP_LEVEL
-			lines.append(PLAN_UP_DEVELOP % [pct(DEVELOP_XP), DEVELOP_CEILING, "point" if DEVELOP_CEILING == 1 else "points",
+			# The age cut is the one xp_mult uses (ClubBudget.YOUNG_AGE).
+			lines.append(PLAN_UP_DEVELOP % [int(ClubBudget.YOUNG_AGE), pct(DEVELOP_XP), DEVELOP_CEILING, "point" if DEVELOP_CEILING == 1 else "points",
 					pct(INJURY_K * d)])
 			lines.append(PLAN_DOWN_DEVELOP % [pct(DRAIN_K * d), legs_pct(CAP_K * d)])
 	return "\n".join(lines)
