@@ -13,7 +13,7 @@ not needed.
    `index.wasm` and a few smaller files. The downloaded zip is already in the right shape for
    itch: if it has `index.html` at the top level of the zip, upload it as it is.
 4. Size: about 25 MB zipped (38 MB game data, 39 MB engine, both compress well). The data is
-   mostly the figure sheets and the music.
+   mostly the figure sheets and the music. (2026-10-18: the generated music was removed, so the data is smaller than this.)
 
 ## 2. Create the project on itch
 
