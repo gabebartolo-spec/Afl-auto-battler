@@ -1,4 +1,6 @@
 ### Implementation record — numbers out of decisions (2026-09-29, branch `claude/no-numbers`)
+
+*Superseded on decision transparency by bible §4 (director, 2026-10-18); see docs/research/DECISION_TRANSPARENCY_AUDIT_2026-10-18.md.*
 Design audit §4.9: set-shot odds, a kicker's attribute numbers, a tired star's legs percentage and a trade offer's percentage sat on decision cards.
 - **Set shot:** each option reads in words.
   - The shot: "He should kick it" / "Better than even" / "A coin toss" / "A tough shot" / "A long shot".
