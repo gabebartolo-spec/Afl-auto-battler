@@ -56,11 +56,11 @@ func _update_scale() -> void:
 	if DisplayServer.get_name() != "headless":
 		density = desktop_density(pixels, DisplayServer.screen_get_scale(),
 				DisplayServer.screen_get_dpi() if OS.get_name() == "Windows" else 0)
-	if OS.has_feature("web"):
-		# The web canvas is sized in physical pixels by Godot's HTML shell.
-		var ratio = JavaScriptBridge.eval("window.devicePixelRatio || 1")
-		if ratio != null:
-			density = maxf(1.0, float(ratio))
+	if OS.has_feature("web") or web_ratio_test > 0.0:
+		# The web canvas is sized in physical pixels by Godot's HTML shell, so
+		# the pixel ratio alone gives a 1440p browser a 2560-unit canvas and
+		# 13-unit text. Fit it to the desktop design size as a window would be.
+		density = web_density(pixels, _web_ratio())
 	elif OS.has_feature("android") or OS.has_feature("ios"):
 		density = maxf(1.0, float(DisplayServer.screen_get_dpi()) / 160.0)
 	else:
@@ -120,6 +120,38 @@ static func desktop_density(pixels: Vector2, os_scale: float, dpi: int) -> float
 	var os_density := maxf(os_scale, float(dpi) / 96.0 if dpi > 0 else 1.0)
 	var fit := minf(pixels.x / DESKTOP_REF.x, pixels.y / DESKTOP_REF.y)
 	return maxf(1.0, maxf(os_density, fit))
+
+
+## The widest portrait canvas, in units, a phone's browser is laid out for.
+## Phones come in at 360-440 on their own pixel ratio and are left alone; a
+## portrait window wider than this in pixels is zoomed to it.
+const PHONE_REF_W := 480.0
+
+## A test stands in for a browser at this devicePixelRatio (0 = a real run).
+static var web_ratio_test := 0.0
+
+
+## The browser's devicePixelRatio (the page caps it at 2, export_presets.cfg).
+func _web_ratio() -> float:
+	if web_ratio_test > 0.0:
+		return web_ratio_test
+	var ratio = JavaScriptBridge.eval("window.devicePixelRatio || 1")
+	return maxf(1.0, float(ratio)) if ratio != null else 1.0
+
+
+## Density in a browser, for a canvas of `pixels` physical pixels at the
+## browser's `ratio`. The canvas is sized in physical pixels, so a 1440p
+## browser at ratio 1 would draw 2560 units: 13-unit text, match sheets
+## splayed across a strip. Landscape fits the desktop's 1280 x 720 as a
+## desktop window does (director, 2026-10-18: "Yes, scale it"), so 3840 wide
+## at ratio 3 is still ~1280 units. Portrait keeps a phone's own ratio and
+## only zooms a portrait window wider than PHONE_REF_W units. Never less than
+## the browser's own ratio.
+static func web_density(pixels: Vector2, ratio: float) -> float:
+	var own := maxf(1.0, ratio)
+	if pixels.x >= pixels.y:
+		return maxf(own, minf(pixels.x / DESKTOP_REF.x, pixels.y / DESKTOP_REF.y))
+	return maxf(own, pixels.x / PHONE_REF_W)
 
 
 ## The Screen setting on a phone or in its browser: follow the phone's own
