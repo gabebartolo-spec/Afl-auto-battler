@@ -22,7 +22,7 @@ ratings 39
 ai 38
 training 107
 selection 54
-matchup 96
+matchup 119
 matchday 552
 calls 8
 roles 218
