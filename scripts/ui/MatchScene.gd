@@ -3767,6 +3767,15 @@ func _ft_summary(v: VBoxContainer) -> void:
 		var fl := _say(str(f), UiKit.BODY, UiKit.TEXT)
 		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		factors.add_child(fl)
+	# The one who got away (P-16): what a former player of yours did against
+	# you, when he played most of it or kicked a goal.
+	if mine:
+		var opp_code := str(_res["away"] if me == 0 else _res["home"])
+		var gone := FormerPlayers.report_lines(_res, me, GameState.former_players(opp_code))
+		for i in range(gone.size()):
+			var gl := NameInk.label(str(gone[i]["text"]), _names(), UiKit.BODY, UiKit.TEXT)
+			gl.name = "FormerAgainst_%d" % i
+			factors.add_child(gl)
 	v.add_child(factors)
 
 	# Best players: best on ground, then the rest of yours and their best.

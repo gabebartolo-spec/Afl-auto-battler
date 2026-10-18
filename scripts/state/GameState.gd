@@ -3413,6 +3413,15 @@ func opponent_facts(code: String) -> Array:
 	return Matchup.facts(code, season.lists, season.selections, season.club_results(code))
 
 
+## Your former players on `code`'s list (FormerPlayers.against): who left
+## you and now lines up against you, the most games for you first.
+func former_players(code: String) -> Array:
+	if season == null or code == "" or code == my_club or not season.lists.has(code):
+		return []
+	return FormerPlayers.against(season.lists[code], my_club, season_year, season_wrap,
+			captaincy_record(code), honour_roll)
+
+
 ## What comes next, in one line: "Next: Round 5 v Carlton at the MCG." ""
 ## when there is no fixture to name (finals are drawn week by week).
 func next_fixture_line() -> String:
