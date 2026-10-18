@@ -110,6 +110,23 @@ var _out: Array = []
 var _timeline: Array = []
 var _tl_i := 0
 var _tac := [{}, {}]
+## Each side's three stars (MatchSim result "stars", PlanFit's Through stars
+## carriers) by player id: the men a Through stars side plays through.
+var _stars := [{}, {}]
+## Through stars: each side's tilt toward its star nearest the ball-carrier
+## (per refresh), where across that star stood, and which star it is.
+var _star_tilt := [0.0, 0.0]
+var _star_y := [0.0, 0.0]
+var _star_pick := [-1, -1]
+## Attack corridor: each player's lane across the ground (token id -> y), fixed by
+## his line's slot order (_attack_lanes), so the side narrows as a whole team.
+var _lane := {}
+## Win contest: per side, the two half-line players shadowing the ball in open
+## play, left one first (_pick_shadows).
+var _shadow := [[], []]
+## Win contest: where the pack's ring is being set this beat (INF for none):
+## the play's other runs keep clear of it (_clear_of_pack).
+var _ring_at := Vector2.INF
 
 
 # ---------------------------------------------------------------------------
@@ -132,10 +149,19 @@ func setup(result: Dictionary, p_events: Array) -> void:
 	_timeline = result.get("timeline", [])
 	_tl_i = 0
 	_tac = [{}, {}]
+	_stars = [{}, {}]
+	var star_ids: Array = result.get("stars", [])
+	for side in range(mini(2, star_ids.size())):
+		for pid in (star_ids[side] as Array):
+			(_stars[side] as Dictionary)[str(pid)] = true
 	# Presentation stream: seeded from the fixture, never from MatchSim.
 	_rng.seed = hash("%s|%s|%s|view" % [result.get("home", ""), result.get("away", ""),
 			result.get("label", "")])
 	_build_tokens(_starting_roster(result.get("roster", []), events))
+	_lane = {}
+	_attack_lanes(0)
+	_attack_lanes(1)
+	_shadow = [[], []]
 	bench = [[], []]
 	var opening: Array = result.get("bench", [])
 	for side in range(mini(2, opening.size())):
@@ -312,9 +338,15 @@ func _tick(h: float) -> void:
 	if _struct_timer <= 0.0:
 		_struct_timer = STRUCTURE_EVERY
 		_refresh_structure()
+	# Motion limits (MatchMotion.SPRINT, WALK): whatever moved a token this
+	# step, it moved no faster than a sprint.
+	var from := []
 	for t in tokens:
+		from.append(t["pos"])
 		MatchMotion.step(t, h)
-	MatchMotion.separate(tokens)
+	MatchMotion.separate(tokens, h)
+	for i in range(tokens.size()):
+		MatchMotion.limit_step(tokens[i], from[i], h)
 	_update_ball(h)
 	if not flash.is_empty():
 		flash["left"] = float(flash["left"]) - h
@@ -402,13 +434,19 @@ func _start_beat(k: int) -> void:
 				_phases = _possession_phases(k)
 			else:
 				_phases = [{"t": "emit"}]
+	_ring_at = Vector2.INF
+	if (kind == "ballup" or kind == "throwin") and (_plan_of(0) == "contest" or _plan_of(1) == "contest"):
+		var rat := _loc(k)
+		_ring_at = rat if kind == "ballup" else Vector2(rat.x, rat.y * 0.78)
 	_anticipate(k)
-	_refresh_structure()
-	# Who works around the ball is settled once a beat, so the role does not
-	# flick between neighbours (and send them back and forth) mid-play.
 	var bp := _struct_ball
 	if _phases.size() > 0 and str((_phases[0] as Dictionary).get("t", "")) == "flight":
 		bp = (_phases[0] as Dictionary)["to"]
+	_note_star_side(k, bp, _actor_id(ev))
+	_pick_shadows(bp)
+	_refresh_structure()
+	# Who works around the ball is settled once a beat, so the role does not
+	# flick between neighbours (and send them back and forth) mid-play.
 	_ball_zone(bp)
 
 
@@ -609,13 +647,15 @@ func _ballup_phases(k: int) -> Array:
 				"mode": "stoppage"})
 	var nk := _next_real(k)
 	var winner := _actor_id(events[nk]) if nk >= 0 else -1
-	var members := _nearest(at, 0, 3, [winner]) + _nearest(at, 1, 3, [winner])
+	var members := _nearest(at, 0, _pack_n(0), [winner]) + _nearest(at, 1, _pack_n(1), [winner])
 	for t in tokens:
 		if str(t["role"]) == "RUCK" and not members.has(int(t["id"])):
 			members.append(int(t["id"]))
 	if winner >= 0 and not members.has(winner):
 		members.append(winner)
-	out += [{"t": "pack", "at": at, "members": members, "min": 0.35, "max": 0.9, "mode": "stoppage"},
+	var extra := _pack_n(0) + _pack_n(1) - 6
+	out += [{"t": "pack", "at": at, "members": members, "min": 0.35, "max": 0.9 + PACK_EXTRA_WAIT * extra,
+				"need": 4 + extra, "mode": "stoppage", "winner": winner},
 			{"t": "throwup", "at": at},
 			{"t": "emit", "log": true}]
 	return out
@@ -634,14 +674,16 @@ func _throwin_phases(k: int) -> Array:
 	var infield := Vector2(at.x, at.y * 0.78)
 	var nk := _next_real(k)
 	var winner := _actor_id(events[nk]) if nk >= 0 else -1
-	var members := _nearest(infield, 0, 3, [winner]) + _nearest(infield, 1, 3, [winner])
+	var members := _nearest(infield, 0, _pack_n(0), [winner]) + _nearest(infield, 1, _pack_n(1), [winner])
 	for t in tokens:
 		if str(t["role"]) == "RUCK" and not members.has(int(t["id"])):
 			members.append(int(t["id"]))
 	if winner >= 0 and not members.has(winner):
 		members.append(winner)
-	out += [{"t": "pack", "at": infield, "members": members, "min": 0.25, "max": 0.75,
-				"mode": "stoppage"},
+	var extra := _pack_n(0) + _pack_n(1) - 6
+	out += [{"t": "pack", "at": infield, "members": members, "min": 0.25, "max": 0.75 + PACK_EXTRA_WAIT * extra,
+				"need": 4 + extra,
+				"mode": "stoppage", "winner": winner},
 			{"t": "emit", "log": true}]
 	return out
 
@@ -963,11 +1005,17 @@ func _loc(k: int) -> Vector2:
 			dy = clampf(dy_raw * 0.7, -32.0, 32.0) + _rng.randf_range(-5.0, 5.0)
 			if absf(x - src.x) < 12.0 and absf(dy) < 10.0:
 				dy = (signf(dy_raw) if dy_raw != 0.0 else 1.0) * _rng.randf_range(10.0, 18.0)
-			if absf(src.y) > 22.0 and _rng.randf() < 0.1:
-				dy = -src.y * 1.3 + _rng.randf_range(-5.0, 5.0)   # a switch of play
+			# (The roll is made as before whatever the plan, so the stream is unchanged.)
+			if absf(src.y) > 22.0 and _rng.randf() < 0.1 and _plan_of(int(ev.get("side", 0))) != "attacking":
+				dy = -src.y * 1.3 + _rng.randf_range(-5.0, 5.0)   # a switch of play (never down the corridor)
 		var y := src.y + dy
 		var side := int(ev.get("side", 0))
-		if x * _dir(side) < -45.0:
+		if _plan_of(side) == "attacking" and a >= 0 and int(tokens[a]["side"]) == side and _lane.has(a):
+			# Attack corridor: the ball goes to the receiver's lane. He leads
+			# from his slot, up his lane, never across to the ball, so the
+			# receivers never converge on one column.
+			y = float(_lane[a]) + _rng.randf_range(-1.0, 1.0)
+		elif x * _dir(side) < -45.0:
 			y *= 1.15   # clearing from defence: toward the boundary, away from the corridor
 		p = Vector2(x, y)
 		if hb and p.distance_to(src) < 3.0:
@@ -1152,14 +1200,21 @@ func _lead_receivers(k: int, cur: int) -> void:
 			var tok: Dictionary = tokens[a]
 			# The next two receivers always lead (as before); further ones start
 			# once the time left is about what they need to get there.
-			if _lead.has(a) or n < 2 or MatchMotion.eta(tok, loc) + LEAD_SLACK >= t:
+			# Through stars: the ball is going to the stars, so a star named
+			# to get it leads first, whenever it is.
+			var star_lead := _plan_of(int(tok["side"])) == "through_stars" and _is_star(tok)
+			# Slow it down: shorter, slower leads, each starting only when it must.
+			var held := _burst_on(int(tok["side"]), "hold")
+			if _lead.has(a) or (n < 2 and not held) or star_lead or MatchMotion.eta(tok, loc) + LEAD_SLACK >= t:
 				_lead[a] = j
 				# A lead is a run, never a stroll: from a stride-out up to a
 				# sprint when time is short.
 				var top := float(tok["top"])
 				var need := (tok["pos"] as Vector2).distance_to(loc) / maxf(0.3, t - float(tok["reaction"]))
-				var u := clampf((need / top - MatchMotion.JOG_SHARE) / (1.0 - MatchMotion.JOG_SHARE) + 0.35, 0.6, 1.0)
-				MatchMotion.set_goal(tok, loc, u)
+				var u := clampf((need / top - MatchMotion.JOG_SHARE) / (1.0 - MatchMotion.JOG_SHARE) + 0.35, 0.85 if star_lead else 0.6, 1.0)
+				if held:
+					u *= HOLD_LEAD
+				MatchMotion.set_goal(tok, _clear_of_pack(loc), u)
 				_busy[a] = true
 				if n == 0:
 					first = a
@@ -1182,7 +1237,7 @@ func _trail(a: int, goal: Vector2, urgency: float) -> void:
 	var own := Vector2(-MatchMotion.GOAL_X * _dir(int(t["side"])), 0.0)
 	if (t["pos"] as Vector2).distance_to(goal) > 40.0:
 		return
-	MatchMotion.set_goal(t, goal + (own - goal).normalized() * 2.2, urgency)
+	MatchMotion.set_goal(t, _clear_of_pack(goal + (own - goal).normalized() * 2.2), urgency)
 	_busy[o] = true
 
 
@@ -1232,7 +1287,9 @@ func _enter(p: Dictionary) -> void:
 			_ball_flight(at, at, 0.4 if p["t"] == "bounce" else 1.8, 3.5, up,
 					0.7 if p["t"] == "bounce" else 0.45)
 			for t in tokens:
-				if str(t["role"]) == "RUCK":
+				# (A Win contest ring has put its rucks, or the men standing in
+				# for them, on the ball already: _pack_ring.)
+				if str(t["role"]) == "RUCK" and not (_ring_at.is_finite() and p["t"] == "throwup"):
 					var id := int(t["id"])
 					MatchMotion.set_goal(t, at + Vector2(-0.8 * _dir(int(t["side"])), 0.0), 1.0, true)
 					_busy[id] = true
@@ -1242,6 +1299,13 @@ func _enter(p: Dictionary) -> void:
 					var s := str(t["slot"])
 					if (s == "WL" or s == "WR") and _centre_setup(int(t["side"])) == "stack":
 						MatchMotion.set_goal(t, at + Vector2(-4.0 * _dir(int(t["side"])), 6.0 * signf((t["pos"] as Vector2).y)), 1.0, true)
+						_busy[int(t["id"])] = true
+					elif CONTEST_CRASH.has(s) and _plan_of(int(t["side"])) == "contest" and _centre_setup(int(t["side"])) == "stack":
+						# Win contest: both half-lines crash in too, once the ball is
+						# up, a beat after the wings.
+						var out: Vector2 = (t["pos"] as Vector2) - at
+						_crash_late(t, at + out.normalized() * CONTEST_RING)
+						t["crashing"] = true
 						_busy[int(t["id"])] = true
 			if p.has("recv") and int(p["recv"]) >= 0 and p.has("loc"):
 				MatchMotion.set_goal(tokens[int(p["recv"])], p["loc"], 1.0, true)
@@ -1311,11 +1375,42 @@ func _enter(p: Dictionary) -> void:
 			mode = str(p.get("mode", "stoppage"))
 			var at2: Vector2 = p["at"]
 			var members: Array = p["members"]
-			for i in range(members.size()):
-				var ang := TAU * float(i) / float(maxi(1, members.size()))
-				var r := 2.0 + 1.5 * float(i % 2)
-				MatchMotion.set_goal(tokens[members[i]], at2 + Vector2(cos(ang), sin(ang)) * r, 0.95)
-				_busy[int(members[i])] = true
+			if str(p.get("mode", "")) == "stoppage" and (_plan_of(0) == "contest" or _plan_of(1) == "contest"):
+				# Win contest: a ring, not a stack (_pack_ring).
+				var spots := _pack_ring(at2, members, int(p.get("winner", -1)))
+				p["spots"] = spots
+				# The ring takes a moment longer to set than a stack: everyone in
+				# place before the umpire throws it up (PACK_RING_WAIT at most).
+				p["need"] = maxi(int(p.get("need", 4)), (members as Array).size())
+				p["max"] = maxf(float(p.get("max", 1.0)), PACK_RING_WAIT)
+				for id in spots:
+					MatchMotion.set_goal(tokens[id], spots[id], 0.95)
+					_busy[int(id)] = true
+				# Everyone else near the ball clears out of the ring now, each on
+				# his own bearing, a disc clear of the last to go that way.
+				var gone := []
+				for t in tokens:
+					var off: Vector2 = (t["pos"] as Vector2) - at2
+					if spots.has(int(t["id"])) or off.length() >= CONTEST_KEEP:
+						continue
+					var ang := off.angle() if off.length() > 0.01 else -PI * 0.5
+					for tries in range(12):
+						var clash := false
+						for g in gone:
+							if absf(wrapf(ang - float(g), -PI, PI)) < PACK_CLEAR_ARC:
+								clash = true
+						if not clash:
+							break
+						ang += PACK_CLEAR_ARC
+					gone.append(ang)
+					MatchMotion.set_goal(t, at2 + Vector2.from_angle(ang) * CONTEST_KEEP, 1.0, true)
+					_busy[int(t["id"])] = true
+			else:
+				for i in range(members.size()):
+					var ang := TAU * float(i) / float(maxi(1, members.size()))
+					var r := 2.0 + 1.5 * float(i % 2)
+					MatchMotion.set_goal(tokens[members[i]], at2 + Vector2(cos(ang), sin(ang)) * r, 0.95)
+					_busy[int(members[i])] = true
 			_struct_ball = at2
 		"crumb":
 			# The ball is in the air in open play: the nearest forwards lead to
@@ -1380,13 +1475,37 @@ func _done(p: Dictionary) -> bool:
 		"pack":
 			if _pt < float(p["min"]):
 				return false
+			var ring: Dictionary = p.get("spots", {})
+			# A ring waits for the four on the ball (an umpire waits for his
+			# rucks), up to PACK_RUCK_WAIT, and for the ground round it to clear.
+			var rucks_set := true
+			for id in ring:
+				if (ring[id] as Vector2).distance_to(p["at"]) < 3.0 						and (tokens[id]["pos"] as Vector2).distance_to(ring[id]) >= PACK_INNER_SET:
+					rucks_set = false
+			if not ring.is_empty() and _pt < PACK_RUCK_WAIT:
+				if not rucks_set:
+					return false
+				for t in tokens:
+					if not ring.has(int(t["id"])) and (t["pos"] as Vector2).distance_to(p["at"]) < PACK_RING - 1.5:
+						return false
 			if _pt >= float(p["max"]):
 				return true
 			var n := 0
 			for id in p["members"]:
-				if (tokens[id]["pos"] as Vector2).distance_to(p["at"]) < 5.0:
+				if ring.has(id):
+					var on_ball: bool = (ring[id] as Vector2).distance_to(p["at"]) < 3.0
+					if (tokens[id]["pos"] as Vector2).distance_to(ring[id]) < (PACK_INNER_SET if on_ball else PACK_SET):
+						n += 1
+				elif (tokens[id]["pos"] as Vector2).distance_to(p["at"]) < 5.0:
 					n += 1
-			return n >= mini(4, (p["members"] as Array).size())
+			# A bigger pack (Win contest's extra numbers) takes a moment longer to form.
+			var formed := n >= mini(int(p.get("need", 4)), (p["members"] as Array).size())
+			if formed and not ring.is_empty():
+				# A ring holds a moment once set, so it reads before the ball goes up.
+				if not p.has("_set_t"):
+					p["_set_t"] = _pt
+				return _pt - float(p["_set_t"]) >= PACK_SETTLE
+			return formed
 		"collect":
 			var who := int(p.get("who", -1))
 			if who < 0:
@@ -1680,14 +1799,190 @@ func _refresh_structure() -> void:
 	if tokens.is_empty():
 		return
 	var ball_p := _struct_ball
+	_star_tilt = [_tilt_of(0), _tilt_of(1)]
+	var crash := _stoppage_on()
 	# The side in possession first, so the other side can mark up on them.
 	for side in [_poss, 1 - _poss]:
+		var spots := {}
 		for t in tokens:
-			if int(t["side"]) != side or _busy.has(int(t["id"])):
-				continue
-			var g := _structure_spot(t, ball_p, _poss)
+			if int(t["side"]) == side and not _busy.has(int(t["id"])):
+				spots[int(t["id"])] = _structure_spot(t, ball_p, _poss)
+		_structure_limits(side, spots, ball_p, crash)
+		for id in spots:
+			var t: Dictionary = tokens[id]
+			var g: Vector2 = spots[id]
 			var d := (t["pos"] as Vector2).distance_to(g)
-			MatchMotion.set_goal(t, g, clampf(d / 45.0, 0.1, 0.6))
+			var u := minf(clampf(d / 45.0, 0.1, 0.6) * _call_pace(side),
+					1.0 if _burst_on(side, "surge") else CALL_PACE_TOP)
+			var crashing: bool = crash and CONTEST_CRASH.has(str(t["slot"])) and _plan_of(side) == "contest"
+			if crashing:
+				# Crashing a stoppage is a sprint: the wings from the moment it
+				# is called, both half-lines a beat after them, so they do not
+				# arrive as one block.
+				var first := not bool(t.get("crashing", false))
+				t["crashing"] = true
+				var wing := str(t["slot"]).begins_with("W")
+				if first and not wing:
+					_crash_late(t, g)
+				elif not wing and float(t["react_left"]) > 0.0:
+					t["pending"] = MatchMotion.clamp_to_oval(g, 2.0)
+				else:
+					MatchMotion.set_goal(t, g, 1.0, true)
+				continue
+			t["crashing"] = false
+			if side == _poss and _plan_of(side) == "attacking" and d > LANE_SPACE * 0.5:
+				u = maxf(u, CORRIDOR_INTO)   # into the lanes smartly when the ball is won
+			if _plan_of(side) == "contest" and not crash and (str(t["role"]) in ["MID", "RUCK"] or (_shadow[side] as Array).has(id)):
+				u = maxf(u, CONTEST_HUNT)   # Win contest: the ring hunts the ball
+			if _ring_at.is_finite() and (t["pos"] as Vector2).distance_to(_ring_at) < CONTEST_KEEP:
+				u = 1.0   # out of the way of the pack's ring, smartly
+			# Throw numbers at it: the engine's legs go 1.3 times as fast
+			# (MatchSim movement pace), so the run past the ball does too, up
+			# to a sprint (MatchMotion.SPRINT).
+			var surging: bool = side == _poss and _burst_on(side, "surge")
+			if surging:
+				t["reset"] = SURGE_LEGS
+				if str(t["role"]) in ["MID", "RUCK"] or SURGE_RUNNERS.has(str(t["slot"])):
+					u = 1.0   # ...and the men running past it go flat out
+			elif float(t.get("reset", 1.0)) == SURGE_LEGS:
+				t["reset"] = 1.0
+			MatchMotion.set_goal(t, g, u)
+
+
+## A goal kept clear of a Win contest pack's ring while it is set: anyone the
+## play sends near the ball stops CONTEST_KEEP off it.
+func _clear_of_pack(g: Vector2) -> Vector2:
+	if not _ring_at.is_finite():
+		return g
+	var out := g - _ring_at
+	if out.length() >= CONTEST_KEEP:
+		return g
+	return _ring_at + (out.normalized() if out.length() > 0.01 else Vector2.UP) * CONTEST_KEEP
+
+
+## A half-line crashing a Win contest stoppage: he goes CONTEST_STAGGER after
+## the wings, flat out.
+func _crash_late(t: Dictionary, g: Vector2) -> void:
+	g = MatchMotion.clamp_to_oval(g, 2.0)
+	t["pending"] = g
+	t["pending_urgency"] = 1.0
+	t["react_left"] = maxf(float(t["react_left"]), CONTEST_STAGGER)
+
+
+## Limits every shape keeps, whatever the call (the motion critic, 2026-10-18):
+## in possession each line keeps LINE_WIDTH_MIN of spread across the ground; no
+## two of a side's spots pile up (they part front to back, SPOT_GAP apart); at a
+## Win contest stoppage nobody but the pack stands inside CONTEST_KEEP of the
+## ball; and every spot stays STRUCT_MARGIN inside the boundary and out of the
+## pockets under the phone's bench strip. `spots` is id -> spot, changed in place.
+func _structure_limits(side: int, spots: Dictionary, ball_p: Vector2, crash: bool) -> void:
+	for id in spots:
+		spots[id] = _keep_in(spots[id])
+	# No pile: two spots closer than SPOT_GAP part along the ground, the one
+	# further up it going forward; a player the play is steering (a lead, the
+	# ball's press and support) stands where he is and the spot gives way.
+	var dir := _dir(side)
+	# Attack corridor: in its lanes, two in one lane stand a whole disc apart.
+	var gap := LANE_SPACE if side == _poss and not crash and _plan_of(side) == "attacking" else SPOT_GAP
+	var fixed := []
+	for t in tokens:
+		if int(t["side"]) == side and not spots.has(int(t["id"])):
+			fixed.append(t["goal"])
+	var ids2: Array = spots.keys()
+	for pass_no in range(4):
+		var moved := false
+		for i in range(ids2.size()):
+			var a: Vector2 = spots[ids2[i]]
+			for j in range(i + 1, ids2.size()):
+				var b: Vector2 = spots[ids2[j]]
+				var dy := absf(b.y - a.y)
+				if dy >= gap or absf(b.x - a.x) >= gap:
+					continue
+				var need := sqrt(gap * gap - dy * dy)
+				var dx := (b.x - a.x) * dir
+				if absf(dx) >= need:
+					continue
+				var fwd := 1.0 if dx > 0.0 or (dx == 0.0 and int(ids2[j]) > int(ids2[i])) else -1.0
+				var half := (need - absf(dx)) * 0.5 * fwd * dir
+				a.x -= half
+				b.x += half
+				spots[ids2[j]] = b
+				moved = true
+			for f in fixed:
+				var dy2 := absf((f as Vector2).y - a.y)
+				# Attack corridor: a man on the run (a lead, the ball) in this very
+				# lane gets two discs of room, so the lane never queues into a file.
+				var room := gap * 2.0 if gap == LANE_SPACE and dy2 < 2.0 else gap
+				if dy2 >= gap or absf((f as Vector2).x - a.x) >= room:
+					continue
+				var need2 := room if room > gap else sqrt(gap * gap - dy2 * dy2)
+				var dx2 := (a.x - (f as Vector2).x) * dir
+				if absf(dx2) < need2:
+					a.x += (need2 - absf(dx2)) * (1.0 if dx2 >= 0.0 else -1.0) * dir
+					moved = true
+			spots[ids2[i]] = a
+		if not moved:
+			break
+	for id in spots:
+		var p: Vector2 = spots[id]
+		if crash and (_plan_of(side) == "contest" or _plan_of(1 - side) == "contest"):
+			var out := p - ball_p
+			var here: Vector2 = (tokens[id]["pos"] as Vector2) - ball_p
+			if here.length() < CONTEST_KEEP and here.length() > 0.01:
+				# Inside the ring's ground: out the near way, never across the pack.
+				out = here.normalized() * maxf(out.length(), CONTEST_KEEP) if out.dot(here) < 0.0 or out.length() < CONTEST_KEEP else out
+			if out.length() < CONTEST_KEEP:
+				p = ball_p + (out.normalized() if out.length() > 0.01 else Vector2(-dir, 0.0)) * CONTEST_KEEP
+			else:
+				p = ball_p + out
+		spots[id] = _keep_in(p)
+	if side != _poss or crash or _plan_of(side) == "attacking":
+		return   # Attack corridor keeps its lanes instead (_attack_lanes)
+	# In possession each line keeps its width. Spread about the line's middle;
+	# where the ground narrows toward an end and the boundary holds a spot in,
+	# the line comes in toward the centre of the ground, where there is room.
+	var lines := {"DEF": [], "MID": [], "FWD": []}
+	for id in spots:
+		var role := str(tokens[id]["role"])
+		(lines["MID" if role == "RUCK" else (role if lines.has(role) else "MID")] as Array).append(id)
+	for key in lines:
+		var ids: Array = lines[key]
+		if ids.size() < 3:
+			continue
+		for attempt in range(4):
+			var mean := 0.0
+			for id in ids:
+				mean += (spots[id] as Vector2).y / float(ids.size())
+			var sd := 0.0
+			for id in ids:
+				sd += pow((spots[id] as Vector2).y - mean, 2.0) / float(ids.size())
+			sd = sqrt(sd)
+			if sd >= LINE_WIDTH_MIN:
+				break
+			var centre := mean * (1.0 if attempt == 0 else 0.4)
+			var base_sd := 0.0
+			for id in ids:
+				base_sd += pow((tokens[id]["base"] as Vector2).y, 2.0) / float(ids.size())
+			base_sd = sqrt(base_sd)
+			# A touch past the floor, so the boundary's last word still leaves it.
+			var want := LINE_WIDTH_MIN * 1.02
+			for id in ids:
+				var p: Vector2 = spots[id]
+				if sd > 1.0:
+					p.y = centre + (p.y - mean) * want / sd
+				elif base_sd > 0.5:
+					p.y = centre + (tokens[id]["base"] as Vector2).y * want / base_sd
+				spots[id] = _keep_in(p)
+
+
+## A structure spot kept STRUCT_MARGIN inside the boundary line and out of the
+## pockets the phone's bench strip covers (beyond POCKET_Y across, deeper than
+## POCKET_X): a disc there would sit on the line or under the strip.
+static func _keep_in(p: Vector2) -> Vector2:
+	p = MatchMotion.clamp_to_oval(p, STRUCT_MARGIN)
+	if absf(p.y) > POCKET_Y and absf(p.x) > POCKET_X:
+		p.x = POCKET_X * signf(p.x)
+	return p
 
 
 ## Where a player stands when the ball is at `ball_p` and `poss` has it.
@@ -1711,6 +2006,40 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 	var pull := 0.12 if slot.begins_with("W") else (0.3 if role == "MID" or role == "RUCK" else 0.2)
 	if not has and _pressing(side, bx):
 		width *= PRESS_NARROW
+	# The coach's other structural calls (P-12; the notes above ATTACK_WIDTH):
+	# what the engine does with each call, drawn.
+	var plan := _plan_of(side)
+	var mid := role == "MID" or role == "RUCK"
+	if has:
+		match plan:
+			"controlled":
+				width = CONTROL_WIDTH
+				pull *= CONTROL_PULL
+				x = lerpf(x, bx + CONTROL_AHEAD, CONTROL_SHORT)
+		if _burst_on(side, "hold"):
+			width = maxf(width, HOLD_WIDTH)
+			pull *= CONTROL_PULL
+	var hb_line := slot == "CHB" or slot == "HBL" or slot == "HBR"
+	if has and _burst_on(side, "surge"):
+		# Throw numbers at it: the midfield and the half-back line run past
+		# the ball, the forwards stay ahead of it and the back pockets come up,
+		# so the numbers are ahead of it. They run to where the chain is going
+		# (the furthest lead already on), not where the ball is now, so a
+		# quick chain does not leave them behind.
+		var ahead := _surge_ref(side, bx)
+		if mid:
+			x = maxf(x, ahead + SURGE_AHEAD)
+		elif hb_line:
+			x = maxf(x + SURGE_PUSH, ahead + SURGE_HB_AHEAD)
+		elif role == "FWD":
+			x = maxf(x, ahead + SURGE_FWD_AHEAD)
+		else:
+			x += SURGE_PUSH * 0.5
+		x = minf(x, MatchMotion.GOAL_X - SURGE_SHORT)
+	if _burst_on(side, "hold"):
+		# Slow it down: the whole side sits deeper, the midfield and forwards
+		# most (numbers behind the ball, nobody bolting ahead).
+		x -= HOLD_DEEP if role == "DEF" else HOLD_DEEP_UP
 	var y := lerpf(base.y * width, ball_p.y, pull)
 	if not has:
 		x -= 3.0
@@ -1737,11 +2066,42 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 				x = bx + clampf(x - bx, -PRESS_MID_BAND, PRESS_MID_BAND * 0.4)
 	var drift := Vector2(sin(time * 0.31 + float(t["phase"])), cos(time * 0.23 + float(t["phase"]) * 1.7)) * 2.0
 	var world := Vector2(x * dir, y) + (t["jitter"] as Vector2) + drift
+	if has and plan == "attacking" and _lane.has(int(t["id"])):
+		# Attack corridor: the whole side narrows into its lanes (_attack_lanes),
+		# each line in its slot order (no habits across: the gaps hold).
+		world.y = float(_lane[int(t["id"])])
+		if slot.begins_with("W"):
+			# ...the wings a little up the ground from the midfield, so they share
+			# the outside lanes with the followers without standing on them.
+			world.x = minf(world.x * dir + WING_AHEAD, WING_FURTHEST) * dir
+	var shadowing := plan == "contest" and not _stoppage_on() and (_shadow[side] as Array).has(int(t["id"]))
+	if plan == "contest" and (mid or shadowing):
+		# Win contest: the midfield stays on the ball, each on his own side of
+		# it round a ring (never a pile on top of it), and in open play two of
+		# the half lines shadow it with them: numbers round the ball.
+		var ang := deg_to_rad(_contest_angle(slot) if not shadowing
+				else CONTEST_SHADOW_ANGLE * (-1.0 if (_shadow[side] as Array).find(int(t["id"])) == 0 else 1.0))
+		world = ball_p + Vector2(cos(ang) * dir, sin(ang)) * CONTEST_MID_RING + (t["jitter"] as Vector2) * 0.2 + drift * 0.4
 	var own_goal := Vector2(-MatchMotion.GOAL_X * dir, 0.0)
 	var chase := int(t.get("chasing", -1))
 	if has and chase >= 0:
 		# Sent to their loose man: he stands where the spare would sit.
 		world = world.lerp((tokens[chase]["goal"] as Vector2), 0.6)
+	if has and plan == "through_stars" and _is_star(t):
+		# Through stars: the ball goes to the best three, so they stand
+		# closest to it, on a lead ahead of the ball.
+		var near := Vector2(ball_p.x + STAR_AHEAD * dir, lerpf(ball_p.y, world.y, 0.4))
+		world = world.lerp(near, STAR_PULL)
+	elif has and plan == "through_stars":
+		# ...and the rest of the side sets up on the side of the ground the
+		# ball is going to: the star nearest it.
+		world.y += float(_star_tilt[side])
+	if plan == "contest" and _stoppage_on() and CONTEST_CRASH.has(slot):
+		# Win contest at a stoppage: the wings and both half-lines crash in
+		# round the contest, each from his own side of it.
+		var out := world - ball_p
+		if out.length() > CONTEST_RING:
+			world = world.lerp(ball_p + out.normalized() * CONTEST_RING, CONTEST_CRASH_SHARE)
 	var flooding := not has and _flooding(side)
 	if not has:
 		var o := int(t["match"])
@@ -1758,9 +2118,16 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 			world = world.lerp(hole, 0.75)
 		elif o >= 0:
 			var og: Vector2 = tokens[o]["goal"]
-			if og.distance_to(world) < 35.0:
+			# Through stars: they know where the ball is going, so the man
+			# on a star goes with him wherever he leads.
+			var star_watch := _plan_of(1 - side) == "through_stars" and _is_star(tokens[o])
+			if og.distance_to(world) < 35.0 or star_watch:
 				var mark := og + (own_goal - og).normalized() * 2.5
 				var w := 0.65 if role == "DEF" else (0.45 if role == "MID" else 0.3)
+				if star_watch:
+					w = maxf(w, STAR_TIGHT)
+				elif plan == "contest" and (mid or shadowing):
+					w *= CONTEST_MAN   # Win contest: the midfield hunts the ball, not the man
 				if press_up:
 					w *= 0.1   # the press holds its band; it does not follow men back
 				if bool(t.get("tagging", false)):
@@ -1771,7 +2138,7 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 			# numbers are behind it; the full-forward line stays home.
 			var half := slot == "CHF" or slot == "HFL" or slot == "HFR"
 			world.x = lerpf(world.x, ball_p.x, FLOOD_PUSH if half else FLOOD_PUSH * 0.25)
-	return MatchMotion.clamp_to_oval(world, 3.0)
+	return _keep_in(world)
 
 
 ## The Defensive press, drawn (V1, press pilot). `bx` is the ball's distance
@@ -1789,13 +2156,33 @@ const PRESS_FRAME_SHIFT := 9.0    # ...and looks toward its high line
 const PRESS_FROM := -10.0
 
 
-## The press zone, drawn: whether `side` is pressing right now (without the
-## ball, its plan the press, the ball in its opponents' back half or the
-## middle). The view fades the wash in and out in real time.
+## The press zone, drawn: whether `side` plays the Defensive press right now.
+## The tint follows the plan, with the ball only turning it up (director,
+## 2026-10-14: it was seen in the first quarter and then "disappeared"). The old
+## rule showed it only while the side was without the ball and the ball was up
+## its opponents' end, so it flickered with every change of possession and sat
+## at about a seventh of its strength on average, in any quarter.
 func press_zone_on(side: int) -> bool:
-	if _tac.size() < 2 or tokens.is_empty():
+	if _tac.size() < 2 or tokens.is_empty() or debug_no_press_shape:
+		return false
+	return str((_tac[side] as Dictionary).get("plan", "")) == "defensive"
+
+
+## Whether `side` is hunting right now: its plan the press, without the ball,
+## the ball in its opponents' back half or the middle.
+func press_zone_hunting(side: int) -> bool:
+	if not press_zone_on(side):
 		return false
 	return side != _poss and _pressing(side, (ball["pos"] as Vector2).x * _dir(side))
+
+
+## How strong the wash should be: half while the plan is the press, full while
+## the side is hunting, none under any other plan. The view eases to it.
+const PRESS_ZONE_STANDING := 0.5
+func press_zone_level(side: int) -> float:
+	if not press_zone_on(side):
+		return 0.0
+	return 1.0 if press_zone_hunting(side) else PRESS_ZONE_STANDING
 
 
 ## How strongly the press side is hunting at `x_side` metres up the ground
@@ -1821,8 +2208,9 @@ static func press_zone_field(x_side: float) -> float:
 	return lerpf(lerpf(press_zone_strength(-e - 1.0), mid, fwd), press_zone_strength(e + 1.0), back)
 
 
-## Debug only (capture_match --noshape): draw the plan without its shape, the
-## sim untouched, so a clip pair differs in the formation alone.
+## Debug only (capture_match --noshape): draw the calls without their shapes
+## (the press, the flood, the stack and every P-12 shape), the sim untouched,
+## so a clip pair differs in the formation alone.
 static var debug_no_press_shape := false
 
 
@@ -1841,7 +2229,406 @@ const FLOOD_PUSH := 0.35
 ## The side's recorded calls include a flood (MatchSim.BURSTS, on the timeline
 ## from the chain it was made until it runs out).
 func _flooding(side: int) -> bool:
-	return ((_tac[side] as Dictionary).get("bursts", []) as Array).has("flood")
+	return _burst_on(side, "flood")
+
+
+# ---------------------------------------------------------------------------
+# The coach's other structural calls, drawn (P-12, director 2026-10-18: "the
+# oval answers a structural call"). Each shape is what the engine does with
+# the call (MatchSim PLANS and BURSTS), never more:
+# - Attack corridor (more metres and shots, quicker legs, more turnovers):
+#   with the ball the whole side narrows into the corridor, each player in his
+#   own lane (ATTACK_SHARE of his Balanced width, each line in its slot order,
+#   LANE_GAP apart); receivers lead up their lanes and the ball goes to the
+#   lane ahead (no switch of play); it moves quicker.
+# - Controlled tempo (less pressure felt, fewer clangers, fewer metres,
+#   slower legs): with the ball it spreads wide and its lines come in short
+#   around the ball; it moves slower.
+# - Win contest (an edge at every stoppage, fewer metres): its midfield stays
+#   on the ball, on a ring round it, with two of the half lines shadowing it in
+#   open play; every centre bounce, ball-up and throw-in gets one more in the
+#   pack, the wings crashing in at a sprint and both half-lines a beat later,
+#   through the clearance out of it (the centre bounce set up as a stack, 6-6-6
+#   kept until the ball is up). The pack is a ring, not a stack: two a side on
+#   the ball, the rest PACK_RING round it, the crash outside that. The engine
+#   gives the plan no edge in a marking contest, so neither does the oval.
+# - Through stars (the ball to the best three, who are expected): with the
+#   ball the three stand closest to it and lead first whenever the log has
+#   one getting it next, their opponents stay glued to them, and the rest
+#   set up on the side of the ground of the star nearest the ball-carrier.
+# - Throw numbers at it (an edge at the contest, more shots, faster legs, more
+#   goals against when the other side gets out): with the ball the midfield
+#   and the half-back line run past where the chain is going, the forwards
+#   stay ahead of it and the back pockets come up, a flood in reverse; it
+#   moves quicker. (Without the ball it keeps its usual shape.)
+# - Slow it down (less pressure felt, fewer clangers, fewer metres and fewer
+#   shots at both ends): the side sits deeper, spreads wide with the ball and
+#   moves slower, its leads shorter and slower. Its carriers hold the ball no
+#   longer: the engine's hold
+#   chains have more disposals (4.4 a possession against 3.7, 40 seeds) in the
+#   same minutes, so each disposal takes less time, not more, and the log's
+#   extra disposals already show it.
+const ATTACK_SHARE := 0.4          # with the ball a lane is about this share of his Balanced width...
+const LANE_GAP := 7.0              # ...no two of a line of three closer than this across the ground...
+const LANE_SPACE := 9.5            # ...and in fact a disc apart (8.6 m on a phone), on a grid this wide
+## How the corridor groups its lanes: the backs' and forwards' lines of three,
+## the four inside midfielders (on the half-offset lanes) and the two wings.
+## Each group's lanes, left to right: neighbouring lines along the ground
+## (full-back, half-back, midfield, half-forward, full-forward) alternate between
+## the LANE_SPACE grid and the grid offset by half, so where two lines meet no two of
+## their players share a lane (a brick wall, never a column).
+const LANE_TABLE := {"FB": [-14.25, -4.75, 4.75], "HB": [-9.5, 0.0, 9.5], "MID": [-14.25, -4.75, 4.75, 14.25],
+		"W": [-13.25, 13.25], "HF": [-9.5, 0.0, 9.5], "FF": [-4.75, 4.75, 14.25]}
+const CORRIDOR_INTO := 1.0        # how hard a side runs into its lanes when it wins the ball
+const WING_AHEAD := 12.0          # the wings stand this far up from the midfield, sharing its outside lanes
+const WING_FURTHEST := 60.0        # ...never so far up that the pocket squeezes his lane
+const LANE_GROUP := {"FB": "FB", "BPL": "FB", "BPR": "FB", "CHB": "HB", "HBL": "HB", "HBR": "HB",
+		"WL": "W", "WR": "W", "C": "MID", "R": "MID", "RR": "MID", "RV": "MID",
+		"CHF": "HF", "HFL": "HF", "HFR": "HF", "FF": "FF", "FPL": "FF", "FPR": "FF"}
+## The lines of three, as the tests hold them (no two closer than LANE_GAP).
+const LANE_LINE := {"FB": "FB", "BPL": "FB", "BPR": "FB", "CHB": "HB", "HBL": "HB", "HBR": "HB",
+		"WL": "C", "C": "C", "WR": "C", "R": "FOL", "RR": "FOL", "RV": "FOL",
+		"CHF": "HF", "HFL": "HF", "HFR": "HF", "FF": "FF", "FPL": "FF", "FPR": "FF"}
+const CONTROL_WIDTH := 1.5
+const CONTROL_PULL := 0.5          # less drawn across to the ball: the width holds
+const CONTROL_SHORT := 0.5         # each line comes this share of the way in...
+const CONTROL_AHEAD := 10.0        # ...toward a point this far ahead of the ball
+const CONTEST_MID_RING := 10.5     # the midfield stays this far round the ball: eight on it, about a disc apart
+## ...each at his own angle (degrees; 0 is the way his side kicks), 45 apart, and
+## in open play two of the half lines shadow it with them behind the ball.
+const CONTEST_ANGLE := {"C": 0.0, "RR": 45.0, "RV": -45.0, "WR": 90.0, "WL": -90.0, "R": 180.0}
+const CONTEST_SHADOW_ANGLE := 135.0
+const CONTEST_SHADOWS := ["CHB", "HBL", "HBR", "CHF", "HFL", "HFR"]
+const CONTEST_HUNT := 1.0         # how hard the ring keeps up with the ball in open play
+const SHADOW_KEEP := 15.0          # metres nearer another must be to take over a shadow
+## Win contest's stoppage pack (_pack_ring): two a side on the ball, the rest
+## round it this far off; a member is set once within PACK_SET of his spot.
+const PACK_RING := 8.0
+## ...the two rucks this far either side of the ball, and each side's second man
+## this far off it across the ground: inside 3 m, his ruck 3.2 m from him.
+const PACK_RUCK := 1.2
+const PACK_SECOND := 2.9
+const PACK_RING_WAIT := 2.0        # the longest a ring takes to set...
+const PACK_RUCK_NEAR := 25.0      # a ruck further off than this when the ball-up is called stands on the ring
+const PACK_SETTLE := 0.5          # ...and holds this long once set
+const PACK_RUCK_WAIT := 3.0        # ...or to wait for a ruck still on his way
+const PACK_CLEAR_ARC := 0.45       # radians between two men clearing out the same way
+const PACK_SET := 2.5
+const PACK_INNER_SET := 0.4        # ...and the four on the ball within this of theirs
+const CONTEST_PACK := 1            # extra players a side in a stoppage pack (with the ruck and the winner, six at most)
+const CONTEST_MAN := 0.25          # share of a midfielder's usual hold on his man
+## Win contest at a stoppage: who crashes in, to how far off the ball, how far.
+const CONTEST_CRASH := ["WL", "WR", "CHB", "HBL", "HBR", "CHF", "HFL", "HFR"]
+const CONTEST_RING := 13.0         # ...round the pack, outside its ring
+const CONTEST_CRASH_SHARE := 1.0
+const CONTEST_STAGGER := 0.35      # the half-lines go this long after the wings
+const CONTEST_KEEP := 13.0         # nobody but the pack inside this of the ball: the numbers stay readable
+const STAR_PULL := 0.75            # a star goes this share of the way to the ball
+const STAR_AHEAD := 10.0           # ...to a lead this far ahead of it
+const STAR_TIGHT := 0.95           # how tightly his opponent plays him
+const STAR_KEEP := 20.0           # metres nearer another star must be to take over
+const STAR_TILT := 30.0            # the rest set up this far toward the star's side
+const SURGE_AHEAD := 32.0          # the midfield runs at least this far ahead of the ball
+const SURGE_PUSH := 18.0           # the half-back line pushes up at least this far...
+const SURGE_HB_AHEAD := 20.0       # ...and past the ball
+const SURGE_SHORT := 14.0          # never closer to the goal line than this
+const SURGE_LEGS := 1.3            # MatchSim: "surge" movement pace
+const SURGE_RUNNERS := ["CHB", "HBL", "HBR"]   # with the midfield, they run past the ball
+const SURGE_FWD_AHEAD := 14.0      # the forwards stay at least this far ahead of it
+const HOLD_DEEP := 18.0            # Slow it down: the backs sit this much deeper...
+const HOLD_DEEP_UP := 24.0         # ...the midfield and forwards this much
+const HOLD_LEAD := 0.75            # a lead is this much slower, and starts only when it must
+const HOLD_WIDTH := 1.5
+## Limits every shape keeps (the motion critic, 2026-10-18; _structure_limits).
+## LINE_WIDTH_MIN: in possession each line (backs, midfield, forwards) keeps at
+## least this spread across the ground (standard deviation of where its players
+## stand): Balanced's narrowest line in real playback measured 11.6 to 12.8 m.
+const LINE_WIDTH_MIN := 12.0
+## Two of a side's structure spots never closer than this: a disc on a phone is
+## about 8.6 m across, and two numbers a little closer still both read.
+const SPOT_GAP := 7.0
+## Structure spots stay this far inside the boundary line (a phone disc is 4.3 m
+## in radius, so the whole disc is on the ground)...
+const STRUCT_MARGIN := 5.0
+## ...and out of the pockets the phone's bench strip covers (the upright oval,
+## 300 x 387: the strip's top edge is 73 m from the centre beyond 16 m across;
+## less a disc's radius): beyond POCKET_Y across, never deeper than POCKET_X.
+const POCKET_X := 68.0
+const POCKET_Y := 11.0
+
+
+## How briskly a side moves into its shape, from the pace the engine gives
+## the call (PLANS "pace", the legs Throw numbers at it burns; Slow it down's
+## quieter game).
+const CALL_PACE := {"attacking": 1.15, "controlled": 0.85, "surge": 1.3, "hold": 0.7}
+const CALL_PACE_TOP := 0.85
+
+
+## The plan in `side`'s recorded calls ("" with none recorded, or with the
+## shapes off for a capture).
+func _plan_of(side: int) -> String:
+	if debug_no_press_shape:
+		return ""
+	return str((_tac[side] as Dictionary).get("plan", ""))
+
+
+## Whether `side`'s recorded calls include the burst `kind` (MatchSim.BURSTS).
+func _burst_on(side: int, kind: String) -> bool:
+	if debug_no_press_shape:
+		return false
+	return ((_tac[side] as Dictionary).get("bursts", []) as Array).has(kind)
+
+
+func _call_pace(side: int) -> float:
+	var m := float(CALL_PACE.get(_plan_of(side), 1.0))
+	for kind in ["surge", "hold"]:
+		if _burst_on(side, kind):
+			m *= float(CALL_PACE[kind])
+	return m
+
+
+## How much longer a stoppage pack may take to form for each extra player in it.
+const PACK_EXTRA_WAIT := 0.15
+
+
+## Players a side sends into a stoppage pack (a ball-up, a throw-in).
+func _pack_n(side: int) -> int:
+	return 3 + (CONTEST_PACK if _plan_of(side) == "contest" else 0)
+
+
+## Throw numbers at it: how far up the ground (from `side`'s own end) its
+## chain is going, the furthest lead already on, or the ball when none is.
+func _surge_ref(side: int, bx: float) -> float:
+	var out := bx
+	for id in _lead:
+		if int(tokens[id]["side"]) == side and _locs.has(int(_lead[id])):
+			out = maxf(out, (_locs[int(_lead[id])] as Vector2).x * _dir(side))
+	return out
+
+
+## Win contest: where round the ball a midfielder stands (CONTEST_ANGLE; an
+## extra midfielder fills the gaps between them).
+static func _contest_angle(slot: String) -> float:
+	if CONTEST_ANGLE.has(slot):
+		return float(CONTEST_ANGLE[slot])
+	var gaps := [22.5, -22.5, 157.5, -157.5, 67.5, -67.5]
+	return float(gaps[int(slot.substr(1)) % gaps.size()]) if slot.begins_with("X") else 90.0
+
+
+## Attack corridor, a shape of the whole team (pass 4, the motion critic's third
+## look: a receiver path piled eight discs on one column). Each group (the
+## backs' and forwards' lines of three, the four inside midfielders, the wings)
+## keeps its slot order across the ground, left to right, on the lanes of
+## LANE_TABLE: about 40% of Balanced's width, a disc apart (LANE_SPACE; the
+## tests hold LANE_GAP, 7 m, for every line of three), and neighbouring lines
+## along the ground on grids half a lane apart, so where two lines meet no two
+## of them share a lane (a brick wall, never a column). No pull to the ball and
+## no habits: the corridor holds wherever the ball is. A group of another size
+## (an extra man) keeps its order and the gap (pool adjacent violators about
+## ATTACK_SHARE of his Balanced width). Sets _lane for `side`'s players
+## (token id -> y).
+func _attack_lanes(side: int) -> void:
+	var lines := {}
+	for t in tokens:
+		if int(t["side"]) != side:
+			continue
+		var key := str(LANE_GROUP.get(str(t["slot"]), ""))
+		if key == "":
+			key = {"DEF": "HB", "FWD": "HF"}.get(str(t["role"]), "MID")
+		if not lines.has(key):
+			lines[key] = []
+		(lines[key] as Array).append(t)
+	for key in lines:
+		var line: Array = lines[key]
+		line.sort_custom(_lane_order)
+		var want := []
+		for i in range(line.size()):
+			want.append(ATTACK_SHARE * (line[i]["base"] as Vector2).y * 1.08 - LANE_SPACE * float(i))
+		var fit := _isotonic(want)
+		var table: Array = LANE_TABLE.get(key, [])
+		for i in range(line.size()):
+			# A full line takes its lanes from the table; any other keeps its
+			# order and gaps (an extra man, a short line).
+			_lane[int(line[i]["id"])] = float(table[i]) if table.size() == line.size() 					else float(fit[i]) + LANE_SPACE * float(i)
+
+
+## Left to right by slot, then by id: the order a line keeps across the ground.
+static func _lane_order(a: Dictionary, b: Dictionary) -> bool:
+	var ya: float = (a["base"] as Vector2).y
+	var yb: float = (b["base"] as Vector2).y
+	return ya < yb or (ya == yb and int(a["id"]) < int(b["id"]))
+
+
+## The closest non-decreasing sequence to `v` (least squares).
+static func _isotonic(v: Array) -> Array:
+	var blocks := []   # [sum, count]
+	for x in v:
+		blocks.append([float(x), 1])
+		while blocks.size() > 1 and float(blocks[-2][0]) / float(blocks[-2][1]) > float(blocks[-1][0]) / float(blocks[-1][1]):
+			var last: Array = blocks.pop_back()
+			var prev: Array = blocks[-1]
+			prev[0] = float(prev[0]) + float(last[0])
+			prev[1] = int(prev[1]) + int(last[1])
+	var out := []
+	for b in blocks:
+		for i in range(int(b[1])):
+			out.append(float(b[0]) / float(b[1]))
+	return out
+
+
+## Win contest in open play: the two of the half lines nearest the ball shadow
+## it with the midfield (kept until another is SHADOW_KEEP nearer, so they do not
+## swap every beat), the left one first.
+func _pick_shadows(bp: Vector2) -> void:
+	for side in range(2):
+		if _plan_of(side) != "contest":
+			_shadow[side] = []
+			continue
+		var cands := []
+		for t in tokens:
+			if int(t["side"]) == side and CONTEST_SHADOWS.has(str(t["slot"])):
+				var dd := (t["pos"] as Vector2).distance_to(bp)
+				if (_shadow[side] as Array).has(int(t["id"])):
+					dd -= SHADOW_KEEP
+				cands.append([dd, int(t["id"])])
+		cands.sort()
+		var pick := []
+		for i in range(mini(2, cands.size())):
+			pick.append(int(cands[i][1]))
+		pick.sort_custom(func(a, b): return (tokens[a]["base"] as Vector2).y < (tokens[b]["base"] as Vector2).y \
+				or ((tokens[a]["base"] as Vector2).y == (tokens[b]["base"] as Vector2).y and a < b))
+		_shadow[side] = pick
+
+
+## Win contest's stoppage pack, readable (the motion critic, 2026-10-18: eight to
+## ten discs stacked in 15 m, numbers hidden): each side's ruck and its nearest
+## other man on the ball, inside 3 m and 2.5 m from each other; the rest of the
+## pack round it PACK_RING off, between them. Id -> spot.
+func _pack_ring(at: Vector2, members: Array, winner: int) -> Dictionary:
+	var spots := {}
+	var rest := [[], []]
+	var ruck := [false, false]
+	for id in members:
+		var sd := int(tokens[id]["side"])
+		# A ruck still well off (more than PACK_RUCK_NEAR) goes to the ring; the
+		# side's nearest man stands in for him on the ball.
+		if str(tokens[id]["role"]) == "RUCK" and not ruck[sd] 				and (tokens[id]["pos"] as Vector2).distance_to(at) <= PACK_RUCK_NEAR:
+			ruck[sd] = true
+			spots[id] = at + Vector2(-PACK_RUCK * _dir(sd), 0.0)
+		else:
+			(rest[sd] as Array).append(id)
+	for sd in range(2):
+		var list0: Array = rest[sd]
+		if not ruck[sd] and list0.size() > 1:
+			var stand_in: int = int(list0[0])
+			var bestd := INF
+			for id in list0:
+				var dd := (tokens[id]["pos"] as Vector2).distance_to(at)
+				if dd < bestd:
+					bestd = dd
+					stand_in = int(id)
+			list0.erase(stand_in)
+			spots[stand_in] = at + Vector2(-PACK_RUCK * _dir(sd), 0.0)
+	var ring := []   # [bearing, id]
+	for sd in range(2):
+		var list: Array = rest[sd]
+		if list.is_empty():
+			continue
+		# The second on the ball: the nearest (members come nearest first), so
+		# nobody crosses the pack to get there; the winner runs onto the tap.
+		var second: int = int(list[0])
+		var bd := INF
+		for id in list:
+			var dd2 := (tokens[id]["pos"] as Vector2).distance_to(at)
+			if dd2 < bd:
+				bd = dd2
+				second = int(id)
+		spots[second] = at + Vector2(0.0, PACK_SECOND * (1.0 if sd == 0 else -1.0))
+		for i in range(1, list.size()):
+			var off: Vector2 = (tokens[list[i]]["pos"] as Vector2) - at
+			ring.append([off.angle() if off.length() > 0.5 else float(list[i]), int(list[i])])
+	# The rest on the ring, on the bearings between the four on the ball (where
+	# the discs drawn apart do not push into them), each taking the free one
+	# nearest his own bearing, so nobody runs through the pack; evenly round it
+	# with a crowd.
+	ring.sort()
+	var m := ring.size()
+	var slots := []
+	var n_slots := 4 if m <= 4 else 8
+	if m > 8:
+		n_slots = m
+	for q in range(n_slots):
+		slots.append(TAU * (float(q) + 0.5) / float(n_slots))
+	var free := slots.duplicate()
+	for r in ring:
+		var best := 0
+		for q in range(free.size()):
+			if absf(wrapf(float(free[q]) - float(r[0]), -PI, PI)) < absf(wrapf(float(free[best]) - float(r[0]), -PI, PI)):
+				best = q
+		spots[int(r[1])] = at + Vector2.from_angle(float(free[best])) * PACK_RING
+		free.remove_at(best)
+	return spots
+
+
+func _is_star(t: Dictionary) -> bool:
+	return (_stars[int(t["side"])] as Dictionary).has(str(t["pid"]))
+
+
+## Through stars: how far across `side` sets up toward its star nearest the
+## ball-carrier, the whole tilt once that star is 3 m off the centre line.
+## 0 for any other plan.
+func _tilt_of(side: int) -> float:
+	if _plan_of(side) != "through_stars":
+		return 0.0
+	return STAR_TILT * clampf(float(_star_y[side]) / 3.0, -1.0, 1.0)
+
+
+## Where across the ground a side's star nearest the ball-carrier is, read
+## when the side wins the ball (so it does not sway between two stars through
+## the passage): from where that first possession is taken, never the
+## carrier himself.
+func _note_star_side(k: int, at: Vector2, carrier: int) -> void:
+	var ev: Dictionary = events[k]
+	var side := int(ev.get("side", -1))
+	if side < 0 or not _possession(str(ev.get("kind", ""))):
+		return
+	var pk := _prev_real(k)
+	if pk >= 0 and int((events[pk] as Dictionary).get("side", -1)) == side \
+			and _possession(str((events[pk] as Dictionary).get("kind", ""))):
+		return
+	var best := INF
+	var pick := -1
+	for t in tokens:
+		if int(t["side"]) != side or not _is_star(t) or int(t["id"]) == carrier:
+			continue
+		var dd := (t["pos"] as Vector2).distance_to(at)
+		# The star the side last played toward keeps it unless another is
+		# clearly nearer, so the shape does not swing across for a few metres.
+		if int(t["id"]) == int(_star_pick[side]):
+			dd -= STAR_KEEP
+		if dd < best:
+			best = dd
+			pick = int(t["id"])
+	if pick >= 0:
+		_star_pick[side] = pick
+		_star_y[side] = (tokens[pick]["pos"] as Vector2).y
+
+
+## A stoppage is on: a ball-up or throw-in being set, and the clearance out
+## of it (or out of a centre bounce) until the next disposal is under way.
+func _stoppage_on() -> bool:
+	if _beat.is_empty():
+		return false
+	var k := int(_beat["k"])
+	var kind := str(_beat.get("kind", ""))
+	if kind == "ballup" or kind == "throwin":
+		return true
+	if not _possession(kind):
+		return false
+	if _restart(k) in ["centre", "ballup", "throwin"]:
+		return true
+	var pk := _prev_real(k)
+	return pk >= 0 and _possession(str((events[pk] as Dictionary).get("kind", ""))) and _restart(pk) in ["centre", "ballup", "throwin"]
 
 
 ## The loose defender while his side defends: the one the match named
@@ -1876,13 +2663,15 @@ func _ball_zone(ball_p: Vector2) -> void:
 	for i in range(press.size()):
 		var g := ball_p + to_goal * (3.0 if i == 0 else 9.0) \
 				+ to_goal.orthogonal() * (1.0 if i == 0 else 6.0 * signf(ball_p.y + 0.1))
-		MatchMotion.set_goal(tokens[press[i]], g, 0.8 if i == 0 else 0.6)
+		MatchMotion.set_goal(tokens[press[i]], _clear_of_pack(g), 0.8 if i == 0 else 0.6)
 		_busy[press[i]] = true
 	var dir := _dir(_poss)
 	var sup := _nearest(ball_p, _poss, 2, _busy.keys())
+	if _plan_of(_poss) == "attacking":
+		return   # Attack corridor: the lanes are the options; nobody comes onto the ball
 	for i in range(sup.size()):
 		var g2 := ball_p + (Vector2(dir * 9.0, -9.0) if i == 0 else Vector2(-dir * 5.0, 10.0))
-		MatchMotion.set_goal(tokens[sup[i]], g2, 0.6)
+		MatchMotion.set_goal(tokens[sup[i]], _clear_of_pack(g2), 0.6)
 		_busy[sup[i]] = true
 
 
@@ -1910,6 +2699,10 @@ func _centre_spot(t: Dictionary, carrier: int) -> Vector2:
 					spot = Vector2(-2.0, 27.0 * signf(spot.y))
 				elif slot == "CHF" or slot == "HFL" or slot == "HFR":
 					spot.x = ARC_EDGE
+				elif (slot == "CHB" or slot == "HBL" or slot == "HBR") and _plan_of(side) == "contest" \
+						and not _burst_on(side, "stack"):
+					# Win contest: the half-backs up to their arc as well, to crash in.
+					spot.x = -ARC_EDGE
 			"flood":
 				# Defensive: the wings goal-side of the square, and the
 				# centreman at its back edge, behind the ball.
@@ -1927,10 +2720,12 @@ const ARC_EDGE := 37.0   # MatchMotion.GOAL_X (85) - 48
 ## A side's centre ball-up setup from its recorded calls: "stack" (extra
 ## numbers at the contest), "flood" (numbers behind the ball) or "".
 func _centre_setup(side: int) -> String:
-	var b: Array = (_tac[side] as Dictionary).get("bursts", [])
-	if b.has("stack"):
+	if _burst_on(side, "stack"):
 		return "stack"
-	return "flood" if b.has("flood") else ""
+	if _burst_on(side, "flood"):
+		return "flood"
+	# Win contest: an edge at every stoppage, so numbers at the centre bounce too.
+	return "stack" if _plan_of(side) == "contest" else ""
 
 
 # ---------------------------------------------------------------------------

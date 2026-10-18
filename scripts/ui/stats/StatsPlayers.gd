@@ -917,7 +917,9 @@ static func open_player(host: Control, id: String) -> void:
 	host.call("open_sheet", overlay)
 	var v: VBoxContainer = box["body"]
 	var name := GameDB.player_display_name(p) if not p.is_empty() else GameDB.player_display_name_by_id(id, "Player")
-	v.add_child(UiKit.lbl(name, UiKit.H1, UiKit.TEXT, true))
+	var title := UiKit.lbl(name, UiKit.H1, UiKit.TEXT, true)
+	title.name = "StatsPlayerName"
+	v.add_child(NameLink.tappable(title, id) if not p.is_empty() else title)
 	if not p.is_empty():
 		var who: PackedStringArray = [GameDB.club_name(str(p.get("club", row.get("club", ""))))]
 		var r := Roles.label(p)

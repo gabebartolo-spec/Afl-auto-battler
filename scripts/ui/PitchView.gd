@@ -112,7 +112,9 @@ var clash := false
 ## an 18 px dot on green, where two dark bases merge sooner than two names side by
 ## side do (Fremantle's purple and Melbourne's navy are 26.6 apart and read as one
 ## side in a pack: audit frame fre_mel_phone 005).
-const DISC_CLASH := 30.0
+const DISC_CLASH := 40.0
+## Two sides of one club whose strips are this close in base colour (Gold Coast's two reds) take the club's farthest colour instead.
+const SIDE_CLASH := 30.0
 ## Discs that would overlap are drawn apart, so both numbers show. Drawing only:
 ## the players stay where the match has them. NUDGE_GAP is the distance two drawn
 ## centres are pushed toward, in disc diameters; each frame the nudge eases back
@@ -129,6 +131,12 @@ const NUDGE_CAP := 0.5
 static var nudge_full := false
 const NUDGE_EASE := 0.85
 const NUDGE_PASSES := 24
+## The draw-apart moves a disc no faster than a walk (MatchMotion.WALK, in the
+## match's own seconds): two discs closing on each other part over a moment and
+## never snap across (the motion critic, 2026-10-18: a disc hopping 4 m in one
+## frame as a pile re-sorted). Match seconds played since the last layout; -1
+## until the first one, which places the discs at once.
+var _nudge_h := -1.0
 var _nudge := PackedVector2Array()
 var _disc := PackedVector2Array()   # where each token is drawn, in pixels
 ## The bench: each side's five as small discs, along the bottom of the view (the
@@ -186,6 +194,7 @@ func setup(p_result: Dictionary) -> void:
 	clash = bool((_kits[1] as Dictionary).get("clash", false))
 	_nudge = PackedVector2Array()
 	_disc = PackedVector2Array()
+	_order = []
 	_flip_pending = false
 	_trail = []
 	mini_figures = GameState.match_figures_on()
@@ -276,6 +285,8 @@ func progress() -> float:
 
 func _process(delta: float) -> void:
 	if playing:
+		if _nudge_h >= 0.0:
+			_nudge_h += delta * speed * MatchDirector.TEMPO
 		var out := director.advance(delta * speed)
 		for ev in out:
 			_track_quarter(ev)
@@ -487,23 +498,214 @@ static func kits_for(home: String, away: String) -> Array:
 	if GameDB.is_side(home) or GameDB.is_side(away):
 		dress_sides(GameDB.side_base(home))
 		dress_sides(GameDB.side_base(away))
-	var h: Dictionary = GameDB.club_guernsey(home)
-	var a: Dictionary = GameDB.club_guernsey(away)
-	var hb: Color = h.get("base", Color.WHITE)
-	var ab: Color = a.get("base", Color.WHITE)
-	var ap: Color = a.get("pattern", Color.DIM_GRAY)
-	if UiKit.colour_distance(hb, ab) < DISC_CLASH and UiKit.colour_distance(hb, ap) > UiKit.colour_distance(hb, ab):
-		a = a.duplicate()
-		a["base"] = ap
-		a["pattern"] = ab
-		a["clash"] = true
-	return [h, a]
+	var h: Dictionary = with_trim(home, GameDB.club_guernsey(home))
+	var a: Dictionary = with_trim(away, GameDB.club_guernsey(away))
+	if disc_distance(h, a) >= DISC_CLASH:
+		return [h, a]
+	# Too alike on the turf: the away side tries its clash strips (its own kit's
+	# two colours changed over; for a three-colour club its third colour as the
+	# body) and wears the one farthest from the home side's disc.
+	var best: Dictionary = a
+	var best_d := disc_distance(h, a)
+	var options := clash_options(away, a)
+	if GameDB.side_base(home) == GameDB.side_base(away):
+		# A club against itself (an intra-club match): the strip is only its own
+		# two colours changed over, so a side's ink matches the strip it wears.
+		options = options.slice(0, 1) if UiKit.colour_distance(a.get("base", Color.WHITE), a.get("pattern", Color.WHITE)) > 12.0 else []
+	for c in options:
+		var d := disc_distance(h, c)
+		if d > best_d + 0.01:
+			best = c
+			best_d = d
+	if best != a:
+		best["clash"] = true
+	return [h, best]
 
 
-## An intra-club match: the side in the home strip wears the club's kit colour,
-## and the side in the clash strip the colour the oval gives that club as an
-## away side against a home side in its own colours (kits_for of the club
-## against itself: its kit's two colours changed over), so no colour is
+## The away side's clash strips: the kit's base and pattern changed over, and
+## (only for a club whose third colour is a real one) the third colour as the
+## body with the base as the pattern. Only the club's own colours are used.
+static func clash_options(code: String, kit: Dictionary) -> Array:
+	var out := []
+	var base: Color = kit.get("base", Color.WHITE)
+	var pat: Color = kit.get("pattern", Color.DIM_GRAY)
+	if UiKit.colour_distance(base, pat) > 12.0:
+		var sw: Dictionary = kit.duplicate()
+		sw["base"] = pat
+		sw["pattern"] = base
+		out.append(with_trim(code, sw, true))
+	# A white clash strip, as the real clubs wear (Melbourne, Hawthorn, Essendon):
+	# only for a club whose third colour is white.
+	var white: Color = GameDB.club_colours(GameDB.side_base(code))[2]
+	if white.is_equal_approx(Color.WHITE) and UiKit.colour_distance(base, white) > 25.0:
+		var w1: Dictionary = kit.duplicate()
+		w1["base"] = white
+		w1["pattern"] = base
+		w1.erase("ring")
+		out.append(w1)
+		var w2: Dictionary = kit.duplicate()
+		w2["base"] = white
+		w2["pattern"] = pat
+		w2.erase("ring")
+		out.append(w2)
+	var ring = kit.get("ring", null)
+	if ring != null:
+		var third: Dictionary = kit.duplicate()
+		third["base"] = ring
+		third["pattern"] = base
+		third["ring"] = pat
+		out.append(third)
+		var third2: Dictionary = kit.duplicate()
+		third2["base"] = ring
+		third2["pattern"] = pat
+		third2["ring"] = base
+		out.append(third2)
+	return out
+
+
+## The third colour of a club that has one (Adelaide's gold, the Bulldogs'
+## white) as a ring round the rim of the disc: it survives an 18 px disc, leaves
+## the number clear, and is the one thing that tells Adelaide's navy and red
+## from Melbourne's. `ring` is left out when it is the same as the body or the
+## pattern (a ring that adds nothing).
+static func with_trim(code: String, kit: Dictionary, keep := false) -> Dictionary:
+	var out: Dictionary = kit.duplicate()
+	if keep and out.has("ring"):
+		return out
+	out.erase("ring")
+	if not GameDB.THREE_COLOUR_CLUBS.has(GameDB.side_base(code)):
+		return out
+	var third: Color = kit.get("pattern2", Color.WHITE)
+	if UiKit.colour_distance(third, kit.get("base", Color.WHITE)) < 25.0:
+		return out
+	if UiKit.colour_distance(third, kit.get("pattern", Color.WHITE)) < 12.0 and str(kit.get("design", "plain")) != "plain":
+		return out
+	out["ring"] = third
+	return out
+
+
+## What a disc looks like, as colours sampled over its face (a 13 x 13 grid
+## inside the circle, the kit's own geometry from _draw_kit).
+static func disc_samples(kit: Dictionary) -> Array:
+	var out := []
+	var n := 13
+	for iy in range(n):
+		for ix in range(n):
+			var x := (float(ix) + 0.5) / float(n) * 2.0 - 1.0
+			var y := (float(iy) + 0.5) / float(n) * 2.0 - 1.0
+			if x * x + y * y <= 1.0:
+				out.append(kit_colour_at(kit, x, y))
+	return out
+
+
+## The colour of the disc at (x, y) in the unit circle: the geometry _draw_kit
+## draws.
+static func kit_colour_at(kit: Dictionary, x: float, y: float) -> Color:
+	var base: Color = kit.get("base", Color.WHITE)
+	var pat: Color = kit.get("pattern", Color.DIM_GRAY)
+	var ring = kit.get("ring", null)
+	var design := str(kit.get("design", "plain"))
+	var d := sqrt(x * x + y * y)
+	var col := base
+	if ring != null and d > 0.8:
+		return ring
+	var r := 0.94
+	match design:
+		"stripes":
+			for cx in [-0.55, 0.0, 0.55]:
+				if absf(x - float(cx) * r) < r * 0.13:
+					col = pat
+		"hoops", "lowhoops", "twohoops", "tiers":
+			for cy in [-0.4, 0.3]:
+				if absf(y - float(cy) * r) < r * 0.15:
+					col = pat
+		"sash":
+			if absf(x) < r * 0.75 and y - x > -r * 0.42 and y - x < r * 0.42:
+				col = pat
+		"yoke", "shoulders":
+			if y < -0.05 * r:
+				col = pat
+		"band":
+			if absf(y) < r * 0.22:
+				col = pat
+		"chevron", "chevrons", "wings":
+			if absf(x) < r * 0.7 and absf(y - (-0.35 + 0.75 * (1.0 - absf(x) / (r * 0.7))) * r) < r * 0.16:
+				col = pat
+		"panels", "sides", "giants", "map":
+			if x < 0.0:
+				col = pat
+		_:
+			if d < 0.55:
+				col = pat
+	return col
+
+
+## The number's two inks on a kit: white with a dark edge, or (on a light body,
+## Richmond's yellow) near-black with a white edge. Judged on the colours under
+## the number (the middle of the disc).
+static func number_inks(kit: Dictionary) -> Array:
+	var lum := 0.0
+	var cnt := 0
+	for dy in [-0.3, 0.0, 0.3]:
+		for dx in [-0.3, 0.0, 0.3]:
+			var c := kit_colour_at(kit, float(dx), float(dy))
+			lum += 0.2126 * c.srgb_to_linear().r + 0.7152 * c.srgb_to_linear().g + 0.0722 * c.srgb_to_linear().b
+			cnt += 1
+	if lum / float(cnt) > 0.30:
+		return [Color(0.05, 0.05, 0.08), Color(1, 1, 1, 0.9)]
+	return [Color(1, 1, 1), Color(0, 0, 0, 0.85)]
+
+
+## How different two discs look on the turf, in CIELAB: half the distance
+## between their palettes (each colour on one disc to the nearest colour on the
+## other, by the share of the face it covers, both ways) and half the distance
+## between their body colours. Layout does not count: Melbourne's red body and
+## navy yoke against Adelaide's navy body and red hoops share their colours and
+## score low; a third colour or a different body raises it.
+static func disc_distance(a: Dictionary, b: Dictionary) -> float:
+	var pa := _palette(a)
+	var pb := _palette(b)
+	var chamfer := 0.5 * (_palette_gap(pa, pb) + _palette_gap(pb, pa))
+	return 0.5 * chamfer + 0.5 * UiKit.colour_distance(_dominant(_palette(_bodied(a))), _dominant(_palette(_bodied(b))))
+
+
+## The colours on a disc and the share of its face each covers.
+static func _palette(kit: Dictionary) -> Array:
+	var counts := {}
+	var cells := disc_samples(kit)
+	for c in cells:
+		var key := (c as Color).to_html(false)
+		counts[key] = int(counts.get(key, 0)) + 1
+	var out := []
+	for key in counts:
+		out.append([Color.html(str(key)), float(counts[key]) / float(cells.size())])
+	return out
+
+
+static func _palette_gap(from: Array, to: Array) -> float:
+	var total := 0.0
+	for f in from:
+		var nearest := 1000.0
+		for t in to:
+			nearest = minf(nearest, UiKit.colour_distance(f[0], t[0]))
+		total += nearest * float(f[1])
+	return total
+
+
+static func _bodied(kit: Dictionary) -> Dictionary:
+	var k: Dictionary = kit.duplicate()
+	k.erase("ring")
+	return k
+
+
+static func _dominant(p: Array) -> Color:
+	var best: Array = p[0]
+	for e in p:
+		if float(e[1]) > float(best[1]):
+			best = e
+	return best[0]
+
+
 ## invented here. Harmless to call again.
 static func dress_sides(base: String) -> void:
 	var codes: Array = GameDB.side_codes(base)
@@ -512,7 +714,7 @@ static func dress_sides(base: String) -> void:
 	var home: Dictionary = GameDB.club_guernsey(base)
 	var second: Dictionary = kits_for(base, base)[1]
 	var hb: Color = home.get("base", Color.WHITE)
-	if UiKit.colour_distance(hb, second.get("base", Color.WHITE)) < DISC_CLASH:
+	if UiKit.colour_distance(hb, second.get("base", Color.WHITE)) < SIDE_CLASH:
 		# The kit's two colours are too alike to tell two sides apart (Gold
 		# Coast's two reds): the second side takes the club's own colour that
 		# is farthest from the first side's, still one of the club's colours.
@@ -783,7 +985,7 @@ const PRESS_ZONE_ALPHA := 0.3
 ## The strength the colour is worked out at (what the club colour would be at
 ## a 40% mix), so the colour is the same hue and the strength the one above.
 const PRESS_COLOUR_ALPHA := 0.4
-const PRESS_FADE_SECS := 0.9
+const PRESS_FADE_SECS := 2.5
 var _zone_fade := [0.0, 0.0]
 var _press_said := [false, false]
 var _caption_rect = null       # where the caption was drawn last (the press line steps clear of it)
@@ -799,8 +1001,8 @@ static func ease_fade(t: float) -> float:
 
 func _step_zone_fade(delta: float) -> void:
 	for side in [0, 1]:
-		var on: bool = director.press_zone_on(side)
-		_zone_fade[side] = move_toward(float(_zone_fade[side]), 1.0 if on else 0.0, delta / PRESS_FADE_SECS)
+		var target: float = director.press_zone_level(side)
+		_zone_fade[side] = move_toward(float(_zone_fade[side]), target, delta / PRESS_FADE_SECS)
 
 
 func _draw_press_zone(c: Vector2, a: float, b: float) -> void:
@@ -903,20 +1105,35 @@ func _draw_rings(tr: float) -> void:
 ## passing caption (a goal, a ringed player's touch) still sits above.
 func _draw_role_labels(tr: float) -> void:
 	var fs := clampi(int(tr * 1.15), 9, 12)
-	# Named under the token: the players with a job, whoever has the ball, and
-	# your ringed players (audit §8 Phase 3.1), each once.
-	var named := {}
-	for id in director.role_labels():
-		named[int(id)] = true
-	var holder := int(director.ball.get("holder", -1)) if not director.ball.is_empty() else -1
-	if holder >= 0:
-		named[holder] = true
-	if not rings.is_empty():
-		for i in range(director.tokens.size()):
-			if rings.has(str(director.tokens[i].get("pid", ""))):
-				named[i] = true
-	for id in named:
-		if id < 0 or id >= director.tokens.size():
+	for l in role_label_layout(tr, fs):
+		var text := str(l["text"])
+		var origin: Vector2 = l["origin"]
+		for off in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
+			draw_string(UiKit.BOLD, origin + off, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.7))
+		draw_string(UiKit.BOLD, origin, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.85))
+
+
+## Where each surname goes: [{id, text, origin, rect}]. Under its disc first;
+## when that would sit on another name or on another player's disc (and its
+## number) it moves to above, beside, or further below; a name with no clear
+## place is left out, except the ball carrier's, which is always written (the
+## nearest clear place, else under his disc).
+func role_label_layout(tr: float, fs: int) -> Array:
+	var named := label_wanted()
+	var ids := named.keys()
+	# The ball carrier first, then ringed players, then the rest, so the
+	# important names claim their place before the others.
+	ids.sort_custom(func(x, y): return int(named[x]) < int(named[y]) or (int(named[x]) == int(named[y]) and int(x) < int(y)))
+	# A player whose name the caption is writing (a goal, a touch) is not named
+	# twice.
+	var captioned := int(_caption["tok"]) if not _caption.is_empty() else -1
+	var discs := []
+	for i in range(director.tokens.size()):
+		discs.append(_disc_at(i))
+	var placed := []
+	var out := []
+	for id in ids:
+		if id < 0 or id >= director.tokens.size() or int(id) == captioned:
 			continue
 		var t: Dictionary = director.tokens[id]
 		if float(t.get("down", 0.0)) > 0.0:
@@ -925,13 +1142,76 @@ func _draw_role_labels(tr: float) -> void:
 		if text == "":
 			continue
 		var width := UiKit.BOLD.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		var p := _disc_at(int(id))
+		var p: Vector2 = discs[id]
 		if p.x < -width or p.y < 0.0 or p.x > size.x + width or p.y > size.y + float(fs) * 2.0:
 			continue
-		var origin := p + Vector2(-width * 0.5, tr * 1.25 + float(fs))
-		for off in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
-			draw_string(UiKit.BOLD, origin + off, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.7))
-		draw_string(UiKit.BOLD, origin, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.85))
+		var h := float(fs)
+		# Only places beside the disc: under, over, either side (a name far
+		# from its disc names the wrong player).
+		var spots := [
+			Vector2(-width * 0.5, tr * 1.25 + h),
+			Vector2(-width * 0.5, -tr * 1.25 - 3.0),
+			Vector2(tr * 1.3, h * 0.35),
+			Vector2(-tr * 1.3 - width, h * 0.35),
+			Vector2(tr * 1.0, tr * 1.1 + h * 0.8),
+			Vector2(-tr * 1.0 - width, tr * 1.1 + h * 0.8),
+			Vector2(tr * 1.0, -tr * 1.1),
+			Vector2(-tr * 1.0 - width, -tr * 1.1),
+		]
+		var chosen = null
+		# First a place clear of every name and every other disc; failing that,
+		# one clear of the names (it may lie over a neighbour's edge, but the
+		# name is still written beside its own disc).
+		for strict in [true, false]:
+			for off in spots:
+				var origin: Vector2 = p + off
+				origin.x = clampf(origin.x, 2.0, maxf(2.0, size.x - width - 2.0))
+				var rect := Rect2(origin + Vector2(-1, -h), Vector2(width + 2.0, h + 3.0))
+				if _label_clear(rect, id, placed, discs, tr, strict):
+					chosen = [origin, rect]
+					break
+			if chosen != null:
+				break
+		if chosen == null:
+			continue
+		placed.append(chosen[1])
+		out.append({"id": id, "text": text, "origin": chosen[0], "rect": chosen[1]})
+	return out
+
+
+## The players whose name is wanted under the disc, with a priority (lower
+## first): the ball carrier, your ringed players, those with a recorded job.
+func label_wanted() -> Dictionary:
+	var named := {}
+	for id in director.role_labels():
+		named[int(id)] = 1
+	var holder := int(director.ball.get("holder", -1)) if not director.ball.is_empty() else -1
+	if holder >= 0:
+		named[holder] = -1
+	if not rings.is_empty():
+		for i in range(director.tokens.size()):
+			if rings.has(str(director.tokens[i].get("pid", ""))):
+				named[i] = mini(int(named.get(i, 0)), 0)
+	return named
+
+
+## A name's box clear of every name already placed and of every other player's
+## disc (so no name runs over a number).
+func _label_clear(rect: Rect2, id: int, placed: Array, discs: Array, tr: float, strict := true) -> bool:
+	for r in placed:
+		if rect.intersects(r as Rect2):
+			return false
+	if not strict:
+		return true
+	for i in range(discs.size()):
+		if i == id or float(director.tokens[i].get("down", 0.0)) > 0.0:
+			continue
+		var c: Vector2 = discs[i]
+		var nx := clampf(c.x, rect.position.x, rect.end.x)
+		var ny := clampf(c.y, rect.position.y, rect.end.y)
+		if Vector2(nx, ny).distance_to(c) < tr:
+			return false
+	return true
 
 
 func _draw_press_banner() -> void:
@@ -1099,6 +1379,11 @@ func _layout_discs(tr: float) -> void:
 	if _nudge.size() != n:
 		_nudge.resize(n)
 		_nudge.fill(Vector2.ZERO)
+		_nudge_h = -1.0
+	# How far a disc may be moved apart, or back, since the last layout.
+	var budget := INF if nudge_full or _nudge_h < 0.0 else MatchMotion.WALK * _nudge_h * _scale()
+	_nudge_h = 0.0
+	var was := _nudge.duplicate()
 	var real := PackedVector2Array()
 	real.resize(n)
 	var pos := PackedVector2Array()
@@ -1134,42 +1419,66 @@ func _layout_discs(tr: float) -> void:
 				if off.length() > cap:
 					pos[i] = real[i] + off.limit_length(cap)
 	for i in range(n):
-		_nudge[i] = pos[i] - real[i]
+		var off := pos[i] - real[i]
+		if budget < INF:
+			off = was[i] + (off - was[i]).limit_length(budget)
+		if cap < INF:
+			off = off.limit_length(cap)
+		_nudge[i] = off
+		pos[i] = real[i] + off
 	_disc = pos
 
 
-## The order the discs are drawn in, last on top: the farthest from the ball
-## first, and last of all the two opponents nearest the man with the ball, then
-## the man himself, so where discs still overlap the ones that matter show whole.
+## The order the discs are drawn in, last on top: lower on the screen over
+## higher, then the player id, and the man with the ball over everyone. The
+## order is kept from frame to frame: two discs change places only once one has
+## passed the other on screen by more than a disc's radius (the motion critic,
+## 2026-10-18: discs swapping in front of each other as players neared the ball).
+## Only the ball changing hands lifts a disc to the top at once.
+var _order: Array = []
+
+
 func draw_order() -> Array:
 	var n := director.tokens.size()
-	var ball_pos: Vector2 = director.ball.get("pos", Vector2.ZERO)
+	if _order.size() != n:
+		_order = range(n)
+		_order.sort_custom(func(a, b): return _disc_at(a).y < _disc_at(b).y \
+				or (_disc_at(a).y == _disc_at(b).y and a < b))
+	var ys := PackedFloat32Array()
+	ys.resize(n)
+	for i in range(n):
+		ys[i] = _disc_at(i).y
+	var r := token_radius()
+	# Neighbours swap only when the one drawn first is lower by more than a
+	# radius; every swap undoes one such crossing, so this always ends.
+	var moved := true
+	var guard := 0
+	while moved and guard < n * n:
+		moved = false
+		for k in range(n - 1):
+			guard += 1
+			var a: int = _order[k]
+			var b: int = _order[k + 1]
+			if ys[a] > ys[b] + r:
+				_order[k] = b
+				_order[k + 1] = a
+				moved = true
+	var out := _order.duplicate()
+	var carrier := top_disc()
+	if carrier >= 0:
+		out.erase(carrier)
+		out.append(carrier)
+	return out
+
+
+## The player drawn on top of everyone: the man with the ball, or the last to
+## have it while it is in the air; -1 for none.
+func top_disc() -> int:
+	var n := director.tokens.size()
 	var carrier := int(director.ball.get("holder", -1))
 	if carrier < 0 or carrier >= n:
 		carrier = director.actor if director.actor >= 0 and director.actor < n else -1
-	var rows := []
-	for i in range(n):
-		rows.append([(director.tokens[i]["pos"] as Vector2).distance_squared_to(ball_pos), i])
-	rows.sort_custom(func(a, b): return a[0] > b[0] if a[0] != b[0] else a[1] < b[1])
-	var out := []
-	for r in rows:
-		out.append(int(r[1]))
-	if carrier >= 0:
-		var side := int(director.tokens[carrier]["side"])
-		var at: Vector2 = director.tokens[carrier]["pos"]
-		var opp := []
-		for i in range(n):
-			if int(director.tokens[i]["side"]) != side:
-				opp.append([(director.tokens[i]["pos"] as Vector2).distance_squared_to(at), i])
-		opp.sort_custom(func(a, b): return a[0] < b[0] if a[0] != b[0] else a[1] < b[1])
-		var top := []
-		for k in range(mini(2, opp.size()) - 1, -1, -1):
-			top.append(int(opp[k][1]))
-		top.append(carrier)
-		for id in top:
-			out.erase(id)
-			out.append(id)
-	return out
+	return carrier
 
 
 ## The player whose disc is drawn at `p` (a point in this view), -1 for none: the
@@ -1188,6 +1497,12 @@ func disc_at_point(p: Vector2) -> int:
 ## step exactly as a drawn frame makes it.
 func disc_positions() -> PackedVector2Array:
 	_layout_discs(token_radius())
+	return _disc
+
+
+## Where the last drawn frame put the discs (no new layout step), for the
+## capture tool's motion print.
+func disc_positions_drawn() -> PackedVector2Array:
 	return _disc
 
 
@@ -1259,18 +1574,23 @@ func _draw_bench(tr: float) -> void:
 ## One disc: the kit, a dark edge, and the number in white with a full dark edge
 ## (eight directions) so it reads on a white stripe as well as on navy.
 func _draw_disc(p: Vector2, r: float, kit: Dictionary, label: String, fs: int) -> void:
-	draw_circle(p + Vector2(0, r * 0.22), r, Color(0, 0, 0, 0.28))
-	_draw_kit(p, r, kit)
-	draw_circle(p, r, Color(0, 0, 0, 0.45), false, 1.2, antialias)
+	paint_disc(self, p, r, kit, label, fs, antialias)
+
+
+static func paint_disc(ci: CanvasItem, p: Vector2, r: float, kit: Dictionary, label: String, fs: int, aa: bool) -> void:
+	ci.draw_circle(p + Vector2(0, r * 0.22), r, Color(0, 0, 0, 0.28))
+	paint_kit(ci, p, r, kit, aa)
+	ci.draw_circle(p, r, Color(0, 0, 0, 0.45), false, 1.2, aa)
 	if label == "":
 		return
 	var font := UiKit.BOLD
+	var inks := number_inks(kit)
 	var w := font.get_string_size(label, HORIZONTAL_ALIGNMENT_CENTER, -1, fs).x
 	var origin := p + Vector2(-w * 0.5, fs * 0.36)
 	for off in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1),
 			Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
-		draw_string(font, origin + off, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.85))
-	draw_string(font, origin, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1))
+		ci.draw_string(font, origin + off, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, inks[1])
+	ci.draw_string(font, origin, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, inks[0])
 
 
 ## Where the ball is drawn on the turf, in pixels: in a player's hands it goes
@@ -1312,10 +1632,11 @@ func _draw_tokens(tr: float) -> void:
 		var origin := p + Vector2(-w * 0.5, fs * 0.36)
 		# A full dark edge (eight directions) so the white figure reads on a
 		# white stripe as well as on navy.
+		var inks := number_inks(kit)
 		for off in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1),
 				Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
-			draw_string(font, origin + off, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.85))
-		draw_string(font, origin, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1))
+			draw_string(font, origin + off, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, inks[1])
+		draw_string(font, origin, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, inks[0])
 
 
 ## PROTOTYPE: the six nearest the ball as figures, each a slot for the
@@ -1391,25 +1712,30 @@ func _look_for(pid: String) -> Dictionary:
 ## is the base with an inner disc of the pattern colour. Shapes are drawn
 ## within the disc's chord so nothing pokes out of the circle.
 func _draw_kit(p: Vector2, tr: float, kit: Dictionary) -> void:
+	paint_kit(self, p, tr, kit, antialias)
+
+
+## The kit on any canvas item (the oval's discs, the audit board).
+static func paint_kit(ci: CanvasItem, p: Vector2, tr: float, kit: Dictionary, aa: bool) -> void:
 	var base: Color = kit.get("base", Color.WHITE)
 	var pat: Color = kit.get("pattern", Color.DIM_GRAY)
 	var design := str(kit.get("design", "plain"))
-	draw_circle(p, tr, base)
+	ci.draw_circle(p, tr, base)
 	var r := tr * 0.94
 	match design:
 		"stripes":
 			for x in [-0.55, 0.0, 0.55]:
 				var cx := float(x) * r
 				var half := sqrt(maxf(0.0, r * r - cx * cx)) * 0.98
-				draw_rect(Rect2(p + Vector2(cx - r * 0.13, -half), Vector2(r * 0.26, half * 2.0)), pat)
+				ci.draw_rect(Rect2(p + Vector2(cx - r * 0.13, -half), Vector2(r * 0.26, half * 2.0)), pat)
 		"hoops", "lowhoops", "twohoops", "tiers":
 			for y in [-0.4, 0.3]:
 				var cy := float(y) * r
 				var half := sqrt(maxf(0.0, r * r - cy * cy)) * 0.98
-				draw_rect(Rect2(p + Vector2(-half, cy - r * 0.15), Vector2(half * 2.0, r * 0.3)), pat)
+				ci.draw_rect(Rect2(p + Vector2(-half, cy - r * 0.15), Vector2(half * 2.0, r * 0.3)), pat)
 		"sash":
 			var w := r * 0.42
-			draw_colored_polygon(PackedVector2Array([p + Vector2(-r * 0.75, -r * 0.75 + w), p + Vector2(-r * 0.75, -r * 0.75),
+			ci.draw_colored_polygon(PackedVector2Array([p + Vector2(-r * 0.75, -r * 0.75 + w), p + Vector2(-r * 0.75, -r * 0.75),
 					p + Vector2(r * 0.75, r * 0.75 - w), p + Vector2(r * 0.75, r * 0.75)]), pat)
 		"yoke", "shoulders":
 			# The top near-half, so the two colours read at 18 px: the arc from
@@ -1419,20 +1745,24 @@ func _draw_kit(p: Vector2, tr: float, kit: Dictionary) -> void:
 			for i in range(15):
 				var ang := lerpf(PI + lift, TAU - lift, float(i) / 14.0)
 				pts.append(p + Vector2(cos(ang) * r, sin(ang) * r))
-			draw_colored_polygon(pts, pat)
+			ci.draw_colored_polygon(pts, pat)
 		"band":
-			draw_rect(Rect2(p + Vector2(-r * 0.98, -r * 0.22), Vector2(r * 1.96, r * 0.44)), pat)
+			ci.draw_rect(Rect2(p + Vector2(-r * 0.98, -r * 0.22), Vector2(r * 1.96, r * 0.44)), pat)
 		"chevron", "chevrons", "wings":
-			draw_polyline(PackedVector2Array([p + Vector2(-r * 0.7, -r * 0.35), p + Vector2(0, r * 0.4),
-					p + Vector2(r * 0.7, -r * 0.35)]), pat, maxf(2.0, r * 0.32), antialias)
+			ci.draw_polyline(PackedVector2Array([p + Vector2(-r * 0.7, -r * 0.35), p + Vector2(0, r * 0.4),
+					p + Vector2(r * 0.7, -r * 0.35)]), pat, maxf(2.0, r * 0.32), aa)
 		"panels", "sides", "giants", "map":
 			var pts := PackedVector2Array()
 			for i in range(17):
 				var ang := PI * 0.5 + PI * float(i) / 16.0
 				pts.append(p + Vector2(cos(ang) * r, sin(ang) * r))
-			draw_colored_polygon(pts, pat)
+			ci.draw_colored_polygon(pts, pat)
 		_:
-			draw_circle(p, tr * 0.55, pat)
+			ci.draw_circle(p, tr * 0.55, pat)
+	var ring = kit.get("ring", null)
+	if ring != null:
+		# The club's third colour round the rim, clear of the number.
+		ci.draw_arc(p, tr * 0.88, 0.0, TAU, 28, ring, maxf(2.0, tr * 0.2), aa)
 
 
 func _readable_on(bg: Color) -> Color:

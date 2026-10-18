@@ -894,8 +894,8 @@ func _captain_card_ui_tests() -> void:
 			notes += 1
 	_check(tall, "Every choice on a captain's card is a thumb-sized tap (48 px)")
 	_check(notes == (card["options"] as Array).size(), "Every choice says what it does, under its button (%d lines)" % notes)
-	var rule: Label = hub.find_child("EventNote_0_2", true, false)
-	_check(rule != null and rule.text.contains("would listen to") and not rule.text.to_lower().contains("settle"),
+	var rule: Control = hub.find_child("EventNote_0_2", true, false)
+	_check(rule != null and _plain(rule).contains("would listen to") and not _plain(rule).to_lower().contains("settle"),
 			"The choice left to the captain says what happens now, without the rule")
 	var see: Button = hub.find_child("EventRule_2", true, false)
 	_check(see != null and see.size.y >= 43.5, "The rule is one tap away, thumb-high")
@@ -952,7 +952,20 @@ func _culture_ui_tests() -> void:
 	_check(why == "" and sheet != null and _screen_text(sheet).contains("A tight group")
 			and _screen_text(sheet).contains("Nothing stands out yet"),
 			"The screen says the strands in words, and what has nothing to say (%s)" % why)
-	_check(sheet != null and not _screen_text(sheet).contains("No effect"), "The screen claims no effect it does not have")
+	var effect_of := func(id: String) -> String:
+		var row: Node = sheet.find_child("Strand_" + id, true, false) if sheet != null else null
+		var e: Label = row.find_child("StrandEffect", true, false) if row != null else null
+		return e.text if e != null and e.is_visible_in_tree() else ""
+	_check(effect_of.call("together") == "Players take a missed game a little better.",
+			"An active band says what it does for you, in one football line (%s)" % effect_of.call("together"))
+	_check(effect_of.call("standards") == "" and effect_of.call("ambition") == "",
+			"A band in the middle says nothing it does not do")
+	var trade: Label = sheet.find_child("CultureTradeOff", true, false) if sheet != null else null
+	_check(trade != null and trade.is_visible_in_tree() and not trade.text.contains("no effect")
+			and trade.text.contains("costs you") and not trade.text.contains("%"),
+			"The header names what culture touches and what it costs, with no number (P-63)")
+	_check(trade != null and trade.get_global_rect().position.y < sheet.find_child("Strand_standards", true, false).get_global_rect().position.y,
+			"That line sits above the strands, in the header")
 	_check(sheet != null and _screen_text(sheet).contains(Culture.moves_line("ambition")), "Each strand says what moves it")
 	var reasons: Node = sheet.find_child("CultureReasons", true, false) if sheet != null else null
 	_check(reasons != null and reasons.is_visible_in_tree() and _screen_text(reasons).contains("layed finals. Togetherness rose."),

@@ -1,0 +1,55 @@
+{
+	"_note": "The two difficulty dials chosen at New career (P-20). Every size is the director's to set in playtest; the middle step of each dial is what the game played before the dials existed. Difficulty never changes how players develop and gives the rival clubs no hidden information or rating boost. board_patience: poor_seasons_before_warning is how many poor seasons the board puts up with before it warns you (the one that brings the warning counts); poor_season_below is the board confidence (0-100) under which a season ends poor. After a warning, the next poor season is the sacking. rival_recruiting: trade_margin is how much better off a rival must be to trade with you (0.04 is 4 per cent over fair value). legacy maps an old save, which had one Easy / Normal / Hard setting, to its two dials: the old setting never touched the board, so every old save gets the middle board (Fair) and only the rivals follow the old setting.",
+	"board_patience": {
+		"title": "Board patience",
+		"default": "fair",
+		"order": ["patient", "fair", "ruthless"],
+		"steps": {
+			"patient": {
+				"label": "Patient",
+				"text": "The board wears one poor season. The second brings a final warning, the third the sack.",
+				"poor_seasons_before_warning": 2,
+				"poor_season_below": 30
+			},
+			"fair": {
+				"label": "Fair",
+				"text": "A poor season brings a final warning. Another poor one and you are sacked.",
+				"poor_seasons_before_warning": 1,
+				"poor_season_below": 30
+			},
+			"ruthless": {
+				"label": "Ruthless",
+				"text": "Even a season that only scrapes by brings a final warning. Another poor one and you are sacked.",
+				"poor_seasons_before_warning": 1,
+				"poor_season_below": 40
+			}
+		}
+	},
+	"rival_recruiting": {
+		"title": "Rival recruiting",
+		"default": "shrewd",
+		"order": ["easygoing", "shrewd", "cutthroat"],
+		"steps": {
+			"easygoing": {
+				"label": "Easygoing",
+				"text": "Rival clubs trade with you at fair value.",
+				"trade_margin": 0.0
+			},
+			"shrewd": {
+				"label": "Shrewd",
+				"text": "Rival clubs want a little more than fair value to trade with you.",
+				"trade_margin": 0.04
+			},
+			"cutthroat": {
+				"label": "Cut-throat",
+				"text": "Rival clubs drive hard bargains in trades with you.",
+				"trade_margin": 0.12
+			}
+		}
+	},
+	"legacy": {
+		"easy": ["fair", "easygoing"],
+		"normal": ["fair", "shrewd"],
+		"hard": ["fair", "cutthroat"]
+	}
+}

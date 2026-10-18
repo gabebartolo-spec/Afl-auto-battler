@@ -303,8 +303,7 @@ yours, and their coaches spend it on the stats that matter for the position
 (disposal and contested ball for midfielders, intercepts and marking for
 defenders, goalkicking for forwards, ruck work for rucks). Rivals train a
 player only up to his potential; you can push past it, at a premium. A
-rival gains at most 2 rating points a season from training on Normal (see
-Difficulty).
+rival gains at most 2 rating points a season from training.
 
 ## Match day: moments, legs and gameplans
 
@@ -405,19 +404,25 @@ release). Anything you leave undecided is re-signed for two seasons if the
 cap allows. Sign free agents while there is cap room and list space (32-44
 players). Trades are valued by the other club: stars are worth far more than
 two middling players, a club pays more for a position it is short in, and it
-has to come out ahead (the margin depends on difficulty). Drafted rookies
+has to come out ahead (the margin depends on the Rival recruiting dial). Drafted rookies
 start on two-season rookie deals.
 
 ## Difficulty
 
-Chosen in the New Career setup (after the main menu's **New career**, before
-choosing a club), and saved with the career:
+Two named dials, set in the New Career setup (before choosing a club) and saved
+with the career. Each has three steps; the sizes behind them are in
+`data/difficulty_dials.json`.
 
-| | Rival training per season | Trade margin | Your match XP |
-|---|---|---|---|
-| Easy | up to +1 | none (fair value) | +25% |
-| Normal | up to +2 | 4% | as tuned |
-| Hard | up to +4 | 12% | -15% |
+| Dial | Steps | What it does |
+|---|---|---|
+| Board patience | Patient, Fair, Ruthless | How many poor seasons the board puts up with before it warns you, then moves on you |
+| Rival recruiting | Easygoing, Shrewd, Cut-throat | How hard rival clubs bargain when they trade with you |
+
+Fair and Shrewd are the middle steps (what the game played before the dials).
+Players develop by the same rules on every step, and rival clubs get no hidden
+information or rating boost. A career saved before the dials (Easy, Normal or
+Hard) keeps the Fair board, as the old setting never touched the board, and its
+rivals follow the old setting (Easygoing, Shrewd, Cut-throat).
 
 ## League news
 
@@ -433,7 +438,7 @@ match you play, when a season or national draft starts or finishes, on screen
 changes after training or draft picks, and whenever the app is sent to the
 background or closed. **Continue** on the main menu picks it up, showing the
 club, year and stage. **New career** opens a short setup (player names,
-difficulty); starting from it asks before replacing a saved career. A match is
+the two difficulty dials); starting from it asks before replacing a saved career. A match is
 never saved half played: if the app dies mid-match, you replay that round
 (the other results are seeded, so they come out the same).
 

@@ -81,11 +81,28 @@ var _ft_tab := "summary"        # summary (home), stats or report
 var _run_side := -1            # who kicked the last goal, and how many in a row
 var _run_len := 0
 var _press_said := [false, false]  # the Defensive press line, once a side
+var _call_mem := MatchNotes.call_state()  # the structural calls' lines (MatchNotes.call_lines)
 var _name_index := {}           # name -> club for NameInk, built once per match
 var _duel_mem := {}             # the feed's memory of the key match-ups (MatchNotes.duel_feed_line)
 var _matchup_overlay: Control
 var _break_refresh := Callable()   # the one-line break: say each call's answer again after a pick
 var _break_sheets: Array = []      # the one-line break: open sheets, the top one last ({overlay, close})
+## Key moments (director, 2026-10-18, P-14): your match at top speed, down to
+## 1x for your calls, each goal and the breaks, then on again. Playback only:
+## the sim, its log and the result are the same as watching.
+const KM_HOLD := 1.8                 # real seconds at 1x after a goal or a call (a goal's name runs as long)
+var km_hold_seconds := KM_HOLD       # tests shorten it; what stops the match is the same
+var _key_moments := false
+var _km_why := ""                    # what holds 1x now: "goal", "moment" or ""
+var _km_hold := 0.0                  # real seconds of 1x left (counted only while play runs)
+var _km_await := ""                  # 1x, the hold not yet counting, until this event is released
+var _km_goal_at := -1                # the goal (event index) a stop has already slowed for
+## Every stop, in order: {"kind": "goal"|"moment"|"break", "event": index, "q": quarter}.
+var km_stops: Array = []
+## Every released event while in Key moments: [kind, speed, why] (tests).
+var km_trace: Array = []
+var _km_word: Button
+var _km_watch: Button
 
 
 func _ready() -> void:
@@ -102,6 +119,7 @@ func _ready() -> void:
 		_pos_before = GameState.my_position()
 		# A pre-season practice match is nobody's debut, farewell or first goal.
 		_farewell = {} if _is_practice(GameState.pending_match) else _farewell_for(GameState.pending_match)
+		_key_moments = GameState.match_way_live == "key"
 	else:
 		_res = GameState.last_match
 		_review = GameState.review_requested
@@ -128,7 +146,12 @@ func _ready() -> void:
 	_pitch.finished.connect(_on_finished)
 	_pitch.ends_changed.connect(_on_ends_changed)
 	_update_scoreboard({"q": 1, "min": 0, "score": [0, 0], "kind": "info"})
-	if _interactive:
+	if _interactive and GameState.match_way_live == "skip":
+		# Skip (the poster): straight to full time on the plan you took in,
+		# as Skip to full time before the first bounce.
+		GameState.match_way_live = "watch"
+		_on_skip.call_deferred()
+	elif _interactive:
 		_show_coach_box()
 	elif _review:
 		_on_finished()
@@ -168,6 +191,9 @@ func _mount_body(stack: bool) -> void:
 	if _pitch == null:
 		_pitch = PitchView.new()
 		_pitch.speed = GameState.match_speed()
+		if _key_moments:
+			_pitch.speed = SPEEDS.back()
+			set_process(true)
 	# A phone follows the ball close up because its screen is small (and so does
 	# any narrow, stacked window); a wide window shows the whole ground whatever
 	# the platform (director, 2026-10-09; the web build on a PC, 2026-10-12).
@@ -427,15 +453,33 @@ func _controls() -> Control:
 	var row := UiKit.hbox(5)
 	v.add_child(row)
 	_play_btn = UiKit.btn("Pause", UiKit.SECONDARY)
-	_play_btn.custom_minimum_size = Vector2(0, 40)
+	_play_btn.custom_minimum_size = Vector2(0, 44)
 	_play_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_play_btn.clip_text = true
 	_play_btn.pressed.connect(_on_toggle)
 	row.add_child(_play_btn)
 
+	# Key moments shows its name where the speeds sit, in the poster's order
+	# (Watch, then Key moments): Watch drops back to watching at your usual
+	# speed and the speeds come back.
+	_km_watch = UiKit.btn("Watch", UiKit.SECONDARY)
+	_km_watch.name = "KeyMomentsWatch"
+	_km_watch.custom_minimum_size = Vector2(0, 44)
+	_km_watch.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_km_watch.clip_text = true
+	_km_watch.pressed.connect(_on_km_watch)
+	row.add_child(_km_watch)
+	_km_word = UiKit.btn("Key moments", UiKit.SECONDARY)
+	_km_word.name = "KeyMomentsState"
+	_km_word.custom_minimum_size = Vector2(0, 44)
+	_km_word.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_km_word.size_flags_stretch_ratio = 2.0
+	_km_word.clip_text = true
+	row.add_child(_km_word)
+
 	for s in SPEEDS:
 		var b := UiKit.btn("%dx" % int(s), UiKit.SECONDARY)
-		b.custom_minimum_size = Vector2(0, 40)
+		b.custom_minimum_size = Vector2(0, 44)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.clip_text = true
 		b.pressed.connect(_on_speed.bind(s))
@@ -445,7 +489,7 @@ func _controls() -> Control:
 	var row2 := UiKit.hbox(5)
 	v.add_child(row2)
 	var skip := UiKit.btn("Skip to full time", UiKit.SECONDARY)
-	skip.custom_minimum_size = Vector2(0, 40)
+	skip.custom_minimum_size = Vector2(0, 44)
 	skip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	skip.pressed.connect(_on_skip)
 	row2.add_child(skip)
@@ -453,7 +497,7 @@ func _controls() -> Control:
 	# Your own match cannot be left half way (Back says so); a replay can.
 	if not _interactive:
 		var leave := UiKit.btn("Back to hub", UiKit.SECONDARY)
-		leave.custom_minimum_size = Vector2(0, 40)
+		leave.custom_minimum_size = Vector2(0, 44)
 		leave.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		leave.pressed.connect(func(): Router.back())
 		row2.add_child(leave)
@@ -468,6 +512,73 @@ func _sync_controls() -> void:
 	_play_btn.text = "Play" if not _pitch.playing else "Pause"
 	for i in range(SPEEDS.size()):
 		UiKit.set_selected(_speed_btns[i], is_equal_approx(_pitch.speed, SPEEDS[i]))
+		_speed_btns[i].visible = not _key_moments
+	if _km_word != null:
+		_km_word.visible = _key_moments
+		_km_watch.visible = _key_moments
+		UiKit.set_selected(_km_word, true)
+		UiKit.set_selected(_km_watch, false)
+
+
+## Watch from here on: your usual speed, the speed buttons back.
+func _on_km_watch() -> void:
+	_key_moments = false
+	_km_why = ""
+	_km_await = ""
+	set_process(false)
+	_pitch.set_speed(GameState.match_speed())
+	_sync_controls()
+
+
+## Key moments: down to 1x for a stop. `await_kind` holds 1x, uncounted,
+## until that event is released (the goal a shot is heading for, the line of a
+## call just answered); the hold counts down from there.
+func _km_slow(why: String, await_kind := "") -> void:
+	_km_why = why
+	_km_await = await_kind
+	_km_hold = km_hold_seconds
+	_pitch.set_speed(SPEEDS[0])
+
+
+## Key moments: back to top speed.
+func _km_fast() -> void:
+	_km_why = ""
+	_km_await = ""
+	_pitch.set_speed(SPEEDS.back())
+
+
+## The hold after a stop runs on real seconds of play: a close-up or a call
+## over the paused oval does not use it up.
+func _process(delta: float) -> void:
+	if not _key_moments or _km_why == "" or _km_await != "" or _pitch == null or not _pitch.playing:
+		return
+	_km_hold -= delta
+	if _km_hold <= 0.0:
+		_km_fast()
+
+
+## Key moments, on each released event: a goal is slowed for from the play
+## before it (the shot is seen at 1x) and held after it; a call's line is held
+## after it reaches the feed.
+func _km_event(ev: Dictionary, event_index: int) -> void:
+	if not _key_moments or _skipping:
+		return
+	var kind := str(ev.get("kind", ""))
+	if kind == "goal":
+		if _km_goal_at != event_index:
+			_km_goal_at = event_index
+			km_stops.append({"kind": "goal", "event": event_index, "q": int(ev.get("q", 0))})
+		_km_slow("goal")
+	elif kind == "moment" and _km_await == "moment":
+		_km_slow("moment")
+	km_trace.append([kind, _pitch.speed, _km_why])
+	var next := event_index + 1
+	var next_goal := next < _pitch.events.size() \
+			and str((_pitch.events[next] as Dictionary).get("kind", "")) == "goal"
+	if next_goal and _km_goal_at != next:
+		_km_goal_at = next
+		km_stops.append({"kind": "goal", "event": next, "q": int((_pitch.events[next] as Dictionary).get("q", 0))})
+		_km_slow("goal", "goal")
 
 
 func _on_toggle() -> void:
@@ -574,6 +685,11 @@ func _show_coach_box() -> void:
 	_sync_controls()
 	var sim: MatchSim = GameState.pending_sim
 	var q := sim.current_quarter
+	if _key_moments:
+		# The break is the stop; the next quarter starts at top speed.
+		if q > 1:
+			km_stops.append({"kind": "break", "event": _playback_event_index, "q": q})
+		_km_fast()
 	# The calls fill the screen at every break, so the actions sit at the
 	# bottom with the choices just above them.
 	# On a PC the break is a wide landscape sheet with every call in view
@@ -638,6 +754,13 @@ func _show_coach_box() -> void:
 			c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			c.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 			cols.add_child(c)
+	# The calls of a four-column PC break, by what they are, for _deal_calls.
+	var calls_by := {}
+	var group := func(key: String, node: Node) -> void:
+		if node != null:
+			if not calls_by.has(key):
+				calls_by[key] = []
+			(calls_by[key] as Array).append(node)
 	var title := UiKit.heading(str(titles.get(q, "Quarter %d" % q)), UiKit.H1)
 	title.name = "BreakTitle"
 	if wide:
@@ -704,6 +827,7 @@ func _show_coach_box() -> void:
 	var calls_head := UiKit.section("Your calls" if q == 1 else "Next quarter")
 	calls_head.set_meta("break_unit", true)
 	col_a.add_child(calls_head)
+	group.call("gameplan", calls_head)
 
 	# Your calls, as taps: nothing here is a settings form. Short lists sit
 	# in plain view; a player list shows the few in the game so far and
@@ -729,17 +853,39 @@ func _show_coach_box() -> void:
 	var plan_known := UiKit.lbl("", UiKit.SECONDARY, UiKit.TEXT, true)
 	plan_known.name = "PlanKnown"
 	plan_known.visible = false
-	var plan_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+	# The plan under the buttons, in short separate lines: what it does, what
+	# it gains and costs, what it beats, and who makes it work.
+	var plan_note := UiKit.vbox(3)
 	plan_note.name = "PlanNote"
-	plan_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var my_ground: Array = (sim.squads[_my_side] as Squad).ground
 	var sync_note := func(key: String) -> void:
-		var t := CoachReport.plan_summary(key)
+		for c in plan_note.get_children():
+			plan_note.remove_child(c)
+			c.queue_free()
+		var d := CoachReport.plan_parts(key)
+		var does := UiKit.lbl(str(d["does"]), UiKit.BODY, UiKit.TEXT, true)
+		does.name = "PlanDoes"
+		does.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		plan_note.add_child(does)
+		for part in [["gain", "Gain:", "PlanGain"], ["cost", "Cost:", "PlanCost"]]:
+			if d.has(part[0]):
+				plan_note.add_child(_plan_row(str(part[1]), str(d[part[0]]), str(part[2])))
+		if d.has("beats"):
+			var beats := UiKit.lbl(str(d["beats"]), UiKit.SECONDARY, UiKit.TEXT)
+			beats.name = "PlanBeats"
+			beats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			plan_note.add_child(beats)
 		# Who makes it work: the plan's upside rests on them (PlanFit).
-		var fit := GameState.plan_fit_line(my_ground, key)
-		if fit != "":
-			t += " " + fit
-		plan_note.text = t
+		var fit := GameState.plan_fit_short(my_ground, key)
+		if not fit.is_empty():
+			var who := UiKit.vbox(0)
+			who.name = "PlanWho"
+			var judged := _say(str(fit["judged"]), UiKit.SECONDARY, UiKit.TEXT)
+			judged.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			who.add_child(judged)
+			who.add_child(_plan_row("Best for it:", str(fit["names"]), "PlanBest"))
+			plan_note.add_child(UiKit.spacer(2))
+			plan_note.add_child(who)
 		# How well the side knows it (plan familiarity): a decision, so at full strength.
 		var known := GameState.plan_known_line(key)
 		plan_known.text = known
@@ -751,6 +897,8 @@ func _show_coach_box() -> void:
 	col_a.add_child(plan_block)
 	col_a.add_child(plan_known)
 	col_a.add_child(plan_note)
+	for n in [plan_block, plan_known, plan_note]:
+		group.call("gameplan", n)
 	sync_note.call(str(calls["gameplan"]))
 
 	# Tag: their most influential so far first, anyone on the ground a tap away.
@@ -767,7 +915,9 @@ func _show_coach_box() -> void:
 	for p in my_ground:
 		if MatchSim.midfielder_on_ground(p):
 			my_mids[str(p["id"])] = p
-	if not my_mids.has(str(calls["tagger_id"])):
+	# The tagger the coach named stays his call at every break (director,
+	# 2026-10-14); only a man gone from the match hands the job back.
+	if not my_mids.has(str(calls["tagger_id"])) and not sim.taking_part(_my_side, str(calls["tagger_id"])):
 		calls["tagger_id"] = ""
 	var others := _roster_side(_my_side).filter(func(r):
 		return my_mids.has(str(r["id"])) and (tagger == null or str(r["id"]) != str(tagger["id"])))
@@ -784,7 +934,7 @@ func _show_coach_box() -> void:
 	var tag_detail := func(r: Dictionary, wide: bool) -> String:
 		var p: Dictionary = my_mids.get(str(r["id"]), r)
 		return MatchNotes.tagger_card_detail(p, float(sim.energy.get(str(r["id"]), 100.0)), wide, season_rating.call(str(r["id"])))
-	var tag_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+	var tag_note := NameInk.rich(UiKit.SMALL, UiKit.MUTED)
 	tag_note.name = "TagNote"
 	tag_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	# Who goes to him is only a question once there is a him: hidden with no
@@ -802,22 +952,41 @@ func _show_coach_box() -> void:
 		var who = my_mids.get(str(calls["tagger_id"]), tagger)
 		var target := GameDB.player_display_name_by_id(str(calls["tag_id"]), "")
 		if str(calls["tag_id"]) == "":
-			tag_note.text = "No tag: your midfielders play their own game."
+			NameInk.set_line(tag_note, "No tag: your midfielders play their own game.", _names())
 		elif who == null:
-			tag_note.text = "No midfielder on the ground to tag with."
+			NameInk.set_line(tag_note, "No midfielder on the ground to tag with.", _names())
+		elif str(calls["tagger_id"]) != "" and not my_mids.has(str(calls["tagger_id"])):
+			NameInk.set_line(tag_note, "%s, your tagger, is on the bench. %s tags %s until he is back." % [
+					GameDB.player_display_name_by_id(str(calls["tagger_id"]), "Your tagger"), GameDB.player_display_name(who), target], _names())
 		elif Roles.is_tagger(who):
-			tag_note.text = "%s, your tagger, tags %s." % [GameDB.player_display_name(who), target]
+			NameInk.set_line(tag_note, "%s, your tagger, tags %s." % [GameDB.player_display_name(who), target], _names())
 		else:
-			tag_note.text = "%s tags %s. He gives up his own game." % [GameDB.player_display_name(who), target]
+			NameInk.set_line(tag_note, "%s tags %s. He gives up his own game." % [GameDB.player_display_name(who), target], _names())
 	# The tag is offered on their listed midfielders only (director, 2026-10-14:
 	# "Only listed midfielders"): the names, and "Other midfielder..." for the
 	# listed midfielders not already shown, which is not drawn when none is
 	# left. A ruck or a defender running through the middle is not offered, so
 	# "Tag which midfielder?" stays true.
-	var opp_listed := opp.filter(func(r): return _listed_midfielder(sim, r))
-	var tag := _player_choice("TagPicker", "No tag", opp_listed, _in_the_game(opp_listed, quick if quick > 0 else 4), calls, "tag_id",
-			"Tag which midfielder?", sync_tag, Callable(), Callable(), "Other midfielder…", true)
-	col_a.add_child(_call_block("Tag", tag))
+	var opp_listed := opp.filter(func(r): return _can_play_midfield(sim, r))
+	var tag_first := _in_the_game(opp_listed, quick if quick > 0 else 4)
+	# The player the break names as their best is always on offer, if he can
+	# play midfield at all.
+	for best_p in MatchNotes.standouts(_res, 1 - _my_side, 1):
+		var bid := str(best_p.get("id", ""))
+		for r in opp_listed:
+			if str(r["id"]) == bid and not tag_first.any(func(x): return str(x["id"]) == bid):
+				tag_first.append(r)
+	var tag := _player_choice("TagPicker", "No tag", opp_listed, tag_first, calls, "tag_id",
+			MatchNotes.tag_question(), sync_tag, Callable(), Callable(), "Other player…", true)
+	# The question is drawn over the choices, as the loose interceptor's is.
+	var tag_block := _call_block("Tag", tag)
+	var tag_ask := UiKit.lbl(MatchNotes.tag_question(), UiKit.BODY, UiKit.TEXT, true)
+	tag_ask.name = "TagQuestion"
+	tag_ask.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tag_block.add_child(tag_ask)
+	tag_block.move_child(tag_ask, 1)
+	col_a.add_child(tag_block)
+	group.call("tag", tag_block)
 	if tagger != null and not others.is_empty():
 		# Your assistant's man carries the same facts as the others, so
 		# they can be compared card for card.
@@ -839,8 +1008,10 @@ func _show_coach_box() -> void:
 			who_block.append(wb)
 		who_wb = wb
 		col_a.add_child(wb)
+		group.call("tag", wb)
 	sync_tag.call("")
 	col_a.add_child(tag_note)
+	group.call("tag", tag_note)
 
 	# Key match-ups: who is on their key forwards, how the contests went last
 	# quarter, and yours against their defenders. Change one in a tap.
@@ -850,6 +1021,7 @@ func _show_coach_box() -> void:
 	if mv != null:
 		mv.set_meta("break_unit", true)
 		(rep if rep != v else col_a).add_child(mv)
+		group.call("mu", mv)
 	# Assign defensive forward (director, 2026-10-07): one of your forwards goes
 	# up the ground with their loose defender. Facts only: each card says where
 	# he plays, whether he is a Defensive forward and his Pressure, the one
@@ -866,8 +1038,12 @@ func _show_coach_box() -> void:
 		minder_box.add_child(none_note)
 	else:
 		var fwds := Matchups.minder_candidates(my_ground)
-		var ask := _say(MatchNotes.minder_question(GameDB.player_display_name(opp_spare),
-				GameDB.club_name(str((sim.squads[1 - _my_side] as Squad).code))), UiKit.BODY, UiKit.TEXT, true)
+		# Prose carries ink: his name and his club's name both wear his club's colour.
+		var opp_code := str((sim.squads[1 - _my_side] as Squad).code)
+		var ask_names := _names_named([str(opp_spare.get("id", ""))])
+		ask_names[GameDB.club_name(opp_code)] = opp_code
+		var ask := NameInk.label(MatchNotes.minder_question(GameDB.player_display_name(opp_spare),
+				GameDB.club_name(opp_code)), ask_names, UiKit.BODY, UiKit.TEXT, true)
 		ask.name = "MinderQuestion"
 		ask.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		minder_box.add_child(ask)
@@ -890,19 +1066,17 @@ func _show_coach_box() -> void:
 		minder_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		minder_box.add_child(minder_note)
 	col_a.add_child(minder_box)
+	group.call("df", minder_box)
 	var minder_nodes: Array = [minder_box]
 
 	# The rest of the calls, all in view (director, 2026-10-09: no "More
 	# calls" button).
 	var more: VBoxContainer = col_c
-	var syn_line := _synergy_line()
-	var syn_label: Label = null
-	if syn_line != "":
-		var sl := UiKit.lbl(syn_line, UiKit.SMALL, UiKit.MUTED)
-		sl.set_meta("break_unit", true)
-		sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		more.add_child(sl)
-		syn_label = sl
+	var syn_label: Control = _synergy_block()
+	if syn_label != null:
+		syn_label.set_meta("break_unit", true)
+		more.add_child(syn_label)
+		group.call("facts", syn_label)
 
 	var mine := _roster_side(_my_side)
 
@@ -939,15 +1113,17 @@ func _show_coach_box() -> void:
 		tally.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		roam_block.add_child(tally)
 	more.add_child(roam_block)
+	group.call("loose", roam_block)
 	var roam_note := UiKit.lbl(
 			"He leaves his direct man to attack aerial balls. Another defender covers where possible; if he flies and loses, space opens behind him.",
 			UiKit.SMALL, UiKit.MUTED)
 	roam_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	more.add_child(roam_note)
+	group.call("loose", roam_note)
 
 	# Play through, three calls (director, 2026-10-07): each offers the men who
 	# fill that job now, and says what it does or that it waits.
-	for slot in MatchSim.FOCUS_SLOTS:
+	for slot in MatchNotes.FOCUS_ORDER:
 		var fits := mine.filter(func(r): return (MatchSim.FOCUS_SLOT_ROLES[slot] as Array).has(
 				str(_focus_player(str(r["id"])).get("role", r.get("role", "")))))
 		var note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
@@ -962,6 +1138,7 @@ func _show_coach_box() -> void:
 		sync.call(str(calls[slot]))
 		block.add_child(note)
 		more.add_child(block)
+		group.call("pt", block)
 
 	# Main ruck (director, 2026-10-07), after the play-through calls: who
 	# goes up is a job like theirs. Only for a side with two rucks in the
@@ -969,7 +1146,12 @@ func _show_coach_box() -> void:
 	# named, whoever stands in the ruck spot does.
 	var rucks := _my_rucks(sim)
 	if rucks.size() >= 2:
-		var ruck_opts := [["", "No main ruck"]]
+		# Always someone (director, 2026-10-14): the assistant's pick unless the
+		# coach named another, so the list has no "No main ruck".
+		var ruck_pick := str(rucks[0]["id"])
+		if str(calls["main_ruck"]) == "":
+			calls["main_ruck"] = ruck_pick
+		var ruck_opts := []
 		for r in rucks:
 			# His Ruck and Contested ratings, named as the Ratings screen names
 			# them, so a weak tap man is plain before he is named. The position
@@ -982,6 +1164,9 @@ func _show_coach_box() -> void:
 					places.append(str(UiKit.ROLE_LABEL.get(str(pos), str(pos))))
 			var detail := skills if places.is_empty() else "/".join(places) + "
 " + skills
+			if str(r["id"]) == ruck_pick:
+				detail += "
+Your assistant's pick"
 			ruck_opts.append([str(r["id"]), "%s
 %s" % [GameDB.player_display_name(r), detail]])
 		var ruck_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
@@ -990,34 +1175,38 @@ func _show_coach_box() -> void:
 		var sync_ruck := func(id: String) -> void:
 			ruck_note.text = _main_ruck_note(rucks, id)
 		var ruck := _choice_grid("MainRuckPicker", ruck_opts, calls, "main_ruck", 2, sync_ruck)
-		more.add_child(_call_block("Main ruck", ruck))
+		var ruck_block := _call_block("Main ruck", ruck)
+		more.add_child(ruck_block)
 		more.add_child(ruck_note)
+		group.call("ruck", ruck_block)
+		group.call("ruck", ruck_note)
 		sync_ruck.call(str(calls["main_ruck"]))
 
 	# Wide: the pep talk sits under the tag; rotations and both loose men,
 	# yours and theirs, share a column, so every column fits a 720-unit
 	# screen.
 	var tail: VBoxContainer = col_b
-	var pep_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+	var pep_note := UiKit.vbox(3)
 	pep_note.name = "PepNote"
-	pep_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var sync_pep := func(key: String) -> void:
-		pep_note.text = CoachReport.pep_summary(key)
+		_fill_note_lines(pep_note, CoachReport.pep_summary(key))
 	# Four talks: a two-column grid of their full names, which fits a 360 phone
 	# and the PC column alike (one row of four ran off a phone).
 	var pep := _choice_grid("PepPicker", PEP_TALKS, calls, "pep", 2, sync_pep)
-	col_a.add_child(_call_block("Pep talk", pep))
+	var pep_block := _call_block("Pep talk", pep)
+	col_a.add_child(pep_block)
 	col_a.add_child(pep_note)
+	group.call("pep", pep_block)
+	group.call("pep", pep_note)
 	sync_pep.call("steady")
 
 	var rot_opts := []
 	for k in MatchSim.ROTATION_POLICIES:
 		rot_opts.append([str(k), str(ROTATION_SHORT.get(k, MatchSim.ROTATION_POLICIES[k]["label"]))])
-	var rot_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+	var rot_note := UiKit.vbox(3)
 	rot_note.name = "RotationNote"
-	rot_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var sync_rot := func(key: String) -> void:
-		rot_note.text = str(MatchSim.ROTATION_POLICIES[key]["text"])
+		_fill_note_lines(rot_note, str(MatchSim.ROTATION_POLICIES[key]["text"]))
 	var rot := _segmented("RotationPicker", rot_opts, calls, "rotation", sync_rot)
 	var rot_block := _call_block("Rotations", rot)
 	rot_block.name = "RotationsBlock"
@@ -1030,6 +1219,8 @@ func _show_coach_box() -> void:
 		rot_block.move_child(gap, 0)
 	tail.add_child(rot_block)
 	tail.add_child(rot_note)
+	group.call("rot", rot_block)
+	group.call("rot", rot_note)
 	sync_rot.call(_rotation)
 	# On a wide screen the three play-through calls fill the last column, so the
 	# loose interceptor sits under the rotations, their loose defender after
@@ -1038,7 +1229,12 @@ func _show_coach_box() -> void:
 		for n in [roam_block, roam_note] + minder_nodes:
 			n.get_parent().remove_child(n)
 			tail.add_child(n)
-	(rep if rep != v else tail).add_child(_legs_view())
+	var legs := _legs_view()
+	(rep if rep != v else tail).add_child(legs)
+	group.call("facts", legs)
+	if calls_by.has("facts"):
+		(calls_by["facts"] as Array).erase(legs)
+		(calls_by["facts"] as Array).push_front(legs)
 	# The synergies line is about the two sides' strengths, like the legs line:
 	# on a PC sheet it sits right under it, never alone at the top of a column
 	# without a heading (BOSS QC, 2026-10-11).
@@ -1101,7 +1297,18 @@ func _show_coach_box() -> void:
 				(b as Button).custom_minimum_size.y = 40.0
 		_break_pack_cols = [rep, col_a, col_b, col_c] if rep != v else [col_a, col_b, col_c]
 		_break_reading = []
-		_balance_break_columns.call_deferred(_break_pack_cols)
+		if rep != v:
+			# The pane's scrollbar is always there: with a tag picked, Who tags opens and the
+			# pane may scroll, and a bar appearing then would narrow every column (director,
+			# 2026-10-14: nothing moves sideways after the tag tap).
+			var pane_up: Node = cols
+			while pane_up != null and not (pane_up is ScrollContainer):
+				pane_up = pane_up.get_parent()
+			if pane_up != null:
+				(pane_up as ScrollContainer).vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
+			_deal_calls.call_deferred(_break_pack_cols, calls_by)
+		else:
+			_balance_break_columns.call_deferred(_break_pack_cols)
 	else:
 		box["footer"].add_child(start)
 		box["footer"].add_child(skip)
@@ -1274,15 +1481,15 @@ func _mount_one_line(c: Dictionary) -> void:
 		# Its spacer and its own heading: the sheet or the pane is headed already.
 		for i in range(mini(2, mu.get_child_count())):
 			(mu.get_child(i) as Control).visible = false
-	body.call("plan", [take.call("PlanPicker", true), take.call("PlanNote"), c["syn"]])
-	body.call("pep", [take.call("PepPicker", true), take.call("PepNote")])
-	body.call("rot", [take.call("RotationsBlock"), take.call("RotationNote")])
+	body.call("plan", [take.call("PlanPicker", true), take.call("PlanNote"), _calls_record("gameplan"), c["syn"]])
+	body.call("pep", [take.call("PepPicker", true), take.call("PepNote"), _calls_record("pep")])
+	body.call("rot", [take.call("RotationsBlock"), take.call("RotationNote"), _calls_record("rotation")])
 	body.call("tag", [fact, take.call("TagPicker", true), who_wb if wide else who_line, take.call("TagNote")])
 	body.call("mu", [mu])
 	body.call("minder", [take.call("MinderBlock")])
 	body.call("loose", [take.call("LooseBlock"), c["roam_note"]])
 	var through: Array = []
-	for slot in MatchSim.FOCUS_SLOTS:
+	for slot in MatchNotes.FOCUS_ORDER:
 		through.append(take.call("FocusPicker_" + str(slot), true))
 	body.call("pt", through)
 	body.call("ruck", [take.call("MainRuckPicker", true), take.call("MainRuckNote")])
@@ -1306,7 +1513,7 @@ func _mount_one_line(c: Dictionary) -> void:
 		for key in order:
 			var r: Button = row_of[key]
 			var a := _call_answer(str(key), calls, c)
-			(r.get_meta("answer") as Label).text = a
+			NameInk.set_line(r.get_meta("answer") as RichTextLabel, a, _names_named(_answer_ids(str(key), calls, c)))
 			var changed := a != str(first[key])
 			(r.get_meta("changed") as Label).visible = changed
 			(r.get_meta("rule") as ColorRect).color = UiKit.club_vivid(str(GameState.my_club), UiKit.SURFACE) if changed else Color.TRANSPARENT
@@ -1471,8 +1678,10 @@ func _call_row(key: String, label: String) -> Button:
 	changed.visible = false
 	top.add_child(changed)
 	col.add_child(top)
-	var answer := UiKit.ellipsis("", UiKit.NAME, UiKit.TEXT, true)
+	var answer := NameInk.rich(UiKit.NAME, UiKit.TEXT, true, false)
 	answer.name = "RowAnswer"
+	answer.clip_contents = true
+	answer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.add_child(answer)
 	h.add_child(col)
 	var chev := UiKit.line("›", UiKit.HEADING, UiKit.MUTED)
@@ -1541,13 +1750,71 @@ func _call_answer(key: String, calls: Dictionary, c: Dictionary) -> String:
 		"loose":
 			return named.call(str(calls["interceptor_id"]), "No loose defender")
 		"pt":
+			# Same order as the row's label: forward, midfield, back. An empty
+			# slot says "no one", so each name stays under its own heading.
 			var who_through := PackedStringArray()
-			for slot in MatchSim.FOCUS_SLOTS:
-				if str(calls[slot]) != "":
-					who_through.append(named.call(str(calls[slot]), ""))
-			return "No one" if who_through.is_empty() else ", ".join(who_through)
+			var any_through := false
+			for slot in MatchNotes.FOCUS_ORDER:
+				any_through = any_through or str(calls[slot]) != ""
+				who_through.append(named.call(str(calls[slot]), "no one"))
+			return ", ".join(who_through) if any_through else "No one"
 		"ruck":
 			return named.call(str(calls["main_ruck"]), "No main ruck")
+	return ""
+
+
+## The players a call's answer names (by id), so its row can ink a surname two
+## clubs share ("McDonald on van Rooyen") from who he is, not from the word.
+func _answer_ids(key: String, calls: Dictionary, c: Dictionary) -> Array:
+	var sim: MatchSim = c["sim"]
+	var ids: Array = []
+	match key:
+		"mu":
+			for fid in (sim.duels[_my_side] as Dictionary):
+				ids.append(str(fid))
+				ids.append(str((sim.duels[_my_side] as Dictionary)[fid]))
+		"tag":
+			ids = [str(calls["tag_id"]), str(calls["tagger_id"])]
+		"minder":
+			ids = [str(calls["minder_id"]), str((c["opp_spare"] as Dictionary).get("id", ""))]
+		"loose":
+			ids = [str(calls["interceptor_id"])]
+		"pt":
+			for slot in MatchNotes.FOCUS_ORDER:
+				ids.append(str(calls[slot]))
+		"ruck":
+			ids = [str(calls["main_ruck"])]
+	return ids.filter(func(i): return str(i) != "")
+
+
+## `_names()` with the surname of each of these players pinned to his own club:
+## a surname both clubs carry is left plain by the index (a guess could be
+## wrong), but a line that says which player it means can say whose he is. Two
+## of them sharing one surname across the clubs stay plain.
+func _names_named(ids: Array) -> Dictionary:
+	var out := _names().duplicate()
+	var seen := {}
+	var clash := {}
+	for id in ids:
+		var code := _club_code_of(str(id))
+		var sur := _surname(GameDB.player_display_name_by_id(str(id), ""))
+		if code == "" or sur == "":
+			continue
+		if seen.has(sur) and str(seen[sur]) != code:
+			clash[sur] = true
+		seen[sur] = code
+	for sur in seen:
+		if not clash.has(sur):
+			out[sur] = seen[sur]
+	return out
+
+
+## The club (code) a player of this match plays for, "" if he is in neither side.
+func _club_code_of(id: String) -> String:
+	for side in [0, 1]:
+		for r in _roster_side(side):
+			if str(r.get("id", "")) == id:
+				return str(_res["home"] if side == 0 else _res["away"])
 	return ""
 
 
@@ -1762,6 +2029,99 @@ func _balance_break_columns(cols: Array, again := false) -> void:
 			(gap as Control).visible = false
 
 
+## Before the first ball-up on a four-column PC sheet the calls are dealt by what
+## they are (director, 2026-10-15: empty space is a defect; "PC is not a big
+## phone"): the game plan leads the first column; the tag and the key match-ups
+## share the second; the pep talk and the defensive forward the third. The rest
+## (rotations, loose interceptor, play through, main ruck, and the legs and
+## synergies lines) go where
+## they make the four columns most alike in height, under what fits 720 high.
+## Where a call sits is dealt once: a call that opens later (Who tags) grows its
+## own column and never moves another call.
+const DEAL_FIRST := {"gameplan": 0, "tag": 1, "mu": 1, "pep": 2, "df": 2}
+const DEAL_ORDER := ["gameplan", "tag", "mu", "pep", "df", "rot", "loose", "pt", "ruck", "facts"]
+
+
+func _deal_calls(cols: Array, groups: Dictionary) -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(cols[0]):
+		return
+	var sep := float((cols[0] as VBoxContainer).get_theme_constant("separation"))
+	var keys: Array = []
+	for k in DEAL_ORDER:
+		if groups.has(k):
+			keys.append(k)
+	# Anything that was not named (a spacer) is left out of the columns.
+	var named := {}
+	for k in keys:
+		for n in groups[k]:
+			named[n] = true
+	for c in cols:
+		for n in (c as Node).get_children():
+			if not named.has(n):
+				(n as Control).visible = false
+	# What each kind of call takes up: its visible parts and the gaps between.
+	var h := {}
+	for k in keys:
+		var t := 0.0
+		for n in groups[k]:
+			if (n as Control).visible:
+				t += (n as Control).get_combined_minimum_size().y + sep
+		h[k] = t
+	# The room the columns have: the pane's, less everything else in it.
+	var budget := INF
+	var sc: ScrollContainer = null
+	var up: Node = cols[0]
+	while up != null and sc == null:
+		sc = up as ScrollContainer
+		up = up.get_parent()
+	if sc != null:
+		var inner := sc.get_child(0) as Control
+		var around: float = inner.get_combined_minimum_size().y - (cols[0] as Node).get_parent().get_combined_minimum_size().y
+		budget = sc.size.y - around - 8.0
+	var free: Array = []
+	for k in keys:
+		if not DEAL_FIRST.has(k):
+			free.append(k)
+	var base := [0.0, 0.0, 0.0, 0.0]
+	for k in keys:
+		if DEAL_FIRST.has(k):
+			base[int(DEAL_FIRST[k])] += float(h[k])
+	# Every way of placing the free kinds: the one that fits the pane and leaves the
+	# least empty room under the shortest column (else the shortest tallest).
+	var best := []
+	var best_score := [INF, INF, INF]
+	var total := int(pow(4, free.size()))
+	for code in range(total):
+		var load_h := base.duplicate()
+		var at := []
+		var rest := code
+		for k in free:
+			var c := rest % 4
+			rest = int(floorf(rest / 4.0))
+			at.append(c)
+			load_h[c] += float(h[k])
+		var mx := float(load_h.max())
+		var mn := float(load_h.min())
+		var over := 1.0 if mx > budget else 0.0
+		var score := [over, mx if over > 0.0 else mx - mn, mx]
+		if score < best_score:
+			best_score = score
+			best = at
+	var where := {}
+	for k in keys:
+		if DEAL_FIRST.has(k):
+			where[k] = int(DEAL_FIRST[k])
+	for i in range(free.size()):
+		where[free[i]] = int(best[i]) if not best.is_empty() else 3
+	for k in keys:
+		for n in groups[k]:
+			if (n as Node).get_parent() != null:
+				(n as Node).get_parent().remove_child(n)
+			(cols[int(where[k])] as Node).add_child(n)
+	_settle_rotations_gap()
+
+
 ## The gap above Rotations is only for a block that has something above it.
 func _settle_rotations_gap() -> void:
 	if _coach_overlay == null or not is_instance_valid(_coach_overlay):
@@ -1937,14 +2297,109 @@ func _break_answers() -> Dictionary:
 	return out
 
 
-func _synergy_line() -> String:
+## A "Gain:" / "Cost:" style row: the marker bold, the sentence beside it, both
+## in full ink (the card-stakes pattern).
+func _plan_row(mark: String, text: String, node_name: String) -> Control:
+	var item := UiKit.hbox(6)
+	item.name = node_name
+	var mk := UiKit.lbl(mark, UiKit.SECONDARY, UiKit.TEXT, true)
+	mk.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	mk.autowrap_mode = TextServer.AUTOWRAP_OFF
+	item.add_child(mk)
+	var l := _say(text, UiKit.SECONDARY, UiKit.TEXT)
+	l.name = "Text"
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	item.add_child(l)
+	return item
+
+
+## A call's words as short separate lines in full ink: the first bold, then one
+## line for each clause ("; " and ": " break a line).
+func _fill_note_lines(into: VBoxContainer, text: String) -> void:
+	for c in into.get_children():
+		into.remove_child(c)
+		c.queue_free()
+	var bits := text.replace(": ", "|").replace("; ", "|").split("|", false)
+	for i in range(bits.size()):
+		var piece := str(bits[i]).strip_edges()
+		piece = piece.substr(0, 1).to_upper() + piece.substr(1)
+		var l := UiKit.lbl(piece, UiKit.BODY if i == 0 else UiKit.SECONDARY, UiKit.TEXT, i == 0)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		into.add_child(l)
+
+
+## The calls so far this match, one line a quarter played, under a call's words:
+## "Q1  Demons: Defensive press  ·  Crows: Attack corridor". Game plans are
+## shown for both clubs (the break already tells you theirs). Pep talks and
+## rotations of the other club are hidden from the coach, so those show only
+## yours. Nothing before the first bounce.
+func _calls_record(kind: String) -> Control:
+	var hist: Array = GameState.pending_sim.tactics_history
+	if hist.is_empty():
+		return null
+	var inks := UiKit.club_ink_pair(str(_res["home"]), str(_res["away"]))
+	var v := UiKit.vbox(3)
+	v.name = "CallsRecord_" + kind
+	v.add_child(UiKit.spacer(6))
+	v.add_child(UiKit.lbl("Calls so far", UiKit.SECONDARY, UiKit.TEXT, true))
+	for e in hist:
+		var plans: Array = e["plans"]
+		var side_words := func(side: int) -> String:
+			if kind == "gameplan":
+				return CoachReport.plan_label(str((plans[side] as Dictionary).get("gameplan", "balanced")))
+			if kind == "pep":
+				return CoachReport.pep_label(str((plans[side] as Dictionary).get("pep", "steady")))
+			var rot := str((e.get("rotations", ["normal", "normal"]) as Array)[side])
+			return str(ROTATION_SHORT.get(rot, rot))
+		var sides: Array = [_my_side, 1 - _my_side] if kind == "gameplan" else [_my_side]
+		var row := HFlowContainer.new()
+		row.add_theme_constant_override("h_separation", 0)
+		row.name = "CallsRecordRow_Q%d" % int(e["quarter"])
+		var qn := UiKit.lbl("Q%d  " % int(e["quarter"]), UiKit.SECONDARY, UiKit.TEXT, true)
+		qn.autowrap_mode = TextServer.AUTOWRAP_OFF
+		row.add_child(qn)
+		for i in range(sides.size()):
+			var side: int = sides[i]
+			var code := str((sim_squad_code(side)))
+			if i > 0:
+				var dot := UiKit.lbl("  ·  ", UiKit.SECONDARY, UiKit.TEXT)
+				dot.autowrap_mode = TextServer.AUTOWRAP_OFF
+				row.add_child(dot)
+			# The club in its own ink, both clubs alike (director A1, 2026-10-14), and
+			# named in full as the break's title names it (Fremantle, not Dockers).
+			var nm := UiKit.lbl(GameDB.club_name(code) + ": ", UiKit.SECONDARY, inks[side], true)
+			nm.name = "ClubName%d" % i
+			nm.autowrap_mode = TextServer.AUTOWRAP_OFF
+			row.add_child(nm)
+			var w := UiKit.lbl(str(side_words.call(side)), UiKit.SECONDARY, UiKit.TEXT)
+			w.name = "CallWords%d" % i
+			w.autowrap_mode = TextServer.AUTOWRAP_OFF
+			row.add_child(w)
+		v.add_child(row)
+	return v
+
+
+func sim_squad_code(side: int) -> String:
+	return str((GameState.pending_sim.squads[side] as Squad).code)
+
+
+func _synergy_names(keys: Array) -> String:
+	var out: PackedStringArray = []
+	for k in keys:
+		out.append(Traits.with_effect(str(k)))
+	return ", ".join(out) if not out.is_empty() else "none"
+
+
+## The two sides' synergies, a block of their own under a heading: yours, then theirs.
+func _synergy_block() -> Control:
 	var syn: Array = GameState.pending_sim.synergies
-	var names := func(keys: Array) -> String:
-		var out: PackedStringArray = []
-		for k in keys:
-			out.append(Traits.with_effect(str(k)))
-		return ", ".join(out) if not out.is_empty() else "none"
-	return "Your synergies: %s. Theirs: %s." % [names.call(syn[_my_side]), names.call(syn[1 - _my_side])]
+	var v := UiKit.vbox(3)
+	v.name = "SynergyBlock"
+	v.add_child(UiKit.lbl("Synergies", UiKit.SECONDARY, UiKit.TEXT, true))
+	v.add_child(_plan_row("Yours:", _synergy_names(syn[_my_side]), "SynYours"))
+	v.add_child(_plan_row("Theirs:", _synergy_names(syn[1 - _my_side]), "SynTheirs"))
+	return v
 
 
 ## The opposition's plan in the quarter just played ("" before the bounce).
@@ -1969,29 +2424,47 @@ func _calls_view(q: int) -> Control:
 			before = (snaps[q - 2] as Dictionary).get("impact", [{}, {}])
 	v.add_child(UiKit.section("What your calls did" + (" in Q%d" % q if q > 0 else "")))
 	var lines := CoachReport.impact_lines(now, before, _my_side)
+	# Each cause beside what it was worth (director, 2026-10-14: a figure at the far
+	# end of the row "divorces the number from the source").
+	var worth := GridContainer.new()
+	worth.name = "CallsWorth"
+	worth.columns = 2
+	worth.add_theme_constant_override("h_separation", 24)
+	worth.add_theme_constant_override("v_separation", 3)
+	worth.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	for l in lines.slice(0, 5):
 		var pts := float(l["pts"])
-		var row := UiKit.hbox(8)
-		var name_l := UiKit.ellipsis(str(l["label"]), UiKit.SECONDARY, UiKit.TEXT)
-		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(name_l)
-		row.add_child(UiKit.line("%+.1f pts" % pts, UiKit.SECONDARY, UiKit.GOOD if pts > 0 else UiKit.BAD, true))
-		v.add_child(row)
+		worth.add_child(UiKit.line(str(l["label"]), UiKit.SECONDARY, UiKit.TEXT))
+		worth.add_child(UiKit.line("%+.1f pts" % pts, UiKit.SECONDARY, UiKit.GOOD if pts > 0 else UiKit.BAD, true))
+	if worth.get_child_count() > 0:
+		v.add_child(worth)
+	# The calls, a quarter at a time.
 	var moments: Array = _res.get("moments", [])
+	var last_q := -1
 	for m in moments:
 		if q > 0 and int(m.get("q", 0)) != q:
 			continue
-		var l2 := _say("%s  %s: %s. %s" % [_clock_text(int(m["q"]), int(m["min"])),
+		var mq := int(m["q"])
+		if q == 0 and mq != last_q:
+			last_q = mq
+			var qh := UiKit.lbl("Q%d" % mq if mq <= 4 else "Extra time", UiKit.SMALL, UiKit.MUTED, true)
+			qh.name = "CallsQuarter_%d" % mq
+			v.add_child(UiKit.spacer(4))
+			v.add_child(qh)
+		var clock := _clock_text(mq, int(m["min"]))
+		if q == 0:
+			clock = clock.substr(clock.find(" ") + 1) if clock.contains(" ") else clock
+		var l2 := _say("%s  %s: %s. %s" % [clock,
 				str(m.get("title", "")), str(m.get("choice_label", "")), str(m.get("outcome", ""))],
-				12, UiKit.EMPH if int(m.get("points", 0)) >= 6 else UiKit.TEXT)
+				UiKit.SMALL, UiKit.EMPH if int(m.get("points", 0)) >= 6 else UiKit.TEXT)
 		l2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l2)
 	var tag_line := _tag_line(q)
 	if tag_line != "":
-		v.add_child(_say(tag_line, 12, UiKit.TEXT))
+		v.add_child(_say(tag_line, UiKit.SMALL, UiKit.TEXT))
 	if lines.is_empty() and v.get_child_count() == 1:
-		v.add_child(UiKit.lbl("An even quarter: no call moved the needle much.", 12, UiKit.MUTED))
-	v.add_child(UiKit.lbl("Expected points each call added or cost, from the chances it changed.", 11, UiKit.MUTED))
+		v.add_child(UiKit.lbl("An even quarter: no call moved the needle much.", UiKit.SMALL, UiKit.MUTED))
+	v.add_child(UiKit.lbl("Expected points each call added or cost, from the chances it changed.", UiKit.SMALL, UiKit.MUTED))
 	return v
 
 
@@ -2057,6 +2530,12 @@ func _group_energy(side: int) -> float:
 func _show_moment() -> void:
 	_close_moment()
 	_pitch.pause()
+	if _key_moments:
+		var last: Dictionary = km_stops.back() if not km_stops.is_empty() else {}
+		if str(last.get("kind", "")) != "moment" or int(last.get("event", -1)) != _playback_event_index:
+			km_stops.append({"kind": "moment", "event": _playback_event_index,
+					"q": int(GameState.pending_sim.pending_moment.get("q", 0))})
+		_km_slow("moment")
 	var m: Dictionary = GameState.pending_sim.pending_moment
 	var bounce := str(m.get("kind", "")) == "bounce"
 	if bounce and GameState.vignettes_on():
@@ -2176,6 +2655,9 @@ func _on_moment_choice(i: int) -> void:
 	# The call and how it came off reach the feed as the "moment" event,
 	# when play reaches it.
 	sim.resolve_moment(i)
+	if _key_moments:
+		# 1x until the call's line reaches the feed, then a moment more.
+		_km_slow("moment", "moment")
 	_advance_segment()
 
 
@@ -2362,6 +2844,8 @@ func _dress_tagger_card(b: Button, who_name: String, c: Dictionary, is_pick: boo
 	head.add_theme_constant_override("v_separation", 0)
 	var nm := UiKit.line(who_name, UiKit.NAME, UiKit.TEXT, true)
 	nm.name = "CardName"
+	if _names().has(who_name):
+		nm.add_theme_color_override("font_color", UiKit.club_ink(str(_names()[who_name])))
 	head.add_child(nm)
 	var where := UiKit.line(str(c["where"]), UiKit.SECONDARY, UiKit.MUTED)
 	where.name = "CardWhere"
@@ -2448,6 +2932,7 @@ func _player_sheet(title: String, roster: Array, current: String, detail: Callab
 			b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		b.custom_minimum_size = Vector2(0, 44 if extra == "" else 60)
 		UiKit.paint_choice(b, id == current)
+		NameInk.dress_button(b, _names())
 		b.pressed.connect(func():
 			_close_sheet()
 			on_pick.call(id))
@@ -2502,6 +2987,10 @@ func _taggable_now(sim: MatchSim, r: Dictionary) -> bool:
 ## a ruck in a midfield slot and a defender with midfield second were offered
 ## under "Tag which midfielder?"). The sim's own rule (MatchSim.tag_target_ok)
 ## is untouched; the tag's names and "Other midfielder..." both offer only these.
+func _can_play_midfield(sim: MatchSim, r: Dictionary) -> bool:
+	return sim.tag_target_ok(1 - _my_side, str(r["id"]))
+
+
 func _listed_midfielder(sim: MatchSim, r: Dictionary) -> bool:
 	var id := str(r["id"])
 	var p := sim._on_ground(1 - _my_side, id)
@@ -2528,19 +3017,14 @@ func _roster_side(side: int) -> Array:
 ## clubs, any quarter on its own. Close (or Back) returns to your calls.
 func _show_break_stats(players_first := false) -> void:
 	_close_report()
-	var box := UiKit.modal_box(self, 1100.0, 0.0, _wash())
+	var box := UiKit.modal_box(self, SHEET_MAX_W if _stats_wide() else 640.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
 	overlay.name = "BreakStatsSheet"
 	_report_overlay = overlay
 	var v: VBoxContainer = box["body"]
 	v.add_child(UiKit.ellipsis("Match stats", UiKit.H1, UiKit.TEXT, true))
-	var box_score := BoxScore.new().setup(_res, true)
+	var box_score := _stats_page(v, true, players_first)
 	box_score.name = "BreakBoxScore"
-	v.add_child(box_score)
-	v.add_child(UiKit.spacer(UiKit.GAP))
-	var msv := MatchStatsView.new()
-	msv.players_first = players_first
-	v.add_child(msv.setup(_res, _my_side, true))
 	var close := UiKit.btn("Back to your calls", UiKit.NAME, true)
 	close.custom_minimum_size = Vector2(0, 44)
 	close.pressed.connect(_close_report)
@@ -2606,7 +3090,9 @@ func _best_so_far() -> Control:
 				row.set_meta("best_third", true)
 			var col := UiKit.vbox(0)
 			col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			col.add_child(UiKit.emphasis(str(p["name"]), UiKit.BODY if _pc_break else UiKit.NAME))
+			var pn := UiKit.ellipsis(str(p["name"]), UiKit.BODY if _pc_break else UiKit.NAME, inks[side], true)
+			pn.name = "StandoutName"
+			col.add_child(pn)
 			# A PC column is narrow: two numbers fit on the line, a third ran
 			# off it ("6 rebound 5...", capture 2026-10-12).
 			var bits: PackedStringArray = str(p["line"]).split(", ")
@@ -2725,7 +3211,7 @@ func _my_rucks(sim: MatchSim) -> Array:
 ## Under the Main ruck call: who goes up, and who does while he rests.
 func _main_ruck_note(rucks: Array, id: String) -> String:
 	if id == "":
-		return "No main ruck: whoever is in the ruck spot goes up. While he is on the bench, another ruck does."
+		return "Whoever is in the ruck spot goes up."
 	var others := rucks.filter(func(r): return str(r["id"]) != id)
 	var next := GameDB.player_display_name(others[0]) if others.size() == 1 else "another ruck"
 	return "%s goes up at every stoppage while he is on the ground, wherever he lines up, and tires like a ruck for it. While he is on the bench, %s does." % [
@@ -2777,7 +3263,7 @@ func _show_setup(t: Dictionary) -> void:
 	var tag_id := str(t.get("tag_id", ""))
 	if tag_id != "":
 		bits.append("tagging " + GameDB.player_display_name_by_id(tag_id, "their player"))
-	for slot in MatchSim.FOCUS_SLOTS:
+	for slot in MatchNotes.FOCUS_ORDER:
 		var fid := str(t.get(slot, ""))
 		if fid != "":
 			bits.append("%s %s" % [GameDB.player_display_name_by_id(fid, "your player"),
@@ -2843,11 +3329,13 @@ func _on_event(ev: Dictionary) -> void:
 	_duel_feed(ev)
 	_story_feed(ev)
 	_press_feed(event_index, ev)
+	_call_feed(event_index, ev)
 	if str(ev.get("kind", "")) == "goal":
 		_flash_score(int(ev.get("side", 0)))
 		_track_run(int(ev.get("side", 0)))
 	if _crowd != null and not _skipping:
 		_crowd.event(str(ev.get("kind", "")))
+	_km_event(ev, event_index)
 	_queue_broadcast(ev, event_index)
 
 
@@ -2878,6 +3366,9 @@ func _queue_broadcast(ev: Dictionary, event_index: int) -> void:
 		return
 	# Vignettes off (Settings): no replays. They decide nothing.
 	if not GameState.vignettes_on():
+		return
+	# Key moments stops for goals only: a goal's own close-up plays, nothing else.
+	if _key_moments and str(ev.get("kind", "")) != "goal":
 		return
 	var prev_ev := {}
 	var next_ev := {}
@@ -3090,15 +3581,17 @@ func _names() -> Dictionary:
 
 
 ## A line whose words change later (the break match-up line): always tinted-capable.
-func _say_live(text: String, fs: int, col: Color) -> RichTextLabel:
+func _say_live(text: String, fs: int, col: Color, ids := []) -> RichTextLabel:
 	var r := NameInk.rich(fs, col)
-	NameInk.set_line(r, text, _names())
+	NameInk.set_line(r, text, _names_named(ids) if not ids.is_empty() else _names())
 	return r
 
 
 ## A line of the match's talk: plain, or with each player's name in his club's ink.
-func _say(text: String, fs: int, col: Color, bold := false) -> Control:
-	return NameInk.label(text, _names(), fs, col, bold)
+## `ids`: the players the line means, so a surname two clubs share still wears
+## his club's ink (see _names_named).
+func _say(text: String, fs: int, col: Color, bold := false, ids := []) -> Control:
+	return NameInk.label(text, _names_named(ids) if not ids.is_empty() else _names(), fs, col, bold)
 
 
 func _feed_text(text: String, col: Color, strong: bool, node_name: String) -> void:
@@ -3226,7 +3719,9 @@ func _farewell_for(match: Dictionary) -> Dictionary:
 ## report) and Stats - and one way out: Continue. Back on Stats returns to
 ## Summary. Review match (Sim round) opens the same screen.
 func _show_fulltime() -> void:
-	var box := UiKit.modal_box(self, 640.0, 0.0, _wash())
+	# A PC's Stats tab holds the score and the team numbers side by side, so the
+	# sheet is wider there; the Summary keeps its own reading width inside it.
+	var box := UiKit.modal_box(self, SHEET_MAX_W if _stats_wide() else 640.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
 	overlay.name = "FullTime"
 	_ft_box = box
@@ -3241,21 +3736,31 @@ func _show_fulltime() -> void:
 	var home: String = _res["home"]
 	var away: String = _res["away"]
 	var mine := GameState.my_club != "" and (home == GameState.my_club or away == GameState.my_club)
+	# On a PC the two actions sit side by side at the sheet's right, one row tall, so the
+	# stats page keeps the height (a phone stacks them).
+	var actions: Control = box["footer"]
+	if _stats_wide():
+		var row := HBoxContainer.new()
+		row.name = "FullTimeActions"
+		row.alignment = BoxContainer.ALIGNMENT_END
+		row.add_theme_constant_override("separation", 12)
+		actions.add_child(row)
+		actions = row
 	if mine and (_interactive or _review):
 		var train := UiKit.btn("Training", UiKit.BODY)
 		train.name = "FullTimeTraining"
-		train.custom_minimum_size = Vector2(0, 44)
+		train.custom_minimum_size = Vector2(240 if _stats_wide() else 0, 48 if _stats_wide() else 44)
 		train.pressed.connect(func():
 			overlay.queue_free()
 			Router.replace("training"))
-		box["footer"].add_child(train)
+		actions.add_child(train)
 	# The week is over: back to the hub, where next week starts.
 	var leave := UiKit.btn("Continue", UiKit.HEADING, true)
 	leave.name = "FullTimeContinue"
-	leave.custom_minimum_size = Vector2(0, 48)
+	leave.custom_minimum_size = Vector2(240 if _stats_wide() else 0, 48)
 	leave.pressed.connect(func(): Router.back())
 	UiKit.feel(leave, "end")     # the end of the match: the siren
-	box["footer"].add_child(leave)
+	actions.add_child(leave)
 	_render_ft()
 	UiKit.land(overlay.find_child("Verdict", true, false) as Control, 0.3)   # the result lands (Feel)
 	UiKit.land(overlay.find_child("LadderMove", true, false) as Control, 1.0, false)   # then the ladder move
@@ -3282,7 +3787,12 @@ func _render_ft() -> void:
 		"stats":
 			_ft_stats(v)
 		_:
-			_ft_summary(v)
+			if _stats_wide():
+				var inner := UiKit.vbox(8)
+				v.add_child(UiKit.reading_column(inner, 640.0))
+				_ft_summary(inner)
+			else:
+				_ft_summary(v)
 	var sc := v.get_parent() as ScrollContainer
 	if sc != null:
 		sc.scroll_vertical = 0
@@ -3392,6 +3902,15 @@ func _ft_summary(v: VBoxContainer) -> void:
 		var fl := _say(str(f), UiKit.BODY, UiKit.TEXT)
 		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		factors.add_child(fl)
+	# The one who got away (P-16): what a former player of yours did against
+	# you, when he played most of it or kicked a goal.
+	if mine:
+		var opp_code := str(_res["away"] if me == 0 else _res["home"])
+		var gone := FormerPlayers.report_lines(_res, me, GameState.former_players(opp_code))
+		for i in range(gone.size()):
+			var gl := NameInk.label(str(gone[i]["text"]), _names(), UiKit.BODY, UiKit.TEXT)
+			gl.name = "FormerAgainst_%d" % i
+			factors.add_child(gl)
 	v.add_child(factors)
 
 	# Best players: best on ground, then the rest of yours and their best.
@@ -3476,7 +3995,7 @@ func _standout_row(p: Dictionary, side: int, best: bool) -> Control:
 	var name := "%s  ·  %s" % [str(p["name"]), GameDB.club_short(code)]
 	if best:
 		name += "  ·  best on ground"
-	v.add_child(UiKit.ellipsis(name, UiKit.BODY, UiKit.TEXT, true))
+	v.add_child(UiKit.ellipsis(name, UiKit.BODY, UiKit.club_ink(code), true))
 	v.add_child(UiKit.ellipsis(str(p["line"]), UiKit.SMALL, UiKit.MUTED))
 	var r := UiKit.line(MatchNotes.rating_text(float(p["rating"])), 20, UiKit.TEXT, true)
 	r.name = "StandoutRating"
@@ -3514,18 +4033,74 @@ func _key_stats_view(me: int) -> Control:
 	return v
 
 
+## A PC (landscape, roomy) shows the score and the team numbers side by side on one
+## page, so nothing needs scrolling to reach the stats (director, 2026-10-14: "having to
+## scroll down to see the stats part is bad"); a phone stacks them and scrolls.
+func _stats_wide() -> bool:
+	return ScreenLayout.roomy(UiKit.view_width(self), UiKit.view_height(self))
+
+
+## The sheet on a PC grows with the screen (the canvas the player's window gives, which
+## ScreenLayout sizes: a 2560x1440 window is a 1280x720 canvas at twice the pixels), up
+## to its margins.
+const SHEET_MAX_W := 4096.0
+## The three columns of a PC stats page: the score (box score), the team numbers and, at
+## full time, what the calls did. Each keeps its own width and shares what is left.
+const COL_SCORE_W := 400.0
+const COL_CALLS_W := 270.0
+const SCORE_SHARE := 1.0
+const TEAM_SHARE := 1.4
+const CALLS_SHARE := 0.9
+
+
+func _stats_page(host: VBoxContainer, live: bool, players_first: bool, calls: Control = null) -> BoxScore:
+	var bs := BoxScore.new()
+	var msv := MatchStatsView.new()
+	msv.players_first = players_first
+	if _stats_wide():
+		bs.compact = true
+		msv.compact = true
+		var cols := UiKit.hbox(20)
+		cols.name = "StatsColumns"
+		var gaps := 20.0 * (2.0 if calls != null else 1.0)
+		var room := UiKit.view_width(self) - 24.0 - 40.0 - gaps
+		var shares := SCORE_SHARE + TEAM_SHARE + (CALLS_SHARE if calls != null else 0.0)
+		# The width the team numbers will have: how many groups sit across, and how wide each is.
+		msv.room = room * TEAM_SHARE / shares
+		bs.custom_minimum_size.x = COL_SCORE_W if calls != null else 460.0
+		bs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bs.size_flags_stretch_ratio = SCORE_SHARE
+		bs.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		msv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		msv.size_flags_stretch_ratio = TEAM_SHARE
+		msv.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		cols.add_child(bs.setup(_res, live))
+		cols.add_child(msv.setup(_res, _my_side, live))
+		if calls != null:
+			calls.custom_minimum_size.x = COL_CALLS_W
+			calls.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			calls.size_flags_stretch_ratio = CALLS_SHARE
+			calls.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			cols.add_child(calls)
+		host.add_child(cols)
+	else:
+		host.add_child(bs.setup(_res, live))
+		host.add_child(UiKit.spacer(UiKit.GAP))
+		host.add_child(msv.setup(_res, _my_side, live))
+		if calls != null:
+			host.add_child(UiKit.spacer(UiKit.GAP))
+			host.add_child(calls)
+	return bs
+
+
 ## The Stats tab: the box score (BoxScore), then team and player stats a tab apart
-## (MatchStatsView, the same view as at the breaks), and what your calls did.
+## (MatchStatsView, the same view as at the breaks), and what your calls did - on a
+## PC a third column beside them, so the whole page shows at once.
 func _ft_stats(v: VBoxContainer) -> void:
 	var box := UiKit.vbox(8)
 	box.name = "MatchStats"
 	v.add_child(box)
-	box.add_child(BoxScore.new().setup(_res))
-	box.add_child(UiKit.spacer(UiKit.GAP))
-	box.add_child(MatchStatsView.new().setup(_res, _my_side))
-	if _interactive:
-		box.add_child(UiKit.spacer(UiKit.GAP))
-		box.add_child(_calls_view(0))
+	_stats_page(box, false, false, _calls_view(0) if _interactive else null)
 
 
 func _qcell(text: String, w: int, col: Color, fs: int, bold := false) -> Label:
@@ -3643,10 +4218,9 @@ func _matchups_view(sim: MatchSim, q: int) -> Control:
 	for fid in theirs.keys():
 		var row := UiKit.hbox(8)
 		row.name = "BreakMatchup_" + str(fid)
-		var l := _say_live(_matchup_text(str(fid), str(theirs[fid]), q), UiKit.BODY, UiKit.TEXT)
+		var l := _say_live(_matchup_text(str(fid), str(theirs[fid]), q), UiKit.BODY, UiKit.TEXT, [str(fid), str(theirs[fid])])
 		l.name = "MatchupLine"
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(l)
 		# An editorial row with its action as a word (audit §8 Phase 1.5).
 		var b := UiKit.text_action("Change", UiKit.SECONDARY)
@@ -3654,9 +4228,10 @@ func _matchups_view(sim: MatchSim, q: int) -> Control:
 		var f := str(fid)
 		b.pressed.connect(func(): _show_break_matchup(sim, f, l, q))
 		row.add_child(b)
+		_beside_sentence(row, l, b)
 		v.add_child(row)
 	for fid in ours.keys():
-		var l2 := _say("Yours: " + _matchup_text(str(fid), str(ours[fid]), q), UiKit.SMALL, UiKit.MUTED)
+		var l2 := _say("Yours: " + _matchup_text(str(fid), str(ours[fid]), q), UiKit.SMALL, UiKit.MUTED, false, [str(fid), str(ours[fid])])
 		l2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l2)
 	# Who made these calls: your assistant, until you make them yourself.
@@ -3667,6 +4242,61 @@ func _matchups_view(sim: MatchSim, q: int) -> Control:
 		a.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(a)
 	return v
+
+
+## A sentence with its action right after it, not at the far edge of the pane: the
+## sentence is as wide as its words need, up to what the row leaves beside the
+## action, so a long one wraps (before a name, never inside one: NameInk) and the
+## action sits right after the end of its LAST line, level with it, the same gap on
+## every row. Both are placed by hand in one slot of the row: the action keeps its
+## full touch height and hangs over the line's top and bottom instead of making the
+## row taller than its words. `refit` (a meta on the line) runs again after the
+## words change.
+const BESIDE_GAP := 6.0
+
+
+func _beside_sentence(row: HBoxContainer, line: RichTextLabel, action: Button) -> void:
+	var slot := Control.new()
+	slot.name = "BesideSentence"
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# The slot has no width of its own, only the row's: a long sentence wraps to
+	# the pane, it never widens it.
+	slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for n in [line, action]:
+		if (n as Node).get_parent() != null:
+			(n as Node).get_parent().remove_child(n)
+		slot.add_child(n)
+	row.add_child(slot)
+	var refit := func() -> void:
+		if not is_instance_valid(line) or not is_instance_valid(row) or not is_instance_valid(action):
+			return
+		var font := line.get_theme_font("normal_font")
+		var size := line.get_theme_font_size("normal_font_size")
+		var natural := font.get_string_size(NameInk.plain(line), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + 4.0
+		var btn := action.get_combined_minimum_size()
+		var room := slot.size.x - btn.x - BESIDE_GAP
+		# Before the row has a width, leave the sentence its own: the first
+		# layout pass then sets it right.
+		var w := natural if slot.size.x <= 0.0 else maxf(60.0, minf(natural, room))
+		line.size = Vector2(w, line.size.y)
+		var lines := line.get_line_count()
+		if lines <= 0:
+			return
+		var text_h := line.get_content_height()
+		var last := line.get_line_range(lines - 1)
+		var tail := line.get_parsed_text().substr(last.x, last.y - last.x).strip_edges(false, true)
+		var tail_w := font.get_string_size(tail, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		var top := line.get_line_offset(lines - 1)
+		var height := maxf(text_h + 4.0, btn.y)
+		var text_y := (height - text_h) * 0.5
+		line.position = Vector2(0.0, text_y)
+		line.size = Vector2(w, text_h)
+		action.size = btn
+		action.position = Vector2(tail_w + BESIDE_GAP, text_y + top + (text_h - top) * 0.5 - btn.y * 0.5)
+		slot.custom_minimum_size = Vector2(0.0, height)
+	line.set_meta("refit", refit)
+	slot.resized.connect(refit)
+	refit.call_deferred()
 
 
 func _matchup_text(fid: String, did: String, q: int) -> String:
@@ -3696,10 +4326,13 @@ func _show_break_matchup(sim: MatchSim, fid: String, line: RichTextLabel, q: int
 		b.custom_minimum_size = Vector2(0, 56)
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		UiKit.paint_choice(b, str(p["id"]) == cur)
+		NameInk.dress_button(b, _names())
 		var pid := str(p["id"])
 		b.pressed.connect(func():
 			sim.coach_matchup(_my_side, fid, pid)
-			NameInk.set_line(line, _matchup_text(fid, pid, 1).trim_suffix(".") + " from the next bounce.", _names())
+			NameInk.set_line(line, _matchup_text(fid, pid, 1).trim_suffix(".") + " from the next bounce.", _names_named([fid, pid]))
+			if line.has_meta("refit"):
+				(line.get_meta("refit") as Callable).call_deferred()
 			if _break_refresh.is_valid():
 				_break_refresh.call()
 			_matchup_overlay.queue_free()
@@ -3731,6 +4364,16 @@ func _press_feed(event_index: int, ev: Dictionary) -> void:
 	var code := str(_res["home"] if presser == 0 else _res["away"])
 	_feed_text("%s  %s" % [_clock_text(int(ev.get("q", 1)), int(ev.get("min", 0))), MatchNotes.press_line(code)],
 			UiKit.TEXT, false, "PressLine")
+
+
+## A side's game plan starting, carrying on over a break or ending, and a short
+## call running out (P-12, MatchNotes.call_lines). A break's line comes after
+## the break's own score line.
+func _call_feed(event_index: int, ev: Dictionary) -> void:
+	for text in MatchNotes.call_lines(_res.get("timeline", []), event_index, ev, _call_mem,
+			str(_res["home"]), str(_res["away"])):
+		_feed_text("%s  %s" % [_clock_text(int(ev.get("q", 1)), int(ev.get("min", 0))), str(text)],
+				UiKit.TEXT, false, "CallLine")
 
 
 ## The battle in the feed, rarely (MatchNotes.duel_feed_line).
