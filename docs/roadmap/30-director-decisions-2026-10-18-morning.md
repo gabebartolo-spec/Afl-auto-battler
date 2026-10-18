@@ -1,7 +1,7 @@
 # Director decisions, 2026-10-18 morning
 
 Interview by the question tool after the overnight run (25 merges, chapters 28 and 29 built). His picks are in
-quotes where they were a labelled choice; rows 9 to 20 are his own words after the interview (15 and 18 were labelled choices). Where a later decision of his differs, the later one wins. Nothing here
+quotes where they were a labelled choice; rows 9 to 22 are his own words after the interview (15, 18 and 21 were labelled choices). Where a later decision of his differs, the later one wins. Nothing here
 edits the bible.
 
 | # | Question | His answer | What follows |
@@ -26,6 +26,8 @@ edits the bible.
 | 18 | P-12 pass 4 (#784): two of the three calls still read weak in the clips (Attack corridor, Win contest); merge and mark the oval, hold for a pass 5 first, or drop the marks | "Merge, then mark the oval" | #784 merged; lane ovalcalls5, PR #800: a corridor shade for Attack corridor and a contest ring for Win contest on the oval, look-gated (fresh motion critic, then his clip) |
 | 19 | (unprompted, as the 0.1.13 ship was about to start) | "no more itch patches until 1.0 / full speed ahead" | the 0.1.13 push was stopped before it went out; live stays 0.1.12 (60a1bd4); nothing ships until he lifts this; before the 1.0 push: bump_version PR, merge, ship, one devlog; the team runs every assigned lane at once |
 | 20 | (unprompted, on the team) | "only spawn opus medium effort helpers, you stay fable high", then "you can spawn sonnet helpers too, just dont spawn fables" | helpers are Sonnet or Opus (medium effort), never Fable; the lead stays Fable high; three Sonnet lanes spawned a minute earlier were stopped and respawned (gotaway2 and aiwhy2 as Opus, optsbeside2 as Sonnet); rule in memory-shared/right-size-agents.md |
+| 21 | P-14 Key moments (#803, images A hub with Key moments chosen, B Skip chosen with the main button "Skip to full time", C the match at 8x): merge the row as shown, move it beside Play match, or lighter unchosen options | "Merge as shown" | #803 merged 2525ad77: Watch / Key moments / Skip under the poster; Key moments = 8x with 1x at every goal, coach's call and break; Skip = your match straight to full time; settings key match_way only; Sim the week unchanged |
+| 22 | (unprompted, on the P-13 options-beside-facts capture, where a ruck fact offered Tag) | "no one tags ruckmen, this isnt a football thing" and "ruckmen can be stopped by other ruckmen" | #804: options fit the position the fact is about: a ruck fact offers Main ruck only (no Tag, Key match-up or Defensive forward); Tag answers a midfielder fact, Key match-up a key forward, Defensive forward a rebounding or loose defender; the intent path reuses main's pickers (listed midfielders only, his 2026-10-14 rule), with a check over all 18 clubs' facts |
 
 Left open, no answer yet: the culture young-ceiling size (+1 stays until his playtest) and the Ruthless board warning level (confidence 35, under the 40 poor line).
 
