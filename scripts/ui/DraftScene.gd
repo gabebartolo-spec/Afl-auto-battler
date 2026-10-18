@@ -2270,6 +2270,8 @@ const RECENT_TALL := 780.0
 func _recent_wanted() -> bool:
 	if _wide and _side_tab == "picks":
 		return false
+	if not _wide and _why_has_line():
+		return false
 	return not is_instance_valid(_beat)
 
 
@@ -2281,6 +2283,10 @@ func _recent_rows(hist: Array, upto: int, settle: bool) -> void:
 		_recent_box.add_child(none)
 		return
 	var shown := RECENT if _wide or _usable_size().y >= RECENT_TALL else RECENT - 1
+	if not _wide and _why_has_line():
+		# Phone: the rival's reason takes the strip's place on the board (it is about
+		# those picks), so the pool keeps its room.
+		shown = 0
 	for i in range(upto - 1, maxi(-1, upto - 1 - shown), -1):
 		var entry: Dictionary = hist[i]
 		var code := str(entry["club"])
@@ -2343,13 +2349,9 @@ func _refresh_why() -> void:
 		return
 	UiKit.clear(_why_box)
 	_why_box.visible = false
-	# During draft night's stage and replay the rival picks are not all shown yet:
-	# the reason waits for the board to catch up.
-	if replaying() or _stage_pick >= 0:
+	if not _why_has_line():
 		return
 	var e := _why_entry()
-	if e.is_empty():
-		return
 	_why_box.visible = true
 	var club := str(e["club"])
 	var index := {GameDB.club_name(club): club}
@@ -2360,6 +2362,14 @@ func _refresh_why() -> void:
 	if line is Label:
 		(line as Label).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_why_box.add_child(line)
+
+
+## Whether the reason line has something to say now. During draft night's stage
+## and replay the rival picks are not all shown yet: it waits for the board.
+func _why_has_line() -> bool:
+	if not is_instance_valid(_why_box) or replaying() or _stage_pick >= 0:
+		return false
+	return not _why_entry().is_empty()
 
 
 func _why_entry() -> Dictionary:
