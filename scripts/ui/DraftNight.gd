@@ -29,14 +29,14 @@ static func clock_line(pick_no: int, club: String) -> String:
 	return "Pick %d: %s" % [pick_no, GameDB.club_name(club)]
 
 
-## "Your pick: 14, two away" (or "now", "next"), from the pick on the clock;
+## "Your pick: 14, two away", "Your pick: 14, next" or "You're on the clock";
 ## "" when you have no pick to come.
 static func your_pick_line(yours: int, on_clock: int) -> String:
 	if yours <= 0:
 		return ""
 	var gap := yours - on_clock
 	if gap <= 0:
-		return "Your pick: %d, now" % yours
+		return "You're on the clock"
 	if gap == 1:
 		return "Your pick: %d, next" % yours
 	var away: String = NUMBER_WORDS[gap] if gap < NUMBER_WORDS.size() else str(gap)
