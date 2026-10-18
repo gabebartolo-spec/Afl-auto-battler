@@ -432,6 +432,9 @@ func _run_preseason(reload_at := -1) -> String:
 			if GameState.preseason_stop() == "intra":
 				GameState.sim_intra_match()
 				GameState.preseason["intra"]["seen"] = true
+			if GameState.preseason_stop() == "practice":
+				GameState.sim_practice_match()
+				GameState.preseason["practice"]["seen"] = true
 			if GameState.preseason_stop() == "papers":
 				GameState.papers_say_nothing()
 				GameState.preseason["papers"]["seen"] = true
@@ -512,6 +515,8 @@ func _test_own_dice() -> void:
 	data["heavy_week_injury"] = 0.0
 	data["intra_xp_games"] = 0.0
 	data["intra_injury_rate"] = 0.0
+	data["practice_xp_games"] = 0.0
+	data["practice_injury_rate"] = 0.0
 	_career()
 	GameState.preseason_sim_to_round1()
 	_play(2)
@@ -617,12 +622,16 @@ func _test_ai_parity() -> void:
 			in_match += 1
 			fair = fair and int(inj["week"]) == PreSeason.intra_week()
 			continue
+		if str(inj.get("how", "")) == "practice":
+			in_match += 1
+			fair = fair and int(inj["week"]) == PreSeason.practice_week()
+			continue
 		in_training += 1
 		var blocks: Array = GameState.preseason_blocks(str(inj["club"]))
 		fair = fair and soft.has(str(inj["kind"])) \
 				and str(blocks[PreSeason.block_of_week(int(inj["week"]))][0]) == "heavy"
 	_check(off_inj == 0 and fair and on_inj <= GameState.preseason_injuries().size(),
-			"In training only a Heavy week hurts anyone, at any club, and only with a soft-tissue injury; the rest come from the intra-club match (%d in training, %d in the match, %d still out at Round 1)" % [
+			"In training only a Heavy week hurts anyone, at any club, and only with a soft-tissue injury; the rest come from the intra-club and practice matches (%d in training, %d in the match, %d still out at Round 1)" % [
 			in_training, in_match, on_inj])
 	_check(on_mean >= off_mean and on_mean - off_mean < 1.0 and most <= GameState.SEASON_TRAIN_GAIN + 2,
 			"A pre-season lifts the league's mean rating by under a point (%.2f to %.2f), nobody by more than the season limit" % [off_mean, on_mean])
@@ -950,9 +959,10 @@ func _test_intra_club() -> void:
 			and str(GameState.preseason_intra()["report"]["stood"]) == str(rep["stood"])
 			and not GameState.sim_intra_match() and not GameState.toggle_intra_invite(str(pool[0]["id"])),
 			"Loaded after it is played, the report is still there and the match cannot be played again")
-	_check(GameState.preseason_advance() == "papers" and GameState.preseason_active()
+	_check(GameState.preseason_advance() == "practice" and GameState.sim_practice_match()
+			and GameState.preseason_advance() == "papers" and GameState.preseason_active()
 			and GameState.preseason_advance() == "done" and not GameState.preseason_active(),
-			"From the report, pressing on trains weeks 6 to 8, stops at the papers, and then leaves Round 1 to play")
+			"From the report, pressing on trains weeks 6 and 7, plays the practice match, stops at the papers in week 8, and leaves Round 1 to play")
 	# Best side v the rest plays out differently, and one-sidedly.
 	_to_intra()
 	GameState.set_intra_mode("best")
@@ -1523,9 +1533,16 @@ func _test_screens() -> void:
 			"A finger's tap goes back to training")
 	await _frames(tree, 10)
 	scene = tree.current_scene as Control
+	_check(scene != null and scene.name == "PreSeasonScene" and GameState.preseason_stop() == "practice"
+			and _label(scene, "PreSeasonHero") == "The practice match",
+			"Weeks 6 and 7 are trained and the game stops at the practice match (its own suite plays it)")
+	GameState.sim_practice_match()
+	GameState.preseason["practice"]["seen"] = true
+	_check(GameState.preseason_advance() == "papers", "...and from there the last week passes to the papers")
+	scene = await _open(tree)
 	_check(scene != null and scene.name == "PreSeasonScene" and GameState.preseason_stop() == "papers"
 			and GameState.preseason_week() == 8,
-			"The rest of the pre-season is trained and the papers are waiting in week 8")
+			"The papers are waiting in week 8")
 	_check(await _tap(scene.find_child("PreSeasonGo", true, false), "On to Round 1 from the papers"),
 			"A finger's tap goes on to Round 1")
 	await _frames(tree, 10)

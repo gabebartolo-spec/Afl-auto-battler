@@ -56,6 +56,10 @@ const DEFAULTS := {
 	"intra_xp_games": 1.0,
 	"intra_seen_uncertainty": 0.7,
 	"intra_spare_number": 60,
+	"practice_week": 7,
+	"practice_guests": 3,
+	"practice_injury_rate": 0.5,
+	"practice_xp_games": 1.0,
 	"familiar_default": 1,
 	"familiar_mult": {"well": 1.0, "partly": 0.95, "barely": 0.9},
 	"drill_step_weeks": 2.0,
@@ -75,9 +79,9 @@ const FOCUS_LABEL := {"running": "Running", "skills": "Skills", "plan": "Game pl
 const BASES := ["thin", "sound", "strong"]
 const DEFAULT_BASE := "sound"
 ## The weeks after which the pre-season stops for the coach: {week: stop}.
-## The time trial, then the intra-club match. The practice match against
-## another club is a later slice: it takes the week after its own block here.
-const STOPS := {3: "trial", 5: "intra", 8: "papers"}
+## The time trial, the intra-club match, then the practice match against
+## another club at the end of the last block; the papers in the quiet last week.
+const STOPS := {3: "trial", 5: "intra", 7: "practice", 8: "papers"}
 
 static var _data := {}
 
@@ -355,7 +359,8 @@ static func seen_line(p: Dictionary, club: String) -> String:
 	var seen: Dictionary = (p.get("seen", {}) as Dictionary).get(club, {}) if p.get("seen") is Dictionary else {}
 	if seen.is_empty():
 		return ""
-	return "Seen in your %d intra-club match. %s" % [int(seen.get("year", 0)), str(seen.get("line", ""))]
+	var where := "practice match" if str(seen.get("kind", "")) == "practice" else "intra-club match"
+	return "Seen in your %d %s. %s" % [int(seen.get("year", 0)), where, str(seen.get("line", ""))]
 
 
 ## How much narrower `club`'s rating read on a prospect is for having seen
@@ -469,6 +474,86 @@ const BASE_EFFECT := {
 
 
 # ---------------------------------------------------------------------------
+# The practice match (director, 2026-10-13: "Trial players and plans, no
+# ladder"): one match against another club at the end of week 7.
+# ---------------------------------------------------------------------------
+## Where each club plays its practice match from, so rivals meet near home: a
+## derby in Western Australia, Queensland, South Australia and New South
+## Wales, and an all-Victorian draw (Tasmania with it) for the rest. A club
+## not named (an expansion or created club) is drawn against whoever is left.
+const PRACTICE_REGION := {
+	"FRE": "WA", "WCE": "WA",
+	"ADE": "SA", "PAD": "SA",
+	"BRL": "QLD", "GCS": "QLD",
+	"SYD": "NSW", "GWS": "NSW", "CANB": "NSW",
+	"CAR": "VIC", "COL": "VIC", "ESS": "VIC", "GEE": "VIC", "HAW": "VIC", "MEL": "VIC",
+	"NTH": "VIC", "RIC": "VIC", "STK": "VIC", "WBD": "VIC", "TAS": "VIC",
+}
+
+
+static func practice_week() -> int:
+	return int(tune("practice_week"))
+
+
+static func practice_seed(career_seed: int, year: int, home: String, away: String) -> int:
+	return hash(["preseason", "practice", career_seed, year, home, away])
+
+
+## How many prospects a club may trial in it.
+static func practice_guests() -> int:
+	return int(tune("practice_guests"))
+
+
+## Who plays whom: [[a, b], ...] for the clubs in `clubs`, yours first. Each
+## club in turn takes the club of its region that the year's draw puts first
+## (a hash of the career seed, the year and the club's code); whoever has no
+## regional club left is drawn against another such club, and an odd club out
+## has no match. The same career and year always give the same draw.
+static func practice_pairs(clubs: Array, my_club: String, career_seed: int, year: int) -> Array:
+	var rank := {}
+	for c in clubs:
+		rank[str(c)] = hash(["preseason", "practice-draw", career_seed, year, str(c)])
+	var order := []
+	for c in clubs:
+		if str(c) != my_club:
+			order.append(str(c))
+	order.sort_custom(func(a, b):
+		if rank[a] != rank[b]:
+			return int(rank[a]) < int(rank[b])
+		return a < b)
+	if clubs.has(my_club):
+		order.push_front(my_club)
+	var taken := {}
+	var pairs := []
+	for a in order:
+		if taken.has(a):
+			continue
+		var region := str(PRACTICE_REGION.get(a, ""))
+		if region == "":
+			continue
+		for b in order:
+			if b != a and not taken.has(b) and str(PRACTICE_REGION.get(b, "")) == region:
+				taken[a] = true
+				taken[b] = true
+				pairs.append([a, b])
+				break
+	var left := []
+	for a in order:
+		if not taken.has(a):
+			left.append(a)
+	for i in range(0, left.size() - 1, 2):
+		pairs.append([left[i], left[i + 1]])
+	return pairs
+
+
+## The club `code` plays, or "".
+static func practice_opponent(pairs: Array, code: String) -> String:
+	for pr in pairs:
+		if pr[0] == code:
+			return str(pr[1])
+		if pr[1] == code:
+			return str(pr[0])
+	return ""
 # Plan familiarity (director, 2026-10-13: "Drill a plan, it works better",
 # shown as "Plan fluency: high / medium / low"). A side knows each
 # game plan at one of three levels. Drilling a plan in the pre-season moves it
