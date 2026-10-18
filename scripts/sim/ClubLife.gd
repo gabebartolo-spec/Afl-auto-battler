@@ -19,10 +19,11 @@ const START_CONFIDENCE := 60
 ## poor_season_below, data/difficulty_dials.json): a season that ends under
 ## it counts as poor and moves the board towards the final warning or sack.
 const WARN_LINE := 30
-## Where the board's confidence reads poor, the same on every board type
-## (director 2026-10-18): "In trouble" in the board's words, and the moment
-## the hub warns the coach. Ruthless differs only in its season line (its
-## poor_season_below equals this) and in how soon the sack follows.
+## Where the hub starts warning the coach, the same on every board type
+## (director 2026-10-18, "Warn at 40"). The board's words keep each dial's own
+## season line (board_state), so Patient and Fair still read "Under pressure"
+## between 40 and 30; Ruthless differs in its season line and in how soon the
+## sack follows.
 const POOR_LINE := 40
 const MORALE_BASE := 70
 
@@ -94,9 +95,9 @@ static func after_match(confidence: int, margin: int, steps := [2, -2], losses_i
 
 
 ## The board's mood in words; the number stays behind the scenes. `line` is
-## the confidence under which the board is "In trouble"; the default is
-## POOR_LINE, the same line the hub's warning uses.
-static func board_state(confidence: int, line := POOR_LINE) -> String:
+## the confidence under which the board is "In trouble": the board dial's own
+## season line (poor_season_below); the default is the Fair line.
+static func board_state(confidence: int, line := WARN_LINE) -> String:
 	if confidence >= 80:
 		return "Very secure"
 	if confidence >= 62:

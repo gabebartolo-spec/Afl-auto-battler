@@ -557,21 +557,25 @@ func _test_board_patience() -> void:
 	GameState.delete_saved_career()
 
 
-## The board's warning fires the moment confidence is under the poor line
-## (ClubLife.POOR_LINE, 40) on every board type, and not at or above it. It is
-## the same line the board's words use for "In trouble", and the copy carries
-## the real lines (director 2026-10-18, ch. 30 row 34).
+## The hub's warning fires the moment confidence is under ClubLife.POOR_LINE
+## (40) on every board type, and not at or above it. The board's words keep
+## each dial's own season line, and the copy carries the real lines (director
+## 2026-10-18, ch. 30 row 34: "Warn at 40, labels keep their line").
 func _test_board_warning_line() -> void:
 	var line := ClubLife.POOR_LINE
-	_check(line == 40 and ClubLife.board_state(line - 1) == "In trouble" and ClubLife.board_state(line) != "In trouble",
-			"The poor line is 40 and the board's words turn to 'In trouble' under it")
-	_check(int(DifficultyDials.step("board_patience", "ruthless")["poor_season_below"]) == line,
-			"A Ruthless season line is the poor line, so they cannot drift")
+	_check(line == 40, "The warning line is 40")
 	for step in ["patient", "fair", "ruthless"]:
 		GameState.set_new_career_dial("board_patience", step)
 		GameState.reset()
 		GameState.start_season("GEE", GameDB.club_list("GEE"))
 		var rules := GameState.difficulty_rules()
+		# The board's words keep the dial's own season line: at 35 Patient and Fair are
+		# "Under pressure", Ruthless (line 40) is "In trouble"; all three warn.
+		GameState.board["confidence"] = 35
+		GameState.board["warned"] = false
+		var want := "In trouble" if step == "ruthless" else "Under pressure"
+		_check(GameState.board_state() == want and GameState.board_warning() != "",
+				"%s at 35: the board reads '%s' and the hub warns (%s)" % [step, want, GameState.board_state()])
 		# Walk confidence down one point at a time: the first warning is the first week under 40.
 		var first_warned := -1
 		var above_clean := true
@@ -849,9 +853,9 @@ func _test_board_confidence() -> void:
 	_check(run < l_top, "A long losing run starts to tell")
 	_check(int(ClubLife.after_match(60, 0, ClubLife.goal_steps(top4))["delta"]) == 0, "A draw leaves the board where it was")
 	var states := []
-	for c in [90, 70, 50, 42, 39, 10]:
+	for c in [90, 70, 50, 35, 10]:
 		states.append(ClubLife.board_state(c))
-	_check(states == ["Very secure", "Secure", "Stable", "Under pressure", "In trouble", "In trouble"],
+	_check(states == ["Very secure", "Secure", "Stable", "Under pressure", "In trouble"],
 			"The board reads in words (%s)" % str(states))
 	_check(ClubLife.board_state(ClubLife.START_CONFIDENCE) == "Stable", "A new coach starts stable")
 	_check(ClubLife.match_reason(top4, "Carlton", -5, 1) == "The loss to Carlton puts a top-four finish under threat."
