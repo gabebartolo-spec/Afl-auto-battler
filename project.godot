@@ -67,3 +67,4 @@ environment/defaults/default_clear_color=Color(0.071, 0.067, 0.063, 1)
 preseason=false
 speccy_front=false
 international_prospects=false
+training_report=false
