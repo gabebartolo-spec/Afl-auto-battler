@@ -1331,7 +1331,7 @@ func _show_beat(entry: Dictionary) -> void:
 	# The pick in the club's ink, his name big, where from and what he plays,
 	# then the recruiter's line in his own words.
 	var pick_l := _beat_line(DraftNight.clock_line(int(entry["pick"]), _club),
-			UiKit.HEADING, UiKit.club_ink(_club), true)
+			UiKit.HEADING, UiKit.club_name_colour(UiKit.club_ink(_club)), true)
 	pick_l.name = "BeatPick"
 	say.add_child(pick_l)
 	var name_l := _beat_line(GameDB.player_display_name(p), UiKit.TITLE, UiKit.TEXT, true)
@@ -2223,7 +2223,7 @@ func _refresh_live(settle := false) -> void:
 		_status.add_theme_color_override("font_color", UiKit.GOOD if _draft.is_valid() else UiKit.BAD)
 	else:
 		_status.text = DraftNight.clock_line(clock_pick, clock_club)
-		_status.add_theme_color_override("font_color", UiKit.club_ink(clock_club))
+		_status.add_theme_color_override("font_color", UiKit.club_name_colour(UiKit.club_ink(clock_club)))
 	if _short:
 		_round_info.text = "%s · %d signed · R%d" % [_club, _draft.count(), _draft.current_round()]
 		if not _draft.intake_mode:
@@ -2307,7 +2307,7 @@ func _recent_rows(hist: Array, upto: int, settle: bool) -> void:
 		if not _wide:
 			who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(who)
-		row.add_child(UiKit.line(GameDB.club_short(code), UiKit.SECONDARY, UiKit.club_ink(code), mine))
+		row.add_child(UiKit.line(GameDB.club_short(code), UiKit.SECONDARY, UiKit.club_name_colour(UiKit.club_ink(code)), mine))
 		_ignore_mouse(row)
 		_recent_box.add_child(row)
 		if settle and i == upto - 1 and UiKit.motion_on():

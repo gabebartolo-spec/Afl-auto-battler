@@ -741,7 +741,8 @@ func _draft_night_screen(size: Vector2i) -> void:
 	_check(draft.count() == signed_before and draft.pick_history.size() == hist_before
 			and ui.find_child("DraftNightStage", true, false) != null,
 			"A tap on Pick for me during the stage picks no one (%s)" % tag)
-	var board_ink: Color = load("res://scripts/ui/UiKit.gd").club_ink("FRE")
+	var kit_n = load("res://scripts/ui/UiKit.gd")
+	var board_ink: Color = kit_n.club_name_colour(kit_n.club_ink("FRE"))
 	_check(pick_l != null and pick_l.get_theme_color("font_color").is_equal_approx(board_ink),
 			"The stage writes Fremantle in the same ink as the board (%s)" % tag)
 	# A tap skips the beat; the board then replays the rival picks.
