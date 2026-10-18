@@ -15,14 +15,14 @@ func run() -> void:
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
-	GameState.set_new_career_difficulty("normal")
+	_menu("fair", "shrewd")
 	_test_difficulty()
 	_test_trade_margin()
 	_test_news()
 	_test_marquee_games()
 	_test_banner_context()
 	_test_real_names_default()
-	GameState.set_new_career_difficulty("normal")
+	_menu("fair", "shrewd")
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	print("League tests: %d checks, %d failures" % [checks, failures.size()])
@@ -130,8 +130,10 @@ func _test_banner_context() -> void:
 	# FL-002: the director's 200-game line, with his full displayed name.
 	Career.of(star)["games"] = 199
 	var ctx200 := GameState.banner_context(m0)
-	_check(Banners.pick(ctx200) == "200 games.\nTake a bow,\n%s." % GameDB.player_display_name(star),
-			"His 200th: '200 games. Take a bow, {name}.' (%s)" % Banners.pick(ctx200).replace("\n", " / "))
+	# The texts are placeholders (the director's order, 2026-10-18): his 200th still gets the
+	# milestone set, here the club's name, until his own words are in the file.
+	_check(str(Banners.texts_for(ctx200)[0]) == "milestone" and Banners.pick(ctx200) == Banners.fill("{us}", ctx200),
+			"His 200th picks the milestone set (%s)" % Banners.pick(ctx200).replace("\n", " / "))
 	# A player who came from another club: his 100th game in these colours,
 	# not a career milestone.
 	Career.of(star)["games"] = 140
@@ -139,7 +141,7 @@ func _test_banner_context() -> void:
 	var ctxc := GameState.banner_context(m0)
 	var msc: Dictionary = ctxc["milestone"]
 	_check(bool(msc.get("club", false)) and int(msc.get("games", 0)) == 100
-			and Banners.pick(ctxc) == "100 games\nin our colours.\n%s." % GameDB.player_display_name(star),
+			and str(Banners.texts_for(ctxc)[0]) == "milestone" and Banners.pick(ctxc) == Banners.fill("{us}", ctxc),
 			"His 100th for the club, not his career, is the club's banner (%s)" % str(msc))
 	# Out of the side: no message for him.
 	var on_list := GameState.list_player(str(star["id"]))
@@ -167,42 +169,100 @@ func _check(condition: bool, message: String) -> void:
 		push_error(message)
 
 
+## The New career menu's two dials, as the setup screen sets them.
+func _menu(board: String, rivals: String) -> void:
+	GameState.set_new_career_dial("board_patience", board)
+	GameState.set_new_career_dial("rival_recruiting", rivals)
+
+
 func _test_difficulty() -> void:
 	GameState.reset()
-	_check(GameState.difficulty == "normal", "A new career starts on Normal, the tuned league")
-	GameState.set_new_career_difficulty("hard")
+	_check(GameState.board_patience == "fair" and GameState.rival_recruiting == "shrewd",
+			"A new career starts on the middle step of both dials, the tuned league")
+	_menu("ruthless", "cutthroat")
 	GameState.reset()
-	_check(GameState.difficulty == "hard", "The menu's difficulty applies to the next career")
+	_check(GameState.board_patience == "ruthless" and GameState.rival_recruiting == "cutthroat",
+			"The menu's dials apply to the next career")
 	GameState.start_season("GEE", GameDB.club_list("GEE"))
 	# Difficulty never changes how players develop: the same rival gains the
-	# same on Hard and Easy, and the same game pays your players the same XP.
+	# same on the hardest and easiest dials, and the same game pays your
+	# players the same XP.
 	var rival: Dictionary = (GameState.season.lists["ADE"] as Array)[0]
 	var gains := []
-	for level in ["hard", "easy"]:
-		GameState.difficulty = level
+	for pair in [["ruthless", "cutthroat"], ["patient", "easygoing"]]:
+		GameState.board_patience = pair[0]
+		GameState.rival_recruiting = pair[1]
 		var q := rival.duplicate(true)
 		q["xp"] = 100000
 		q["potential"] = int(q["overall"]) + 12
 		q["season_start_ov"] = int(q["overall"])
 		GameState.ai_spend_xp(q)
 		gains.append(int(q["overall"]) - int(rival["overall"]))
-	_check(gains[0] == gains[1], "Rivals develop the same on Hard and Easy (%s)" % str(gains))
+	_check(gains[0] == gains[1], "Rivals develop the same on the hardest and easiest dials (%s)" % str(gains))
 
-	GameState.difficulty = "normal"
+	GameState.board_patience = "fair"
+	GameState.rival_recruiting = "shrewd"
 	GameState.advance()
 	var res: Dictionary = GameState.last_match
 	var normal_xp := int(GameState.grant_match_xp(res)["total"])
-	GameState.difficulty = "easy"
+	GameState.board_patience = "patient"
+	GameState.rival_recruiting = "easygoing"
 	var easy_xp := int(GameState.grant_match_xp(res)["total"])
-	_check(easy_xp == normal_xp, "Your players earn the same XP on any difficulty (%d vs %d)" % [easy_xp, normal_xp])
+	_check(easy_xp == normal_xp, "Your players earn the same XP on any dial (%d vs %d)" % [easy_xp, normal_xp])
 
 	# Saved with the career, not taken from the menu setting.
-	GameState.difficulty = "hard"
+	GameState.board_patience = "ruthless"
+	GameState.rival_recruiting = "easygoing"
 	_check(GameState.save_career(), "The career saves")
-	GameState.set_new_career_difficulty("easy")
-	_check(GameState.load_career() and GameState.difficulty == "hard",
-			"A loaded career keeps its own difficulty")
-	GameState.set_new_career_difficulty("normal")
+	var saved := CareerSave.read(GameState.save_path)
+	_check(str(saved.get("board_patience", "")) == "ruthless" and str(saved.get("rival_recruiting", "")) == "easygoing",
+			"The save carries board_patience and rival_recruiting")
+	_menu("patient", "cutthroat")
+	_check(GameState.load_career() and GameState.board_patience == "ruthless"
+			and GameState.rival_recruiting == "easygoing", "A loaded career keeps its own dials")
+	# The dials are data (data/difficulty_dials.json): both have three named
+	# steps, the middle one is today's game, and nothing but those sizes moves.
+	for dial in DifficultyDials.DIALS:
+		_check(DifficultyDials.order(dial).size() == 3 and DifficultyDials.order(dial)[1] == DifficultyDials.default_key(dial),
+				"%s has three steps and starts on the middle one" % dial)
+		for key in DifficultyDials.order(dial):
+			var st := DifficultyDials.step(dial, key)
+			_check(str(st.get("label", "")) != "" and str(st.get("text", "")) != "" and not str(st["text"]).contains("%"),
+					"%s / %s is named and said in a plain sentence with no percentage" % [dial, key])
+	_check(float(DifficultyDials.step("rival_recruiting", "shrewd")["trade_margin"]) == Contracts.TRADE_MARGIN
+			and int(DifficultyDials.step("board_patience", "fair")["poor_seasons_before_warning"]) == 1
+			and int(DifficultyDials.step("board_patience", "fair")["poor_season_below"]) == ClubLife.WARN_LINE,
+			"The middle steps are what the game played before the dials")
+	# An old career (saved with only easy / normal / hard) keeps its board: the
+	# old difficulty never touched the board, so every old save gets the middle
+	# step (Fair). Only the rivals follow the old difficulty.
+	var expect := {"easy": ["fair", "easygoing"], "normal": ["fair", "shrewd"], "hard": ["fair", "cutthroat"]}
+	var mapped := true
+	for level in expect:
+		var old := CareerSave.read(GameState.save_path)
+		old.erase("board_patience")
+		old.erase("rival_recruiting")
+		old["difficulty"] = level
+		CareerSave.write(old, CareerSave.read_meta(GameState.save_path), GameState.save_path)
+		GameState.board_patience = "fair"
+		GameState.rival_recruiting = "shrewd"
+		mapped = mapped and GameState.load_career() and GameState.board_patience == expect[level][0] \
+				and GameState.rival_recruiting == expect[level][1]
+	_check(mapped, "An old Easy / Normal / Hard save keeps the Fair board and takes the matching rivals")
+	var odd := CareerSave.read(GameState.save_path)
+	odd["board_patience"] = "gone"
+	odd["rival_recruiting"] = 7
+	CareerSave.write(odd, CareerSave.read_meta(GameState.save_path), GameState.save_path)
+	_check(GameState.load_career() and GameState.board_patience == "fair" and GameState.rival_recruiting == "shrewd",
+			"A step this build does not know falls back to the middle one")
+	# The menu setting of a device that only ever chose Easy / Normal / Hard.
+	GameState.set_setting("board_patience", "")
+	GameState.set_setting("rival_recruiting", "")
+	GameState.set_setting("difficulty", "hard")
+	_check(GameState.new_career_dial("board_patience") == "fair" and GameState.new_career_dial("rival_recruiting") == "cutthroat",
+			"An old menu setting starts the next career on the Fair board and the matching rivals")
+	GameState.set_setting("difficulty", "normal")
+	_menu("fair", "shrewd")
 
 
 func _test_trade_margin() -> void:
@@ -218,14 +278,20 @@ func _test_trade_margin() -> void:
 		var b := template.duplicate(true)
 		b["id"] = "me_%d" % i
 		my_list.append(b)
-	var fair := Contracts.evaluate_trade(ai_list, [ai_list[0]], [my_list[0]], 999, my_list, 999, 0.0)
-	var normal := Contracts.evaluate_trade(ai_list, [ai_list[0]], [my_list[0]], 999, my_list, 999,
-			float(GameState.DIFFICULTIES["normal"]["trade_margin"]))
-	_check(bool(fair["ok"]) and not bool(normal["ok"]),
-			"An even swap is accepted on Easy but rivals want a margin on Normal")
-	_check(float(GameState.DIFFICULTIES["hard"]["trade_margin"]) > float(GameState.DIFFICULTIES["normal"]["trade_margin"]),
-			"Rivals drive harder bargains on Hard")
-
+	# The same even swap, offered at each step of the rival dial.
+	var verdicts := {}
+	for key in DifficultyDials.order("rival_recruiting"):
+		_menu("fair", key)
+		GameState.reset()
+		verdicts[key] = bool(Contracts.evaluate_trade(ai_list, [ai_list[0]], [my_list[0]], 999, my_list, 999,
+				float(GameState.difficulty_rules()["trade_margin"]))["ok"])
+	_check(verdicts["easygoing"] and not verdicts["shrewd"] and not verdicts["cutthroat"],
+			"An even swap is accepted by Easygoing rivals but refused by Shrewd and Cut-throat ones (%s)" % str(verdicts))
+	var m := func(key: String) -> float:
+		return float(DifficultyDials.step("rival_recruiting", key)["trade_margin"])
+	_check(m.call("cutthroat") > m.call("shrewd") and m.call("shrewd") > m.call("easygoing"),
+			"Rivals drive harder bargains step by step")
+	_menu("fair", "shrewd")
 
 
 func _test_marquee_games() -> void:

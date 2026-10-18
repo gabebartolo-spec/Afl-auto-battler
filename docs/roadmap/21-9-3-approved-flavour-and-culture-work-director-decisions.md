@@ -56,6 +56,7 @@
 **Exclusions:** constant announcements, music over every score, a second audio system or a licensed-song dependency.
 **Acceptance:** important information is equally clear when muted; routine and genuinely dramatic events sound appropriate; repetition and loudness remain comfortable; watch/skip/replay never repeats a football event.
 **Validation:** original/licensed asset provenance, controls, muted play, simultaneous sound cues, skip/reload, frame/load cost and listening after several matches.
+**2026-10-18:** the four generated menu tracks were removed at the director's instruction ("remove the music too"); the music system and its saved setting stay for his original tracks, and the Settings Music row is hidden until there is a playlist.
 
 ### FL-005 — Harmless fictional-player identity
 **Scope:** optional nicknames and one small personal-interest detail for generated fictional players, visible in existing profiles and natural presentation. Reuse the already-approved nickname/commentary-short-name field in M7-008/009 rather than introduce another alias. Nicknames can be changed/removed without a cost or consequence.

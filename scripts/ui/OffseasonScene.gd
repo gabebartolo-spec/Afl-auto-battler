@@ -271,6 +271,13 @@ func _confirm_release(p: Dictionary) -> void:
 	_release_overlay = box["overlay"]
 	_release_overlay.name = "ReleaseConfirmation"
 	box["body"].add_child(_para("Release %s?" % GameDB.player_display_name(p), 20, UiKit.TEXT))
+	# What the club remembers of him, once (P-37): the drop has a face. Read-only.
+	var kept := Remembered.release_line(p, GameState.career_facts, GameState.my_club,
+			GameState.with_us(p), GameState.LEARN_JOBS)
+	if kept != "":
+		var memory := _para(kept, 14, UiKit.TEXT)
+		memory.name = "ReleaseRemembered"
+		box["body"].add_child(memory)
 	box["body"].add_child(_para("He will leave your list and become a free agent. A delisted player earns no draft pick if he signs elsewhere.", 14, UiKit.TEXT))
 	var release := UiKit.btn("Release player", UiKit.NAME, true)
 	release.name = "ConfirmRelease"
@@ -345,7 +352,9 @@ func _show_talks() -> void:
 	_talk_overlay = box["overlay"]
 	_talk_overlay.name = "ContractTalks"
 	var v: VBoxContainer = box["body"]
-	v.add_child(_para(GameDB.player_display_name(p), 20, UiKit.TEXT))
+	var talk_name := _para(GameDB.player_display_name(p), 20, UiKit.TEXT)
+	talk_name.name = "TalkPlayerName"
+	v.add_child(NameLink.tappable(talk_name, str(p["id"])))
 	v.add_child(_para("Age %d  ·  %d OVR  ·  %s POT  ·  on %s now" % [int(p.get("age", 0)), int(p["overall"]),
 			str(GameState.pot_view(p)["text"]), Contracts.money(int(p.get("salary", 0)))], 13, UiKit.MUTED))
 	# For a free agent his terms include what his options add.
@@ -800,10 +809,15 @@ func _draft_picks(body: VBoxContainer, code: String, chosen: Array, prefix: Stri
 	body.add_child(UiKit.lbl("Draft picks", 14, UiKit.MUTED, true))
 	for pk in picks:
 		var id := str(pk["id"])
-		var b := _asset_button(_pick_label(pk), chosen.has(id))
+		var b := _asset_button(_pick_label(pk, false), chosen.has(id))
 		b.name = prefix + id.replace(":", "_")
 		b.pressed.connect(_toggle.bind(chosen, id))
 		body.add_child(b)
+		# How the club got it: its own, or from whom and for what.
+		var story := _para(GameState.pick_story(int(pk["year"]), int(pk["round"]), str(pk["origin"])),
+				12, UiKit.TEXT)
+		story.name = "PickStory_" + id.replace(":", "_")
+		body.add_child(story)
 
 
 ## A list to add players from, best first: name, position, OVR, POT and age.
@@ -816,11 +830,14 @@ func _pick_grid(body: VBoxContainer, list: Array, chosen: Array, prefix: String)
 		return str(a["id"]) < str(b["id"]))
 	for p in sorted:
 		var id := str(p["id"])
-		var b := _asset_button("%s  ·  %s  ·  %d OVR  ·  %s POT  ·  %d" % [GameDB.player_display_name(p),
+		var b := _asset_button("%s  ·  %s  ·  %d OVR  ·  %s POT  ·  %d%s" % [GameDB.player_display_name(p),
 				Ratings.role_tag(p), int(p["overall"]), str(GameState.pot_view(p)["text"]),
-				int(p.get("age", 0))], chosen.has(id))
+				int(p.get("age", 0)), "  ·  Untouchable" if GameState.is_untouchable(id) else ""], chosen.has(id))
 		b.name = prefix + id
-		b.pressed.connect(_toggle.bind(chosen, id))
+		b.pressed.connect(func():
+			if not NameLink.on_profile_tap(b):
+				_toggle(chosen, id))
+		NameLink.profile_tap_text(b, id)
 		body.add_child(b)
 
 
@@ -843,12 +860,12 @@ func _toggle(chosen: Array, id: String) -> void:
 	_build()
 
 
-func _pick_label(pk: Dictionary) -> String:
+func _pick_label(pk: Dictionary, with_via := true) -> String:
 	var nth: String = ["first", "second", "third", "fourth"][clampi(int(pk["round"]) - 1, 0, 3)]
 	var text := "%d %s round" % [int(pk["year"]), nth]
 	if int(pk["year"]) == GameState.season_year:
 		text += ", No. %d" % int(pk["positions"][0][0])
-	if str(pk["origin"]) != str(pk["owner"]):
+	if with_via and str(pk["origin"]) != str(pk["owner"]):
 		text += " (via %s)" % GameDB.club_name(str(pk["origin"]))
 	return text
 
@@ -899,7 +916,9 @@ func _player_card(p: Dictionary, detail: String) -> PanelContainer:
 	var chip := UiKit.role_chip(Ratings.role_tag(p))
 	chip.custom_minimum_size.x = 72
 	h.add_child(chip)
-	h.add_child(UiKit.ellipsis(GameDB.player_display_name(p), UiKit.BODY, UiKit.TEXT, true))
+	var who := UiKit.ellipsis(GameDB.player_display_name(p), UiKit.BODY, UiKit.TEXT, true)
+	who.name = "PlayerName_" + str(p["id"])
+	h.add_child(NameLink.tappable(who, str(p["id"])))
 	info.add_child(_para(detail, 12, UiKit.MUTED))
 	return card
 

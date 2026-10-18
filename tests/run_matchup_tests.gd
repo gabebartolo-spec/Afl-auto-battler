@@ -35,7 +35,10 @@ func _run() -> void:
 	_failures.append_array(suite.failures)
 	await _hub_tests()
 	await _poster_ball()
+	_former_rules()
+	await _former_player()
 	await _wide_hub_footer()
+	await _phone_footer_fits()
 	await _regular_bye()
 	await _finals_week_by_week()
 	await _finals_cup()
@@ -216,6 +219,57 @@ func _wide_hub_footer() -> void:
 	_check(why == "", "PC: a real tap on Training reaches the button (%s)" % why)
 	hub.queue_free()
 	await _settle()
+	root.size = Vector2i(390, 844)
+
+
+## The hub's bottom row on the phone widths players have (360, 390, 412) and at 320, the
+## narrowest ScreenLayout allows (a 390 px wide window on a desktop is scaled to 320 units,
+## where "Sim the week" was cut to "Sim the we..."): every label shows
+## in full (none ellipsised), each button is thumb-high, the row stays on screen, and a real
+## finger's tap reaches "Sim the week" where it now sits. Checked with no job open on the
+## staff and with one open ("Coaching · 1", the longest label the row carries).
+func _phone_footer_fits() -> void:
+	var db = root.get_node("GameDB")
+	for vacancies in [0, 1]:
+		for w in [320, 360, 390, 412]:
+			_reset()
+			_state.start_season("MEL", db.club_list("MEL"))
+			_state.set_setting("seen_weekly_loop_intro", true)
+			if vacancies > 0:
+				_state.staff_vacancies = [{"reason": "A coach has retired."}]
+			root.size = Vector2i(w, 844)
+			var hub: Control = await _open_hub()
+			var footer: Control = hub.find_child("HubFooter", true, false)
+			var tag := "%d wide, %d open jobs" % [w, vacancies]
+			_check(footer != null, "%s: the bottom row is there" % tag)
+			if footer == null:
+				hub.queue_free()
+				continue
+			var texts: Array = []
+			for b in footer.find_children("*", "Button", true, false):
+				var btn := b as Button
+				texts.append(btn.text)
+				var font: Font = btn.get_theme_font("font")
+				var fs: int = btn.get_theme_font_size("font_size")
+				var sb: StyleBox = btn.get_theme_stylebox("normal")
+				var room := btn.size.x - (sb.get_margin(SIDE_LEFT) + sb.get_margin(SIDE_RIGHT) if sb != null else 0.0)
+				var need := font.get_string_size(btn.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+				_check(need <= room + 0.5, "%s: '%s' shows in full (%.0f px of text in %.0f)" % [tag, btn.text, need, room])
+				_check(btn.size.y >= 44.0, "%s: '%s' is thumb-high (%.0f px)" % [tag, btn.text, btn.size.y])
+			var sim: Button = footer.find_child("SimRound", true, false) as Button
+			_check(sim != null and sim.text == "Sim the week", "%s: the button still says Sim the week (%s)" % [tag, ", ".join(texts)])
+			_check(Rect2(Vector2.ZERO, Vector2(root.size)).grow(1).encloses(footer.get_global_rect()), "%s: the row stays on the phone" % tag)
+			if vacancies == 0 and sim != null:
+				# A real tap at its place (its route unhooked, so the tap does not play a week).
+				for c in sim.pressed.get_connections():
+					sim.pressed.disconnect(c["callable"])
+				var hit := [false]
+				sim.pressed.connect(func(): hit[0] = true)
+				var why: String = await Tap.tap(sim)
+				_check(why == "" and hit[0], "%s: a real tap on Sim the week reaches it (%s)" % [tag, why])
+			hub.queue_free()
+			await _settle()
+	_state.staff_vacancies = []
 	root.size = Vector2i(390, 844)
 
 
@@ -519,6 +573,190 @@ func _poster_ball() -> void:
 			art.dir = "res://assets/ui/models"
 		hub.queue_free()
 		await _settle()
+
+## The one who got away (P-16): the rules on their own. A player who played
+## for you in this career and left is one; one who never played for you, or
+## whose spell with you ended before the game began, is not. The report says
+## what he did only when he played most of it or kicked a goal.
+func _former_rules() -> void:
+	var FP = load("res://scripts/sim/FormerPlayers.gd")
+	var gone := {"id": "fp_gone", "club": "CAR", "career": {"stints": [["FRE", 2026, 2031, 142, 37], ["CAR", 2032, 2032, 9, 2]]}}
+	var never := {"id": "fp_never", "club": "CAR", "career": {"stints": [["CAR", 2027, 2032, 80, 10]]}}
+	var before := {"id": "fp_before", "club": "CAR", "career": {"stints": [["FRE", 2019, 2024, 60, 4], ["CAR", 2026, 2032, 70, 3]]}}
+	var short := {"id": "fp_short", "club": "CAR", "career": {"stints": [["FRE", 2030, 2031, 12, 1]]}}
+	var rows: Array = FP.against([never, short, gone, before], "FRE", 2033, {}, {}, [])
+	_check(rows.size() == 2 and str(rows[0]["id"]) == "fp_gone" and str(rows[1]["id"]) == "fp_short",
+			"Former players: only those who played for you in this career, most games first (%s)" % str(rows.map(func(r): return r["id"])))
+	_check(not rows.is_empty() and int(rows[0]["games"]) == 142 and int(rows[0]["goals"]) == 37
+			and int(rows[0]["from"]) == 2026 and int(rows[0]["to"]) == 2031,
+			"Former players: his games, goals and years for you come from his career")
+	_check(FP.against([gone], "", 2033).is_empty() and FP.against([gone], "CAR", 2033).is_empty(),
+			"Former players: none without a club, and none for the club he plays for now")
+	var cap := {"slots": [{"id": "fp_gone", "role": "captain"}]}
+	var wrap := {"year": 2033, "outs": [{"id": "fp_short", "how": "trade"}, {"id": "fp_gone", "how": "delisted"}]}
+	rows = FP.against([gone, short], "FRE", 2033, wrap, cap, [{"year": 2029, "my_club": "FRE", "my_bf": [{"id": "fp_gone"}]}])
+	_check(rows.size() == 2 and str(rows[0]["role"]) == "captain" and str(rows[0]["how"]) == "delisted" and rows[0]["bf"] == [2029]
+			and str(rows[1]["how"]) == "traded" and bool(rows[1]["moved"]),
+			"Former players: how he left, his role now and his best and fairests are what was kept")
+	if rows.size() < 2:
+		return
+	_check(FP.poster_line(rows[0], "Sam Walsh", "Carlton") == "Sam Walsh, 142 games for you, now Carlton's captain.",
+			"Poster line with a role: %s" % FP.poster_line(rows[0], "Sam Walsh", "Carlton"))
+	_check(FP.poster_line(rows[1], "Jo Bloggs", "Carlton") == "Jo Bloggs, traded to Carlton last year, lines up against you.",
+			"Poster line for last year's trade: %s" % FP.poster_line(rows[1], "Jo Bloggs", "Carlton"))
+	var older: Array = FP.against([short], "FRE", 2034, wrap)
+	_check(older.size() == 1 and FP.poster_line(older[0], "Jo Bloggs", "Carlton") == "Jo Bloggs, 12 games for you, now plays for Carlton.",
+			"An older move is not called last year's")
+	_check(FP.report_line("Sam Walsh", 31, 1) == "Sam Walsh against his old side: 31 touches, 1 goal."
+			and FP.report_line("Sam Walsh", 12, 0) == "Sam Walsh against his old side: 12 touches, no goals.",
+			"Report line: %s" % FP.report_line("Sam Walsh", 31, 1))
+	# Minutes on the ground from the bench and the interchanges: he starts, goes
+	# off at 50 and back on at 80 (90 minutes); a bench player on at 100 (20).
+	var res := {"roster": [[{"id": "m1", "num": 1}], [{"id": "fp_gone", "num": 7}, {"id": "fp_short", "num": 30}, {"id": "b2", "num": 31}]],
+			"bench": [[], [{"id": "fp_short", "num": 30}]],
+			"players": {"fp_gone": {"disposals": 31.0, "goals": 0.0}, "fp_short": {"disposals": 4.0, "goals": 0.0}},
+			"events": [{"kind": "sub", "side": 1, "min": 50, "player_id": "b2", "off_num": 7},
+				{"kind": "sub", "side": 1, "min": 80, "player_id": "fp_gone", "off_num": 31},
+				{"kind": "sub", "side": 1, "min": 100, "player_id": "fp_short", "off_num": 31},
+				{"kind": "final", "side": -1, "min": 120}]}
+	_check(FP.minutes_on(res, 1, "fp_gone") == 90 and FP.minutes_on(res, 1, "fp_short") == 20
+			and FP.minutes_on(res, 1, "nobody") == -1,
+			"Minutes on the ground: %d and %d" % [FP.minutes_on(res, 1, "fp_gone"), FP.minutes_on(res, 1, "fp_short")])
+	var lines: Array = FP.report_lines(res, 0, rows)
+	_check(lines.size() == 1 and str(lines[0]["id"]) == "fp_gone" and str(lines[0]["text"]).ends_with(": 31 touches, no goals."),
+			"Report: only the one who played most of it (%s)" % str(lines))
+	res["players"]["fp_short"]["goals"] = 1.0
+	lines = FP.report_lines(res, 0, rows)
+	_check(lines.size() == 2 and str(lines[1]["id"]) == "fp_short",
+			"Report: a goal off the bench is said too")
+	_check(FP.report_lines(res, 1, rows).is_empty(), "Report: nothing when he is on your side of the sheet")
+
+
+## A Fremantle player let go and now on the next opponent's list: one line under
+## the poster, his name in his new club's ink and a tap on it opens him; nothing
+## for one who never played for you. After the match the report says what he did,
+## only when he played.
+func _former_player() -> void:
+	var db = root.get_node("GameDB")
+	var kit = load("res://scripts/ui/UiKit.gd")
+	var FP = load("res://scripts/sim/FormerPlayers.gd")
+	_reset()
+	_state.set_setting("seen_weekly_loop_intro", true)
+	_state.start_season("FRE", db.club_list("FRE"))
+	root.size = Vector2i(390, 844)
+	var opp := str(_state.my_next_opponent()["code"])
+	var hub := await _open_hub()
+	_check(hub.find_children("FormerPlayer_*", "Control", true, false).is_empty(),
+			"No former-player line when none of yours is on their list")
+	hub.queue_free()
+	await _settle()
+	# Your best player, delisted after 42 games, and one who never played for
+	# you, both now with the opponent.
+	var mine: Array = _state.season.lists["FRE"]
+	var best_i := 0
+	for i in range(mine.size()):
+		if int(mine[i].get("overall", 0)) > int(mine[best_i].get("overall", 0)):
+			best_i = i
+	var gone: Dictionary = mine[best_i]
+	var never: Dictionary = mine[(best_i + 1) % mine.size()]
+	for p in [gone, never]:
+		mine.remove_at(mine.find(p))
+		if _state.my_list.has(p):
+			_state.my_list.erase(p)
+		p["club"] = opp
+		(_state.season.lists[opp] as Array).append(p)
+	gone["career"] = {"games": 42, "goals": 11, "stints": [["FRE", 2023, 2026, 42, 11]], "through": 2025, "unknown": []}
+	never["career"] = {"games": 0, "goals": 0, "stints": [], "through": 2025, "unknown": []}
+	_state.season_wrap = {"year": _state.season_year, "outs": [{"id": str(gone["id"]), "how": "delisted"},
+			{"id": str(never["id"]), "how": "delisted"}], "seen": true}
+	var gname: String = db.player_display_name(gone)
+	var want := "%s, 42 games for you, now plays for %s." % [gname, db.club_name(opp)]
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		var tag := "%dx%d" % [sz.x, sz.y]
+		root.size = sz
+		hub = await _open_hub()
+		current_scene = hub
+		var got := hub.find_children("FormerPlayer_*", "Control", true, false)
+		_check(got.size() == 1 and _plain(got[0]) == want,
+				"%s: one line for the player you let go, not for one who never played for you (%s)" % [tag, " | ".join(got.map(func(c): return _plain(c)))])
+		var line: Control = got[0] if not got.is_empty() else null
+		var ink := (line as RichTextLabel).text if line is RichTextLabel else ""
+		_check(ink.contains("[color=#%s]" % kit.club_ink(opp).to_html(false)) and not ink.contains(kit.club_ink("FRE").to_html(false)),
+				"%s: his name wears %s's ink, not yours" % [tag, opp])
+		if line is RichTextLabel:
+			var sc: Node = line.get_parent()
+			while sc != null and not (sc is ScrollContainer):
+				sc = sc.get_parent()
+			if sc != null:
+				(sc as ScrollContainer).ensure_control_visible(line)
+				await _settle()
+			var opened := await _tap_scan(line, hub)
+			var sheet: Node = hub.get_node_or_null("PlayerProfile")
+			var shown := ""
+			if sheet != null:
+				for c in sheet.find_children("*", "Label", true, false):
+					shown = (c as Label).text
+					break
+			_check(opened and shown == gname, "%s: a tap on his name opens his profile (got '%s')" % [tag, shown])
+		hub.queue_free()
+		current_scene = null
+		await _settle()
+	# His role now leads: made their captain.
+	_state.captaincy[opp] = {"slots": [{"id": str(gone["id"]), "role": "captain"}], "since": _state.season_year}
+	var rows: Array = _state.former_players(opp)
+	_check(rows.size() == 1 and FP.poster_line(rows[0], gname, db.club_name(opp)) == "%s, 42 games for you, now %s's captain." % [gname, db.club_name(opp)],
+			"His captaincy at his new club is in the line")
+	# The match: the report line is there exactly when he played most of it or kicked one.
+	root.size = Vector2i(390, 844)
+	_check(_state.prepare_interactive_match(), "A live match against your former player is prepared")
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	var box: Node = m.find_child("CoachBox", true, false)
+	var start: Button = box.find_child("StartQuarter", true, false) if box != null else null
+	if start != null:
+		start.emit_signal("pressed")
+		await _settle()
+	m.call("_on_skip")
+	for i in range(60):
+		await process_frame
+	var res: Dictionary = m.get("_res")
+	var me := 0 if str(res.get("home", "")) == "FRE" else 1
+	var expect: Array = FP.report_lines(res, me, _state.former_players(opp))
+	var lines := m.find_children("FormerAgainst_*", "Control", true, false)
+	var mins: int = FP.minutes_on(res, 1 - me, str(gone["id"]))
+	_check(not expect.is_empty() and lines.size() == expect.size() and _plain(lines[0]) == str(expect[0]["text"])
+			and _plain(lines[0]).begins_with(gname + " against his old side: "),
+			"The report says what he did against you (%d minutes: %s)" % [mins, " | ".join(lines.map(func(c): return _plain(c)))])
+	var st: Dictionary = (res.get("players", {}) as Dictionary).get(str(gone["id"]), {})
+	_check(not lines.is_empty() and _plain(lines[0]).contains(": %d touch" % int(float(st.get("disposals", 0.0)))),
+			"The report's touches are his from this match")
+	m.queue_free()
+	await _settle()
+
+
+## Touch along a line until a profile opens on `host`.
+func _tap_scan(label: Control, host: Node) -> bool:
+	var r := label.get_global_rect()
+	var y := r.position.y + 8.0
+	while y < r.end.y:
+		var x := r.position.x + 4.0
+		while x < r.end.x:
+			for down in [true, false]:
+				var t := InputEventScreenTouch.new()
+				t.index = 0
+				t.position = Vector2(x, y)
+				t.pressed = down
+				Input.parse_input_event(t)
+				Input.flush_buffered_events()
+				await process_frame
+			await process_frame
+			await process_frame
+			if host.get_node_or_null("PlayerProfile") != null:
+				return true
+			x += 5.0
+		y += 14.0
+	return false
 
 
 func _reset() -> void:

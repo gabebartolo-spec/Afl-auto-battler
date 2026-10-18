@@ -545,12 +545,33 @@ func _music_files() -> void:
 			_check(false, "%s reads as a 16-bit WAV" % p.get_file())
 			continue
 		levels.append(float(w["rms"]))
-		_check(float(w["peak"]) <= PEAK_LIMIT_DB, "%s doesn't clip (peak %.1f dBFS)" % [p.get_file(), w["peak"]])
-		_check(float(w["lead"]) <= MAX_LEAD_SILENCE, "%s starts without a gap (%.2f s)" % [p.get_file(), w["lead"]])
-		_check(float(w["seconds"]) >= 20.0, "%s is a track, not a sting (%.0f s)" % [p.get_file(), w["seconds"]])
-	if levels.size() > 1:
-		_check(levels.max() - levels.min() <= LEVEL_SPREAD_DB,
-				"The tracks sit at one level (%.1f dB apart)" % (levels.max() - levels.min()))
+		_track_checks(p.get_file(), w)
+	_level_spread_check(levels)
+	# Until the director's own tracks arrive the playlist is empty, so the same
+	# checks are shown working on tones written here: a good pair passes, and a
+	# track that sits far from the others in level is caught.
+	var good_a := _write_tone("musicclear_a.wav", 21.0, 0.30)
+	var good_b := _write_tone("musicclear_b.wav", 21.0, 0.25)
+	var loud := _write_tone("musicclear_c.wav", 21.0, 0.05)
+	var short := _write_tone("musicclear_d.wav", 5.0, 0.30)
+	var hot := _write_tone("musicclear_e.wav", 21.0, 0.999)
+	var wa := _wav_levels(good_a)
+	var wb := _wav_levels(good_b)
+	var wc := _wav_levels(loud)
+	_check(not wa.is_empty() and not wb.is_empty() and not wc.is_empty(), "A written tone reads as a 16-bit WAV")
+	if not wa.is_empty() and not wb.is_empty() and not wc.is_empty():
+		_track_checks("reference tone A", wa)
+		_track_checks("reference tone B", wb)
+		_level_spread_check([float(wa["rms"]), float(wb["rms"])])
+		_check(absf(float(wa["rms"]) - float(wc["rms"])) > LEVEL_SPREAD_DB, "Two tracks far apart in level are caught")
+	# A track under 20 seconds is a sting, and one that touches full scale clips.
+	var ws := _wav_levels(short)
+	var wh := _wav_levels(hot)
+	_check(not ws.is_empty() and float(ws["seconds"]) < 20.0, "A five-second tone is caught as a sting, not a track")
+	_check(not wh.is_empty() and float(wh["peak"]) > PEAK_LIMIT_DB, "A tone at full scale is caught as clipping")
+	_check(_wav_levels("res://assets/audio/music/README.md").is_empty(), "A file that is not a WAV is not read as one")
+	for f in [good_a, good_b, loud, short, hot]:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(f))
 	# The tool itself: a clipped, late-starting tone fails.
 	var bad := PackedByteArray()
 	bad.resize(2 * 11025)
@@ -560,6 +581,49 @@ func _music_files() -> void:
 	var bw := _levels_of(bad, 11025, 1)
 	_check(float(bw["peak"]) > PEAK_LIMIT_DB and float(bw["lead"]) > MAX_LEAD_SILENCE,
 			"A clipped track with a gap at the start is caught")
+
+
+func _track_checks(label: String, w: Dictionary) -> void:
+	_check(float(w["peak"]) <= PEAK_LIMIT_DB, "%s doesn't clip (peak %.1f dBFS)" % [label, w["peak"]])
+	_check(float(w["lead"]) <= MAX_LEAD_SILENCE, "%s starts without a gap (%.2f s)" % [label, w["lead"]])
+	_check(float(w["seconds"]) >= 20.0, "%s is a track, not a sting (%.0f s)" % [label, w["seconds"]])
+
+
+func _level_spread_check(levels: Array) -> void:
+	if levels.size() > 1:
+		_check(levels.max() - levels.min() <= LEVEL_SPREAD_DB,
+				"The tracks sit at one level (%.1f dB apart)" % (levels.max() - levels.min()))
+
+
+## Writes a mono 16-bit sine to user:// and returns its path.
+func _write_tone(file_name: String, seconds: float, amp: float) -> String:
+	var rate := 8000
+	var n := int(seconds * rate)
+	var pcm := PackedByteArray()
+	pcm.resize(n * 2)
+	for i in range(n):
+		pcm.encode_s16(i * 2, int(32767.0 * amp * sin(TAU * 220.0 * i / rate)))
+	var head := PackedByteArray()
+	head.resize(44)
+	head.encode_u32(4, 36 + pcm.size())
+	head.encode_u32(16, 16)
+	head.encode_u16(20, 1)
+	head.encode_u16(22, 1)
+	head.encode_u32(24, rate)
+	head.encode_u32(28, rate * 2)
+	head.encode_u16(32, 2)
+	head.encode_u16(34, 16)
+	head.encode_u32(40, pcm.size())
+	for i in range(4):
+		head[i] = "RIFF".unicode_at(i)
+		head[8 + i] = "WAVE".unicode_at(i)
+		head[12 + i] = "fmt ".unicode_at(i)
+		head[36 + i] = "data".unicode_at(i)
+	var path := "user://" + file_name
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_buffer(head + pcm)
+	f.close()
+	return path
 
 
 ## Peak and RMS (dBFS), leading silence and length of a 16-bit PCM WAV, read
@@ -622,7 +686,10 @@ func _music_player() -> void:
 	mm.set_context("hub")
 	_check(player.stream == first and not player.stream_paused, "After the match the same track carries on")
 	player.emit_signal("finished")
-	_check(player.stream != first or (mm.get("_tracks") as Array).size() == 1, "When a track ends the next one starts")
+	if (mm.get("_tracks") as Array).is_empty():
+		_check(player.stream == null and not player.playing, "With no tracks in the playlist the music stays silent, and a track ending breaks nothing")
+	else:
+		_check(player.stream != first or (mm.get("_tracks") as Array).size() == 1, "When a track ends the next one starts")
 	_state.set_sounds_muted(true)
 	_check(AudioServer.is_bus_mute(AudioServer.get_bus_index("Master")), "Mute silences the music")
 	_state.set_sounds_muted(false)
@@ -630,6 +697,16 @@ func _music_player() -> void:
 	# FL-004: music and crowd levels, each on its own bus under Master, saved.
 	_check(player.bus == "Music" and AudioServer.get_bus_send(AudioServer.get_bus_index("Music")) == "Master",
 			"The music has its own level, under Mute sounds")
+	# The Settings sheet (a real control) lists Music only when there is music to turn down.
+	var host := Control.new()
+	root.add_child(host)
+	var options = load("res://scripts/ui/OptionsSheet.gd")
+	var sheet: Control = options.open(host, false)
+	var music_row := sheet.find_child("SettingsMusic", true, false)
+	_check(sheet.find_child("SettingsCrowd", true, false) != null, "The Settings sheet is built")
+	_check((music_row == null) == (mm.get("TRACK_PATHS") as Array).is_empty(),
+			"The Music option is hidden while the playlist is empty")
+	host.queue_free()
 	var crowd := AudioServer.get_bus_index(AudioLevels.bus(AudioLevels.CROWD))
 	_state.set_crowd_level("quiet")
 	_check(_state.crowd_level() == "quiet" and is_equal_approx(AudioServer.get_bus_volume_db(crowd), AudioLevels.QUIET_DB)
@@ -697,7 +774,7 @@ func _banners() -> void:
 	re.compile("\\{[a-z_]+\\}")
 	for t in all:
 		var lines := str(t).split("\n")
-		if lines.size() < 2 or lines.size() > 4:
+		if lines.size() < 1 or lines.size() > 4:
 			bad_lines.append(t)
 		for m in re.search_all(str(t)):
 			if not BANNER_LONGEST.has(m.get_string()):
@@ -708,8 +785,40 @@ func _banners() -> void:
 		for line in filled.split("\n"):
 			if line.length() > 28:
 				too_long.append(line)
-	_check(all.size() >= 140, "The banner file holds its rhymes (%d)" % all.size())
-	_check(bad_lines.is_empty(), "Every banner is 2 to 4 lines (%s)" % str(bad_lines.slice(0, 3)))
+	# 2026-10-18, on the director's order ("remove banner text from the game for now, replace with
+	# placeholder text, i will create original banner text moving forward"): the file holds
+	# placeholders, so the old content checks (a count of 140 rhymes, 2 to 4 lines each) now check
+	# the structure his own texts will drop into, and that no rhyme is left behind.
+	var sets_missing := []
+	for k in ["general", "club", "rivalry", "marquee", "final", "spoon", "first_game", "premiers",
+			"premiers_opposition", "milestone", "must_win"]:
+		if not d.has(k):
+			sets_missing.append(k)
+	_check(sets_missing.is_empty(), "Every banner set is in the file (%s)" % str(sets_missing))
+	var empty := []
+	var leftover := []
+	for t in all:
+		if str(t).strip_edges() == "":
+			empty.append(t)
+		var rest := str(t)
+		for ph in B.PLACEHOLDERS:
+			rest = rest.replace(ph, "")
+		for day in B.RESPECTFUL:
+			rest = rest.replace(day, "")
+		if rest.strip_edges() != "":
+			leftover.append(t)
+	_check(not all.is_empty() and empty.is_empty(), "Every banner text has words (%d texts, %d empty)" % [all.size(), empty.size()])
+	_check(leftover.is_empty(), "No old rhyme is left: a text is only fill-ins and a day's name (%s)" % str(leftover.slice(0, 3)))
+	var pairs := []
+	for r in d.get("rivalry", []):
+		var pr: Array = r.get("pair", [])
+		pairs.append("%s-%s" % [pr[0], pr[1]] if pr.size() == 2 else "?")
+	var pairs_missing := []
+	for want in ["COL-CAR", "ADE-PAD", "HAW-GEE", "FRE-WCE", "ESS-COL", "RIC-CAR", "SYD-GWS", "BRL-GCS", "MEL-COL", "GWS-WBD", "WBD-COL", "PAD-COL"]:
+		if not pairs.has(want):
+			pairs_missing.append(want)
+	_check(pairs_missing.is_empty(), "Every rivalry pair is in the file (%s)" % str(pairs_missing))
+	_check(bad_lines.is_empty(), "Every banner is 1 to 4 lines (%s)" % str(bad_lines.slice(0, 3)))
 	_check(too_long.is_empty(), "Every line fits 28 characters with the longest names filled in (%s)" % str(too_long.slice(0, 3)))
 	_check(unknown.is_empty(), "Banners use only the known fill-ins (%s)" % str(unknown))
 	var missing := []
@@ -761,7 +870,7 @@ func _banners() -> void:
 	var a: String = B.pick(riv)
 	_check(a != "" and a == B.pick(riv), "The same match always gets the same banner")
 	var ms: String = B.pick({"home": "COL", "away": "ESS", "milestone": {"player": "Smith", "games": 100}, "seed": 2})
-	_check(not ms.contains("{") and ms.split("\n").size() >= 2, "A picked banner is filled in, in lines (%s)" % ms)
+	_check(not ms.contains("{") and ms != "", "A picked banner is filled in (%s)" % ms)
 
 
 func _check(condition: bool, message: String) -> void:

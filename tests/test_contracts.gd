@@ -32,6 +32,10 @@ func run() -> void:
 	_test_future_picks()
 	_test_mixed_packages()
 	_test_trade_market()
+	_test_rival_recruiting_dial()
+	_test_pick_provenance()
+	_test_untouchable()
+	_test_pick_order_line()
 	_test_trade_requests()
 	_test_seeded_market_repeats()
 	_test_unproven_potential()
@@ -1493,6 +1497,39 @@ func _test_seeded_market_repeats() -> void:
 	_check(logs[0] == logs[1], "The same seed trades the same way twice")
 
 
+## Rival recruiting: the dial sets how much better off a rival must be to
+## trade with you. In a seeded off-season one real offer is accepted by an
+## Easygoing club and refused by a Cut-throat one, and no offer goes the other way.
+func _test_rival_recruiting_dial() -> void:
+	GameState.set_new_career_dial("rival_recruiting", "shrewd")
+	_new_season()
+	_to_offseason()
+	_check(GameState.offseason_open(), "The off-season is open for the rival dial's trade fixture")
+	var rival := "COL"
+	var mine: Array = GameState.my_list.duplicate()
+	var theirs: Array = (GameState.season.lists[rival] as Array).duplicate()
+	var found := ""
+	var backwards := 0
+	var asked := 0
+	for m in mine:
+		for t in theirs:
+			GameState.rival_recruiting = "easygoing"
+			var easy := bool(GameState.evaluate_trade(rival, [str(m["id"])], [str(t["id"])])["ok"])
+			GameState.rival_recruiting = "cutthroat"
+			var hard := bool(GameState.evaluate_trade(rival, [str(m["id"])], [str(t["id"])])["ok"])
+			asked += 1
+			if hard and not easy:
+				backwards += 1
+			if easy and not hard and found == "":
+				found = "%s for %s" % [str(m["name"]), str(t["name"])]
+		if found != "" and asked > 200:
+			break
+	GameState.rival_recruiting = "shrewd"
+	_check(found != "", "One offer to %s is accepted by Easygoing rivals and refused by Cut-throat ones (%d offers asked)" % [rival, asked])
+	_check(backwards == 0, "No offer is refused by Easygoing rivals yet accepted by Cut-throat ones (%d)" % backwards)
+	GameState.set_new_career_dial("rival_recruiting", "shrewd")
+
+
 func _test_trade_market() -> void:
 	_new_season()
 	_to_offseason()
@@ -1709,6 +1746,232 @@ func _test_trade_market() -> void:
 	var lines: Array = GameState.season_wrap.get("trades", [])
 	var told := lines.any(func(l): return str(l).begins_with("You turned down"))
 	_check(told and lines.size() >= 1 + deals.size(), "The pre-season wrap tells the trade period: %s" % str(lines))
+
+
+## Where a pick came from (P-46): every pick the club holds says how it was
+## got, from the trade record the save keeps; the record follows the pick
+## through a second trade, goes when the pick goes home, survives a save and
+## an older save without it reads plainly.
+func _test_pick_provenance() -> void:
+	_new_season()
+	_to_offseason()
+	GameState.trade_requests = {}
+	GameState.pick_owner = {}   # this test makes its own trades
+	GameState.pick_got = {}
+	var me := GameState.my_club
+	var year := GameState.season_year
+	var rival := "COL"
+	var third := "ESS"
+	var own := GameState.pick_story(year, 2, me)
+	_check(own.begins_with("Your own, ") and own.ends_with("on the ladder")
+			and own.contains(GameState.ordinal(GameState.club_position(me))),
+			"Your own pick says so and where the club finished: %s" % own)
+	_check(GameState.pick_story(year, 2, rival).begins_with("%s's own, " % GameDB.club_name(rival)),
+			"A rival's own pick names the rival: %s" % GameState.pick_story(year, 2, rival))
+	_check(GameState.pick_story(year + 1, 1, me) == "Your own",
+			"Next year's own pick has no ladder place yet: %s" % GameState.pick_story(year + 1, 1, me))
+
+	# You send a pick away for a fringe player: the rival's record says so.
+	var theirs := (GameState.season.lists[rival] as Array).duplicate()
+	theirs.sort_custom(func(a, b): return int(a["overall"]) < int(b["overall"]))
+	var their_weak: Dictionary = theirs[0]
+	var my_first := GameState.pick_id(year, 1, me)
+	var t := GameState.make_trade(rival, [my_first], [str(their_weak["id"])])
+	if not bool(t["ok"]):
+		var mine := GameState.my_list.duplicate()
+		mine.sort_custom(func(a, b): return int(a["overall"]) < int(b["overall"]))
+		t = GameState.make_trade(rival, [my_first, str(mine[0]["id"])], [str(their_weak["id"])])
+	_check(bool(t["ok"]), "A first-round pick buys a fringe player (%s)" % str(t["reason"]))
+	var gone := GameState.pick_story(year, 1, me)
+	_check(gone.begins_with("From you, for %s" % GameDB.player_display_name(their_weak)) and gone.ends_with("%d trade period" % year),
+			"The club that took your pick reads: %s" % gone)
+	_check(GameState.pick_got.has("%d:1:%s" % [year, me]), "The trade record is kept with the pick")
+
+	# You buy a rival's pick with a player: yours now, with the player named.
+	var mine_sorted := GameState.my_list.duplicate()
+	mine_sorted.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+	var bought := ""
+	var paid: Dictionary = {}
+	for rnd in [3, 2]:
+		for k in range(0, 10):
+			if bought != "":
+				break
+			var pid := GameState.pick_id(year, rnd, rival)
+			# A player for a pick and a fringe player, so the list stays at its minimum.
+			if bool(GameState.make_trade(rival, [str(mine_sorted[k]["id"])], [pid, str(theirs[1]["id"])])["ok"]):
+				bought = pid
+				paid = mine_sorted[k]
+	_check(bought != "", "A player buys one of a rival's later picks, with a fringe player back")
+	if bought != "":
+		var parts := bought.split(":")
+		var story := GameState.pick_story(year, int(parts[2]), rival)
+		_check(story == "From %s, for %s, %d trade period" % [GameDB.club_name(rival), GameDB.player_display_name(paid), year],
+				"Your new pick says who it came from, for whom and when: %s" % story)
+		# He is on another list now, but the line still names him.
+		_check(not GameState.my_list.has(paid), "The player you paid with has gone")
+
+		# The rival's pick moves on to a third club: the story names the origin and the last club.
+		var third_list := (GameState.season.lists[third] as Array).duplicate()
+		var third_player: Dictionary = third_list[third_list.size() - 1]
+		GameState._execute_trade(me, third, [GameState.pick_asset(bought)], [third_player])
+		var onward := GameState.pick_story(year, int(parts[2]), rival)
+		_check(onward == "%s's pick, from you, for %s, %d trade period" % [GameDB.club_name(rival),
+				GameDB.player_display_name(third_player), year], "A pick traded on keeps its origin and its last trade: %s" % onward)
+		# Sent home: no story but its own.
+		GameState._execute_trade(third, rival, [GameState.pick_asset(bought)], [])
+		_check(not GameState.pick_got.has("%d:%d:%s" % [year, int(parts[2]), rival])
+				and GameState.pick_story(year, int(parts[2]), rival).begins_with("%s's own" % GameDB.club_name(rival)),
+				"A pick that goes home to its own club is its own again")
+
+	# The record is saved, and a save from before it reads plainly.
+	GameState.pick_got["%d:1:%s" % [year, me]]["gave"] = [{"id": "gone_player", "name": "Sam Example"}]
+	_check(GameState.save_career() and GameState.load_career() and GameState.pick_story(year, 1, me).contains("for Sam Example"),
+			"Where a pick came from survives a save and load, even for a player no longer in the game")
+	var state := CareerSave.read(GameState.save_path)
+	state.erase("pick_got")
+	state.erase("untouchable")
+	CareerSave.write(state, CareerSave.read_meta(GameState.save_path), GameState.save_path)
+	_check(GameState.load_career() and GameState.pick_got.is_empty() and GameState.untouchable.is_empty()
+			and GameState.pick_story(year, 1, me) == "%s's pick, traded in" % GameDB.club_name(me),
+			"A save without the record loads, and the pick reads \"traded in\" with no invented story")
+
+	# Every traded pick has a record when the trades are the game's own.
+	_new_season()
+	_to_offseason()
+	var all_told := true
+	var traded := 0
+	for key in GameState.pick_owner:
+		traded += 1
+		all_told = all_told and GameState.pick_got.has(key) and str(GameState.pick_got[key]["from"]) != str(GameState.pick_owner[key]) \
+				and not (GameState.pick_got[key]["gave"] as Array).is_empty()
+	_check(all_told, "Every pick the rivals traded in the off-season has a record of who gave what (%d picks)" % traded)
+	# Spent picks leave the record with the ownership.
+	var spent_year := GameState.season_year
+	_check(GameState.begin_intake_draft(), "The draft opens")
+	_run_draft()
+	GameState.finish_intake_draft()
+	var left := false
+	for key in GameState.pick_got:
+		left = left or int(str(key).split(":")[0]) <= spent_year
+	_check(not left, "A spent pick's record goes with it")
+
+
+## Mark a player untouchable (P-49): the offers stop asking for him, nothing
+## about him changes, and his own request is still heard.
+func _test_untouchable() -> void:
+	_new_season()
+	_to_offseason()
+	GameState.trade_requests = {}
+	var me := GameState.my_club
+	var prospects := GameState.trade_prospects()
+	GameState.trade_offers = []
+	GameState._make_trade_offers(prospects)
+	var asked: Array = []
+	for o in GameState.trade_offers:
+		asked.append_array(o["take"])
+	_check(not asked.is_empty(), "Rivals ask for some of your players (%d)" % asked.size())
+	var first := str(asked[0]) if not asked.is_empty() else str(GameState.my_list[0]["id"])
+	var before := GameState.list_player(first).duplicate(true)
+	# Marking him withdraws the offer already on the table for him.
+	GameState.set_untouchable(first, true)
+	_check(GameState.is_untouchable(first) and not GameState.open_trade_offers().any(
+			func(i): return (GameState.trade_offers[i]["take"] as Array).has(first)),
+			"Marking him untouchable withdraws the offers for him")
+	_check(str(GameState.list_player(first)) == str(before), "The mark changes nothing about the player")
+	# Everyone asked for is marked: a fresh round of offers names none of them.
+	for id in asked:
+		GameState.set_untouchable(str(id), true)
+	GameState.trade_offers = []
+	GameState._make_trade_offers(prospects)
+	var again: Array = []
+	for o in GameState.trade_offers:
+		again.append_array(o["take"])
+	var leaked := again.filter(func(id): return GameState.is_untouchable(str(id)))
+	_check(leaked.is_empty(), "No rival asks for an untouchable player (%s)" % str(leaked))
+	# Taking the mark off lets them ask again.
+	for id in asked:
+		GameState.set_untouchable(str(id), false)
+	GameState.trade_offers = []
+	GameState._make_trade_offers(prospects)
+	var back: Array = []
+	for o in GameState.trade_offers:
+		back.append_array(o["take"])
+	_check(str(back) == str(asked), "Taking the mark off lets rivals ask for him again")
+	# A player of another club can't be marked, and the table won't take him.
+	var other := str((GameState.season.lists["COL"] as Array)[0]["id"])
+	GameState.set_untouchable(other, true)
+	_check(not GameState.is_untouchable(other), "Only your own players can be marked")
+	GameState.set_untouchable(first, true)
+	var table := GameState.put_on_trade_table(first)
+	_check(not bool(table["ok"]) and str(table["reason"]).contains("untouchable"),
+			"An untouchable player does not go on the trade table: %s" % str(table["reason"]))
+	# A player already tabled: marking takes him off the table, so after the mark
+	# comes off he can be tabled again and the offers return (W7 review).
+	GameState.set_untouchable(first, false)
+	GameState.trade_offers = []
+	GameState.trade_table = []
+	var tabled_id := str(GameState.my_list[0]["id"])
+	var first_go := GameState.put_on_trade_table(tabled_id)
+	_check(bool(first_go["ok"]), "A player goes on the trade table: %s" % str(first_go["reason"]))
+	GameState.set_untouchable(tabled_id, true)
+	_check(not GameState.trade_table.has(tabled_id), "Marking a tabled player takes him off the table")
+	GameState.set_untouchable(tabled_id, false)
+	var second_go := GameState.put_on_trade_table(tabled_id)
+	_check(bool(second_go["ok"]) and (int(first_go["offers"]) == 0 or int(second_go["offers"]) > 0),
+			"After the mark comes off he can be tabled again, with offers (%d then %d): %s" % [
+			int(first_go["offers"]), int(second_go["offers"]), str(second_go["reason"])])
+	GameState.set_untouchable(first, true)
+	# He asked out himself: his request is still heard.
+	var rivals := GameDB.active_clubs(GameState.season_year).filter(func(c): return c != me)
+	GameState.trade_requests = {first: {"club": me, "why": "home", "to": rivals}}
+	GameState.trade_offers = []
+	GameState._make_trade_offers(prospects)
+	_check(GameState.trade_offers.any(func(o): return bool(o.get("request", false)) and (o["take"] as Array).has(first)),
+			"An untouchable player who asked out still draws the offers he asked for")
+	GameState.trade_requests = {}
+	# The mark is saved, and goes when he does.
+	_check(GameState.save_career() and GameState.load_career() and GameState.is_untouchable(first),
+			"The mark survives a save and load")
+	var rival := "COL"
+	var swap = (GameState.season.lists[rival] as Array)[0]
+	GameState._execute_trade(me, rival, [GameState.list_player(first)], [swap])
+	_check(not GameState.is_untouchable(first), "A player traded away is no longer marked")
+
+
+## Where your first pick falls as the ladder settles (P-47): only in the last
+## rounds, in words, from today's ladder and no projection.
+func _test_pick_order_line() -> void:
+	_new_season()
+	var s: Season = GameState.season
+	var me := GameState.my_club
+	var total := s.fixture.size()
+	s.round_index = total - GameState.PICK_LINE_ROUNDS - 1
+	_check(GameState.pick_order_line() == "", "Before the last six rounds the ladder says nothing about the draft")
+	s.round_index = total - GameState.PICK_LINE_ROUNDS
+	var line := GameState.pick_order_line()
+	_check(line.begins_with("Your first pick today: No. ") and line.ends_with("."),
+			"From the last six rounds it says where your first pick would fall: %s" % line)
+	# Today's ladder only: put you last, then first, and the pick follows.
+	var n := s.ladder.size()
+	for c in s.ladder:
+		s.ladder[c]["pts"] = 40
+		s.ladder[c]["pf"] = 1000
+		s.ladder[c]["pa"] = 1000
+	s.ladder[me]["pts"] = 0
+	_check(GameState.pick_order_line().contains("No. 1."), "Last on the ladder, your first pick would be No. 1: %s" % GameState.pick_order_line())
+	s.ladder[me]["pts"] = 400
+	_check(GameState.pick_order_line().contains("No. %d." % n), "On top, it would be No. %d: %s" % [n, GameState.pick_order_line()])
+	# A traded first-rounder is the first pick, and says whose it is.
+	var rival := "COL"
+	GameState.pick_owner = {"%d:1:%s" % [GameState.season_year, me]: rival, "%d:1:%s" % [GameState.season_year, rival]: me}
+	_check(GameState.pick_order_line().contains("%s's" % GameDB.club_name(rival)),
+			"A first-round pick you hold from another club is named: %s" % GameState.pick_order_line())
+	var lc := GameState.pick_order_line().to_lower()
+	_check(not lc.contains("best") and not lc.contains("should") and not lc.contains("tank") and not lc.contains("lose"),
+			"The line gives no advice")
+	s.round_index = total
+	_check(GameState.pick_order_line().begins_with("Your first pick: No. "), "Once the home-and-away is done the pick is settled: %s" % GameState.pick_order_line())
+	GameState.pick_owner = {}
 
 
 ## Offers a club would stand by, each worth to it no more than the most it

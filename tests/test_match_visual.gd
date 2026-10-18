@@ -45,14 +45,19 @@ func run() -> void:
 	_test_flood_shape(res)
 	_test_press_shape(res)
 	_test_centre_setups(res)
+	_test_call_shapes(res)
+	_test_call_playback(res)
+	_test_call_lines(res)
 	_test_farewell()
 	_test_match_ground()
 	_test_discs_apart()
 	_test_clash_kit()
+	_test_label_overlap()
 	_test_sides()
 	_test_bench_strip()
 	_test_ends_change_at_restart(res)
 	_test_upright_oval(res)
+	_test_plan_tint_every_quarter()
 	GameState.replay_seed = 0
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -633,7 +638,7 @@ func _test_boundary_collect(res: Dictionary) -> void:
 			d._pt += 1.0 / 30.0
 			for t in d.tokens:
 				MatchMotion.step(t, 1.0 / 30.0)
-			MatchMotion.separate(d.tokens)
+			MatchMotion.separate(d.tokens, 1.0 / 30.0)
 			if d._done(p):
 				done = true
 				break
@@ -1478,15 +1483,25 @@ func _test_press_shape(res: Dictionary) -> void:
 	d.ball["pos"] = Vector2(-30.0, 0.0)
 	_check(d.press_zone_on(1) and not d.press_zone_on(0), "The zone is on for the press side only, while it hunts")
 	d._poss = 1
-	_check(not d.press_zone_on(1), "...and off when it has the ball")
+	_check(d.press_zone_on(1), "...and stays on when it has the ball: the tint follows the plan")
+	_check(d.press_zone_level(1) == MatchDirector.PRESS_ZONE_STANDING and not d.press_zone_hunting(1), "...at half strength while it has the ball")
+	d._poss = 0
+	_check(d.press_zone_level(1) == 1.0 and d.press_zone_hunting(1), "...and at full strength while it hunts without the ball")
+	d._poss = 1
+	d.ball["pos"] = Vector2(40.0, 0.0)
+	_check(d.press_zone_on(1), "...wherever the ball is")
+	d._tac[1] = {"side": 1, "plan": "balanced", "bursts": []}
+	_check(not d.press_zone_on(1) and d.press_zone_level(1) == 0.0, "...and off under any other plan")
+	d._tac[1] = {"side": 1, "plan": "defensive", "bursts": []}
+	d.ball["pos"] = Vector2(-30.0, 0.0)
 	d._poss = 0
 	MatchDirector.debug_no_press_shape = true
 	_check(not d.press_zone_on(1), "No zone when the shape is off")
 	MatchDirector.debug_no_press_shape = false
 	var pvs = load("res://scripts/ui/PitchView.gd")
 	_check(pvs.ease_fade(0.0) == 0.0 and pvs.ease_fade(1.0) == 1.0 and pvs.ease_fade(0.1) < 0.05
-			and is_equal_approx(pvs.ease_fade(0.5), 0.5) and float(pvs.PRESS_FADE_SECS) >= 0.9,
-			"The zone eases in and out over 0.9 s, not linearly")
+			and is_equal_approx(pvs.ease_fade(0.5), 0.5) and float(pvs.PRESS_FADE_SECS) >= 2.0,
+			"The zone eases in and out over 2.5 s, not linearly")
 	# The tint is the press club's own colour and shows on a phone (director,
 	# 2026-10-13: 0.12 moved a channel 8-11 of 255, a darker turf stripe). At full
 	# strength the mix with the turf must move a channel by at least 12% of the range
@@ -1568,6 +1583,229 @@ func _test_centre_setups(res: Dictionary) -> void:
 	_check(crashed and dropped,
 			"Stacking puts the wings on the square's edge; flooding drops them behind the ball (%s / %s / %s)" % [str(plain), str(stack), str(flood)])
 	d._tac[0] = {}
+
+
+## P-12 (director, 2026-10-18: "the oval answers a structural call"): each call
+## that had no drawn shape now has one, from what the engine does with it,
+## measured against Balanced at three balls (side 0's back half, the middle, its
+## forward half), and only for the side whose recorded call it is.
+func _test_call_shapes(res: Dictionary) -> void:
+	var d := MatchDirector.new()
+	d.setup(res, res["events"])
+	var balls := [Vector2(-30.0, 6.0), Vector2(0.0, -4.0), Vector2(30.0, 8.0)]
+	# Side 0 (attacking +x) with `call`, `poss` in possession: where each of its
+	# players stands for each ball, and what the shape is made of.
+	var stand := func(call: Dictionary, poss: int, side := 0) -> Dictionary:
+		d._tac[side] = call.duplicate()
+		d._tac[side]["side"] = side
+		var pos := []
+		var wide := 0.0
+		var deep := 0.0
+		var ahead := 0
+		var mid_gap := 0.0
+		var star_gap := 0.0
+		var span := 0.0
+		var back := 0.0
+		var n := 0
+		for bp in balls:
+			var front := -1.0e9
+			var rear := 1.0e9
+			for t in d.tokens:
+				if int(t["side"]) != 0:
+					continue
+				var p: Vector2 = d._structure_spot(t, bp, poss)
+				pos.append(p)
+				wide += absf(p.y)
+				deep += p.x
+				n += 1
+				front = maxf(front, p.x)
+				rear = minf(rear, p.x)
+				if p.x > (bp as Vector2).x:
+					ahead += 1
+				if str(t["role"]) == "MID" or str(t["role"]) == "RUCK":
+					mid_gap += p.distance_to(bp)
+				if str(t["role"]) == "DEF":
+					back += p.x
+				if d._is_star(t):
+					star_gap += p.distance_to(bp)
+			span += front - rear
+		d._tac[side] = {}
+		return {"pos": pos, "wide": wide / n, "deep": deep / n, "ahead": ahead, "mid_gap": mid_gap,
+				"star_gap": star_gap / 9.0, "span": span / 3.0, "back": back}
+	var same := func(a: Dictionary, b: Dictionary) -> bool:
+		for i in range((a["pos"] as Array).size()):
+			if ((a["pos"] as Array)[i] as Vector2).distance_to((b["pos"] as Array)[i]) > 0.01:
+				return false
+		return true
+	var plain := {"plan": "balanced", "bursts": []}
+	var bal_has: Dictionary = stand.call(plain, 0)
+	var bal_not: Dictionary = stand.call(plain, 1)
+	# Attack corridor: narrower with the ball, the corridor full; nothing without it.
+	var att: Dictionary = stand.call({"plan": "attacking", "bursts": []}, 0)
+	_check(float(att["wide"]) <= 0.75 * float(bal_has["wide"]) and same.call(stand.call({"plan": "attacking", "bursts": []}, 1), bal_not),
+			"Attack corridor narrows into the corridor with the ball, by a quarter or more (%.1f m from the centre line against %.1f), and only with it" % [float(att["wide"]), float(bal_has["wide"])])
+	# Controlled tempo: wider with the ball and its lines in short around it.
+	var con: Dictionary = stand.call({"plan": "controlled", "bursts": []}, 0)
+	_check(float(con["wide"]) >= 1.15 * float(bal_has["wide"]) and float(con["span"]) <= float(bal_has["span"]) - 8.0
+			and same.call(stand.call({"plan": "controlled", "bursts": []}, 1), bal_not),
+			"Controlled tempo spreads wide with the ball (%.1f m against %.1f) and its lines come in short (%.0f m front to back against %.0f), only with the ball" % [float(con["wide"]), float(bal_has["wide"]), float(con["span"]), float(bal_has["span"])])
+	# Win contest: the midfield on the ball, both ways.
+	var ctn_has: Dictionary = stand.call({"plan": "contest", "bursts": []}, 0)
+	var ctn_not: Dictionary = stand.call({"plan": "contest", "bursts": []}, 1)
+	_check(float(ctn_has["mid_gap"]) <= 0.7 * float(bal_has["mid_gap"]) and float(ctn_not["mid_gap"]) <= 0.7 * float(bal_not["mid_gap"]),
+			"Win contest keeps its midfield on the ball, a third closer or more (%.0f and %.0f m in all against %.0f and %.0f)" % [float(ctn_has["mid_gap"]), float(ctn_not["mid_gap"]), float(bal_has["mid_gap"]), float(bal_not["mid_gap"])])
+	# ...and extra numbers at every stoppage: the centre bounce set up as a
+	# stack (a flood or stack burst still has the say), and a bigger pack at a
+	# ball-up.
+	d._tac[0] = {"side": 0, "plan": "contest", "bursts": []}
+	var centre_ok := d._centre_setup(0) == "stack" and d._centre_setup(1) == ""
+	d._tac[0] = {"side": 0, "plan": "contest", "bursts": ["flood"]}
+	centre_ok = centre_ok and d._centre_setup(0) == "flood"
+	var bu := -1
+	for i in range((res["events"] as Array).size()):
+		if str(res["events"][i].get("kind", "")) == "ballup" and d._next_real(i) >= 0:
+			bu = i
+			break
+	var packs := func(plan: String) -> Array:
+		d._tac[0] = {"side": 0, "plan": plan, "bursts": []}
+		var per := [0, 0]
+		for ph in d._ballup_phases(bu):
+			if str((ph as Dictionary)["t"]) == "pack":
+				for id in (ph as Dictionary)["members"]:
+					per[int(d.tokens[id]["side"])] += 1
+		return per
+	var pack_bal: Array = packs.call("balanced")
+	var pack_ctn: Array = packs.call("contest")
+	_check(centre_ok and bu >= 0 and int(pack_ctn[0]) > int(pack_bal[0]) and int(pack_ctn[0]) >= 3 + MatchDirector.CONTEST_PACK and int(pack_ctn[1]) == int(pack_bal[1]),
+			"Win contest sends extra numbers to every stoppage: a stacked centre bounce, a ball-up pack of %d against %d (the other side's %d unchanged)" % [int(pack_ctn[0]), int(pack_bal[0]), int(pack_ctn[1])])
+	d._tac[0] = {}
+	# Through stars: the three stars stand closest to the ball, with it only.
+	var st: Dictionary = stand.call({"plan": "through_stars", "bursts": []}, 0)
+	_check(float(st["star_gap"]) <= float(bal_has["star_gap"]) - 10.0 and same.call(stand.call({"plan": "through_stars", "bursts": []}, 1), bal_not),
+			"Through stars brings its three stars at least 10 m closer to the ball (%.0f m against %.0f), only with the ball" % [float(st["star_gap"]), float(bal_has["star_gap"])])
+	# ...and the men on them play them tighter (they know where it's going).
+	var tight := func(plan: String) -> float:
+		d._tac[0] = {"side": 0, "plan": plan, "bursts": []}
+		var gap := 0.0
+		for t in d.tokens:
+			if int(t["side"]) == 0 and d._is_star(t):
+				t["goal"] = d._structure_spot(t, balls[1], 0)
+		for t in d.tokens:
+			var o := int(t["match"])
+			if int(t["side"]) == 1 and o >= 0 and d._is_star(d.tokens[o]):
+				gap += (d._structure_spot(t, balls[1], 0) as Vector2).distance_to(d.tokens[o]["goal"])
+		d._tac[0] = {}
+		return gap
+	var gap_bal: float = tight.call("balanced")
+	var gap_st: float = tight.call("through_stars")
+	_check(gap_st < gap_bal - 3.0, "Their opponents stand tighter on the stars (%.0f m in all against %.0f)" % [gap_st, gap_bal])
+	# Throw numbers at it: numbers ahead of the ball with it, the backs high without it.
+	var sg_has: Dictionary = stand.call({"plan": "balanced", "bursts": ["surge"]}, 0)
+	var sg_not: Dictionary = stand.call({"plan": "balanced", "bursts": ["surge"]}, 1)
+	_check(int(sg_has["ahead"]) >= int(bal_has["ahead"]) + 6 and same.call(sg_not, bal_not),
+			"Throw numbers at it puts at least six more players ahead of the ball with it (%d against %d over three balls), a flood in reverse, and only with it" % [int(sg_has["ahead"]), int(bal_has["ahead"])])
+	# Slow it down: deeper both ways, wider with the ball.
+	var hd_has: Dictionary = stand.call({"plan": "balanced", "bursts": ["hold"]}, 0)
+	var hd_not: Dictionary = stand.call({"plan": "balanced", "bursts": ["hold"]}, 1)
+	_check(float(hd_has["deep"]) <= float(bal_has["deep"]) - 10.0 and float(hd_not["deep"]) <= float(bal_not["deep"]) - 10.0
+			and float(hd_has["wide"]) >= 1.15 * float(bal_has["wide"]),
+			"Slow it down sits at least 10 m deeper both ways (%.0f / %.0f against %.0f / %.0f) and spreads wide with the ball" % [float(hd_has["deep"]), float(hd_not["deep"]), float(bal_has["deep"]), float(bal_not["deep"])])
+	# The pace each call moves at comes from the engine's legs.
+	var paces := []
+	for c in [{"plan": "balanced", "bursts": []}, {"plan": "attacking", "bursts": []}, {"plan": "controlled", "bursts": []},
+			{"plan": "balanced", "bursts": ["surge"]}, {"plan": "balanced", "bursts": ["hold"]}]:
+		d._tac[0] = c
+		paces.append(d._call_pace(0))
+	d._tac[0] = {}
+	_check(is_equal_approx(float(paces[0]), 1.0) and float(paces[1]) > 1.0 and float(paces[2]) < 1.0 and float(paces[3]) > 1.0 and float(paces[4]) < 1.0,
+			"Attack corridor and Throw numbers at it move quicker, Controlled tempo and Slow it down slower (%s)" % str(paces))
+	# Only the recorded call: another side's call, a call with no shape here
+	# (the stack) and the capture switch all leave Balanced as it was.
+	var only := true
+	# (Through stars is left out: the men on its stars answering it is the point.)
+	for c in [{"plan": "attacking", "bursts": []}, {"plan": "controlled", "bursts": ["hold"]}, {"plan": "contest", "bursts": ["surge"]}]:
+		d._tac[1] = c.duplicate()
+		only = only and same.call(stand.call(plain, 0), bal_has) and same.call(stand.call(plain, 1), bal_not)
+		d._tac[1] = {}
+	only = only and same.call(stand.call({"plan": "balanced", "bursts": ["stack"]}, 0), bal_has)
+	MatchDirector.debug_no_press_shape = true
+	for c in [{"plan": "attacking", "bursts": ["surge"]}, {"plan": "contest", "bursts": ["hold"]}]:
+		only = only and same.call(stand.call(c, 0), bal_has)
+	MatchDirector.debug_no_press_shape = false
+	_check(only, "A shape changes only for the side whose call it is, and --noshape draws every call as Balanced")
+
+
+## Every call drawn through real playback: the calls change each passage (both
+## sides, every plan and short call), and nobody jumps, leaves the oval or
+## holds up the log.
+func _test_call_playback(res: Dictionary) -> void:
+	var evs: Array = (res["events"] as Array).slice(0, 640)
+	var opening := [{}, {}]
+	for e in res["timeline"]:
+		if int(e["at"]) == 0:
+			opening[int(e["side"])] = e
+	var calls := [[["attacking", ["surge"]], ["contest", ["hold"]]],
+			[["controlled", ["hold"]], ["through_stars", ["surge"]]],
+			[["through_stars", []], ["attacking", ["flood"]]],
+			[["contest", ["surge"]], ["controlled", []]]]
+	var tl := []
+	for k in range(calls.size()):
+		for side in range(2):
+			var e: Dictionary = (opening[side] as Dictionary).duplicate(true)
+			e["at"] = k * 160
+			e["side"] = side
+			e["plan"] = calls[k][side][0]
+			e["bursts"] = calls[k][side][1]
+			tl.append(e)
+	var r2 := res.duplicate()
+	r2["timeline"] = tl
+	var played := _play(r2, evs, 1.0 / 60.0 * 4.0)
+	_check(not played["stalled"] and (played["out"] as Array).size() == evs.size(),
+			"With every call drawn, playback releases all %d events (%d)" % [evs.size(), (played["out"] as Array).size()])
+	_check(int(played["nan"]) == 0 and int(played["outside"]) == 0 and float(played["max_step"]) < 2.2,
+			"With every call drawn, nobody leaves the oval or jumps (%d outside, largest step %.2f m)" % [int(played["outside"]), float(played["max_step"])])
+
+
+## The feed marks a call (P-12): a plan set at quarter time gives one start line,
+## carried on over a break it says so, and a short call running out gives one
+## end line - mid-quarter or at the break, never both. A short call's start
+## has the coach's call line already, so no second line.
+func _test_call_lines(res: Dictionary) -> void:
+	var evs: Array = res["events"]
+	var qs := []
+	for i in range(evs.size()):
+		if str(evs[i].get("kind", "")) == "quarter":
+			qs.append(i)
+	var walk := func(tl: Array) -> Array:
+		var mem := MatchNotes.call_state()
+		var out := []
+		for i in range(evs.size()):
+			for text in MatchNotes.call_lines(tl, i, evs[i], mem, "RIC", "SYD"):
+				out.append([i, str(text)])
+		return out
+	var ric := GameDB.club_name("RIC")
+	var open := [{"at": 0, "side": 0, "plan": "balanced", "bursts": []}, {"at": 0, "side": 1, "plan": "balanced", "bursts": []}]
+	var lines: Array = walk.call(open + [{"at": int(qs[0]) + 1, "side": 0, "plan": "attacking", "bursts": []}])
+	var starts := lines.filter(func(l): return str(l[1]).contains("is on until"))
+	var kept := lines.filter(func(l): return str(l[1]).contains("stays on until"))
+	_check(starts.size() == 1 and int(starts[0][0]) == int(qs[0]) + 1
+			and str(starts[0][1]) == "%s: Attack corridor is on until half time." % ric,
+			"A plan set at quarter time gives one start line, at the next bounce (%s)" % str(starts))
+	_check(kept.size() == 2 and str(kept[0][1]) == "%s: Attack corridor stays on until three-quarter time." % ric,
+			"...and a line at each later break while it stays on (%s)" % str(kept))
+	var burst: Array = walk.call(open + [{"at": 10, "side": 0, "plan": "balanced", "bursts": ["surge"]},
+			{"at": 40, "side": 0, "plan": "balanced", "bursts": []}])
+	_check(burst.size() == 1 and int(burst[0][0]) == 40 and str(burst[0][1]) == "%s: Throw numbers at it ends." % ric,
+			"A short call running out gives one end line, and its start none of its own (%s)" % str(burst))
+	var at_break: Array = walk.call(open + [{"at": 10, "side": 0, "plan": "balanced", "bursts": ["flood"]},
+			{"at": int(qs[0]) + 1, "side": 0, "plan": "balanced", "bursts": []}])
+	_check(at_break.size() == 1 and int(at_break[0][0]) == int(qs[0]) and str(at_break[0][1]) == "%s: Flood behind the ball ends at the break." % ric,
+			"A short call the break ends gives one line, at the break (%s)" % str(at_break))
+	var off: Array = walk.call([{"at": 0, "side": 0, "plan": "defensive", "bursts": []}, open[1],
+			{"at": int(qs[0]) + 1, "side": 0, "plan": "balanced", "bursts": []}])
+	_check(off.size() == 2 and str(off[0][1]) == "%s: Defensive press is on until quarter time." % ric
+			and str(off[1][1]) == "%s: Defensive press ends." % ric,
+			"A plan from the first bounce is marked, and so is its end (%s)" % str(off))
 
 
 ## FL-007: the guard of honour and chaired off after a milestone game. Who it honours,
@@ -1693,9 +1931,7 @@ func _test_discs_apart() -> void:
 			if str(pv.director.ball.get("mode", "")) == "held" and holder >= 0:
 				ball_off = maxf(ball_off, pv.ball_point().distance_to(drawn[holder]) / pv._scale())
 				var order := pv.draw_order()
-				if order.size() != drawn.size() or int(order[-1]) != holder \
-						or int(pv.director.tokens[order[-2]]["side"]) == int(pv.director.tokens[holder]["side"]) \
-						or int(pv.director.tokens[order[-3]]["side"]) == int(pv.director.tokens[holder]["side"]):
+				if order.size() != drawn.size() or int(order[-1]) != holder:
 					top_ok = false
 		closest = sqrt(closest)
 		real_closest = sqrt(real_closest)
@@ -1707,7 +1943,7 @@ func _test_discs_apart() -> void:
 			_check(not pv.playing and worst_nudge_discs <= PitchView.NUDGE_CAP + 0.01,
 					"%s: a disc is drawn within half its width of its player (%.2f of a disc at most; closest pair %.2f of one, the players %.2f)" % [
 					str(view[2]), worst_nudge_discs, closest, real_closest])
-		_check(top_ok, "%s: the man with the ball is drawn last, over the two opponents nearest him" % str(view[2]))
+		_check(top_ok, "%s: the man with the ball is drawn on top of every disc" % str(view[2]))
 		_check(moved_engine == 0, "%s: drawing the discs apart moves no player" % str(view[2]))
 		_check(ball_off <= 1.0, "%s: a held ball is drawn at its holder's disc (%.2f m off)" % [str(view[2]), ball_off])
 		_check(worst_nudge_m < 20.0, "%s: no disc is drawn far from its player (%.1f m at most)" % [str(view[2]), worst_nudge_m])
@@ -1746,39 +1982,57 @@ func _test_discs_apart() -> void:
 func _test_clash_kit() -> void:
 	var fm: Array = PitchView.kits_for("FRE", "MEL")
 	var mel: Dictionary = GameDB.club_guernsey("MEL")
-	_check(bool(fm[1].get("clash", false)) and fm[1]["base"] == mel["pattern"] and fm[1]["pattern"] == mel["base"],
-			"Melbourne wear their clash strip at Fremantle: red with a navy yoke, their own two colours changed over")
-	_check(fm[0] == GameDB.club_guernsey("FRE"), "The home side always wears its own kit")
-	_check(UiKit.colour_distance(fm[0]["base"], fm[1]["base"]) >= PitchView.DISC_CLASH,
-			"After the swap the two bases are no longer alike")
-	var ws: Array = PitchView.kits_for("WBD", "STK")
-	_check(not ws[1].has("clash") and ws[1] == GameDB.club_guernsey("STK") and ws[0] == GameDB.club_guernsey("WBD"),
-			"The Bulldogs and St Kilda do not clash: both wear their own kit")
-	# Every pair of today's clubs: who swaps, in what, and whether it is enough.
-	var swaps := []
-	var foreign := []
+	_check(bool(fm[1].get("clash", false)) and fm[1]["base"] != mel["base"],
+			"Melbourne change their body colour at Fremantle")
+	_check(fm[0]["base"] == GameDB.club_guernsey("FRE")["base"] and fm[0]["design"] == GameDB.club_guernsey("FRE")["design"],
+			"The home side always wears its own kit")
+	var hw: Array = PitchView.kits_for("HAW", "WCE")
+	_check(not hw[1].has("clash") and hw[1]["base"] == GameDB.club_guernsey("WCE")["base"],
+			"Hawthorn and West Coast do not clash: both wear their own kit")
+	# Adelaide v Melbourne, the pair the director found alike (2026-10-14): each way.
+	for pair in [["ADE", "MEL"], ["MEL", "ADE"]]:
+		var k: Array = PitchView.kits_for(str(pair[0]), str(pair[1]))
+		_check(PitchView.disc_distance(k[0], k[1]) >= PitchView.DISC_CLASH,
+				"%s v %s: the two discs are plainly different (%.0f)" % [pair[0], pair[1], PitchView.disc_distance(k[0], k[1])])
+	# The third colour defines the club: Adelaide's disc carries its gold.
+	var ade: Dictionary = PitchView.with_trim("ADE", GameDB.club_guernsey("ADE"))
+	_check(ade.get("ring", null) != null and (ade["ring"] as Color).is_equal_approx(GameDB.club_colours("ADE")[2]),
+			"Adelaide's disc has a ring of its gold")
+	_check(PitchView.with_trim("MEL", GameDB.club_guernsey("MEL")).get("ring", null) == null,
+			"Melbourne's disc has no third colour")
+	# Every one of the 306 home-and-away pairs of today's 18 clubs, after the clash rule.
+	var swaps := 0
+	var worst := 1000.0
 	var alike := []
-	var left := []
+	var foreign := []
 	for h in GameDB.CLUB_ORDER.slice(0, 18):
 		for a in GameDB.CLUB_ORDER.slice(0, 18):
 			if h == a:
 				continue
-			var own: Dictionary = GameDB.club_guernsey(str(a))
-			var k: Array = PitchView.kits_for(str(h), str(a))
-			var d := UiKit.colour_distance(k[0]["base"], k[1]["base"])
-			if bool(k[1].get("clash", false)):
-				swaps.append("%s v %s" % [h, a])
-				if k[1]["base"] != own["pattern"] or k[1]["pattern"] != own["base"] or k[1]["design"] != own["design"]:
+			var k2: Array = PitchView.kits_for(str(h), str(a))
+			var d: float = PitchView.disc_distance(k2[0], k2[1])
+			worst = minf(worst, d)
+			if bool(k2[1].get("clash", false)):
+				swaps += 1
+				# Only the club's own colours (or its white) are ever used.
+				var own: Array = GameDB.club_colours(str(a))
+				var okc := false
+				own.append(Color.WHITE)
+				for c in own:
+					if (c as Color).is_equal_approx(k2[1]["base"]):
+						okc = true
+				if not okc:
 					foreign.append("%s v %s" % [h, a])
-				if d < PitchView.DISC_CLASH:
-					alike.append("%s v %s (%.0f)" % [h, a, d])
-			elif d < PitchView.DISC_CLASH:
-				left.append("%s v %s (%.0f)" % [h, a, d])
-	print("  clash strips, %d of 306 home-and-away pairs: %s" % [swaps.size(), ", ".join(swaps)])
-	_check(swaps.size() == 88, "88 home-and-away pairs of today's 18 clubs put the away side in its clash strip (%d)" % swaps.size())
-	_check(foreign.is_empty(), "A clash strip uses only that club's own two kit colours and its own design (%s)" % ", ".join(foreign))
-	_check(alike.is_empty(), "No clash strip still looks like the home side (%s)" % ", ".join(alike))
-	_check(left.is_empty(), "No pair is left alike with nothing to swap to (%s)" % ", ".join(left))
+			if d < PitchView.DISC_CLASH:
+				alike.append("%s v %s (%.0f)" % [h, a, d])
+	print("  clash strips, %d of 306 home-and-away pairs; closest pair %.0f" % [swaps, worst])
+	_check(alike.is_empty(), "All 306 pairs: the two discs are plainly different (%s)" % ", ".join(alike))
+	_check(swaps > 0 and swaps < 306, "Some, not all, of the pairs put the away side in a clash strip (%d)" % swaps)
+	_check(foreign.is_empty(), "A clash strip uses only that club's own colours (%s)" % ", ".join(foreign))
+	# The number reads: near-black on a light body, white on a dark one.
+	var ric: Array = PitchView.number_inks(GameDB.club_guernsey("RIC").merged({"base": Color("#FFD200"), "design": "plain", "pattern": Color("#FFD200")}))
+	_check((ric[0] as Color).get_luminance() < 0.2, "The number is dark on a yellow disc")
+	_check((PitchView.number_inks(GameDB.club_guernsey("MEL"))[0] as Color).get_luminance() > 0.8, "The number is white on a navy disc")
 	var pv := PitchView.new()
 	pv.size = Vector2(370, 490)
 	var res := _sim(31, "FRE", "MEL").run()
@@ -1805,6 +2059,85 @@ func _test_clash_kit() -> void:
 			if box.grow(tr).has_point(d2):
 				covered += 1
 	_check(shown > 50 and covered == 0, "The call over the play covers no disc (%d frames with a call, %d discs covered)" % [shown, covered])
+	pv.free()
+
+
+## The surnames under the discs never run over one another or over another
+## player's disc and number (director, 2026-10-14: "van Rooyenrell"), and the
+## ball carrier's is never dropped. Seeded match, every frame of play at a phone
+## size, checked on the frames with the most names.
+func _test_label_overlap() -> void:
+	# A real match (three of your players ringed) and the most names a frame can
+	# carry (everyone ringed).
+	_label_run("a few ringed", 3)
+	_label_run("everyone ringed", 99)
+
+
+func _label_run(what: String, ringed_count: int) -> void:
+	var pv := PitchView.new()
+	pv.size = Vector2(370, 490)
+	var res := _sim(31, "ADE", "MEL").run()
+	res["home"] = "ADE"
+	res["away"] = "MEL"
+	pv.setup(res)
+	var ringed := {}
+	for t in pv.director.tokens:
+		if ringed.size() < ringed_count:
+			ringed[str(t.get("pid", ""))] = true
+	pv.rings = ringed
+	pv.set_speed(4.0)
+	pv.play()
+	var frames := 0
+	var names := 0
+	var bad := 0
+	var far := 0
+	var twice := 0
+	var missing := 0
+	var guard := 0
+	while pv.playing and guard < 3000:
+		guard += 1
+		pv._process(1.0 / 30.0)
+		if guard % 6 != 0:
+			continue
+		var tr := pv.token_radius()
+		var fs := clampi(int(tr * 1.15), 9, 12)
+		var discs := pv.disc_positions()
+		var lay := pv.role_label_layout(tr, fs)
+		var wanted := pv.label_wanted()
+		var captioned := int(pv._caption["tok"]) if not pv._caption.is_empty() else -1
+		frames += 1
+		names += lay.size()
+		var seen := {}
+		for i in range(lay.size()):
+			var id := int(lay[i]["id"])
+			var r: Rect2 = lay[i]["rect"]
+			if seen.has(id) or id == captioned:
+				twice += 1
+			seen[id] = true
+			for j in range(i + 1, lay.size()):
+				if r.intersects(lay[j]["rect"] as Rect2):
+					bad += 1
+			var c: Vector2 = discs[id]
+			if Vector2(clampf(c.x, r.position.x, r.end.x), clampf(c.y, r.position.y, r.end.y)).distance_to(c) > tr * 2.2:
+				far += 1
+		# Every player who should be named, and is on screen, has his name.
+		for id in wanted:
+			var t: Dictionary = pv.director.tokens[id]
+			var p: Vector2 = discs[id]
+			if int(id) == captioned or float(t.get("down", 0.0)) > 0.0 or str(t.get("surname", "")) == "" 					or p.x < 0.0 or p.y < 0.0 or p.x > pv.size.x or p.y > pv.size.y:
+				continue
+			if not seen.has(int(id)):
+				missing += 1
+	print("  labels (%s): frames %d, names %d, name overlaps %d, far from disc %d, named twice %d, missing %d" % [what, frames, names, bad, far, twice, missing])
+	_check(frames > 50 and names > frames, "The name test saw busy frames, %s (%d frames, %d names)" % [what, frames, names])
+	_check(bad == 0, "No name overlaps another name, %s (%d)" % [what, bad])
+	# With everyone ringed 36 names cannot all fit beside their discs; a real
+	# match (a few ringed) must, but for a pack so tight that a name finds no free
+	# place beside its disc: that is allowed in at most 1 frame in 50.
+	var real_match := ringed_count < 10
+	_check(far == 0 or not real_match, "Every name sits beside its own disc, %s (%d too far)" % [what, far])
+	_check(twice == 0, "A player's name is drawn once, not under his disc and again in the caption, %s (%d)" % [what, twice])
+	_check(missing <= frames / 50 or not real_match, "Every named player on screen has his name, %s (%d missing in %d frames)" % [what, missing, frames])
 	pv.free()
 
 
@@ -2149,3 +2482,44 @@ func _test_upright_oval(res: Dictionary) -> void:
 				bad.append("over bench disc %d" % int(sp["num"]))
 	_check(bad.is_empty(), "Upright, a goal's ring stays in the view and off the bench at both ends (%s)" % ", ".join(bad))
 	pv2.free()
+
+
+## The press tint follows the game plan in every quarter, and a plan changed at
+## a break shows from the next quarter (director, 2026-10-14: seen in Q1, then
+## gone). A match played quarter by quarter as the coach plays it live: the plan
+## set at each break, the new events and timeline handed to the same director.
+func _test_plan_tint_every_quarter() -> void:
+	var plans := ["defensive", "defensive", "balanced", "defensive"]
+	for my_side in [0, 1]:
+		var sim := MatchSim.new(Squad.new("ADE", GameDB.club_list("ADE"), true, "ADE"),
+				Squad.new("MEL", GameDB.club_list("MEL"), false, "MEL"), 11)
+		var d := MatchDirector.new()
+		var evs: Array = []
+		var cursor := 0
+		var shown := []
+		for q in range(4):
+			sim.set_tactics(my_side, {"gameplan": plans[q], "focus_id": "", "tag_id": "", "pep": "steady"})
+			sim.set_tactics(1 - my_side, {"gameplan": "balanced", "focus_id": "", "tag_id": "", "pep": "steady"})
+			var res := sim.run_quarter()
+			res["home"] = "ADE"
+			res["away"] = "MEL"
+			res["label"] = "Round 1"
+			if q == 0:
+				d.setup(res, evs)
+			var all: Array = res["events"]
+			evs.append_array(all.slice(cursor))
+			cursor = all.size()
+			d.set_timeline(res["timeline"])
+			var on := 0
+			var ticks := 0
+			var guard := 0
+			while not d.idle() and guard < 100000:
+				guard += 1
+				d.advance(1.0 / 15.0)
+				ticks += 1
+				if d.press_zone_on(my_side):
+					on += 1
+			shown.append(float(on) / float(maxi(1, ticks)))
+		_check(float(shown[0]) > 0.97 and float(shown[1]) > 0.97 and float(shown[3]) > 0.97,
+				"Side %d: the press tint shows through the quarters of its plan (%s)" % [my_side, str(shown)])
+		_check(float(shown[2]) < 0.03, "Side %d: the tint is gone in the quarter the plan was changed (%s)" % [my_side, str(shown)])
