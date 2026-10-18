@@ -34,6 +34,10 @@ var draft: Draft = null
 var league_lists := {}
 var pending_match: Dictionary = {}
 var pending_sim: MatchSim = null
+## A fact on the hub's next-match card whose response was tapped (P-13): which call
+## the pre-bounce pane opens on, and the fact it restates above it. {"call", "plan",
+## "player_id", "fact"}. Never saved; the match screen takes it once.
+var call_intent: Dictionary = {}
 ## How the match now being set up is taken (MATCH_WAYS): the poster's choice,
 ## read once when the live match is prepared. The intra-club match is always
 ## watched. The match screen reads it; it never reaches the sim.
@@ -2285,6 +2289,9 @@ func finish_interactive_match(res: Dictionary) -> void:
 	if pending_phase == "intra":
 		_finish_live_intra(res)
 		return
+	if pending_phase == "practice":
+		_finish_live_practice(res)
+		return
 	if pending_phase == "finals":
 		_finish_interactive_final(res)
 		return
@@ -2642,6 +2649,9 @@ func preseason_stop() -> String:
 	if str(PreSeason.STOPS.get(w, "")) == "intra" and preseason.get("intra") is Dictionary \
 			and not bool((preseason["intra"] as Dictionary).get("seen", false)):
 		return "intra"
+	# The practice match, the same way: the opponent and the trial, then the report.
+	if str(PreSeason.STOPS.get(w, "")) == "practice" and preseason.get("practice") is Dictionary 			and not bool((preseason["practice"] as Dictionary).get("seen", false)):
+		return "practice"
 	# The story cards the block threw up (data/stories, phase "preseason").
 	if bool(preseason.get("story_pending", false)):
 		return "story"
@@ -2719,7 +2729,7 @@ func preseason_trial() -> Dictionary:
 func preseason_step_week() -> String:
 	if not preseason_active():
 		return "done"
-	if ["trial", "intra", "story"].has(preseason_stop()):
+	if ["trial", "intra", "practice", "story"].has(preseason_stop()):
 		return preseason_stop()
 	var w := preseason_week() + 1
 	var clubs: Dictionary = preseason.get("clubs", {})
@@ -2740,6 +2750,9 @@ func preseason_step_week() -> String:
 		_ai_intras(clubs)
 		preseason["intra"] = {"mode": "even", "invites": [], "played": false, "seen": false}
 		return "intra"
+	if str(PreSeason.STOPS.get(w, "")) == "practice" and _ai_practices(clubs):
+		# Every other pair of clubs plays its own that week; yours waits for you.
+		return "practice"
 	if w >= PreSeason.weeks():
 		_finish_preseason()
 		return "done"
@@ -2987,6 +3000,13 @@ func preseason_advance() -> String:
 			autosave()
 			return "intra"
 		(preseason["intra"] as Dictionary)["seen"] = true
+	elif preseason_stop() == "practice":
+		if not practice_played():
+			sim_practice_match()
+			mark_dirty()
+			autosave()
+			return "practice"
+		(preseason["practice"] as Dictionary)["seen"] = true
 	var at := ""
 	while at == "":
 		at = preseason_step_week()
@@ -3016,6 +3036,10 @@ func preseason_sim_to_round1() -> void:
 			if not intra_played():
 				sim_intra_match()
 			(preseason["intra"] as Dictionary)["seen"] = true
+		if preseason_stop() == "practice":
+			if not practice_played():
+				sim_practice_match()
+			(preseason["practice"] as Dictionary)["seen"] = true
 		preseason_step_week()
 	mark_dirty()
 	autosave()
@@ -3178,10 +3202,10 @@ func intra_fill_invites() -> void:
 
 ## The `n` prospects a club's recruiters rate highest (after `have`), by the
 ## read that club has of them: [ids], `have` not included.
-func _intra_picks(club: String, n: int, have: Array, scouting_mult: float) -> Array:
+func _intra_picks(club: String, n: int, have: Array, scouting_mult: float, skip := []) -> Array:
 	var rows := []
 	for p in intra_prospects():
-		if have.has(str(p["id"])):
+		if have.has(str(p["id"])) or skip.has(str(p["id"])):
 			continue
 		rows.append([DraftScouting.scouted_worth(p, club, career_seed, 0.5, scouting_mult), str(p["id"])])
 	rows.sort_custom(_higher_row)
@@ -3417,6 +3441,340 @@ func _finish_live_intra(res: Dictionary) -> void:
 	autosave()
 
 
+# ---------------------------------------------------------------------------
+# The practice match (PreSeason.gd): end of week 7, one match against another
+# club, behind the same switch. No ladder, no season record, no points.
+# ---------------------------------------------------------------------------
+## Yours, this pre-season: {"opponent", "invites": [prospect ids], "played",
+## "seen", "report"}. {} before week 7, or when no club was left to play.
+## (The hook for plan familiarity: a played practice match is
+## preseason["practice"]["played"], with your plan in club_plan.)
+func preseason_practice() -> Dictionary:
+	return preseason.get("practice", {}) if preseason.get("practice") is Dictionary else {}
+
+
+func practice_played() -> bool:
+	return bool(preseason_practice().get("played", false))
+
+
+## The club you play, or "".
+func practice_opponent() -> String:
+	return str(preseason_practice().get("opponent", ""))
+
+
+func practice_invites() -> Array:
+	return preseason_practice().get("invites", [])
+
+
+## Trial a prospect, or take the invitation back. False when the places are
+## taken, he is not in the class, or the match is played.
+func toggle_practice_invite(id: String) -> bool:
+	if preseason_stop() != "practice" or practice_played():
+		return false
+	var invites: Array = practice_invites()
+	if invites.has(id):
+		invites.erase(id)
+		mark_dirty()
+		return true
+	var known := false
+	for p in intra_prospects():
+		known = known or str(p.get("id", "")) == id
+	if not known or invites.size() >= PreSeason.practice_guests():
+		return false
+	invites.append(id)
+	(preseason["practice"] as Dictionary)["invites"] = invites
+	mark_dirty()
+	return true
+
+
+## The club's side for the day: its named side (or the best available) with
+## each invited prospect in place of the weakest starter in his line. Every
+## listed player carries half a match's injury risk for it; a prospect plays
+## as a copy with a spare number and cannot be hurt.
+## Returns {"squad", "ids": [everyone in it], "guests": [prospect ids]}.
+func _practice_squad(code: String, is_home: bool, invites: Array) -> Dictionary:
+	var list: Array = season.lists[code]
+	var rate := float(PreSeason.tune("practice_injury_rate"))
+	for p in list:
+		p["cond_injury"] = rate
+	var sq := Squad.new(GameDB.club_name(code), list, is_home, code, season.selections.get(code, {}))
+	var used := {}
+	for p in list:
+		used[int(p.get("num", 0))] = true
+	var number := int(PreSeason.tune("intra_spare_number"))
+	var pool := {}
+	for p in intra_prospects():
+		pool[str(p["id"])] = p
+	var ranked := []
+	for id in invites:
+		if pool.has(str(id)):
+			ranked.append(pool[str(id)])
+	ranked.sort_custom(_better_rated)
+	var replaced := {}
+	var guests := []
+	for p in ranked:
+		while used.has(number):
+			number += 1
+		used[number] = true
+		var g := PreSeason.intra_guest(p, number, code)
+		var at := -1
+		for pass_same in [true, false]:
+			for i in range(sq.ground.size()):
+				if replaced.has(i) or (pass_same and str(sq.ground[i]["role"]) != str(g.get("role", ""))):
+					continue
+				if at < 0 or float(sq.ground[i]["overall"]) < float(sq.ground[at]["overall"]):
+					at = i
+			if at >= 0:
+				break
+		if at < 0:
+			continue
+		var slot := Ratings._for_slot(g, str(sq.ground[at]["role"]))
+		if sq.ground[at].has("line"):
+			slot["line"] = sq.ground[at]["line"]
+		sq.ground[at] = slot
+		replaced[at] = true
+		guests.append(str(g["id"]))
+	if not guests.is_empty():
+		sq._aggregate()
+	sq.form = season.club_form(code)
+	var ids := []
+	for p in sq.ground + sq.bench:
+		ids.append(str(p["id"]))
+	return {"squad": sq, "ids": ids, "guests": guests}
+
+
+## What trialling costs your side for the day, for the stop's Cost line: how
+## far, as a percentage, each prospect rates below the starter he would replace
+## (the same swap _practice_squad makes), averaged over the ones chosen, or over
+## every prospect on offer before any is chosen. 0 when none rates below. Reads
+## the side; changes nothing.
+func practice_trial_gap_pct(invites: Array) -> int:
+	if season == null or not season.lists.has(my_club):
+		return 0
+	var sq := Squad.new(GameDB.club_name(my_club), season.lists[my_club], true, my_club, season.selections.get(my_club, {}))
+	var pool := []
+	for p in intra_prospects():
+		if invites.is_empty() or invites.has(str(p["id"])):
+			pool.append(p)
+	var total := 0.0
+	var n := 0
+	for p in pool:
+		var g := PreSeason.intra_guest(p, 0, my_club)
+		var at := -1
+		for pass_same in [true, false]:
+			for i in range(sq.ground.size()):
+				if pass_same and str(sq.ground[i]["role"]) != str(g.get("role", "")):
+					continue
+				if at < 0 or float(sq.ground[i]["overall"]) < float(sq.ground[at]["overall"]):
+					at = i
+			if at >= 0:
+				break
+		if at < 0:
+			continue
+		var starter := float(sq.ground[at]["overall"])
+		var slot := Ratings._for_slot(g, str(sq.ground[at]["role"]))
+		if starter > 0.0:
+			total += maxf(0.0, (starter - float(slot["overall"])) / starter * 100.0)
+			n += 1
+	return roundi(total / float(n)) if n > 0 else 0
+
+
+## A practice match between two clubs: {"sim", "home", "away", "ids": {club:
+## [ids]}, "guests": {club: [prospect ids]}}. Your side takes your game plan.
+func _practice_build(home: String, away: String, home_invites: Array, away_invites: Array) -> Dictionary:
+	var h := _practice_squad(home, true, home_invites)
+	var a := _practice_squad(away, false, away_invites)
+	CoachEffects.apply(h["squad"])
+	CoachEffects.apply(a["squad"])
+	var sim := MatchSim.new(h["squad"], a["squad"], PreSeason.practice_seed(career_seed, season_year, home, away))
+	for side in range(2):
+		if [home, away][side] == my_club:
+			sim.set_tactics(side, {"gameplan": club_plan})
+			sim.set_matchups(side, my_matchups)
+	var started := {}
+	for p in (h["squad"] as Squad).ground + (a["squad"] as Squad).ground:
+		started[str(p["id"])] = true
+	return {"sim": sim, "home": home, "away": away, "started": started,
+			"ids": {home: h["ids"], away: a["ids"]}, "guests": {home: h["guests"], away: a["guests"]}}
+
+
+## What a practice match leaves behind, at either club: a reserves game's
+## development for the listed players who played, any injury to a listed
+## player (never a prospect), and the club's note on each prospect it
+## trialled. Nothing reaches the ladder, the season's statistics, votes,
+## records or the board. Returns your report (for your club), or {}.
+func _practice_finish(club: String, built: Dictionary, res: Dictionary) -> Dictionary:
+	var stats_all: Dictionary = res.get("players", {})
+	var guests: Array = (built["guests"] as Dictionary).get(club, [])
+	var played := {}
+	for id in (built["ids"] as Dictionary).get(club, []):
+		played[str(id)] = true
+	var list: Array = season.lists[club]
+	for p in list:
+		p.erase("cond_injury")
+	var staff: Dictionary = CoachEffects.staffs(coaches).get(club, {}) if not coaches.is_empty() else {}
+	var xp := int(round(float(reserves_xp()) * float(PreSeason.tune("practice_xp_games"))))
+	for p in list:
+		if not played.has(str(p["id"])):
+			continue
+		p["xp"] = int(p.get("xp", 0)) + _club_xp(club, p, xp, staff, false)
+		if club != my_club:
+			ai_spend_xp(p)
+	if club == my_club:
+		apply_train_plans()
+	var rows := []
+	var w := preseason_week()
+	for inj in res.get("injuries", []):
+		var id := str(inj["id"])
+		if guests.has(id):
+			continue
+		for p in list:
+			if str(p["id"]) != id or int(p.get("injury_weeks", 0)) > 0:
+				continue
+			p["injury_weeks"] = int(inj["weeks"])
+			p["injury_kind"] = str(inj["kind"])
+			rows.append({"id": id, "club": club, "week": w, "weeks": int(inj["weeks"]), "kind": str(inj["kind"]), "how": "practice"})
+			if club == my_club:
+				add_news("injury", "%s (%s, %s) was hurt in the practice match." % [
+						GameDB.player_display_name(p), str(inj["kind"]), _weeks_text(int(inj["weeks"]))], "Pre-season")
+	if not rows.is_empty():
+		if not (preseason.get("injuries") is Array):
+			preseason["injuries"] = []
+		(preseason["injuries"] as Array).append_array(rows)
+		_log_injuries(rows, "Practice match")
+	var seen_rows := []
+	for p in draftee_pool:
+		var id := str(p.get("id", ""))
+		if not guests.has(id):
+			continue
+		var line := PreSeason.prospect_line(stats_all.get(id, {}))
+		if not (p.get("seen") is Dictionary):
+			p["seen"] = {}
+		(p["seen"] as Dictionary)[club] = {"year": season_year, "line": line, "kind": "practice"}
+		seen_rows.append({"id": id, "line": line})
+	if club != my_club:
+		return {}
+	# Your report, by the match's own player rating: listed players only;
+	# "struggled" is among those who started on the ground.
+	var started: Dictionary = built.get("started", {})
+	var scored := []
+	for p in list:
+		if played.has(str(p["id"])) and stats_all.has(str(p["id"])):
+			scored.append([MatchNotes.rating(stats_all[str(p["id"])]), str(p["id"])])
+	scored.sort_custom(_higher_row)
+	var stood := []
+	var struggled := []
+	for i in range(mini(3, scored.size())):
+		stood.append(str(scored[i][1]))
+	for i in range(scored.size() - 1, 2, -1):
+		if struggled.size() < 2 and started.has(str(scored[i][1])):
+			struggled.append(str(scored[i][1]))
+	var hurt := []
+	for r in rows:
+		var hp := list_player(str(r["id"]))
+		hurt.append("%s (%s, %s)" % [GameDB.player_display_name(hp), str(r["kind"]), _weeks_text(int(r["weeks"]))])
+	last_injuries = rows
+	var score: Array = res.get("score", [0, 0])
+	return {"score": [int(score[0]), int(score[1])], "goals": res.get("goals", [0, 0]), "behinds": res.get("behinds", [0, 0]),
+			"names": [GameDB.club_name(str(built["home"])), GameDB.club_name(str(built["away"]))],
+			"opponent": str(built["away"]),
+			"stood": stood, "struggled": struggled, "hurt": hurt, "prospects": seen_rows}
+
+
+## Every other pair of clubs plays its practice match: each club's recruiters
+## choose the prospects to trial by their own read of the class, the sides are
+## their named or best available, and the matches are built in draw order,
+## played together and finished in draw order (so the outcome never depends on
+## which finished first). Your pairing is only noted; you play it. False when
+## the draw leaves your club without a match.
+func _ai_practices(clubs: Dictionary) -> bool:
+	_refresh_coach_tactics()
+	var codes := []
+	for club in season.clubs:
+		if clubs.has(str(club)) and season.lists.has(club):
+			codes.append(str(club))
+	var pairs := PreSeason.practice_pairs(codes, my_club, career_seed, season_year)
+	var builds := []
+	var sims := []
+	var n := PreSeason.practice_guests()
+	var mine := ""
+	for pr in pairs:
+		var a := str(pr[0])
+		var b := str(pr[1])
+		if a == my_club or b == my_club:
+			mine = b if a == my_club else a
+			continue
+		var pa := _intra_picks(a, n, [], 1.0)
+		var pb := _intra_picks(b, n, [], 1.0, pa)
+		var built := _practice_build(a, b, pa, pb)
+		builds.append(built)
+		sims.append(built["sim"])
+	var results: Array = Season.run_all(sims)
+	for i in range(builds.size()):
+		_practice_finish(str(builds[i]["home"]), builds[i], results[i])
+		_practice_finish(str(builds[i]["away"]), builds[i], results[i])
+	if mine == "":
+		return false
+	preseason["practice"] = {"opponent": mine, "invites": [], "played": false, "seen": false}
+	return true
+
+
+## Your practice match: your club at home, the opponent's recruiters trialling
+## the prospects you have not.
+func _practice_mine() -> Dictionary:
+	_refresh_coach_tactics()
+	var pr: Dictionary = preseason["practice"]
+	var opp := str(pr["opponent"])
+	var mine: Array = pr.get("invites", [])
+	return _practice_build(my_club, opp, mine, _intra_picks(opp, PreSeason.practice_guests(), [], 1.0, mine))
+
+
+func _practice_done(built: Dictionary, res: Dictionary) -> void:
+	var pr: Dictionary = preseason["practice"]
+	pr["report"] = _practice_finish(my_club, built, res)
+	_practice_finish(str(pr["opponent"]), built, res)
+	pr["played"] = true
+
+
+## Your practice match, simmed on the side and the trial as they stand.
+func sim_practice_match() -> bool:
+	if preseason_stop() != "practice" or practice_played():
+		return false
+	var built := _practice_mine()
+	_practice_done(built, (built["sim"] as MatchSim).run())
+	mark_dirty()
+	return true
+
+
+var _practice_built := {}     # the live practice match being coached (never saved)
+
+
+## Set your practice match up to be coached live from the box, like any match.
+func prepare_practice_match() -> bool:
+	if preseason_stop() != "practice" or practice_played():
+		return false
+	_clear_pending()
+	_practice_built = _practice_mine()
+	pending_sim = _practice_built["sim"]
+	pending_match = {"home": my_club, "away": practice_opponent(), "round": 0, "label": "Practice match"}
+	pending_sim.moment_side = 0
+	pending_sim.always_offer_bounce = bounce_scene_every_match()
+	pending_phase = "practice"
+	pending_label = "Practice match"
+	return true
+
+
+func _finish_live_practice(res: Dictionary) -> void:
+	if _practice_built.is_empty() or not (preseason.get("practice") is Dictionary):
+		_clear_pending()
+		return
+	_practice_done(_practice_built, res)
+	_practice_built = {}
+	_clear_pending()
+	mark_dirty()
+	autosave()
+
+
 ## After Round 1 the pre-season's heavy or fresh legs are spent, at every
 ## club (your own week flags are cleared with the round, as always).
 func _preseason_clear_legs() -> void:
@@ -3508,6 +3866,21 @@ func opponent_facts(code: String) -> Array:
 	if season == null or code == "" or not season.lists.has(code):
 		return []
 	return Matchup.facts(code, season.lists, season.selections, season.club_results(code))
+
+
+## The responses beside each of `facts` (FactOptions), from the sides the
+## engine will field: one array of options per fact, in the same order. Only the
+## ones the coach can take, unless `every`.
+func opponent_fact_options(code: String, facts: Array, every := false) -> Array:
+	var out := []
+	if season == null or code == "" or not season.lists.has(code):
+		return out
+	var theirs: Array = Squad.new(code, season.lists[code], false, code, season.selections.get(code, {})).ground
+	var mine: Array = my_squad().ground
+	for f in facts:
+		var all := FactOptions.options(f, theirs, mine, season.lists[code])
+		out.append(all if every else FactOptions.takeable(all))
+	return out
 
 
 ## Your former players on `code`'s list (FormerPlayers.against): who left
@@ -8890,6 +9263,15 @@ func board_confidence() -> int:
 ## The board's mood in words (ClubLife.board_state), and why it last moved.
 func board_state() -> String:
 	return ClubLife.board_state(board_confidence(), int(difficulty_rules()["poor_season_below"]))
+
+
+## The hub's board warning (ClubLife.board_warning) for this career's board: ""
+## unless confidence is under ClubLife.POOR_LINE.
+func board_warning() -> String:
+	var rules := difficulty_rules()
+	return ClubLife.board_warning(board_confidence(), bool(board.get("warned", false)),
+			int(rules["poor_season_below"]), int(rules["poor_seasons_before_warning"]),
+			int(board.get("poor_seasons", 0)))
 
 
 func board_why() -> String:

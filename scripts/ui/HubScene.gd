@@ -40,6 +40,8 @@ func _ready() -> void:
 	if GameState.preseason_active() and not GameState.needs_season_wrap():
 		Router.replace("preseason")
 		return
+	# A response tapped last time that never reached a match does not wait here.
+	GameState.call_intent = {}
 	_warm_pre_match.call_deferred()
 
 	add_child(ClubBackdrop.new().setup(GameState.my_club).live())
@@ -382,14 +384,19 @@ func _standing_card() -> Control:
 		cv.add_child(last)
 	# The board lives in Coaching; here only when your job is at risk.
 	if GameState.board_goal_text() != "":
-		var conf := GameState.board_confidence()
 		var warned := bool(GameState.board.get("warned", false))
-		# The board's own line for a poor season (Ruthless sets it higher).
-		if warned or conf < int(GameState.difficulty_rules()["poor_season_below"]):
+		# The warning fires under ClubLife.POOR_LINE on every board type.
+		var warning := GameState.board_warning()
+		if warned or warning != "":
 			var board_l := UiKit.lbl("Board: %s  ·  %s%s" % [GameState.board_state(), GameState.board_goal_text(),
 					"  (final warning)" if warned else ""], UiKit.SMALL, UiKit.BAD)
 			board_l.name = "BoardLine"
 			cv.add_child(board_l)
+			if warning != "":
+				var warn_l := UiKit.lbl(warning, UiKit.SMALL, UiKit.BAD)
+				warn_l.name = "BoardWarning"
+				warn_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				cv.add_child(warn_l)
 	return cv
 
 
@@ -640,11 +647,18 @@ func _week_section(season: Season) -> Control:
 			nv.add_child(UiKit.spacer(4))
 		# The first fact leads (the danger man, the thing to plan for); the
 		# rest follow in body copy, so three lines are not three equals.
+		# Every response the rules allow sits under the fact it answers (P-13): all
+		# shown, in a fixed order, none marked best (FactOptions).
+		var fact_options := GameState.opponent_fact_options(opp, facts)
 		for i in range(facts.size()):
 			var f: Dictionary = facts[i]
 			var fl := NameInk.label(str(f["text"]), _league_names(), UiKit.NAME if i == 0 else UiKit.BODY, UiKit.TEXT, i == 0)
 			fl.name = "Fact_%d" % i
 			nv.add_child(fl)
+			if i < fact_options.size() and not (fact_options[i] as Array).is_empty():
+				nv.add_child(FactOptionsRow.new().setup(i, fact_options[i], _narrow(),
+						_on_fact_option.bind(str(f["text"]))))
+				nv.add_child(UiKit.spacer(2))
 		for i in range(former.size()):
 			var row: Dictionary = former[i]
 			var gl := NameInk.label(FormerPlayers.poster_line(row, GameDB.player_display_name(row["p"]),
@@ -1099,6 +1113,17 @@ func _on_play_match() -> void:
 	_pre_match.play_through(PRE_MATCH_SECONDS)
 	await _pre_match.done
 	Router.go("match")
+
+
+## A response beside an opposition fact was tapped (P-13): the match starts as Play
+## match does, and the pre-bounce pane opens on that call with the fact above it.
+## Nothing is chosen here and nothing is saved.
+func _on_fact_option(option: Dictionary, fact_text: String) -> void:
+	if _pre_match != null or _starting_match:
+		return
+	GameState.call_intent = {"call": str(option["call"]), "plan": str(option["plan"]),
+			"player_id": str(option["player_id"]), "fact": fact_text}
+	_on_play_match()
 
 
 ## Sim round skips your own match for good, so it asks first (unless you

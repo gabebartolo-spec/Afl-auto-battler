@@ -895,13 +895,18 @@ static func drift_at(elapsed: float, secs: float) -> float:
 	return 1.0 - pow(1.0 - k, 3.0)
 
 
-## Run `f` once `c` is on screen, `delay` seconds later.
+## Run `f` once `c` is on screen, `delay` seconds later. The wait is a tween on
+## `c` itself, so it ends with `c`: a scene left inside the delay (Continue at
+## full time) never calls `f` with its freed nodes ("Lambda capture was freed"),
+## as a tree-wide timer outliving the scene did.
 static func _after(c: CanvasItem, delay: float, f: Callable) -> void:
 	var run := func() -> void:
 		if not is_instance_valid(c) or not c.is_inside_tree():
 			return
 		if delay > 0.0:
-			c.get_tree().create_timer(delay).timeout.connect(f)
+			var wait := c.create_tween()
+			wait.tween_interval(delay)
+			wait.tween_callback(f)
 		else:
 			f.call()
 	if c.is_inside_tree():
