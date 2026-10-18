@@ -9,6 +9,7 @@ from check_version import problems
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PROJECT = (ROOT / "project.godot").read_text(encoding="utf-8")
 PRESETS = (ROOT / "export_presets.cfg").read_text(encoding="utf-8")
+MAJOR_MINOR = ".".join(re.search(r'(?m)^config/version="(\d+\.\d+)\.\d+"', PROJECT).group(1).split("."))
 SCRIPTS = {p.name: p.read_text(encoding="utf-8", errors="replace") for p in (ROOT / "scripts").rglob("*.gd")}
 
 
