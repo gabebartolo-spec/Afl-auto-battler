@@ -225,6 +225,8 @@ static func production(p: Dictionary) -> Dictionary:
 				bits.append("%.1f %s" % [v, pair[1]])
 		var where := str(p.get("draft_league", ""))
 		var title := "%s season" % (where if where != "" else "U18")
+		if InternationalProspects.is_international(p):
+			title = "Trial matches"   # not a season of ours: a few games of our rules
 		if gm > 0:
 			title += ", %d %s" % [gm, "game" if gm == 1 else "games"]
 		return {"title": title, "line": " · ".join(bits) + (" a game" if not bits.is_empty() else "")}
