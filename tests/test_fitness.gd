@@ -20,6 +20,7 @@ func run() -> void:
 	_test_match_effect()
 	_test_career()
 	_test_words()
+	_test_plan_copy()
 	await _test_screens()
 	GameState.fitness_ai_by_phase = false
 	GameState.delete_saved_career()
@@ -282,9 +283,7 @@ func _test_words() -> void:
 				var line := Conditioning.status_words(_rec(plan, offset), w)
 				for ch in "0123456789%":
 					clean = clean and not line.contains(ch)
-	for plan in Conditioning.PLANS:
-		clean = clean and not str(Conditioning.PLAN_EFFECT[plan]).contains("%")
-	_check(clean, "No number or percentage anywhere in the words")
+	_check(clean, "No number or percentage anywhere in the season line's words")
 	_check(Conditioning.month_of_week(0) == "March" and Conditioning.month_of_week(13) == "June"
 			and Conditioning.month_of_week(20) == "August" and Conditioning.month_of_week(26) == "September",
 			"Weeks are months: the first rounds are March, the finals September")
@@ -301,6 +300,73 @@ func _test_words() -> void:
 			and Conditioning.late_cost("fast", 13, 10).contains("Too late")
 			and Conditioning.late_cost("develop", 13, 10).contains("extra room"),
 			"A late change says what it costs; an early one costs nothing")
+
+
+## Every plan and the high-performance department say their upside, their
+## downside and the odds, as percentages worked out from the constants the
+## curve uses (bible §4, director 2026-10-18); the templates hold no figure.
+func _test_plan_copy() -> void:
+	var digits := RegEx.create_from_string("[0-9]")
+	var templates := [Conditioning.PLAN_UP_PEAK, Conditioning.PLAN_DOWN_PEAK, Conditioning.PLAN_UP_FAST,
+			Conditioning.PLAN_DOWN_FAST, Conditioning.PLAN_ODDS, Conditioning.PLAN_ODDS_SURE,
+			Conditioning.PLAN_UP_STEADY, Conditioning.PLAN_DOWN_STEADY, Conditioning.PLAN_UP_DEVELOP,
+			Conditioning.PLAN_DOWN_DEVELOP, Conditioning.HP_RECOVERY_UP, Conditioning.HP_RECOVERY_DOWN,
+			Conditioning.HP_RECOVERY_EVEN, Conditioning.HP_PEAK, Conditioning.HP_ODDS, Conditioning.HP_ODDS_SURE,
+			Conditioning.HP_COST_MORE, Conditioning.HP_COST_LESS, Conditioning.HP_COST_EVEN,
+			Conditioning.PLAN_DEPARTMENT]
+	var literal := templates.filter(func(t): return digits.search(str(t)) != null)
+	_check(literal.is_empty(), "No plan or department line carries a number of its own (%s)" % str(literal))
+	var b := -Conditioning.BUILD_FLOOR
+	for level in range(ClubBudget.LEVELS.size()):
+		var h := float(Conditioning.PEAK_HEIGHT[level])
+		var peak := Conditioning.plan_effect("peak", level)
+		_check(peak.contains("Upside:") and peak.contains("Downside:") and peak.contains("Odds:")
+				and peak.contains(Conditioning.pct(Conditioning.DRAIN_K * h) + " slower")
+				and peak.contains(Conditioning.pct(Conditioning.INJURY_K * h) + " fewer")
+				and peak.contains(Conditioning.legs_pct(Conditioning.RESTORE_K * h) + " more in the legs")
+				and peak.contains(Conditioning.pct(Conditioning.DRAIN_K * b) + " faster")
+				and peak.contains(Conditioning.legs_pct(Conditioning.CAP_K * b) + " less in the legs")
+				and peak.contains(Conditioning.pct(Conditioning.INJURY_K * b) + " more soft-tissue"),
+				"Peak for September at %s: the edge and the cost from the curve's constants (%s)" % [ClubBudget.level_label(level), peak])
+		var fast := Conditioning.plan_effect("fast", level)
+		_check(fast.contains("Upside:") and fast.contains("Downside:") and fast.contains("Odds:")
+				and fast.contains(Conditioning.pct(Conditioning.DRAIN_K * h) + " slower")
+				and fast.contains("March and April"),
+				"A fast start says its early edge and its winter cost (%s)" % fast)
+		# The odds are the draw's own: sample timing_offset and compare.
+		var hits := 0
+		var n := 4000
+		for i in range(n):
+			if absi(Conditioning.timing_offset(2027 + i % 50, "C%d" % floori(i / 50.0), level, 99)) <= Conditioning.PLATEAU:
+				hits += 1
+		var share := Conditioning.on_time_share(level)
+		_check(absf(float(hits) / float(n) - share) < 0.035,
+				"%s: the stated timing odds (%.3f) match the draw (%d in %d)" % [ClubBudget.level_label(level), share, hits, n])
+		var odds := Conditioning.on_time_pct(level)
+		_check((odds == "" and peak.contains("every season")) or (odds != "" and peak.contains("about " + odds)),
+				"%s: the plan says how often its peak lands on time (%s)" % [ClubBudget.level_label(level), odds])
+		var dept := ClubBudget.benefit_text("high_performance", level)
+		var r := ClubBudget.recovery_mult(level) - 1.0
+		var diff := ClubBudget.cost_m(level) - ClubBudget.cost_m(ClubBudget.STANDARD)
+		_check(dept == Conditioning.department_words(level)
+				and (is_zero_approx(r) or dept.contains(Conditioning.pct(absf(r))))
+				and dept.contains(Conditioning.pct(h) + " of its full height")
+				and (odds == "" or dept.contains(odds))
+				and (is_zero_approx(diff) or dept.contains("$%.1fm" % absf(diff))),
+				"The %s high-performance budget says recovery, peak height, timing odds and cost (%s)" % [ClubBudget.level_label(level), dept])
+	_check(Conditioning.on_time_share(3) >= 1.0 and Conditioning.on_time_share(0) < Conditioning.on_time_share(1)
+			and Conditioning.on_time_share(1) < Conditioning.on_time_share(2),
+			"A better department lands the peak on time more often; Elite always does")
+	var dev := Conditioning.plan_effect("develop", 1)
+	var d := -Conditioning.DEVELOP_LEVEL
+	_check(dev.contains("Upside:") and dev.contains("Downside:")
+			and dev.contains(Conditioning.pct(Conditioning.DEVELOP_XP) + " more development XP")
+			and dev.contains("%d more point" % Conditioning.DEVELOP_CEILING)
+			and dev.contains(Conditioning.pct(Conditioning.INJURY_K * d) + " fewer")
+			and dev.contains(Conditioning.pct(Conditioning.DRAIN_K * d) + " faster"),
+			"Develop and manage says what the young gain and what the side gives up (%s)" % dev)
+	var steady := Conditioning.plan_effect("steady", 1)
+	_check(steady.contains("Upside:") and steady.contains("Downside:"), "Steady all year has an upside and a downside too")
 
 
 ## The plan on its screens, with a finger's taps: the line on the hub and
@@ -367,6 +433,12 @@ func _test_screens() -> void:
 			and locked.find_child("SeasonPlanConfirm", true, false) == null
 			and locked.find_child("PlanRow_develop", true, false) != null,
 			"Locked, the plans stay on view but nothing can be picked")
+	var lvl: int = GameState.fitness_hp_level("GEE")
+	var peak_e := locked.find_child("PlanEffect_peak", true, false) as Label
+	var dept_l := locked.find_child("SeasonPlanDepartment", true, false) as Label
+	_check(peak_e != null and peak_e.text == Conditioning.plan_effect("peak", lvl)
+			and dept_l != null and dept_l.text == Conditioning.department_line(lvl),
+			"The sheet shows each plan's upside, downside and odds at your department's level")
 	var note := locked.find_child("SeasonPlanNote", true, false) as Label
 	_check(note != null and note.text.contains("You can change it again at"),
 			"Locked, the sheet says when the next chance comes")

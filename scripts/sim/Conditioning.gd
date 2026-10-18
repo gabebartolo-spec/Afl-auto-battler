@@ -65,8 +65,10 @@ const CAP_K := 4.0           # legs off the energy cap at c = -1
 ## upside shows where it matters: in loaded legs late in the season.
 const RESTORE_K := 8.0
 const INJURY_K := 0.25       # soft-tissue risk x(1 - INJURY_K * c)
-## Develop and manage: extra development XP for players 22 and under.
+## Develop and manage: extra development XP for players 22 and under, and the
+## points of extra season room a season of it earns them (ceiling_step).
 const DEVELOP_XP := 0.15
+const DEVELOP_CEILING := 1
 
 
 static func valid_plan(plan: String) -> bool:
@@ -261,7 +263,7 @@ static func ceiling_step(rec: Dictionary, w: int, bye_w: int, p: Dictionary) -> 
 	var plan := plan_at(rec, w)
 	if xp_mult(plan, p) <= 1.0:
 		return 0
-	return 1 if chosen_at(rec, w) <= maxi(0, bye_w) else 0
+	return DEVELOP_CEILING if chosen_at(rec, w) <= maxi(0, bye_w) else 0
 
 
 ## What an AI club runs, from where it is in its cycle (TradeValue.phase):
@@ -289,7 +291,8 @@ static func revision_weeks(bye_w: int) -> Array:
 
 
 # ---------------------------------------------------------------------------
-# In words (the plan screens): football words, no percentages.
+# In words (the plan screens): the season line in football words; each plan
+# and the department with their sizes and odds as percentages (plan_effect).
 # ---------------------------------------------------------------------------
 ## Where each month starts, in weeks (the first rounds are March; the finals
 ## are September).
@@ -379,11 +382,156 @@ static func late_cost(plan: String, w: int, bye_w: int) -> String:
 	return ""
 
 
-## What each plan does, for the picker: how the legs and the list are
-## treated, nothing hidden.
-const PLAN_EFFECT := {
-	"peak": "Heavy legs through the home-and-away rounds, fresh ones for September. A little more soft-tissue risk while building, less at the peak.",
-	"steady": "The same load every week. No build and no peak.",
-	"fast": "Fresh legs in the opening rounds, heavier from winter on and again in September.",
-	"develop": "Loads managed all year so the young players get the minutes. Results suffer a little. Players 22 and under develop faster and have a little more room to grow this season.",
-}
+## What each plan does, for the picker (bible §4, director 2026-10-18: every
+## option says what it does for you and what it costs, with the size and the
+## odds, as percentages, never which is better). Every figure is worked out
+## here from the constants the curve and the stamps use, at the club's
+## high-performance level, so the words cannot drift from the rules. The
+## templates carry no figure of their own (tests/test_fitness.gd checks).
+const PLAN_UP_PEAK := "Upside: at its best in %s the side tires %s slower, has %s fewer soft-tissue injuries and up to %s more in the legs."
+const PLAN_DOWN_PEAK := "Downside: building through to %s it tires %s faster, has %s less in the legs and %s more soft-tissue injuries."
+const PLAN_UP_FAST := "Upside: at its best in %s the side tires %s slower and has %s fewer soft-tissue injuries."
+const PLAN_DOWN_FAST := "Downside: from %s on, and through September, it tires up to %s faster, has up to %s less in the legs and up to %s more soft-tissue injuries."
+const PLAN_ODDS := "Odds: the peak lands within %d weeks of plan about %s of the time; otherwise it comes early or late."
+const PLAN_ODDS_SURE := "Odds: the peak lands within %d weeks of plan every season."
+const PLAN_UP_STEADY := "Upside: the same legs every week, with no heavy weeks and no extra soft-tissue risk."
+const PLAN_DOWN_STEADY := "Downside: no peak, so the side is no fresher in September than in March."
+const PLAN_UP_DEVELOP := "Upside: players 22 and under earn %s more development XP, and with the plan on since the bye they have %d more %s of room to grow this season. %s fewer soft-tissue injuries all year."
+const PLAN_DOWN_DEVELOP := "Downside: all year the side tires %s faster and has %s less in the legs."
+
+
+## A share as a percentage, as the plan screens say it: "12%", "7.5%".
+static func pct(share: float) -> String:
+	var v := share * 100.0
+	if absf(v - roundf(v)) < 0.05:
+		return "%d%%" % roundi(v)
+	return "%.1f%%" % v
+
+
+## Legs, which run 0 to 100: "6%".
+static func legs_pct(legs: float) -> String:
+	return "%d%%" % roundi(legs)
+
+
+## The share of seasons the peak lands within the plateau (PLATEAU weeks
+## either side of the plan), for a department level: from the very draw
+## timing_offset makes (a normal spread of TIMING_SD weeks, rounded to a week
+## and held within two spreads). Certain when the hold is inside the plateau.
+static func on_time_share(hp_level: int) -> float:
+	var sd := float(TIMING_SD[ClubBudget.clamp_level(hp_level)])
+	if PLATEAU >= roundi(2.0 * sd):
+		return 1.0
+	# A draw x rounds to within PLATEAU weeks when |x| < PLATEAU + 0.5.
+	return _erf((float(PLATEAU) + 0.5) / (sd * sqrt(2.0)))
+
+
+## The error function (Abramowitz and Stegun 7.1.26, good to 1.5e-7).
+static func _erf(x: float) -> float:
+	var sgn := 1.0 if x >= 0.0 else -1.0
+	var a := absf(x)
+	var t := 1.0 / (1.0 + 0.3275911 * a)
+	var poly := ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t
+	return sgn * (1.0 - poly * exp(-a * a))
+
+
+## The timing odds as a percentage, or "" when the peak always lands on time.
+static func on_time_pct(hp_level: int) -> String:
+	var share := on_time_share(hp_level)
+	return "" if share >= 1.0 else "%d%%" % roundi(share * 100.0)
+
+
+## The timing odds in a line, for a department level.
+static func odds_words(hp_level: int) -> String:
+	var p := on_time_pct(hp_level)
+	if p == "":
+		return PLAN_ODDS_SURE % PLATEAU
+	return PLAN_ODDS % [PLATEAU, p]
+
+
+## The months a peak aimed at `peak_w` sits at its best: "September",
+## "March and April".
+static func _best_months(peak_w: int) -> String:
+	var a := month_of_week(maxi(0, peak_w - PLATEAU))
+	var b := month_of_week(mini(LAST_WEEK, peak_w + PLATEAU))
+	return a if a == b else "%s and %s" % [a, b]
+
+
+## What `plan` does at a department level: its upside, its downside and, for a
+## plan with a peak, the odds it lands on time, one line each.
+static func plan_effect(plan: String, hp_level: int) -> String:
+	var h := float(PEAK_HEIGHT[ClubBudget.clamp_level(hp_level)])
+	var b := -BUILD_FLOOR
+	var lines: PackedStringArray = []
+	match plan:
+		"peak":
+			var pw := int(PEAK_WEEK["peak"])
+			# The last week the side is still building at full depth.
+			var deep := 0
+			for w in range(pw + 1):
+				if shape("peak", w, pw) <= BUILD_FLOOR:
+					deep = w
+			lines.append(PLAN_UP_PEAK % [_best_months(pw), pct(DRAIN_K * h), pct(INJURY_K * h), legs_pct(RESTORE_K * h)])
+			lines.append(PLAN_DOWN_PEAK % [month_of_week(deep), pct(DRAIN_K * b), legs_pct(CAP_K * b), pct(INJURY_K * b)])
+			lines.append(odds_words(hp_level))
+		"fast":
+			var fw := int(PEAK_WEEK["fast"])
+			# The first week after the early peak that the side is heavier than steady.
+			var heavy := LAST_WEEK
+			for w in range(LAST_WEEK, fw, -1):
+				if shape("fast", w, fw) < 0.0:
+					heavy = w
+			lines.append(PLAN_UP_FAST % [_best_months(fw), pct(DRAIN_K * h), pct(INJURY_K * h)])
+			lines.append(PLAN_DOWN_FAST % [month_of_week(heavy), pct(DRAIN_K * b), legs_pct(CAP_K * b), pct(INJURY_K * b)])
+			lines.append(odds_words(hp_level))
+		"steady":
+			lines.append(PLAN_UP_STEADY)
+			lines.append(PLAN_DOWN_STEADY)
+		"develop":
+			var d := -DEVELOP_LEVEL
+			lines.append(PLAN_UP_DEVELOP % [pct(DEVELOP_XP), DEVELOP_CEILING, "point" if DEVELOP_CEILING == 1 else "points",
+					pct(INJURY_K * d)])
+			lines.append(PLAN_DOWN_DEVELOP % [pct(DRAIN_K * d), legs_pct(CAP_K * d)])
+	return "\n".join(lines)
+
+
+## What the high-performance department does at a level (the Club budget):
+## how fast legs recover, how high a planned peak goes and how often it lands
+## on time, and what the level costs against Standard.
+const HP_RECOVERY_UP := "Legs recover %s faster each week than at Standard."
+const HP_RECOVERY_DOWN := "Legs recover %s slower each week than at Standard."
+const HP_RECOVERY_EVEN := "Legs recover at the normal rate."
+const HP_PEAK := "A planned peak reaches %s of its full height and lands within %d weeks of plan %s."
+const HP_ODDS := "about %s of the time"
+const HP_ODDS_SURE := "every season"
+const HP_COST_MORE := "Costs %s more than Standard, taken from the other departments."
+const HP_COST_LESS := "Frees %s for the other departments."
+const HP_COST_EVEN := "Costs %s, an even share of the budget."
+
+
+static func department_words(hp_level: int) -> String:
+	var level := ClubBudget.clamp_level(hp_level)
+	var r := ClubBudget.recovery_mult(level) - 1.0
+	var recovery := HP_RECOVERY_EVEN
+	if r > 0.0001:
+		recovery = HP_RECOVERY_UP % pct(r)
+	elif r < -0.0001:
+		recovery = HP_RECOVERY_DOWN % pct(-r)
+	var p := on_time_pct(level)
+	var odds := HP_ODDS_SURE if p == "" else HP_ODDS % p
+	var peak := HP_PEAK % [pct(float(PEAK_HEIGHT[level])), PLATEAU, odds]
+	var diff := ClubBudget.cost_m(level) - ClubBudget.cost_m(ClubBudget.STANDARD)
+	var cost := HP_COST_EVEN % ("$%.1fm" % ClubBudget.cost_m(level))
+	if diff > 0.001:
+		cost = HP_COST_MORE % ("$%.1fm" % diff)
+	elif diff < -0.001:
+		cost = HP_COST_LESS % ("$%.1fm" % -diff)
+	return "%s %s %s" % [recovery, peak, cost]
+
+
+## The plan sheet's department line: whose level the sizes and odds above are for.
+const PLAN_DEPARTMENT := "Sizes and odds are for your %s high-performance department: a planned peak reaches %s of its full height."
+
+
+static func department_line(hp_level: int) -> String:
+	var level := ClubBudget.clamp_level(hp_level)
+	return PLAN_DEPARTMENT % [ClubBudget.level_label(level), pct(float(PEAK_HEIGHT[level]))]

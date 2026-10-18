@@ -361,6 +361,12 @@ func _show_talks() -> void:
 	var meet_salary := int(want["salary"]) + int(terms.get("premium", 0))
 	v.add_child(_para("He wants %s a season for %d seasons. %s" % [Contracts.money(meet_salary), int(want["years"]),
 			Contracts.stance(p)], 15, UiKit.TEXT))
+	if not _talk_fa:
+		# How far he bends, with the sizes: his lowest, the price of a shorter
+		# deal and where an offer insults him (Contracts.bend_line).
+		var bend := _para(Contracts.bend_line(p, GameState.culture_effect(GameState.my_club, "resign_floor")), 13, UiKit.TEXT)
+		bend.name = "TalksBend"
+		v.add_child(bend)
 	if _talk_fa and GameState.my_list.size() >= Contracts.MAX_LIST:
 		v.add_child(_para("Your list is full (%d): release a player first." % Contracts.MAX_LIST, 14, UiKit.BAD))
 	for reason in terms.get("reasons", []):

@@ -326,6 +326,29 @@ func _test_negotiation_rules() -> void:
 			"An insulting offer counts double, and too many failed offers end the talks")
 	_check(str(Contracts.respond(regular, Contracts.lowest(regular, 3) - Contracts.SALARY_STEP, 3)) == str(Contracts.respond(regular, Contracts.lowest(regular, 3) - Contracts.SALARY_STEP, 3)),
 			"No dice: the same offer gets the same answer")
+	# The talks say the sizes under his stance (bible §4, director 2026-10-18), worked
+	# out from the very rules respond uses; the templates hold no figure.
+	var digits := RegEx.create_from_string("[0-9]")
+	var bends := [Contracts.BEND_DOWN, Contracts.BEND_FIRM, Contracts.BEND_SHORT, Contracts.BEND_INSULT]
+	_check(bends.filter(func(t): return digits.search(str(t)) != null).is_empty(),
+			"The talks' size lines carry no number of their own")
+	var low := Contracts.lowest(regular, 3)
+	var bend := Contracts.bend_line(regular)
+	_check(bend.contains(Contracts.money(low))
+			and bend.contains("%d%% under his ask" % roundi(100.0 * float(ask - low) / float(ask)))
+			and bend.contains(Contracts.money(Contracts.lowest(regular, 2)))
+			and bend.contains(Contracts.money(Contracts.insult_line(low)))
+			and bend.contains("%d of your %d offers" % [Contracts.INSULT_STRIKES, Contracts.MAX_OFFERS])
+			and bend.contains("drops %d%%" % Contracts.INSULT_MORALE),
+			"Talks say how far he comes down, what a shorter deal costs and where an offer insults him (%s)" % bend)
+	_check(not bool(Contracts.respond(regular, Contracts.insult_line(low), 3)["insult"])
+			and bool(Contracts.respond(regular, Contracts.insult_line(low) - 1, 3)["insult"]),
+			"The insult line the talks quote is exactly where respond starts taking offence")
+	_check(Contracts.bend_line(star).contains("won't go under his ask"),
+			"A star who won't take less is told so, with the shorter-deal price and the insult line")
+	var cut := Contracts.floor_after(regular, 3, 0.02)
+	_check(cut == low - int(round(float(low) * 0.02)) and Contracts.bend_line(regular, 0.02).contains(Contracts.money(cut)),
+			"Your culture's discount is in the price the talks quote")
 
 
 func _test_negotiation() -> void:

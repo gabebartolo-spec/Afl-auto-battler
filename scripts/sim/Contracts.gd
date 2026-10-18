@@ -130,11 +130,17 @@ static func asking_salary(p: Dictionary) -> int:
 
 # ---------------------------------------------------------------------------
 # Negotiation. No dice: the same offer always gets the same answer, and what
-# a player wants is shown in full - only how far he would bend is left to the
-# words in `stance`.
+# a player wants is shown in full, and how far he would bend is shown with
+# its size under the words in `stance` (bend_line).
 # ---------------------------------------------------------------------------
 ## Failed offers before a player gives up on talks and tests free agency.
 const MAX_OFFERS := 3
+## An offer under INSULT_NUM / INSULT_DEN of his lowest is an insult: it counts
+## as INSULT_STRIKES failed offers and costs him INSULT_MORALE morale.
+const INSULT_NUM := 2
+const INSULT_DEN := 3
+const INSULT_STRIKES := 2
+const INSULT_MORALE := 5
 
 
 ## His opening position: his asking price over the term he would like.
@@ -161,6 +167,45 @@ static func stance(p: Dictionary) -> String:
 	return "He'd give a little on salary for the security he wants."
 
 
+## How far he would bend, in the sizes the talks use (bible §4, director
+## 2026-10-18: the gate says the size; "B: percentages"): under the stance
+## line in contract talks. `floor_share` is the share of his lowest your
+## club's culture takes off (GameState.culture_effect "resign_floor"), so the
+## line quotes the very floor `respond` is given. Every figure comes from
+## `lowest`, the insult rule and MAX_OFFERS; the templates hold none.
+const BEND_DOWN := "He'd sign for %s a season, %s under his ask, for %s or more."
+const BEND_FIRM := "He won't go under his ask for %s or more."
+const BEND_SHORT := "Fewer seasons cost at least %s a season."
+const BEND_INSULT := "Offer under %s and he's insulted: it uses up %d of your %d offers and his morale drops %d%%."
+
+
+static func floor_after(p: Dictionary, years: int, floor_share := 0.0) -> int:
+	var low := lowest(p, years)
+	return low - int(round(float(low) * floor_share))
+
+
+## The least that is not an insult against a floor (respond's rule).
+static func insult_line(floor_price: int) -> int:
+	return ceili(float(floor_price * INSULT_NUM) / float(INSULT_DEN))
+
+
+static func bend_line(p: Dictionary, floor_share := 0.0) -> String:
+	var want := wants(p)
+	var ask := int(want["salary"])
+	var years := int(want["years"])
+	var term := "%d season%s" % [years, "" if years == 1 else "s"]
+	var low := floor_after(p, years, floor_share)
+	var parts: PackedStringArray = []
+	if low < ask:
+		parts.append(BEND_DOWN % [money(low), "%d%%" % roundi(100.0 * float(ask - low) / float(ask)), term])
+	else:
+		parts.append(BEND_FIRM % term)
+	if years > 1:
+		parts.append(BEND_SHORT % money(floor_after(p, years - 1, floor_share)))
+	parts.append(BEND_INSULT % [money(insult_line(low)), INSULT_STRIKES, MAX_OFFERS, INSULT_MORALE])
+	return " ".join(parts)
+
+
 ## The least he would sign for over `years`. Given the term he wants (or
 ## longer) he gives up to a fifth of his price, less the more leverage he has;
 ## a shorter deal costs one normal negotiation step more for anyone.
@@ -181,8 +226,8 @@ static func respond(p: Dictionary, salary: int, years: int, failed := 0, premium
 	var floor_price := lowest(p, years) + premium
 	if salary >= floor_price:
 		return {"answer": "accept", "salary": salary, "insult": false}
-	var insult := salary * 3 < floor_price * 2
-	var strikes := failed + (2 if insult else 1)
+	var insult := salary * INSULT_DEN < floor_price * INSULT_NUM
+	var strikes := failed + (INSULT_STRIKES if insult else 1)
 	if strikes >= MAX_OFFERS:
 		return {"answer": "walk", "salary": floor_price, "insult": insult}
 	return {"answer": "counter", "salary": floor_price, "insult": insult}
