@@ -75,6 +75,7 @@ Floor is the fewest checks the suite may run (`expected_checks.txt`; a suite rep
 | `balance` | A long-career guard: three seasons must not inflate the league | 13 | 149 |
 | `assets` | The art and music as shipped: figure-sheet frames against the layout, vignettes playing their moves through, banners, music files, levels and the player | 95 | 3 |
 | `keyboard` | The phone keyboard on every screen with a text field: the window loses the keyboard's height (phone on its side, upright, tablet) and the same field keeps the focus and its text; text arriving the way the engine's web keyboard sends it fills the field and filters the list; the web export has the phone keyboard on | 445 | - |
+| `international` | International prospects (switch `international_prospects`): one or two per generated class over 150 seeded years, never none or three, from seven countries; names from their own country's lists; raw but high-ceiling ratings shaped by their code; switched off the class is unchanged; one drafted, kept across a save and a season rollover; an old save loads | 1767 | - |
 | `trainrep` | The monthly training report: the block snapshot, a known riser with his stats, the retraining list matching the Training menu's own (and the club's two-project limit), the switch off leaving the hub as it was, an old save, and real taps on a phone and a PC (open, a name, a retraining entry, Close, Android Back) | 100 | - |
 
 By area:
