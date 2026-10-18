@@ -39,9 +39,11 @@ supplies the vision, taste, AFL knowledge, priorities and final judgement.
 - **Mobile first, portrait first.** An Android phone in portrait is the
   reference design; desktop is secondary. No hover-only information, thumb-sized
   targets, deliberate scrolling, natural Android Back.
-- **No number vomit.** Show a number only when it helps the player understand
-  or decide. No hidden modifiers, coefficients or diagnostics; detail lives
-  behind deliberate drill-downs.
+- **Numbers belong at the decision gate (director, 2026-10-18).** Each option
+  states its upside, its downside, the size and the odds, in football words, as
+  percentages, and never which is better. Off the gate, show a number only when it
+  helps the player understand or decide; no hidden diagnostics on the main
+  surface, detail behind deliberate drill-downs.
 - **Visual references are selective.** AFCM is not a visual aspiration. Preserve the established editorial design; clean screens must still expose the facts needed for the current choice. Read the focused chapters linked from [genre research](docs/GENRE_ENJOYMENT_RESEARCH.md); director decisions and scoped accepted extensions are recorded in roadmap §9.2.
 - **No UI vomit.** One clear job per screen. If two elements answer the same
   question, keep the better one. Do not build UI just because data exists.
@@ -97,11 +99,6 @@ every fact in its own card, generic dashboard grids, gradients, glows, big
 corner radii, excess separators, decorative stat boxes and icons. Prefer flat,
 editorial layouts: typography, alignment, spacing, restrained surfaces.
 
-**Colour.** A restrained warm-neutral palette so clubs, match information and
-real states provide the colour. Accent (red) only for the primary action;
-selection is a light outline; GOOD/BAD only for genuine state. Gold is not
-"important".
-
 **Readability is a pillar (design bible, director 2026-10-13).** It applies to
 every screen. Sections feel distinct: club colours and strategic bold set them
 apart, because text that is all one colour and weight harms readability. A
@@ -110,19 +107,11 @@ No text the coach needs is overlooked: nothing he decides on sits in uniform
 grey. Club colour must stay readable (check contrast for dark clubs on the dark
 page) and must not be mistaken for GOOD/BAD or the primary action.
 
-**Typography.** Weight and size before colour, from UiKit's type scale.
-Sentence case unless AFL convention says otherwise (OVR, POT, Grand Final). No
-ALL CAPS labels, wide letter spacing, condensed body copy or tiny uppercase
-metadata. The condensed face is for scores. Font changes are project-wide
-decisions.
-
-**Components.** Before adding a pill, card, badge or progress bar, ask whether
-typography, spacing or alignment could say it. Panels mean real grouping, have
-no border, and no radius above `UiKit.RADIUS`. Secondary buttons are outlines.
-
-**Copy.** Concise football language. Do not explain simulation mechanics
-(percentages, internal rules) unless the player needs them to decide; do not
-repeat what context already shows.
+**Colour, type, components, copy.** The exact rules are in
+[docs/VISUAL_STYLE_GUIDE.md](docs/VISUAL_STYLE_GUIDE.md): colour and where it goes
+(§2.1-2.2), type roles (§2.3), the component kit (§3), copy (§5). Before adding a
+pill, card, badge or progress bar, ask whether typography, spacing or alignment
+could say it. Font changes are project-wide decisions.
 
 **Consistency.** Reuse what works; don't invent a mini design system per
 screen, and don't copy a template-looking pattern because it exists. Apply

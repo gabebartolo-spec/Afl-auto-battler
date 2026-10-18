@@ -34,8 +34,10 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 			"on" if GameState.sounds_muted() else "off",
 			"Mutes all music and sound effects.",
 			func(k): GameState.set_sounds_muted(k == "on"))
-	_row(v, "Music", "SettingsMusic", AudioLevels.LEVELS, GameState.music_level(),
-			"The music between matches.", func(k): GameState.set_music_level(k))
+	# No row for a control that does nothing: it returns with the director's tracks.
+	if not MusicManager.TRACK_PATHS.is_empty():
+		_row(v, "Music", "SettingsMusic", AudioLevels.LEVELS, GameState.music_level(),
+				"The music between matches.", func(k): GameState.set_music_level(k))
 	_row(v, "Crowd", "SettingsCrowd", AudioLevels.LEVELS, GameState.crowd_level(),
 			"The crowd at a match you watch. The match tells you the same either way.",
 			func(k): GameState.set_crowd_level(k))
@@ -47,9 +49,9 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 				"on" if GameState.haptics_on() else "off",
 				"A light buzz when you press a button, and a firmer one when a result lands.",
 				func(k): GameState.set_haptics_on(k == "on"))
-	_row(v, "Ask before playing a round for me", "SettingsSimConfirm", [["on", "On"], ["off", "Off"]],
+	_row(v, "Ask before simming the week for me", "SettingsSimConfirm", [["on", "On"], ["off", "Off"]],
 			"on" if GameState.confirm_sim_round() else "off",
-			"Play round plays out your own match without you. With this on, it asks first.",
+			"Sim the week plays out your own match without you. With this on, it asks first.",
 			func(k): GameState.set_confirm_sim_round(k == "on"))
 	_row(v, "Match speed", "SettingsSpeed", SPEED_OPTIONS,
 			str(int(GameState.match_speed())), "How fast a match you watch starts. You can change it during the game.",
@@ -151,6 +153,13 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 		row.add_child(go)
 		confirm.add_child(row)
 		v.add_child(confirm)
+
+	if in_career:
+		# Read-only: the two dials are chosen at New career and kept with the career.
+		v.add_child(UiKit.spacer(UiKit.GAP))
+		var dials := UiKit.detail(GameState.career_dials_line())
+		dials.name = "OptionsCareerDials"
+		v.add_child(dials)
 
 	v.add_child(UiKit.spacer(UiKit.GAP))
 	var ver := UiKit.lbl("Version %s" % BuildInfo.label(),

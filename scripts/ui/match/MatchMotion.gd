@@ -22,6 +22,14 @@ const ACCEL := 14.0          # m/s^2 speeding up
 const BRAKE := 20.0          # m/s^2 slowing down or turning hard
 const ARRIVE_STOP := 0.35    # inside this, a token settles
 const MIN_SEP := 1.5         # bodies do not overlap more than this
+## Motion limits that hold for every shape and every call (the motion critic,
+## 2026-10-18: one-frame snaps of 4 to 10 m and a crash at twice a sprint).
+## SPRINT caps how far any token moves in a step, whatever asks it to move: a
+## new goal, a set-up's quicker reset, Throw numbers at it's legs, or bodies
+## easing apart. It is the fastest carry rating's top speed (14.6) rounded up.
+## WALK is the pace bodies in a pile ease apart at: never an instant push.
+const SPRINT := 15.0
+const WALK := 2.5
 
 
 ## A new token at `pos`. `top` is its sprint speed; `reaction` its read delay.
@@ -91,6 +99,7 @@ static func step(t: Dictionary, dt: float) -> void:
 	var limit := (ACCEL if desired.length_squared() > vel.length_squared()
 			and dv.dot(vel) >= 0.0 else BRAKE) * float(t.get("reset", 1.0)) * dt
 	vel += dv.limit_length(limit)
+	vel = vel.limit_length(SPRINT)
 	pos += vel * dt
 	var clamped := clamp_to_oval(pos, 1.0)
 	if clamped != pos:
@@ -100,20 +109,48 @@ static func step(t: Dictionary, dt: float) -> void:
 	t["vel"] = vel
 
 
-## Push overlapping bodies apart (positions only, half each way).
-static func separate(tokens: Array) -> void:
+## Ease overlapping bodies apart over `dt` seconds (positions only, half each
+## way): each body moves at most WALK * dt, so a pile parts at a walk and
+## never jumps.
+static func separate(tokens: Array, dt: float) -> void:
 	var n := tokens.size()
+	var pos := PackedVector2Array()
+	pos.resize(n)
 	for i in range(n):
-		var a: Dictionary = tokens[i]
+		pos[i] = tokens[i]["pos"]
+	var push := PackedVector2Array()
+	push.resize(n)
+	var any := false
+	for i in range(n):
+		var pa := pos[i]
 		for j in range(i + 1, n):
-			var b: Dictionary = tokens[j]
-			var d: Vector2 = (b["pos"] as Vector2) - (a["pos"] as Vector2)
+			var d := pos[j] - pa
+			if absf(d.x) >= MIN_SEP or absf(d.y) >= MIN_SEP:
+				continue
 			var l := d.length()
 			if l >= MIN_SEP:
 				continue
-			var push := (d / l if l > 0.001 else Vector2(1, 0)) * (MIN_SEP - l) * 0.5
-			a["pos"] = (a["pos"] as Vector2) - push
-			b["pos"] = (b["pos"] as Vector2) + push
+			# Two on the very same spot part along a line of their own.
+			var u := d / l if l > 0.001 else Vector2.RIGHT.rotated(float(i * 7 + j))
+			var half := u * (MIN_SEP - l) * 0.5
+			push[i] -= half
+			push[j] += half
+			any = true
+	if not any:
+		return
+	var most := WALK * dt
+	for i in range(n):
+		if push[i] != Vector2.ZERO:
+			tokens[i]["pos"] = pos[i] + push[i].limit_length(most)
+
+
+## Hold a token's move this step to SPRINT * dt from where it started (`from`),
+## whatever moved it: steering, easing apart, the oval's edge.
+static func limit_step(t: Dictionary, from: Vector2, dt: float) -> void:
+	var moved: Vector2 = (t["pos"] as Vector2) - from
+	var most := SPRINT * dt
+	if moved.length_squared() > most * most:
+		t["pos"] = from + moved.limit_length(most)
 
 
 ## Seconds a token needs to reach `p` from rest-ish, for flight timing.

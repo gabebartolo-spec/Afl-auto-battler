@@ -55,6 +55,7 @@ var _search_field: LineEdit
 ## a profile, nothing moves, and the oval is mirrored - they kick the other way.
 var _list: Array = []
 var _read_only := false
+var _rival := false
 ## Just the oval and the interchange, the right way round: a team that isn't
 ## anyone's opponent (the projected All-Australian team). Set before setup().
 var field_only := false
@@ -78,6 +79,8 @@ var notes := {}
 func setup(side: Dictionary, wide: bool, list: Array = [], read_only := false) -> void:
 	_list = list if not list.is_empty() else GameState.my_list
 	_read_only = read_only
+	# A rival's list: his private state (load, mood) is not the coach's to see.
+	_rival = read_only and not _list.is_empty() and str(_list[0].get("club", "")) not in ["", GameState.my_club]
 	_side = side.duplicate(true)
 	for line in LINES:
 		if not _side.has(line):
@@ -227,7 +230,8 @@ func _build() -> void:
 		var who := UiKit.ellipsis("%s picked: tap who he swaps with." % GameDB.player_display_name(_player(_picked)),
 				UiKit.SMALL, UiKit.TEXT, true)
 		who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		bar.add_child(who)
+		who.name = "PickedName"
+		bar.add_child(NameLink.tappable(who, _picked))
 		var prof := UiKit.btn("Profile", 13)
 		prof.name = "PickedProfile"
 		prof.custom_minimum_size = Vector2(80, 44)
@@ -259,7 +263,7 @@ func _build() -> void:
 	_grid.name = "NotSelected"
 	_grid.columns = 2
 	if stacked and _wide:
-		_grid.columns = 3 if UiKit.view_width(self) < 1600.0 else 4
+		_grid.columns = clampi(int(UiKit.view_width(self) / 400.0), 3, 8)
 	_grid.add_theme_constant_override("h_separation", 6)
 	_grid.add_theme_constant_override("v_separation", 6)
 	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -354,7 +358,7 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 				sb.border_width_top = 3
 				sb.border_color = UiKit.team_colour()
 				b.add_theme_stylebox_override(st, sb)
-		if not field_only and Workload.value(p) >= Workload.CARRYING:
+		if not field_only and not _rival and Workload.value(p) >= Workload.CARRYING:
 			# How fresh he is, on the card: no profile needed to see it.
 			var ready := UiKit.lbl(Workload.label(p), UiKit.TINY, UiKit.BAD if Workload.value(p) >= Workload.NEEDS_BREAK else UiKit.MUTED)
 			ready.name = "Readiness_" + id
@@ -374,6 +378,9 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 		ovr.autowrap_mode = TextServer.AUTOWRAP_OFF
 		ovr.custom_minimum_size.x = 26
 		ovr.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		if _wide:
+			# His rating right after his name, not at the card's far edge.
+			UiKit.near_figure(n, ovr, 170.0, 26.0)
 		row.add_child(ovr)
 		var age := int(p.get("age", 0))
 		face.add_child(UiKit.ellipsis("%s · %s · %d yo" % [Ratings.role_tag(p), PlayerProfile.player_type(p), age],
@@ -383,7 +390,7 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 			third.append(_trial_note(id))
 		if not Ratings.available(p):
 			third.append(_why_out(p))
-		elif Workload.value(p) >= Workload.CARRYING:
+		elif not _rival and Workload.value(p) >= Workload.CARRYING:
 			third.append(Workload.label(p))
 		for t in Traits.of(p):
 			third.append(Traits.label(str(t)))

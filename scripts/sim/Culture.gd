@@ -14,8 +14,20 @@ extends RefCounted
 ## move in small steps; the reasons are facts about the club in football
 ## words, never a verdict on a player's character.
 ##
-## They have no effect yet: P2-5 decides what they touch, measured. The screen
-## claims none; when an effect is approved, its line joins the screen with a test.
+## Effects (director, 2026-10-13: small, then measure, both ways; 2026-10-18:
+## build them, and a patient club brings its young on), sizes in
+## data/culture_effects.json, the same rule for every club, applied in GameState:
+##   Standards    - how fast legs recover between games (Workload.advance_week)
+##   Togetherness - how much being left out of the side costs a fit player's
+##                  morale (ClubLife.morale_after_match)
+##   Ambition     - winning now: the price a player will re-sign for, and a free
+##                  agent's weighing of the club's offer (Contracts); patient or
+##                  rebuilding: how fast under-22s and first-season draftees
+##                  develop (match XP, GameState._club_xp) and how far in a
+##                  season (a point of training ceiling, GameState.season_ceiling)
+## A band in the middle does nothing; the screen says what each active band does.
+## Effects move the odds of a season, never its certainty: each is a small tilt
+## on a lever the game already has.
 
 const STRANDS := [["standards", "Standards"], ["together", "Togetherness"], ["ambition", "Ambition"]]
 ## The most one moment moves a strand, either way.
@@ -280,8 +292,73 @@ static func _distinct_sorted(years: Array) -> Array:
 	return out
 
 
-## What a strand reads when no band is named: nothing yet, or which way its
-## latest move went (so it never contradicts the reason below it).
+const EFFECTS_PATH := "res://data/culture_effects.json"
+static var _effects := {}
+
+
+static func effects() -> Dictionary:
+	if _effects.is_empty():
+		var parsed = JSON.parse_string(FileAccess.get_file_as_string(EFFECTS_PATH))
+		_effects = parsed if parsed is Dictionary else {}
+	return _effects
+
+
+## The size of one effect for a strand's band (0.0 when the band does none).
+static func effect_of(kind: String, strand: String, band: String) -> float:
+	var by_strand: Dictionary = (effects().get(kind, {}) as Dictionary).get(strand, {})
+	return float(by_strand.get(band, 0.0))
+
+
+## The size of one effect at a club, from where its strand stands now.
+static func club_effect(rel: Dictionary, club: String, kind: String, strand: String) -> float:
+	return effect_of(kind, strand, band_key(strand, value(rel, club, strand)))
+
+
+## Which strand each kind of effect belongs to.
+const KIND_STRAND := {"recovery": "standards", "sting": "together",
+		"resign_floor": "ambition", "free_agent_score": "ambition", "young_growth": "ambition",
+		"young_ceiling": "ambition"}
+
+
+## Does a patient club's young-player effect reach this player: under the
+## table's age (under-22s), or in his first season on a list after the draft.
+static func young_for_growth(p: Dictionary, season_year: int) -> bool:
+	if float(p.get("age", 25.0)) < float(effects().get("young_age_below", 22)):
+		return true
+	return p.has("drafted_year") and season_year - int(p["drafted_year"]) <= int(effects().get("draftee_seasons", 1))
+
+
+## What an active band does, in football words, from the applied number: "" in
+## the middle band.
+static func effect_line(strand: String, t: int) -> String:
+	var band := band_key(strand, t)
+	var little: Dictionary = effects().get("little_max", {})
+	match strand:
+		"standards":
+			var x := effect_of("recovery", strand, band)
+			if x == 0.0:
+				return ""
+			return "Players recover %s %s between games." % ["a little" if absf(x) <= float(little["recovery"]) else "much",
+					"faster" if x > 0.0 else "slower"]
+		"together":
+			var x := effect_of("sting", strand, band)
+			if x == 0.0:
+				return ""
+			return "Players take a missed game %s %s." % ["a little" if absf(x) <= float(little["sting"]) else "much",
+					"better" if x > 0.0 else "worse"]
+		"ambition":
+			if effect_of("young_growth", strand, band) != 0.0 or effect_of("young_ceiling", strand, band) != 0.0:
+				return "Young players come on a little quicker here."
+			var r := effect_of("resign_floor", strand, band)
+			var f := effect_of("free_agent_score", strand, band)
+			if r == 0.0 and f == 0.0:
+				return ""
+			if absf(r) <= float(little["resign_floor"]) and absf(f) <= float(little["free_agent_score"]):
+				return "Players are a little more willing to stay and to join."
+			return "Players are keen to stay and to join."
+	return ""
+
+
 ## What moves a strand, from the same constants the movers use.
 static func moves_line(strand: String) -> String:
 	match strand:
@@ -305,6 +382,8 @@ static func event_text(strand_label: String, r: Dictionary) -> String:
 	return "%s. %s %s." % [lead, strand_label, "rose" if int(r.get("d", 0)) > 0 else "fell"]
 
 
+## What a strand reads when no band is named: nothing yet, or which way its
+## latest move went (so it never contradicts the reason below it).
 static func quiet_words(latest: int, has_reasons: bool) -> String:
 	if not has_reasons:
 		return "Nothing stands out yet"
