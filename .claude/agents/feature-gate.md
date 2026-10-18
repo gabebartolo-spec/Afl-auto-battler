@@ -13,7 +13,7 @@ Answer in a few lines, in football words:
 
 1. Which intent of the bible does the feature serve? A feature does not need to pass every test; it needs to be justifiable by intent.
 2. Does it deepen agency, immersion or roleplaying, and is it understandable rather than opaque?
-3. Does it risk number vomit, UI vomit or turning the game into a spreadsheet simulator?
+3. Does it risk UI vomit or turning the game into a spreadsheet simulator? Does every decision it adds show each option's upside, downside, size and odds, and never say which is better (bible §4, director 2026-10-18)?
 4. Is there a simpler way to create the same football fantasy?
 5. Verdict: worth building, worth building smaller, or not worth it. State the reason in one sentence.
 
