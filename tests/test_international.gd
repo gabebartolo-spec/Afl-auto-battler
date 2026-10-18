@@ -37,7 +37,8 @@ func run() -> void:
 	state.save_path = "user://test_intl.save"
 	state.settings_path = "user://test_intl.cfg"
 	_check(Features.KNOWN.has("international_prospects"), "The switch is a known feature")
-	_check(not Features.on("international_prospects"), "The switch ships off")
+	_check(Features.on("international_prospects"), "The switch ships on (project setting)")
+	Features.set_on("international_prospects", false)
 
 	# Switch off: nobody is international, and a class is the same every time.
 	var off := {}
@@ -220,6 +221,16 @@ func run() -> void:
 	var wi: int = int(view_i["overall"][1]) - int(view_i["overall"][0]) + int(view_i["potential"][1]) - int(view_i["potential"][0])
 	var wt: int = int(view_t["overall"][1]) - int(view_t["overall"][0]) + int(view_t["potential"][1]) - int(view_t["potential"][0])
 	_check(wi > wt, "Recruiters' range on him is wider than on the same player at home (%d vs %d)" % [wi, wt])
+
+	var dup := 0
+	for y in range(FIRST_YEAR, FIRST_YEAR + 150):
+		var seen_last := {}
+		for p in Prospects.generate_class(y, SEED):
+			var nm := str(p["generic_name"])
+			var ln := nm.substr(nm.find(" ") + 1)
+			dup += 1 if seen_last.has(ln) else 0
+			seen_last[ln] = true
+	_check(dup == 0, "With the switch on no class repeats a surname over 150 years (%d)" % dup)
 
 	_career(state, db)
 	Features.clear("international_prospects")
