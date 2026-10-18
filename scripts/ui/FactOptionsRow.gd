@@ -7,7 +7,7 @@ extends HFlowContainer
 ## decides what that opens.
 
 const MIN_W_NARROW := 130.0
-const MIN_W_WIDE := 270.0
+const MIN_W_WIDE := 330.0
 
 
 ## `options` are FactOptions.options; `on_pick` gets the option's dictionary.
@@ -30,7 +30,7 @@ func _button(fact_index: int, o: Dictionary, narrow: bool, on_pick: Callable) ->
 	# The button is the background and the tap target; the words sit over it.
 	var b := UiKit.btn("", UiKit.SECONDARY)
 	b.name = "FactOption_%d_%s" % [fact_index, key]
-	b.custom_minimum_size.y = 44
+	b.custom_minimum_size.y = 44 if narrow else 36
 	b.set_meta("option", o)
 	var enabled := bool(o["enabled"])
 	b.disabled = not enabled
@@ -40,9 +40,10 @@ func _button(fact_index: int, o: Dictionary, narrow: bool, on_pick: Callable) ->
 	for side in ["left", "right"]:
 		pad.add_theme_constant_override("margin_" + side, 10)
 	for side in ["top", "bottom"]:
-		pad.add_theme_constant_override("margin_" + side, 5)
+		pad.add_theme_constant_override("margin_" + side, 5 if narrow else 3)
 	wrap.add_child(pad)
-	var col := UiKit.vbox(1)
+	# Phone: the name over its cost. Wide: one line, so the week column stays short.
+	var col: BoxContainer = UiKit.vbox(1) if narrow else UiKit.hbox(8)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	pad.add_child(col)

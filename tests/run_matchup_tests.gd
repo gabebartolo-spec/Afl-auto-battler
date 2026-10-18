@@ -878,7 +878,7 @@ func _fact_options() -> void:
 			var fact_label: Control = hub.find_child("Fact_%d" % i, true, false)
 			rows_ok = rows_ok and fact_label != null and row.get_index() == fact_label.get_index() + 1
 			for b in row.find_children("FactOption_*", "Button", true, false):
-				fits = fits and (b as Button).size.y >= 44.0 and b.get_global_rect().size.x > 0.0
+				fits = fits and (b as Button).size.y >= (44.0 if sz.x < 600 else 36.0) and b.get_global_rect().size.x > 0.0
 				var o: Dictionary = b.get_meta("option")
 				var sub := b.get_parent().find_child("OptionSub", true, false) as Label
 				rows_ok = rows_ok and b.disabled == (not bool(o["enabled"])) \
@@ -942,6 +942,21 @@ func _fact_options() -> void:
 				and restated.get_index() < picker.get_index(),
 				"The %s picker opens with the one fact above it (%s)" % [want_call, plain])
 		_check(_state.call_intent.is_empty(), "The tap's intent is used once and not kept")
+		if want_call == "tag" and picker != null:
+			# The same TagPicker main builds (its question, its candidates): no ruck on offer.
+			var opp_code: String = str(_state.my_next_opponent()["code"])
+			var rucks := 0
+			for tb in picker.find_children("TagPickerGrid_*", "Button", true, false):
+				var tid: String = str(tb.name).trim_prefix("TagPickerGrid_")
+				for lp in _state.season.lists[opp_code]:
+					if str(lp.get("id", "")) == tid and str(load("res://scripts/sim/Ratings.gd").positions(lp)[0]) == "RUCK":
+						rucks += 1
+			var asks := false
+			var ask_text: String = load("res://scripts/ui/match/MatchNotes.gd").tag_question()
+			for lab in picker.get_parent().find_children("*", "Label", true, false):
+				if (lab as Label).text == ask_text:
+					asks = true
+			_check(rucks == 0 and asks, "The opened tag picker is main's own: its question, and no ruck among the names (%d)" % rucks)
 		# Saves are unchanged: an intent held at save time never reaches the file.
 		_state.call_intent = {"call": "tag", "plan": "", "player_id": "x", "fact": "A fact."}
 		var wrote: bool = _state.save_career()
