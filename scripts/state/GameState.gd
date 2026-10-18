@@ -8816,7 +8816,16 @@ func board_confidence() -> int:
 
 ## The board's mood in words (ClubLife.board_state), and why it last moved.
 func board_state() -> String:
-	return ClubLife.board_state(board_confidence(), int(difficulty_rules()["poor_season_below"]))
+	return ClubLife.board_state(board_confidence())
+
+
+## The hub's board warning (ClubLife.board_warning) for this career's board: ""
+## unless confidence is under ClubLife.POOR_LINE.
+func board_warning() -> String:
+	var rules := difficulty_rules()
+	return ClubLife.board_warning(board_confidence(), bool(board.get("warned", false)),
+			int(rules["poor_season_below"]), int(rules["poor_seasons_before_warning"]),
+			int(board.get("poor_seasons", 0)))
 
 
 func board_why() -> String:
