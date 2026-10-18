@@ -46,6 +46,7 @@ func _career(club := CLUB, seed := SUITE_SEED) -> void:
 	GameState.career_seed = seed
 	GameState.replay_seed = seed
 	GameState.start_season(club, GameDB.club_list(club))
+	GameState.stories_on = false  # the pre-season cards have their own suites (preseason, story)
 	GameState.open_preseason()
 
 

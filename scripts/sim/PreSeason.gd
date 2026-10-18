@@ -82,6 +82,9 @@ const DEFAULT_BASE := "sound"
 ## The time trial, the intra-club match, then the practice match against
 ## another club at the end of the last block; the papers in the quiet last week.
 const STOPS := {3: "trial", 5: "intra", 7: "practice", 8: "papers"}
+## The weeks after which a story card may stop the pre-season: the end of each
+## block (a card never comes in the quiet last week). At most one a block.
+const STORY_WEEKS := [3, 5, 7]
 
 static var _data := {}
 

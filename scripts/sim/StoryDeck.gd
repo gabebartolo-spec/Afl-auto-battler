@@ -18,7 +18,7 @@ extends RefCounted
 const DIR := "res://data/stories/"
 const CATEGORIES := ["training", "health", "family", "media", "contracts", "leadership",
 		"community", "rivals", "board", "members", "selection"]
-const PHASES := ["regular", "finals"]
+const PHASES := ["regular", "finals", "preseason"]
 const BEATS := ["start", "middle", "end"]
 
 ## The biggest effect one choice may carry, per lever.
@@ -45,7 +45,20 @@ const OPS := {
 	# final is then lost, the side's morale falls by `d` instead of lifting; an
 	# injured player made available at a sore player's risk; one line to the news.
 	"slow_start": false, "loss_sting": false, "rush_back": true, "news": false,
+	# The pre-season cards: a step on one of the club's three culture strands
+	# (Culture.gd), weeks of running toward the fitness base, weeks of drilling the
+	# game plan (PreSeason.gd). They act on the club, not on a player.
+	"culture": false, "running": false, "drill": false,
+	# Lines with no lever of their own (director, 2026-10-18, row 24): a contract
+	# talk put off names the early premium it does not pay; a choice that holds a
+	# player back names the development (`d`, XP) the other choice would give him.
+	"open_price": true, "forgo_xp": true,
 }
+## The biggest step a card may give a culture strand, and the most weeks of
+## running or drilling it may add or take.
+const CULTURE_MAX := 3
+const RUNNING_MAX := 2
+const DRILL_MAX := 3
 ## The biggest chance a "small chance" may be, in percent.
 const RISK_MAX := 30
 ## A role trial lasts this many of your games at most ("weeks" on the effect).
@@ -69,6 +82,9 @@ const PLAYER_FACTS := ["name", "first", "age", "games", "fit", "selected", "over
 		# he may retire.
 		"last_season", "finals_games", "save_debut", "debut_year", "milestone_next",
 		"injured_weeks", "rushable", "overall_rank", "told_players",
+		# The pre-season cards: arrived this summer (a recruit or a draftee), where he
+		# finished in the time trial ("best", "worst" or ""), what he is injured with.
+		"new_here", "trial_place", "injury_kind",
 		# International prospects (international.json): who he is, and where he is in his career.
 		"intl", "intl_region", "from", "demonym", "home_club", "seasons_listed", "goals",
 		# The extension card: what waiting for the off-season can cost (ClubLife.wait_words).
@@ -86,7 +102,9 @@ const CLUB_FACTS := ["club", "opp", "round", "year", "losing_run", "winning_run"
 		# finals, beaten in last week's final and still alive, and the Grand Final's story
 		# with this opponent (consecutive Grand Finals against them, last year's result, an
 		# established rival).
-		"finals_math", "finals_bye", "lost_last_final", "gf_run", "gf_run_word", "gf_again", "rival"]
+		"finals_math", "finals_bye", "lost_last_final", "gf_run", "gf_run_word", "gf_again", "rival",
+		# The pre-season cards: weeks of it done (0 outside it) and the flag won last year.
+		"pre_week", "premiers"]
 
 const DEFAULTS := {"weight": 1, "cooldown": 40, "subject_cooldown": 8, "per_season": 0,
 		"phase": ["regular"], "default": -1, "bye": false, "priority": false}
@@ -289,6 +307,8 @@ static func _check_effect(where: String, e, player: bool) -> Array:
 		var dv := int(e.get("d", 0))
 		if dv == 0 or absi(dv) > int(CAPS[op]):
 			errs.append("%s: %s of %d is outside 1..%d" % [where, op, dv, int(CAPS[op])])
+	if op == "forgo_xp" and (int(e.get("d", 0)) < 1 or int(e.get("d", 0)) > int(CAPS["xp"])):
+		errs.append("%s: development given up of %d is outside 1..%d" % [where, int(e.get("d", 0)), int(CAPS["xp"])])
 	if op == "slow_start" or op == "loss_sting":
 		var ch := int(e.get("chance", 0))
 		if ch < 1 or ch > RISK_MAX:
@@ -303,6 +323,20 @@ static func _check_effect(where: String, e, player: bool) -> Array:
 		errs.append("%s: a trust change needs its reason" % where)
 	if op == "trust":
 		errs.append_array(_check_text(where, str(e.get("why", "")), player))
+	if op == "culture":
+		var strands := Culture.STRANDS.map(func(x): return str(x[0]))
+		if not strands.has(str(e.get("strand", ""))):
+			errs.append("%s: culture strand '%s' is not one of %s" % [where, str(e.get("strand", "")), ", ".join(strands)])
+		var cd := int(e.get("d", 0))
+		if cd == 0 or absi(cd) > CULTURE_MAX:
+			errs.append("%s: a culture step of %d is outside 1..%d" % [where, cd, CULTURE_MAX])
+		if str(e.get("why", "")) == "":
+			errs.append("%s: a culture step needs its reason" % where)
+		errs.append_array(_check_text(where, str(e.get("why", "")), player))
+	if op == "running" and (int(e.get("d", 0)) == 0 or absi(int(e.get("d", 0))) > RUNNING_MAX):
+		errs.append("%s: running of %d weeks is outside 1..%d" % [where, int(e.get("d", 0)), RUNNING_MAX])
+	if op == "drill" and (int(e.get("d", 0)) < 1 or int(e.get("d", 0)) > DRILL_MAX):
+		errs.append("%s: drilling of %d weeks is outside 1..%d" % [where, int(e.get("d", 0)), DRILL_MAX])
 	if op == "role_trial":
 		var wk := int(e.get("weeks", 0))
 		if wk < 1 or wk > TRIAL_GAMES_MAX:

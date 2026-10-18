@@ -94,6 +94,10 @@ func _build() -> void:
 		else:
 			page.add_child(_papers_story())
 			page.add_child(_papers_ladder())
+	if stop == "story":
+		page.add_child(_story_cards())
+		page.add_child(_blocks_section(first, _wide()))
+		page.add_child(_base_result())
 	elif stop == "intra":
 		if GameState.intra_played():
 			page.add_child(_intra_report())
@@ -219,6 +223,8 @@ func _hero(stop: String) -> String:
 			return "The practice match"
 		"papers":
 			return "The papers"
+		"story":
+			return "After week %d of %d" % [GameState.preseason_week(), PreSeason.weeks()]
 	return "Week %d of 8" % mini(PreSeason.weeks(), GameState.preseason_week() + 1)
 
 
@@ -239,6 +245,8 @@ func _hero_sub(stop: String) -> String:
 			return "End of week 7: one match against %s. It counts for nothing on the ladder." % opp
 		"papers":
 			return "Week 8. Training is done. This is the ladder the papers have printed, and what they want to know."
+		"story":
+			return "Something has come up. Answer it, or press on and nothing changes."
 	return "Training is under way."
 
 
@@ -658,6 +666,17 @@ func _trial_cost_text(invites: Array) -> String:
 
 
 ## A 2 px rule in the club's colour: the section belongs to your club.
+## The card or cards the block threw up, answered here as on the hub.
+func _story_cards() -> Control:
+	var v := UiKit.vbox(10)
+	v.name = "PreSeasonCards"
+	var names := NameInk.from_lists(GameState.season.lists)
+	for i in range(GameState.week_events.size()):
+		v.add_child(EventCardView.build(i, not _wide(), func(): _build(),
+				func(t: String): EventCardView.rule_sheet(self, t), names))
+	return v
+
+
 func _club_rule() -> Control:
 	var r := ColorRect.new()
 	r.color = UiKit.club_ink(GameState.my_club)
@@ -1126,6 +1145,10 @@ func handle_back() -> bool:
 	if plan_sheet != null and is_instance_valid(plan_sheet) and not plan_sheet.is_queued_for_deletion():
 		plan_sheet.queue_free()
 		_build()
+		return true
+	var rule := get_node_or_null("RuleSheet")
+	if rule != null and is_instance_valid(rule) and not rule.is_queued_for_deletion():
+		rule.queue_free()
 		return true
 	if _settings != null and is_instance_valid(_settings):
 		_settings.queue_free()
