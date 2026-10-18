@@ -1013,11 +1013,18 @@ func assign_aliases(list: Array) -> void:
 	for i in range(list.size()):
 		var label := _alias_at(_alias_next)
 		_alias_next += 1
-		while _real_names.has(label):
+		while _real_names.has(label) or alias_is_double(label):
 			label = _alias_at(_alias_next)
 			_alias_next += 1
 		list[i]["generic_name"] = label
 		list[i]["name"] = label
+
+
+## True when a name's first word equals its last word ("Reid Reid"). Such a
+## label is skipped at the draw, so the cursor and every stored name stay valid.
+static func alias_is_double(label: String) -> bool:
+	var parts := label.strip_edges().split(" ", false)
+	return parts.size() >= 2 and str(parts[0]).to_lower() == str(parts[parts.size() - 1]).to_lower()
 
 
 func _alias_at(idx: int) -> String:
