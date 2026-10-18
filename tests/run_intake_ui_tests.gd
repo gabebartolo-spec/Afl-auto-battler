@@ -704,7 +704,7 @@ func _draft_night_screen(size: Vector2i) -> void:
 			and from_l.text == "%s, %s" % [dn.from_words(target), dn.position_words(target)],
 			"It says his name, where he is from and his position (%s: %s / %s)" % [tag,
 			name_l.text if name_l else "-", from_l.text if from_l else "-"])
-	_check(rec_l != null and rec_l.text.begins_with("Recruiter: ") and rec_l.text.contains(dn.recruiter_line(target, "FRE"))
+	_check(rec_l != null and rec_l.text.begins_with("Recruiting note: ") and not rec_l.text.contains("“") and rec_l.text.contains(dn.recruiter_line(target, "FRE"))
 			and _night_forbidden(rec_l.text) == "",
 			"Then the recruiter's one line, with no grade in it (%s: %s)" % [tag, rec_l.text if rec_l else "-"])
 	var vignette: Control = stage.find_child("DraftNightVignette", true, false)

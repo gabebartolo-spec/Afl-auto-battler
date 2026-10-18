@@ -1322,7 +1322,7 @@ func _show_beat(entry: Dictionary) -> void:
 			UiKit.BODY, UiKit.TEXT)
 	where_l.name = "BeatFrom"
 	say.add_child(where_l)
-	var rec := _beat_line("Recruiter: “%s”" % DraftNight.recruiter_line(p, _club), UiKit.BODY, UiKit.TEXT)
+	var rec := _beat_line("Recruiting note: %s" % DraftNight.recruiter_line(p, _club), UiKit.BODY, UiKit.TEXT)
 	rec.name = "BeatRecruiter"
 	say.add_child(rec)
 	_ignore_mouse(panel)
