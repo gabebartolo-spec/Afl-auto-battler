@@ -86,6 +86,107 @@ static func wire(label: RichTextLabel, underline := false) -> void:
 	label.set_meta("name_link_wired", true)
 	label.gui_input.connect(_on_input.bind(label))
 	label.meta_clicked.connect(_on_meta.bind(label))
+	_add_slop(label)
+
+
+## A name in running text is as tall as its line, so a thumb is given the whole line
+## pitch: the label gets an invisible hit strip reaching half the gap to the line
+## above and half the gap to the line below (a box's `separation`), which never
+## overlaps the next line's strip. A tap in a strip is handed to the label at its
+## nearest edge, so it finds the name the same way a tap on the text does. Nothing
+## is drawn and nothing moves.
+const HIT_NAME := "NameHit"
+
+
+static func _add_slop(label: RichTextLabel) -> void:
+	var hit := Control.new()
+	hit.name = HIT_NAME
+	hit.set_meta("name_link_hit", true)
+	hit.mouse_filter = Control.MOUSE_FILTER_PASS
+	hit.focus_mode = Control.FOCUS_NONE
+	hit.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# The strips reach outside the label's box, which a clipping label would cut off.
+	label.clip_contents = false
+	label.add_child(hit, false, Node.INTERNAL_MODE_BACK)
+	hit.gui_input.connect(_on_strip.bind(label, hit))
+	label.tree_entered.connect(func() -> void: _fit_slop.call_deferred(label))
+	label.resized.connect(func() -> void: _fit_slop(label))
+	_fit_slop.call_deferred(label)
+
+
+static func _fit_slop(label: RichTextLabel) -> void:
+	if not is_instance_valid(label):
+		return
+	var hit := label.get_node_or_null(HIT_NAME) as Control
+	if hit == null:
+		return
+	var gap := 0.0
+	var parent := label.get_parent()
+	if parent is BoxContainer and (parent as BoxContainer).vertical:
+		gap = float((parent as BoxContainer).get_theme_constant("separation")) * 0.5
+	hit.offset_top = -floorf(gap)
+	hit.offset_bottom = floorf(gap)
+
+
+## A tap that lands in a strip (above or below the text box) opens the name nearest
+## it: on the label's top line for a tap above, its bottom line for a tap below.
+## A press that turns into a swipe opens nothing and still scrolls the page.
+static func _on_strip(ev: InputEvent, label: RichTextLabel, _hit: Control) -> void:
+	if not (ev is InputEventMouseButton and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT):
+		return
+	var at: Vector2 = (ev as InputEventMouseButton).global_position
+	if ev.is_pressed():
+		label.set_meta("name_link_strip_down", at)
+		return
+	if not label.has_meta("name_link_strip_down"):
+		return
+	var down: Vector2 = label.get_meta("name_link_strip_down")
+	label.remove_meta("name_link_strip_down")
+	if at.distance_to(down) > 12.0 or label.get_global_rect().has_point(at):
+		return
+	var id := nearest_id(label, at)
+	if id != "":
+		open(label, id)
+
+
+## The id of the name on `label` nearest the point (global): among the names on its
+## top line when the point is above the box, on its bottom line when below; the
+## nearest by how far along the line it starts. "" when the label names no one.
+static func nearest_id(label: RichTextLabel, at: Vector2) -> String:
+	var found := []
+	var rx := RegEx.new()
+	rx.compile("\\[url=%s([^\\]]+)\\](.*?)\\[/url\\]" % SCHEME)
+	var parsed := label.get_parsed_text()
+	var cursor := 0
+	for m in rx.search_all(label.text):
+		var shown := m.get_string(2).replace("[lb]", "[")
+		var i := parsed.find(shown, cursor)
+		if i < 0:
+			continue
+		cursor = i + shown.length()
+		found.append([m.get_string(1), i, shown])
+	if found.is_empty():
+		return ""
+	var want_line := 0 if at.y < label.get_global_rect().position.y else label.get_line_count() - 1
+	var font := label.get_theme_font("normal_font")
+	var size := label.get_theme_font_size("normal_font_size")
+	var best := ""
+	var best_d := INF
+	for f in found:
+		var idx := int(f[1])
+		if label.get_character_line(idx) != want_line:
+			continue
+		var line_start := idx
+		while line_start > 0 and label.get_character_line(line_start - 1) == want_line:
+			line_start -= 1
+		var x0 := font.get_string_size(parsed.substr(line_start, idx - line_start), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		var x1 := x0 + font.get_string_size(str(f[2]), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		var local_x := at.x - label.get_global_rect().position.x
+		var d := 0.0 if local_x >= x0 and local_x <= x1 else minf(absf(local_x - x0), absf(local_x - x1))
+		if d < best_d:
+			best_d = d
+			best = str(f[0])
+	return best
 
 
 ## A tap opens the profile; a press that turns into a swipe does not. The label

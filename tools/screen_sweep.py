@@ -106,8 +106,9 @@ def write_doc(path, date, shots, regressions, baseline_note):
     L.append("")
     L.append("Figures: the smallest font on the screen in rendered px; controls whose rect leaves the viewport "
              "(sideways always, up or down only outside a scroll area); labels and buttons whose text is cut or "
-             "ellipsised; buttons and tappable rows under 44 px in either direction. Examples are the first few "
-             "found, not all.")
+             "ellipsised; buttons and tappable rows under 44 px in either direction. Inline name links are player "
+             "names in running text that open his profile (NameLink): text at line height like a web link, counted "
+             "here for the record and never compared to the baseline. Examples are the first few found, not all.")
     L.append("")
     L.append("## Result")
     L.append("")
@@ -120,8 +121,8 @@ def write_doc(path, date, shots, regressions, baseline_note):
     L.append("")
     L.append("## The table")
     L.append("")
-    L.append("| Screen | Size | Smallest font (px) | Off screen | Clipped | Targets under 44 px |")
-    L.append("|---|---|---|---|---|---|")
+    L.append("| Screen | Size | Smallest font (px) | Off screen | Clipped | Targets under 44 px | Inline name links |")
+    L.append("|---|---|---|---|---|---|---|")
     keys = []
     for size in SIZES:
         for k in shots[size]["screens"]:
@@ -133,9 +134,9 @@ def write_doc(path, date, shots, regressions, baseline_note):
             if e is None:
                 continue
             if not e.get("built"):
-                L.append("| %s | %s | did not build: %s | | | |" % (k, size, e.get("error", "")))
+                L.append("| %s | %s | did not build: %s | | | | |" % (k, size, e.get("error", "")))
             else:
-                L.append("| %s | %s | %.1f | %d | %d | %d |" % (k, size, e["min_font"], e["offscreen"], e["clipped"], e["small"]))
+                L.append("| %s | %s | %.1f | %d | %d | %d | %d |" % (k, size, e["min_font"], e["offscreen"], e["clipped"], e["small"], e.get("inline", 0)))
     L.append("")
     L.append("## Worst five findings")
     L.append("")
