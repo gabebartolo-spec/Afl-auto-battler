@@ -1,7 +1,7 @@
 extends SceneTree
-## SCRATCH for the CI preflight proof (PR 816): names an autoload-dependent class at compile time.
+## SCRATCH for the CI preflight proof (PR 816): names a class that is not declared.
 
-var vignette: StoppageVignette = null
+var vignette: NoSuchClassAtCompileTime = null
 
 
 func _initialize() -> void:
