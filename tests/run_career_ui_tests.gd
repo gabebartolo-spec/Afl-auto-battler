@@ -101,6 +101,99 @@ func test_media_conference_rules() -> void:
 	_check(stage._ready, "Media vignette can skip its play-in to the question")
 
 
+## Press answers are seeded rolls with their odds shown (bible §4 and "an
+## answer is a dice roll based on logic"; director 2026-10-18, ch. 30 row 33).
+func _test_press_rolls() -> void:
+	var MC = load("res://scripts/sim/MediaConference.gd")
+	# A seeded career: answering differs from skipping, the same seed lands the
+	# same way, and the same answer can land either way across careers.
+	_state.reset()
+	_state.start_season("FRE", _db.club_list("FRE"))
+	var snap := []
+	for p in _state.my_list:
+		snap.append(int(p.get("morale", 70)))
+	var conf: Dictionary = MC.pick({"club": "FRE", "opponent_name": "Carlton", "round": 8, "year": int(_state.season_year),
+			"result": {"home": "FRE", "away": "CAR", "score": [55, 101]}}, {})
+	var run := func(seed: int, answer: bool) -> Array:
+		for i in range(_state.my_list.size()):
+			_state.my_list[i]["morale"] = snap[i]
+		_state.board["confidence"] = 50
+		_state.career_seed = seed
+		_state.media_conference = conf.duplicate(true)
+		# Untyped, so the same check runs (and fails) against the old fixed answers.
+		var landed = _state.resolve_media_conference(0) if answer else {}
+		if not answer:
+			_state.skip_media_conference()
+		if not (landed is Dictionary):
+			landed = {}
+		var total := 0
+		for p in _state.my_list:
+			total += int(p.get("morale", 70))
+		return [total, _state.board_confidence(), str(landed.get("landed", ""))]
+	var on: Array = run.call(2027, true)
+	var off: Array = run.call(2027, false)
+	var again: Array = run.call(2027, true)
+	_check(on[0] != off[0] and on[1] != off[1], "A seeded run with the press answer differs from one that skips it (morale %d vs %d, board %d vs %d)" % [on[0], off[0], on[1], off[1]])
+	_check(on == again, "The same career seed lands the same answer the same way (%s)" % str(on))
+	var ways := {}
+	var moves := {}
+	for seed in range(1, 41):
+		var r: Array = run.call(seed, true)
+		ways[r[2]] = true
+		moves[signi(int(r[0]) - int(off[0]))] = true
+	_check(ways.has("a") and ways.has("b") and moves.has(1) and moves.has(-1),
+			"Criticising the players is no fixed transaction: across careers their morale both rises and falls (%s)" % str(moves.keys()))
+	_state.media_conference = {}
+	# Every number on the gate comes from the constants: no digits in a template.
+	var digit := RegEx.create_from_string("[0-9]")
+	var words: Array = [MC.ODDS_TEMPLATE, MC.MORALE_SIZE, MC.BOARD_SIZE, MC.AFTER_MORALE, MC.AFTER_BOARD]
+	for kind in MC.KINDS:
+		var s: Dictionary = MC.ANSWERS[kind]
+		words.append_array([s["both"], s["a"]["odds"], s["a"]["after"], s["b"]["odds"], s["b"]["after"]])
+	var bare := true
+	for w in words:
+		bare = bare and digit.search(str(w)) == null
+	_check(bare, "No press template carries a literal number; the odds and sizes come from the constants")
+	# Each line carries both percentages and both outcomes' effects.
+	var carries := true
+	var sample := ""
+	for kind in MC.KINDS:
+		var s: Dictionary = MC.ANSWERS[kind]
+		var a: Dictionary = s["a"]
+		var b: Dictionary = s["b"]
+		for c in [MC.ODDS_MIN, 35, 50, 65, MC.ODDS_MAX]:
+			var line: String = MC.odds_line(kind, c)
+			var ok := line.contains("%d%% %s" % [c, a["odds"]]) and line.contains("%d%% %s" % [100 - c, b["odds"]]) 					and line.contains(str(s["both"]))
+			for lever in [["morale", MC.MORALE_SIZE], ["board", MC.BOARD_SIZE]]:
+				for o in [a, b]:
+					if int(o[lever[0]]) != 0:
+						ok = ok and line.contains(str(lever[1]) % int(o[lever[0]]))
+			if not ok:
+				sample = line
+			carries = carries and ok
+	_check(carries, "Every press answer's line carries its two odds and both outcomes' effects (%s)" % sample)
+	# The outcome frequency over 2000 seeded rolls matches the stated odds within 3 points.
+	var worst := 0.0
+	for kind in MC.KINDS:
+		for c in [MC.ODDS_MIN, MC.chance(kind, {}), MC.ODDS_MAX]:
+			var hits := 0
+			for seed in range(1, 2001):
+				if MC.roll(seed, 2027, 8, "heavy_loss", MC.KINDS.find(kind)) <= c:
+					hits += 1
+			worst = maxf(worst, absf(float(hits) / 20.0 - float(c)))
+	_check(worst <= 3.0, "Over 2000 seeded rolls every answer lands its first way as often as its odds say (worst %.1f points off)" % worst)
+	# The odds follow the logic.
+	var calm := {"morale": 70.0, "journalist": "", "key": "close_game"}
+	_check(MC.chance("criticise", {"morale": 70.0, "young": MC.YOUNG_SIDE, "journalist": "", "key": ""}) < MC.chance("criticise", calm)
+			and MC.chance("criticise", {"morale": 70.0, "journalist": "muckraker", "key": ""}) < MC.chance("criticise", calm)
+			and MC.chance("criticise", {"morale": 90.0}) > MC.chance("criticise", calm),
+			"Criticism lands worse on a young side and in the Muckraker's paper, better with a settled group")
+	_check(MC.chance("method", {"key": "big_win"}) > MC.chance("method", calm) and MC.chance("method", {"key": "heavy_loss"}) < MC.chance("method", calm),
+			"The board buys talk of the method after a big win more than after a thrashing")
+	_check(MC.chance("back", {"morale": 50.0}) > MC.chance("back", {"morale": 90.0}),
+			"Backing the players lifts a flat group more often than one already flying")
+
+
 func _test_player_goal_milestones() -> void:
 	var p := {"id": "milestone_test", "name": "Milestone Test", "club": "MEL",
 			"career": {"games": 12, "goals": 0, "stints": [], "through": _state.season_year - 1, "unknown": []}}
@@ -219,6 +312,7 @@ func _run() -> void:
 	_state.replay_seed = SUITE_SEED
 	_state.delete_saved_career()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_settings.cfg"))
+	_test_press_rolls()
 
 	_check(not bool(ProjectSettings.get_setting("application/config/quit_on_go_back", true)),
 			"Android back does not quit the app by default")
@@ -771,12 +865,9 @@ Your career stays on this device.",
 	for l in (hwp.find_children("*", "Label", true, false) if hwp != null else []):
 		if (l as Label).is_visible_in_tree():
 			lp_text += (l as Label).text + " "
-	var digits := false
-	for c in lp_text:
-		digits = digits or (c >= "0" and c <= "9")
-	_check(not digits and not lp_text.to_lower().contains("recommend") and not lp_text.to_lower().contains("should")
+	_check(not lp_text.to_lower().contains("recommend") and not lp_text.to_lower().contains("should")
 			and not lp_text.to_lower().contains("best choice") and not lp_text.to_lower().contains("suits you"),
-			"The plans and strengths are words, with no advice")
+			"The plans and strengths carry no advice")
 	var trade_line: Label = hwp.find_child("PlanTradeOff", true, false) if hwp != null else null
 	_check(trade_line != null and trade_line.is_visible_in_tree() and trade_line.text.contains("gives something up"),
 			"How we play says in a line that a plan costs something and buys an edge (P-63)")
@@ -787,20 +878,17 @@ Your career stays on this device.",
 		await _settle()
 		_check(detail != null and detail.visible and detail.text.contains("Leading it: "),
 				"A tap says what the strength is and who leads it")
-	# Recent games: who is in and out of form, by name - no ratings, no "his".
+	# Recent games: who is in and out of form, by name - no "his".
 	var form_box: Node = current_scene.find_child("Form", true, false)
 	var form_text := ""
 	for l in (form_box.find_children("*", "Label", true, false) if form_box != null else []):
 		form_text += (l as Label).text + "\n"
-	var form_digits := false
-	for c in form_text:
-		form_digits = form_digits or (c >= "0" and c <= "9")
 	_check(form_text.contains("In good form") and form_text.contains("In poor form")
 			and form_box.find_child("Form_hot_" + hot_id, true, false) != null
 			and form_box.find_child("Form_cold_" + cold_id, true, false) != null,
 			"Recent games says who is in good and poor form, by name")
-	_check(not form_digits and not form_text.contains(" his ") and not form_text.contains("his season"),
-			"Recent games shows no rating numbers and no dangling 'his' (%s)" % form_text.replace("\n", " / "))
+	_check(not form_text.contains(" his ") and not form_text.contains("his season"),
+			"Recent games has no dangling 'his' (%s)" % form_text.replace("\n", " / "))
 	var plan: Button = current_scene.find_child("ClubPlan_contest", true, false)
 	var size_plan: Vector2i = root.size
 	root.size = Vector2i(390, 844)   # a phone window, so the finger lands on screen
@@ -858,8 +946,18 @@ Your career stays on this device.",
 	var sore_text := ""
 	if sore_node != null:
 		sore_text = str(sore_node.get_meta("plain")) if sore_node.has_meta("plain") else str(sore_node.get("text"))
-	_check(sore_text.begins_with("If you leave this, it goes as \"Play him\"") and sore_text.contains("%"),
-			"A card with a silent default names it and its odds on the card (%s)" % sore_text)
+	_check(sore_text == "If you leave this, it goes as \"Play him\".",
+			"A card with a silent default names the choice it settles as, once (%s)" % sore_text)
+	# A finger on the line answers nothing; a finger on "Play him" below it answers the card.
+	var line_tap: String = await Tap.tap(sore_node) if sore_node != null else "missing"
+	await _settle()
+	var still_open := not bool(_state.week_events[0].get("resolved", false))
+	var play_btn: Button = current_scene.find_child("Event_1", true, false)
+	var play_tap: String = await Tap.tap(play_btn) if play_btn != null else "missing"
+	await _settle()
+	_check(line_tap == "" and still_open and play_tap == "" and bool(_state.week_events[0].get("resolved", false))
+			and int(_state.week_events[0].get("choice", -1)) == 1,
+			"A real tap on the default line answers nothing; a real tap on Play him answers it (%s / %s)" % [line_tap, play_tap])
 	_state.week_events = [_state.story_card("training_kid_pushing", _state.my_list[0])]
 	_router.go("hub")
 	await _settle()

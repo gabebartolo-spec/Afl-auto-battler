@@ -474,7 +474,7 @@ func _event_card(index: int) -> Control:
 			# then costs, one plain line each (a choice that does nothing
 			# mechanical shows nothing under it). Same text, same weight on
 			# every choice.
-			var lines := StoryEngine.stakes_lines(o.get("effects", []), e.get("facts", {}))
+			var lines := StoryEngine.card_lines(e, i) if bool(e.get("story", false)) else StoryEngine.stakes_lines(o.get("effects", []), e.get("facts", {}))
 			var rule_text := str(o.get("rule", ""))
 			if lines.is_empty() and rule_text == "":
 				row.add_child(b)
@@ -1466,6 +1466,31 @@ func _close_backing_talk() -> void:
 	_build()
 
 
+## How the answer landed (the bible: "the effect is visible afterwards"):
+## one line, and Done (or Back) closes it.
+func _show_press_outcome(landed: Dictionary) -> void:
+	if landed.is_empty():
+		return
+	var box := UiKit.modal_box(self, 520.0, 0.0)
+	_media_overlay = box["overlay"]
+	_media_overlay.name = "MediaOutcome"
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.heading("After the press conference", UiKit.TITLE))
+	var l := UiKit.lbl(str(landed.get("line", "")), 15, UiKit.TEXT)
+	l.name = "MediaOutcomeLine"
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(l)
+	var ok := UiKit.btn("Done", UiKit.NAME, true)
+	ok.name = "MediaOutcomeDone"
+	ok.custom_minimum_size = Vector2(0, 48)
+	ok.pressed.connect(func():
+		if _media_overlay != null and is_instance_valid(_media_overlay):
+			_media_overlay.queue_free()
+		_media_overlay = null
+		_build())
+	(box["footer"] as VBoxContainer).add_child(ok)
+
+
 func _show_media_conference() -> void:
 	if not GameState.media_conference_pending():
 		return
@@ -1549,14 +1574,17 @@ func _show_media_conference() -> void:
 		NameInk.dress_button(b, _league_names())
 		var choice := i
 		b.pressed.connect(func():
-			GameState.resolve_media_conference(choice)
+			var landed := GameState.resolve_media_conference(choice)
 			_media_overlay.queue_free()
 			_media_overlay = null
-			_build())
+			_build()
+			_show_press_outcome(landed))
 		group.add_child(b)
-		# What the answer does, under it: the board, the players, no numbers. In
-		# the page's own ink, not faint grey: the coach is deciding on it.
-		var effect := NameInk.label(MediaConference.effect_line(opts[i]), _league_names(), UiKit.BODY if wide else UiKit.SMALL, UiKit.TEXT)
+		# What the answer can do, under it: both ways it can land, their odds and
+		# sizes (bible §4). In the page's own ink, not faint grey: the coach is
+		# deciding on it.
+		var effect := NameInk.label(MediaConference.odds_line(MediaConference.kind_of(opts[i], i), GameState.press_chance(i)),
+				_league_names(), UiKit.BODY if wide else UiKit.SMALL, UiKit.TEXT)
 		effect.name = "MediaAnswerLine_%d" % i
 		effect.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		group.add_child(effect)
