@@ -146,7 +146,7 @@ Twenty-four proposals in three tiers, in recommended order: **A. Professional ba
 - Evidence: FM26 critic "unable to tell who needed subbing off from the tactics screen when a player was injured" [critic via FRVR]; the FM24 "big and bold player tiles" being compacted was read as regression.
 - Exists: `Workload.gd`, `Injuries.gd`, rotation policies (#624), bench strip (#717); whether fatigue shows at a glance is unverified.
 - Size: S-M.
-- Does not: show a fatigue percentage (no number vomit) or recommend a rotation.
+- Does not: recommend a rotation. The mark is words first; a number only if it helps the decision (bible §4, director 2026-10-18).
 
 **P-07. An interruption budget for the week.** Count every stop between full time and the next bounce in a seeded ten-season run (cards, press, notes, confirmations); set a cap per quiet week; prove Sim the week stops at every mandatory stop and nowhere else; collapse any two stops that answer the same question.
 - Bible intent: "The player should not feel they will develop arthritis from clicking"; playing hands-off is the gamer's call.

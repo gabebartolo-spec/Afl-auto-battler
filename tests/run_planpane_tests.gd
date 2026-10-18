@@ -156,8 +156,8 @@ func _calls_record() -> void:
 					_check(words.size() == 2 and (words[1] as Label).text == theirs, "Their plan in Q%d is theirs (%s)" % [q + 1, theirs])
 					# Both clubs in their own ink, the away side too (director A1, 2026-10-14).
 					var inks: Array = UK.club_ink_pair(str(_state.pending_sim.squads[0].code), str(_state.pending_sim.squads[1].code))
-					_check(names.size() == 2 and (names[0] as Label).get_theme_color("font_color") == (inks[mine] as Color)
-							and (names[1] as Label).get_theme_color("font_color") == (inks[other] as Color),
+					_check(names.size() == 2 and (names[0] as Label).get_theme_color("font_color") == UK.club_name_colour(inks[mine] as Color)
+							and (names[1] as Label).get_theme_color("font_color") == UK.club_name_colour(inks[other] as Color),
 							"Both club names wear their club's ink (Q%d, %s)" % [q + 1, str(sz)])
 		m.queue_free()
 		await _settle()

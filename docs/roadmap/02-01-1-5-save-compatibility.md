@@ -26,14 +26,16 @@ Rules:
 - avoid dense tables on primary screens,
 - detailed numbers belong in drill-down/stat screens.
 
-## 1.7 No "number vomit"
+## 1.7 Numbers belong at the decision gate
 
 Primary screens should answer:
 - what is happening,
 - what matters,
 - what can I do.
 
-Deep analytics can exist in secondary screens. Do not turn coaching, reports or matchday UI into debug dashboards.
+**Decision gates (design bible §4, director 2026-10-18):** "Every decision gate says what each option does for you and what it costs, with the size and the odds, in football words. The game never says which option is better: every option carries a positive and a negative, and the weighing is the coach's. Randomness is fine when the gate has named the risk." Percentages are the form ("their shots 25% more accurate").
+
+Off the gate, a number appears only when it helps the player understand or decide. Deep analytics can exist in secondary screens. Do not turn coaching, reports or matchday UI into debug dashboards.
 
 ### UI anti-slop reset — current concern
 **The current UI policy/implementation has drifted away from the project's anti-slop criteria and needs an explicit corrective pass.**
