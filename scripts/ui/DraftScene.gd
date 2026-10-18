@@ -405,9 +405,12 @@ func _show_board() -> void:
 			_root.add_child(_header("League draft", sub))
 		_board = _live_board()
 		_root.add_child(_board)
-	_why_box = UiKit.vbox(0)
-	_why_box.name = "RivalWhy"
-	_root.add_child(_why_box)
+	if _short:
+		# No board on a short landscape screen: the reason line sits under the header.
+		_why_box = UiKit.vbox(0)
+		_why_box.name = "RivalWhy"
+		_why_box.visible = false
+		_root.add_child(_why_box)
 
 	_main_tabs = UiKit.hbox(3)
 	_main_tabs.visible = not _wide
@@ -503,6 +506,18 @@ func _live_board() -> PanelContainer:
 		top.add_child(_recent_box)
 	else:
 		col.add_child(_recent_box)
+	# Why a rival took or passed on a prospect you opened (P-18): on the board, so it
+	# never takes the pool's room. PC: in the board's row, beside the club on the
+	# clock; phone: under it. Hidden while it has nothing to say.
+	_why_box = UiKit.vbox(0)
+	_why_box.name = "RivalWhy"
+	_why_box.visible = false
+	if _wide:
+		_why_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_why_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		top.add_child(_why_box)
+	else:
+		col.add_child(_why_box)
 	_cap = UiKit.line("", UiKit.SECONDARY, UiKit.TEXT, true)
 	_cap.name = "SalaryCap"
 	_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -2327,6 +2342,7 @@ func _refresh_why() -> void:
 	if not is_instance_valid(_why_box):
 		return
 	UiKit.clear(_why_box)
+	_why_box.visible = false
 	# During draft night's stage and replay the rival picks are not all shown yet:
 	# the reason waits for the board to catch up.
 	if replaying() or _stage_pick >= 0:
@@ -2334,11 +2350,13 @@ func _refresh_why() -> void:
 	var e := _why_entry()
 	if e.is_empty():
 		return
+	_why_box.visible = true
 	var club := str(e["club"])
 	var index := {GameDB.club_name(club): club}
 	var line := NameInk.label(_draft.wanted_line(e, func(q: Dictionary) -> String:
 			return GameDB.player_display_name(q) if not q.is_empty() else "another player"), index, UiKit.SMALL, UiKit.TEXT)
 	line.name = "RivalWhyLine"
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE   # a tap on the board still opens the pick log
 	if line is Label:
 		(line as Label).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_why_box.add_child(line)
