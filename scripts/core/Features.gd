@@ -13,9 +13,10 @@ extends RefCounted
 ##        godot --path . -- --features preseason
 ##      (several: --features preseason,other);
 ##   3. the project setting features/<name> is true (project.godot). This is
-##      what an exported build reads, and it ships FALSE.
-## Otherwise it is OFF: every exported build, every test suite that does not
-## ask for it, and a plain editor run.
+##      what an exported build reads. international_prospects ships ON since
+##      2026-10-18 (director: "Names fine, switch on"); every other switch ships off.
+## Otherwise it is OFF: every test suite that does not ask for it, and a plain
+## editor run, for any switch whose project setting is false.
 ##
 ## Switches (international_prospects ships ON since 2026-10-18; preseason, speccy_front, training_report ship off):
 ##   preseason   the eight-week pre-season between the wrap and Round 1
