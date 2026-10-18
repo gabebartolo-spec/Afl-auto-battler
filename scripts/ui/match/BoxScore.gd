@@ -347,10 +347,13 @@ func _player_row(r: Dictionary, figure: String, ink: Color) -> Control:
 	b.custom_minimum_size.y = 28 if compact else 44
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	b.pressed.connect(func():
+		if NameLink.on_profile_tap(b):
+			return
 		_open = "" if _open == id else id
 		_fill_players())
 	var h := UiKit.hbox(8)
 	h.set_anchors_preset(Control.PRESET_FULL_RECT)
+	h.offset_right = -NameLink.PROFILE_W
 	# His name in his club's ink, both clubs alike (director A1, 2026-10-14).
 	var who := UiKit.ellipsis(str(r["name"]), UiKit.BODY, ink, _open == id)
 	who.name = "BoxPlayerName_" + id
@@ -364,6 +367,7 @@ func _player_row(r: Dictionary, figure: String, ink: Color) -> Control:
 	for n in [h, who, fig]:
 		(n as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(h)
+	NameLink.profile_tap(b, id)
 	v.add_child(b)
 	if _open == id:
 		var st: Dictionary = r["st"]
