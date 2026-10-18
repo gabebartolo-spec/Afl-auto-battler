@@ -945,6 +945,16 @@ func _culture_ui_tests() -> void:
 	await _settle()
 	var open_btn: Button = ls.find_child("CultureOpen", true, false)
 	_check(open_btn != null and open_btn.size.y >= 44, "My list has a thumb-sized way into Club culture")
+	var quiet := {"words": "Nothing stands out yet"}
+	var loud := {"words": "A tight group"}
+	_check(CultureSheet.entry_phrases([quiet, quiet, quiet]) == PackedStringArray(["Nothing stands out yet"]),
+			"When all three strands have nothing to say, the block says so once")
+	_check(CultureSheet.entry_phrases([loud, quiet, quiet]) == PackedStringArray(["A tight group"])
+			and CultureSheet.entry_phrases([loud, quiet, loud]).size() == 2
+			and CultureSheet.entry_phrases([loud, loud, loud]).size() == 3,
+			"Otherwise the row names only the strands that stand out, never Nothing stands out yet beside them")
+	_check(open_btn != null and _screen_text(open_btn).count("Nothing stands out yet") <= 1,
+			"The way in never repeats Nothing stands out yet")
 	_check(open_btn != null and _screen_text(open_btn).contains("A tight group"), "The way in says the strands in bold words")
 	var why: String = await Tap.tap(open_btn)
 	await _settle()

@@ -78,7 +78,7 @@ only sizes a screen may use; literal sizes are a defect and a test fails them.
 | NAME | 16 | Bold | a player or club leading a row; button text |
 | BODY | 15 | Regular | sentences |
 | SECONDARY | 14 | Regular, MUTED | the line under a name |
-| FINE | 12 | Regular, MUTED | stamps and fine print only, never a fact the player decides on |
+| FINE | 13 | Regular, MUTED | stamps and fine print only, never a fact the player decides on |
 | RATING | 30 | Display | a rating as a figure |
 | SCORE | 24 | Display | a match score |
 | NUMBER | 22 | Display | a figure in a list row |
