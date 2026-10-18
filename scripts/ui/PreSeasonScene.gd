@@ -241,7 +241,7 @@ func _hero_sub(stop: String) -> String:
 		"practice":
 			var opp := GameDB.club_name(GameState.practice_opponent())
 			if GameState.practice_played():
-				return "End of week 7, against %s. It counts for nothing on the ladder; what it showed is below. Week 8 is a quiet week." % opp
+				return "End of week 7, against %s. It counts for nothing on the ladder; what it showed is below. Week 8 is a quiet week: no training, and the papers come out." % opp
 			return "End of week 7: one match against %s. It counts for nothing on the ladder." % opp
 		"papers":
 			return "Week 8. Training is done. This is the ladder the papers have printed, and what they want to know."
@@ -739,7 +739,7 @@ func _blocks_section(first: int, across: bool) -> Control:
 		# Side by side, each block (and its club bar) is as tall as its own words.
 		b.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		holder.add_child(b)
-	var quiet := UiKit.lbl("Week 8 is a quiet week: no training and nothing to choose. Heavy or fresh legs from weeks 6 to 7 last into Round 1.",
+	var quiet := UiKit.lbl("Week 8 is a quiet week: no training to choose, and the papers print their ladder. Heavy or fresh legs from weeks 6 to 7 last into Round 1.",
 			UiKit.SECONDARY, UiKit.TEXT)
 	quiet.name = "PreSeasonQuietWeek"
 	quiet.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
