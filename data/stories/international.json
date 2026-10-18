@@ -556,7 +556,7 @@
 			},
 			{
 				"key": "weekend",
-				"label": "Keep it to the weekend, away from the club",
+				"label": "Keep it to the weekend, off the training track",
 				"effects": [
 					{
 						"op": "fresh"
