@@ -135,7 +135,7 @@ func _header() -> Control:
 		var h := UiKit.hbox(14)
 		h.name = "BoxHeader_%d" % side
 		h.add_child(UiKit.club_marker(_codes[side]))
-		var nm := UiKit.line(GameDB.club_short(_codes[side]), UiKit.NAME, _inks()[side], true)
+		var nm := UiKit.line(GameDB.club_short(_codes[side]), UiKit.NAME, UiKit.club_name_colour(_inks()[side]), true)
 		h.add_child(nm)
 		# The score in its club's ink, the same ink as the name beside it, for both clubs
 		# (director A1, 2026-10-14): the guernsey colour for a club like Melbourne is white.
@@ -301,7 +301,7 @@ func _fill_players() -> void:
 		col.add_child(UiKit.spacer(UiKit.GAP))
 		var head := UiKit.hbox(6)
 		head.add_child(UiKit.club_marker(_codes[side]))
-		head.add_child(UiKit.line(GameDB.club_short(_codes[side]), UiKit.BODY, _inks()[side], true))
+		head.add_child(UiKit.line(GameDB.club_short(_codes[side]), UiKit.BODY, UiKit.club_name_colour(_inks()[side]), true))
 		col.add_child(head)
 		col.add_child(UiKit.lbl("Goals and behinds", UiKit.SMALL, UiKit.MUTED))
 		var kickers := rows.filter(func(r): return int(r["goals"]) > 0)
@@ -355,7 +355,7 @@ func _player_row(r: Dictionary, figure: String, ink: Color) -> Control:
 	h.set_anchors_preset(Control.PRESET_FULL_RECT)
 	h.offset_right = -NameLink.PROFILE_W
 	# His name in his club's ink, both clubs alike (director A1, 2026-10-14).
-	var who := UiKit.ellipsis(str(r["name"]), UiKit.BODY, ink, _open == id)
+	var who := UiKit.ellipsis(str(r["name"]), UiKit.BODY, UiKit.club_name_colour(ink), _open == id)
 	who.name = "BoxPlayerName_" + id
 	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var fig := UiKit.line(figure, UiKit.BODY, UiKit.TEXT, true)

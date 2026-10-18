@@ -2423,7 +2423,7 @@ func _calls_record(kind: String) -> Control:
 				row.add_child(dot)
 			# The club in its own ink, both clubs alike (director A1, 2026-10-14), and
 			# named in full as the break's title names it (Fremantle, not Dockers).
-			var nm := UiKit.lbl(GameDB.club_name(code) + ": ", UiKit.SECONDARY, inks[side], true)
+			var nm := UiKit.lbl(GameDB.club_name(code) + ": ", UiKit.SECONDARY, UiKit.club_name_colour(inks[side]), true)
 			nm.name = "ClubName%d" % i
 			nm.autowrap_mode = TextServer.AUTOWRAP_OFF
 			row.add_child(nm)
@@ -2900,7 +2900,7 @@ func _dress_tagger_card(b: Button, who_name: String, c: Dictionary, is_pick: boo
 	var nm := UiKit.line(who_name, UiKit.NAME, UiKit.TEXT, true)
 	nm.name = "CardName"
 	if _names().has(who_name):
-		nm.add_theme_color_override("font_color", UiKit.club_ink(str(_names()[who_name])))
+		nm.add_theme_color_override("font_color", UiKit.club_name_colour(UiKit.club_ink(str(_names()[who_name]))))
 	head.add_child(nm)
 	var where := UiKit.line(str(c["where"]), UiKit.SECONDARY, UiKit.MUTED)
 	where.name = "CardWhere"
@@ -3145,7 +3145,7 @@ func _best_so_far() -> Control:
 				row.set_meta("best_third", true)
 			var col := UiKit.vbox(0)
 			col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			var pn := UiKit.ellipsis(str(p["name"]), UiKit.BODY if _pc_break else UiKit.NAME, inks[side], true)
+			var pn := UiKit.ellipsis(str(p["name"]), UiKit.BODY if _pc_break else UiKit.NAME, UiKit.club_name_colour(inks[side]), true)
 			pn.name = "StandoutName"
 			col.add_child(pn)
 			# A PC column is narrow: two numbers fit on the line, a third ran
@@ -4044,7 +4044,7 @@ func _standout_row(p: Dictionary, side: int, best: bool) -> Control:
 	var name := "%s  ·  %s" % [str(p["name"]), GameDB.club_short(code)]
 	if best:
 		name += "  ·  best on ground"
-	v.add_child(UiKit.ellipsis(name, UiKit.BODY, UiKit.club_ink(code), true))
+	v.add_child(UiKit.ellipsis(name, UiKit.BODY, UiKit.club_name_colour(UiKit.club_ink(code)), true))
 	v.add_child(UiKit.ellipsis(str(p["line"]), UiKit.SMALL, UiKit.MUTED))
 	var r := UiKit.line(MatchNotes.rating_text(float(p["rating"])), 20, UiKit.TEXT, true)
 	r.name = "StandoutRating"

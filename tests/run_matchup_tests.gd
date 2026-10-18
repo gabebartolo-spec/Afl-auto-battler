@@ -682,7 +682,7 @@ func _former_player() -> void:
 				"%s: one line for the player you let go, not for one who never played for you (%s)" % [tag, " | ".join(got.map(func(c): return _plain(c)))])
 		var line: Control = got[0] if not got.is_empty() else null
 		var ink := (line as RichTextLabel).text if line is RichTextLabel else ""
-		_check(ink.contains("[color=#%s]" % kit.club_ink(opp).to_html(false)) and not ink.contains(kit.club_ink("FRE").to_html(false)),
+		_check(ink.contains("[color=#%s]" % kit.club_name_colour(kit.club_ink(opp)).to_html(false)) and not ink.contains(kit.club_ink("FRE").to_html(false)),
 				"%s: his name wears %s's ink, not yours" % [tag, opp])
 		if line is RichTextLabel:
 			var sc: Node = line.get_parent()
