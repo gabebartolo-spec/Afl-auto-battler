@@ -51,6 +51,11 @@ static func country_name(p: Dictionary) -> String:
 	return str(country(str(p.get("intl", ""))).get("name", ""))
 
 
+## "ireland", "nz", "usa" or "africa" for a prospect; "" for anyone else (the story cards use it).
+static func region(p: Dictionary) -> String:
+	return str(country(str(p.get("intl", ""))).get("region", ""))
+
+
 ## A short plain note for his profile: where from and why scouts are unsure.
 static func note(p: Dictionary) -> String:
 	if not is_international(p):

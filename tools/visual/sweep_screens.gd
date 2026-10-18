@@ -9,6 +9,8 @@ extends SceneTree
 ##   clipped      labels and buttons whose text is cut, ellipsised or has lines
 ##                the box does not show
 ##   small        buttons and tappable rows under 44 px in either direction
+##   inline       player names in running text that open his profile (NameLink);
+##                reported, never gated, and not counted in `small`
 ## Measurement only: it never changes a screen, and it never touches a real
 ## save. The pass/fail against the committed baseline is tools/screen_sweep.py.
 ##
@@ -119,8 +121,17 @@ func _clipped(c: Control) -> bool:
 	return false
 
 
+## A player's name inside a running line (NameLink.wire): it opens his profile on
+## a tap but is text at line height, like a web link, so it is counted in its own
+## column ("inline name links"), which is reported and never compared to the floor.
+func _inline_link(c: Control) -> bool:
+	return c.has_meta("name_link_wired") or c.has_meta("name_link_hit")
+
+
 func _tappable(c: Control) -> bool:
 	if c.mouse_filter == Control.MOUSE_FILTER_IGNORE:
+		return false
+	if _inline_link(c):
 		return false
 	if c is BaseButton:
 		return not (c as BaseButton).disabled
@@ -154,6 +165,9 @@ func _walk(node: Node, scene: Node, in_scroll: bool, r: Dictionary) -> void:
 				r["min_font_node"] = "%s %s" % [_path(c, scene), _label_of(c).left(36)]
 			if _clipped(c):
 				r["clipped"].append("%s %s needs more than %d" % [_path(c, scene), _label_of(c).left(36), int(c.size.x)])
+		if visible_size and c.has_meta("name_link_wired"):
+			r["inline"].append("%s %s is %dx%d px" % [_path(c, scene), _label_of(c).left(30),
+					int(round(gr.size.x * _factor)), int(round(gr.size.y * _factor))])
 		if visible_size and _tappable(c):
 			var wpx := gr.size.x * _factor
 			var hpx := gr.size.y * _factor
@@ -164,12 +178,12 @@ func _walk(node: Node, scene: Node, in_scroll: bool, r: Dictionary) -> void:
 
 
 func _measure(scene: Node) -> Dictionary:
-	var r := {"built": true, "min_font": 999.0, "min_font_node": "", "offscreen": [], "clipped": [], "small": []}
+	var r := {"built": true, "min_font": 999.0, "min_font_node": "", "offscreen": [], "clipped": [], "small": [], "inline": []}
 	_walk(scene, scene, false, r)
 	if float(r["min_font"]) > 998.0:
 		r["min_font"] = 0.0
 	var out := {"built": true, "min_font": r["min_font"], "min_font_node": r["min_font_node"]}
-	for k in ["offscreen", "clipped", "small"]:
+	for k in ["offscreen", "clipped", "small", "inline"]:
 		var arr: Array = r[k]
 		out[k] = arr.size()
 		out[k + "_examples"] = arr.slice(0, EXAMPLES)

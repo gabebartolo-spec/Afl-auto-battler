@@ -543,6 +543,43 @@ Your career stays on your phone.",
 			"A small window at 300% follows the OS scaling (the small-window floor then applies)")
 	_check(is_equal_approx(dens.call(2880, 1800, 2.0, 0), 2.25),
 			"A Mac reporting its own scale still fills the screen")
+	# --- the web canvas scales like the desktop window (director, 2026-10-18: "Yes, scale it") ---
+	# A browser at 1440p and ratio 1 drew 2560 units: 13-unit text. The window is
+	# the canvas in physical pixels (css size x the page's pixel ratio).
+	var web_layout_script = load("res://scripts/core/ScreenLayout.gd")
+	var web_bad := []
+	for row in [[1280, 720, 1.0, 1280], [1920, 1080, 1.0, 1280], [2560, 1440, 1.0, 1280],
+			[3840, 2160, 1.0, 1280], [3840, 2160, 2.0, 1280], [3840, 2160, 3.0, 1280], [1280, 720, 2.0, 1280]]:
+		var px := Vector2(float(row[0]) * float(row[2]), float(row[1]) * float(row[2]))
+		var units: float = px.x / float(web_layout_script.web_density(px, float(row[2])))
+		if absf(units - float(row[3])) > 1.0:
+			web_bad.append("%sx%s at %s -> %.0f units wide" % [row[0], row[1], row[2], units])
+	_check(web_bad.is_empty(), "A browser window at 720p, 1080p, 1440p and 4K draws a ~1280-unit canvas (%s)" % [web_bad])
+	web_bad = []
+	for row in [[390, 844, 1.0], [390, 844, 3.0], [412, 915, 1.0], [412, 915, 3.0], [360, 800, 2.0], [440, 956, 2.0]]:
+		var px := Vector2(float(row[0]) * float(row[2]), float(row[1]) * float(row[2]))
+		var units: float = px.x / float(web_layout_script.web_density(px, float(row[2])))
+		if absf(units - float(row[0])) > 0.5:
+			web_bad.append("%sx%s at %s -> %.1f units wide" % [row[0], row[1], row[2], units])
+	_check(web_bad.is_empty(), "A phone's browser keeps its 360-440 unit canvas at its own pixel ratio (%s)" % [web_bad])
+	var web_wide: float = 800.0 / float(web_layout_script.web_density(Vector2(800, 1100), 1.0))
+	_check(web_wide <= 480.5 and float(web_layout_script.web_density(Vector2(1280, 720), 0.5)) == 1.0,
+			"A portrait window wider than a phone is zoomed to 480 units; a ratio under 1 counts as 1 (%.0f)" % web_wide)
+	# The real node, on the web path: the same sizes end to end through _update_scale.
+	var web_window_before: Vector2i = root.size
+	var web_ends := []
+	for row in [[2560, 1440, 1.0, 1280, 720], [3840, 2160, 3.0, 1280, 720], [1170, 2532, 3.0, 390, 844], [1080, 1920, 1.0, 480, 853]]:
+		web_layout_script.web_ratio_test = float(row[2])
+		root.size = Vector2i(int(row[0]), int(row[1]))
+		await _settle()
+		layout._update_scale()
+		if root.content_scale_size != Vector2i(int(row[3]), int(row[4])):
+			web_ends.append("%s at %s -> %s" % [Vector2i(row[0], row[1]), row[2], root.content_scale_size])
+	web_layout_script.web_ratio_test = 0.0
+	root.size = web_window_before
+	await _settle()
+	layout._update_scale()
+	_check(web_ends.is_empty(), "ScreenLayout on the web path sets the canvas the rule gives (%s)" % [web_ends])
 	# Screen size (director, 2026-10-08: the game on a 4K TV from the couch):
 	# TV draws everything 1.6x bigger; Standard puts it back.
 	# In a PC-sized window: the small-window floor stops a 320-wide one.
