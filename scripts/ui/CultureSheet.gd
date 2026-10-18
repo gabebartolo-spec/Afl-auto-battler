@@ -63,6 +63,22 @@ static func strands(club: String) -> Array:
 	return out
 
 
+## The phrases the row on My list prints. The row is an invitation and the phrases
+## carry no strand names, so only the strands with something to say are printed;
+## when none has, the block says "Nothing stands out yet" once, not once per strand.
+## The sheet it opens names all three.
+static func entry_phrases(data: Array) -> PackedStringArray:
+	var nothing := Culture.quiet_words(0, false)
+	var phrases := PackedStringArray()
+	for d in data:
+		var w := str((d as Dictionary)["words"])
+		if w != nothing:
+			phrases.append(w)
+	if phrases.is_empty():
+		phrases.append(nothing)
+	return phrases
+
+
 ## The row on My list that opens it: an invitation, the three phrases in bold.
 static func entry_row() -> Button:
 	var club: String = _gs().my_club
@@ -70,9 +86,7 @@ static func entry_row() -> Button:
 	b.name = "CultureOpen"
 	b.custom_minimum_size = Vector2(0, 92)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var phrases := PackedStringArray()
-	for d in strands(club):
-		phrases.append(str(d["words"]))
+	var phrases := entry_phrases(strands(club))
 	b.tooltip_text = "Club culture"
 	var h := UiKit.hbox(12)
 	h.set_anchors_preset(Control.PRESET_FULL_RECT)

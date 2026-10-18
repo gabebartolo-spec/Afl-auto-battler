@@ -91,7 +91,12 @@ static func apply(cls: Array, year: int) -> void:
 		while used_slots.has(slot) or bool(cls[slot].get("unicorn", false)):   # the class's Unicorn stays
 			slot = rng.randi_range(min_rank - 1, cls.size() - 1)
 		used_slots[slot] = true
-		_make(cls[slot], c, year, rng)
+		var taken := {}   # surnames already in this class, bar the player he replaces
+		for j in range(cls.size()):
+			if j != slot:
+				var nm := str(cls[j].get("generic_name", ""))
+				taken[nm.substr(nm.find(" ") + 1)] = true
+		_make(cls[slot], c, year, rng, taken)
 
 
 static func _pick_weighted(list: Array, rng: RandomNumberGenerator, skip := {}) -> Dictionary:
@@ -132,10 +137,14 @@ static func _span(r: Array, rng: RandomNumberGenerator) -> int:
 
 ## Turns a generated prospect into the country's: who he is, where from, how he
 ## plays. The slot (draft rank, id, class shifts) stays his.
-static func _make(p: Dictionary, c: Dictionary, year: int, rng: RandomNumberGenerator) -> void:
+static func _make(p: Dictionary, c: Dictionary, year: int, rng: RandomNumberGenerator, taken := {}) -> void:
 	var group := _pick_weighted(c["groups"], rng)
 	var first := str(group["first"][rng.randi_range(0, (group["first"] as Array).size() - 1)])
 	var last := str(group["last"][rng.randi_range(0, (group["last"] as Array).size() - 1)])
+	for _t in range(30):   # no two players in a class share a surname
+		if not taken.has(last):
+			break
+		last = str(group["last"][rng.randi_range(0, (group["last"] as Array).size() - 1)])
 	var role := _pick_role(c["roles"], rng)
 	var h := float(_span(c["height"], rng))
 	match role:
