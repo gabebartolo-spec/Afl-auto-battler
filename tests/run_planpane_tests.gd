@@ -4,6 +4,7 @@ extends SceneTree
 ## buttons as short separate lines (what it does, Gain, Cost, what it beats,
 ## who makes it work), and the "Calls so far" record under each pane.
 
+const NB := "\u00A0"  # a name's spaces in the text drawn (NameInk.NBSP)
 var _state: Node
 var _checks := 0
 var _failures: Array[String] = []
@@ -72,7 +73,7 @@ func _plan_lines() -> void:
 						var shown: Array = str((tx as RichTextLabel).get_meta("plain", "")).split(", ", false)
 						_check(shown.size() == 3, "Three names on the best-for-it line (%s: %d)" % [pk, shown.size()])
 						for nm in shown:
-							_check((tx as RichTextLabel).text.find("[color=#%s]%s[/color]" % [ink, nm]) >= 0,
+							_check((tx as RichTextLabel).text.find("[color=#%s]%s[/color]" % [ink, nm.replace(" ", NB)]) >= 0,
 									"%s wears his club's ink on the best-for-it line (%s)" % [nm, pk])
 				var longest := 0
 				for lb in pn.find_children("*", "Label", true, false):
@@ -141,7 +142,8 @@ func _calls_record() -> void:
 					continue
 				var names := row.find_children("ClubName*", "Label", true, false)
 				var words := row.find_children("CallWords*", "Label", true, false)
-				var want_clubs: Array = [db.club_short(mine_code)] if kind != "gameplan" 						else [db.club_short(mine_code), db.club_short(other_code)]
+				# Named in full, as the break's title names them (Fremantle, not Dockers).
+				var want_clubs: Array = [db.club_name(mine_code)] if kind != "gameplan" 						else [db.club_name(mine_code), db.club_name(other_code)]
 				var got_clubs := []
 				for n in names:
 					got_clubs.append((n as Label).text.trim_suffix(": "))
@@ -152,8 +154,11 @@ func _calls_record() -> void:
 				if kind == "gameplan":
 					var theirs: String = Cr.plan_label(str(((sim.tactics_history[q]["plans"] as Array)[other] as Dictionary).get("gameplan", "balanced")))
 					_check(words.size() == 2 and (words[1] as Label).text == theirs, "Their plan in Q%d is theirs (%s)" % [q + 1, theirs])
-					_check(names.size() == 2 and (names[0] as Label).get_theme_color("font_color") == UK.club_name_colour(UK.club_ink(mine_code)),
-							"Club names wear club colour (Q%d)" % [q + 1])
+					# Both clubs in their own ink, the away side too (director A1, 2026-10-14).
+					var inks: Array = UK.club_ink_pair(str(_state.pending_sim.squads[0].code), str(_state.pending_sim.squads[1].code))
+					_check(names.size() == 2 and (names[0] as Label).get_theme_color("font_color") == (inks[mine] as Color)
+							and (names[1] as Label).get_theme_color("font_color") == (inks[other] as Color),
+							"Both club names wear their club's ink (Q%d, %s)" % [q + 1, str(sz)])
 		m.queue_free()
 		await _settle()
 

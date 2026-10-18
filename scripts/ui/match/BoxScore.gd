@@ -137,8 +137,11 @@ func _header() -> Control:
 		h.add_child(UiKit.club_marker(_codes[side]))
 		var nm := UiKit.line(GameDB.club_short(_codes[side]), UiKit.NAME, _inks()[side], true)
 		h.add_child(nm)
+		# The score in its club's ink, the same ink as the name beside it, for both clubs
+		# (director A1, 2026-10-14): the guernsey colour for a club like Melbourne is white.
 		var fig := UiKit.figure(UiKit.scoreline(int(_res["goals"][side]), int(_res["behinds"][side])),
-				UiKit.SCORE, UiKit.score_colour(_codes[side]))
+				UiKit.SCORE, _inks()[side])
+		fig.name = "BoxScore_%d" % side
 		h.add_child(fig)
 		v.add_child(h)
 	return v
@@ -308,7 +311,7 @@ func _fill_players() -> void:
 			return int(a["behinds"]) < int(b["behinds"]))
 		var shown := {}
 		for r in kickers.slice(0, 3 if compact else KICKERS):
-			col.add_child(_player_row(r, "%d.%d" % [int(r["goals"]), int(r["behinds"])]))
+			col.add_child(_player_row(r, "%d.%d" % [int(r["goals"]), int(r["behinds"])], _inks()[side]))
 			shown[str(r["id"])] = true
 		if kickers.is_empty():
 			col.add_child(UiKit.lbl("No goalkickers.", UiKit.SMALL, UiKit.MUTED))
@@ -323,7 +326,7 @@ func _fill_players() -> void:
 			if shown.has(str(rp["id"])) or (rp["stats"] as Dictionary).is_empty():
 				continue
 			col.add_child(_player_row({"id": rp["id"], "name": rp["name"], "st": rp["stats"]},
-					MatchNotes.rating_text(rp["rating"])))
+					MatchNotes.rating_text(rp["rating"]), _inks()[side]))
 			best += 1
 		if wide:
 			cols.add_child(col)
@@ -335,7 +338,7 @@ func _fill_players() -> void:
 
 ## A flat row: his name, and what he did that matters most here. A tap opens
 ## the rest of his match.
-func _player_row(r: Dictionary, figure: String) -> Control:
+func _player_row(r: Dictionary, figure: String, ink: Color) -> Control:
 	var v := UiKit.vbox(0)
 	var id := str(r["id"])
 	var b := Button.new()
@@ -351,7 +354,9 @@ func _player_row(r: Dictionary, figure: String) -> Control:
 	var h := UiKit.hbox(8)
 	h.set_anchors_preset(Control.PRESET_FULL_RECT)
 	h.offset_right = -NameLink.PROFILE_W
-	var who := UiKit.ellipsis(str(r["name"]), UiKit.BODY, UiKit.TEXT, _open == id)
+	# His name in his club's ink, both clubs alike (director A1, 2026-10-14).
+	var who := UiKit.ellipsis(str(r["name"]), UiKit.BODY, ink, _open == id)
+	who.name = "BoxPlayerName_" + id
 	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var fig := UiKit.line(figure, UiKit.BODY, UiKit.TEXT, true)
 	fig.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT

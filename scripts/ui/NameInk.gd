@@ -18,6 +18,12 @@ const COMMON_WORDS := ["Day", "Young", "Long", "Short", "Hall", "Will", "Rich", 
 		"Free", "Wood", "Hill", "Gray", "Grey", "Brown", "Green", "White", "Black"]
 
 
+## A name is never broken across two lines: its spaces are no-break spaces in the
+## text shown ("Jacob van Rooyen" wraps before Jacob, never inside; the
+## lead's capture check, 2026-10-18). `plain` metadata keeps the ordinary words for anything reading them.
+const NBSP := "\u00A0"
+
+
 ## {name text -> club code} for the players in `squads`: an Array of Arrays of
 ## player dictionaries ("id", and the display name from GameDB), one per side,
 ## with `codes` the club for each side. Full names, and the surname alone where
@@ -94,7 +100,7 @@ static func markup(text: String, index: Dictionary) -> String:
 		out += _escape(text.substr(at, int(s[0]) - at))
 		var col := UiKit.club_ink(str(s[2]))
 		var shown := text.substr(int(s[0]), int(s[1]) - int(s[0]))
-		var ink := "[color=#%s]%s[/color]" % [col.to_html(false), _escape(shown)]
+		var ink := "[color=#%s]%s[/color]" % [col.to_html(false), _escape(shown).replace(" ", NBSP)]
 		var id := str(index.get("#" + shown, ""))
 		out += NameLink.url(ink, id) if id != "" else ink
 		at = int(s[1])
