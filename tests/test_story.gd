@@ -2912,5 +2912,9 @@ func _test_line_numbers_match_effects() -> void:
 			"Heavy and fresh legs quote the injury rule's own sizes, for every injury (%s / %s)" % [heavy, fresh])
 	var sting := " ".join(StoryEngine.stakes_lines([{"op": "loss_sting", "chance": 20, "d": -8}], {}))
 	_check(not sting.contains("instead") and sting.contains("also falls 8%"), "The finals sting says the fall comes on top of the lift (%s)" % sting)
+	# A card's own lift and a promise's thrill for the same player are one move: printed once, with the total.
+	var promise := " ".join(StoryEngine.stakes_lines([{"op": "morale", "d": 5}, {"op": "start_backing"}], {"run_games": "three"}))
+	_check(promise.contains("His morale up %d%%." % (5 + Backing.THRILL)) and promise.count("His morale up") == 1,
+			"Two lifts for the same player print once, with their total (%s)" % promise)
 	var slow := " ".join(StoryEngine.stakes_lines([{"op": "slow_start", "who": "subject", "chance": 15}], {"finals_week": 0}))
 	_check(slow.contains("this week's game") and slow.contains("15%"), "A slow start in the season names this week's game and its chance (%s)" % slow)

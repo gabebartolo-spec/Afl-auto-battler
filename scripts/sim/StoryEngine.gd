@@ -486,10 +486,23 @@ static func stakes_lines(effects: Array, facts: Dictionary) -> PackedStringArray
 	var gains: PackedStringArray = []
 	var costs: PackedStringArray = []
 	var notes: PackedStringArray = []
+	# Morale moves for the same group the same way are one move: two of them (a
+	# card's own lift and a promise's thrill) print once, with their total.
+	var morale_at := {}   # "gain|subject" -> [line index, total]
 	for e in effects:
 		for part in _effect_parts(e, facts):
 			var s := fill(str(part[1]), facts)
 			var into: PackedStringArray = notes if str(part[0]) == "note" else (gains if str(part[0]) == "gain" else costs)
+			if part.size() > 3:
+				var mk := "%s|%s" % [str(part[0]), str(part[2])]
+				if morale_at.has(mk):
+					var slot: Array = morale_at[mk]
+					slot[1] = int(slot[1]) + int(part[3])
+					into[int(slot[0])] = _morale_words(int(slot[1]), str(part[2]))
+					continue
+				morale_at[mk] = [into.size(), int(part[3])]
+				into.append(s)
+				continue
 			if not into.has(s):
 				into.append(s)
 	var out: PackedStringArray = []
@@ -555,7 +568,10 @@ static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
 					s += " It counts for more because he trusts you."
 				elif b == "wary" or b == "lost":
 					s += " It counts for less because he's wary of you."
-			return [["gain" if d > 0 else "cost", s]]
+			if s != _morale_words(d, who):
+				return [["gain" if d > 0 else "cost", s]]
+			# A plain move carries who and how much, so stakes_lines can add two together.
+			return [["gain" if d > 0 else "cost", s, who, d]]
 		"board":
 			return [] if d == 0 else [["gain" if d > 0 else "cost", _board_words(d)]]
 		"trust":
@@ -580,7 +596,7 @@ static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
 		"expects_game":
 			return [["cost", "He expects a game this week, and Auto-pick names him. Leave him out fit and the promise breaks: %s" % _broken_words(int(e.get("sting", 12)), absi(BROKEN_PROMISE_TRUST))]]
 		"start_backing":
-			return [["gain", _morale_words(Backing.THRILL, "subject")],
+			return [["gain", _morale_words(Backing.THRILL, "subject"), "subject", Backing.THRILL],
 					["cost", "He expects to be picked for the next {run_games} games, and Auto-pick names him. Leave him out fit and the promise breaks: %s" % _broken_words(Backing.STING, absi(BROKEN_RUN_TRUST))]]
 		"back_kid":
 			return [["gain", "{kid_name}'s morale up %s." % _pct(Backing.THRILL)],

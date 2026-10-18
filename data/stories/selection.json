@@ -620,6 +620,10 @@
 				"label": "Promise him a run",
 				"effects": [
 					{
+						"op": "morale",
+						"d": 5
+					},
+					{
 						"op": "start_backing"
 					}
 				]
