@@ -697,7 +697,7 @@ func _banners() -> void:
 	re.compile("\\{[a-z_]+\\}")
 	for t in all:
 		var lines := str(t).split("\n")
-		if lines.size() < 2 or lines.size() > 4:
+		if lines.size() < 1 or lines.size() > 4:
 			bad_lines.append(t)
 		for m in re.search_all(str(t)):
 			if not BANNER_LONGEST.has(m.get_string()):
@@ -708,8 +708,40 @@ func _banners() -> void:
 		for line in filled.split("\n"):
 			if line.length() > 28:
 				too_long.append(line)
-	_check(all.size() >= 140, "The banner file holds its rhymes (%d)" % all.size())
-	_check(bad_lines.is_empty(), "Every banner is 2 to 4 lines (%s)" % str(bad_lines.slice(0, 3)))
+	# 2026-10-18, on the director's order ("remove banner text from the game for now, replace with
+	# placeholder text, i will create original banner text moving forward"): the file holds
+	# placeholders, so the old content checks (a count of 140 rhymes, 2 to 4 lines each) now check
+	# the structure his own texts will drop into, and that no rhyme is left behind.
+	var sets_missing := []
+	for k in ["general", "club", "rivalry", "marquee", "final", "spoon", "first_game", "premiers",
+			"premiers_opposition", "milestone", "must_win"]:
+		if not d.has(k):
+			sets_missing.append(k)
+	_check(sets_missing.is_empty(), "Every banner set is in the file (%s)" % str(sets_missing))
+	var empty := []
+	var leftover := []
+	for t in all:
+		if str(t).strip_edges() == "":
+			empty.append(t)
+		var rest := str(t)
+		for ph in B.PLACEHOLDERS:
+			rest = rest.replace(ph, "")
+		for day in B.RESPECTFUL:
+			rest = rest.replace(day, "")
+		if rest.strip_edges() != "":
+			leftover.append(t)
+	_check(not all.is_empty() and empty.is_empty(), "Every banner text has words (%d texts, %d empty)" % [all.size(), empty.size()])
+	_check(leftover.is_empty(), "No old rhyme is left: a text is only fill-ins and a day's name (%s)" % str(leftover.slice(0, 3)))
+	var pairs := []
+	for r in d.get("rivalry", []):
+		var pr: Array = r.get("pair", [])
+		pairs.append("%s-%s" % [pr[0], pr[1]] if pr.size() == 2 else "?")
+	var pairs_missing := []
+	for want in ["COL-CAR", "ADE-PAD", "HAW-GEE", "FRE-WCE", "ESS-COL", "RIC-CAR", "SYD-GWS", "BRL-GCS", "MEL-COL", "GWS-WBD", "WBD-COL", "PAD-COL"]:
+		if not pairs.has(want):
+			pairs_missing.append(want)
+	_check(pairs_missing.is_empty(), "Every rivalry pair is in the file (%s)" % str(pairs_missing))
+	_check(bad_lines.is_empty(), "Every banner is 1 to 4 lines (%s)" % str(bad_lines.slice(0, 3)))
 	_check(too_long.is_empty(), "Every line fits 28 characters with the longest names filled in (%s)" % str(too_long.slice(0, 3)))
 	_check(unknown.is_empty(), "Banners use only the known fill-ins (%s)" % str(unknown))
 	var missing := []
@@ -761,7 +793,7 @@ func _banners() -> void:
 	var a: String = B.pick(riv)
 	_check(a != "" and a == B.pick(riv), "The same match always gets the same banner")
 	var ms: String = B.pick({"home": "COL", "away": "ESS", "milestone": {"player": "Smith", "games": 100}, "seed": 2})
-	_check(not ms.contains("{") and ms.split("\n").size() >= 2, "A picked banner is filled in, in lines (%s)" % ms)
+	_check(not ms.contains("{") and ms != "", "A picked banner is filled in (%s)" % ms)
 
 
 func _check(condition: bool, message: String) -> void:

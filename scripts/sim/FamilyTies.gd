@@ -73,6 +73,8 @@ static func assign(cls: Array, year: int, career_seed: int, entries: Array) -> i
 			continue
 		var roll := rng.randf()
 		var pick := rng.randf()   # always drawn, so a change elsewhere never shifts later rolls
+		if p.has("intl"):
+			continue   # an international's relatives are not on an AFL list
 		var age := float(p.get("age", 18.0))
 		var relation := ""
 		var cands: Array = []

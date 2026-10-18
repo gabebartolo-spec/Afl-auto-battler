@@ -1,0 +1,156 @@
+{
+  "_note": "International prospects in generated draft classes (switch international_prospects). A first name and surname always come from the same group of the same country. Pathways name the sport and place only; colleges and clubs in the USA and Africa are invented.",
+  "class_chance_of_two": 0.3,
+  "min_rank": 11,
+  "countries": [
+    {
+      "id": "IRL", "name": "Ireland", "demonym": "Irish", "weight": 3,
+      "age": [18, 20], "height": [183, 196],
+      "roles": {"DEF": 4, "MID": 4, "FWD": 2},
+      "bias": {"disposal": 4, "accuracy": 3, "carry": 3, "marking": 2, "contested": -2, "intercept": -1},
+      "u18": {"gm": [3, 6], "di": [12, 20], "mk": [2, 5], "tk": [1, 4]},
+      "reason": "a Gaelic footballer who kicks cleanly off both sides and runs all day",
+      "pathways": [
+        {"team": "Kerry", "league": "Gaelic football"}, {"team": "Cork", "league": "Gaelic football"},
+        {"team": "Dublin", "league": "Gaelic football"}, {"team": "Mayo", "league": "Gaelic football"},
+        {"team": "Galway", "league": "Gaelic football"}, {"team": "Tyrone", "league": "Gaelic football"},
+        {"team": "Donegal", "league": "Gaelic football"}, {"team": "Kildare", "league": "Gaelic football"},
+        {"team": "Clare", "league": "Gaelic football"}, {"team": "Limerick", "league": "Gaelic football"},
+        {"team": "Meath", "league": "Gaelic football"}, {"team": "Armagh", "league": "Gaelic football"}
+      ],
+      "groups": [{
+        "weight": 1,
+        "first": ["Cian", "Oisín", "Darragh", "Eoin", "Conor", "Seán", "Ciarán", "Fionn", "Rory", "Diarmuid", "Tadhg", "Cathal", "Niall", "Colm", "Declan", "Ronan", "Pádraig", "Donal", "Cormac", "Brendan"],
+        "last": ["O'Sullivan", "O'Connor", "McCarthy", "MacNamara", "O'Donoghue", "McGrath", "O'Shea", "Fitzgerald", "Brennan", "Kavanagh", "Gallagher", "Delaney", "Hegarty", "O'Dwyer", "MacMahon", "O'Brien", "McCormack", "Dunne", "Gilmartin", "O'Reilly"]
+      }]
+    },
+    {
+      "id": "NZL", "name": "New Zealand", "demonym": "New Zealander", "weight": 3,
+      "age": [18, 20], "height": [185, 200],
+      "roles": {"MID": 4, "DEF": 3, "FWD": 2, "RUCK": 1},
+      "bias": {"contested": 5, "pressure": 4, "disposal": -2, "accuracy": -3, "creating": -1},
+      "u18": {"gm": [3, 6], "di": [10, 18], "mk": [1, 4], "tk": [4, 7]},
+      "reason": "a rugby player who wins the ball in a pack and tackles with real strength",
+      "pathways": [
+        {"team": "Waikato", "league": "Provincial rugby"}, {"team": "Canterbury", "league": "Provincial rugby"},
+        {"team": "Auckland", "league": "Rugby league"}, {"team": "Counties Manukau", "league": "Rugby league"},
+        {"team": "Taranaki", "league": "Provincial rugby"}, {"team": "Bay of Plenty", "league": "Provincial rugby"},
+        {"team": "Wellington", "league": "Rugby league"}, {"team": "Otago", "league": "Provincial rugby"}
+      ],
+      "groups": [
+        {"weight": 4,
+         "first": ["Jack", "Ben", "Luke", "Will", "Sam", "Tom", "Ethan", "Mitchell", "Callum", "Hayden", "Josh", "Reuben"],
+         "last": ["Thompson", "Clarke", "Anderson", "Henderson", "Campbell", "Murray", "Baxter", "Crawford", "Sutherland", "Gibbons", "Whitaker", "Ellison"]},
+        {"weight": 3,
+         "first": ["Tamati", "Rawiri", "Wiremu", "Hohepa", "Kahu", "Manaia", "Tane", "Nikau", "Rangi"],
+         "last": ["Parata", "Ngata", "Tamihana", "Hohaia", "Kereama", "Rangihuna", "Wihongi", "Pomare", "Whaanga", "Tipene"]},
+        {"weight": 2,
+         "first": ["Sione", "Tevita", "Mosese", "Ioane", "Siaosi", "Sefa", "Viliami", "Isileli", "Tui", "Manu"],
+         "last": ["Tupou", "Taufa", "Fifita", "Havili", "Latu", "Leota", "Faumuina", "Masoe", "Toleafoa", "Matautia"]}
+      ]
+    },
+    {
+      "id": "USA", "name": "USA", "from": "the USA", "demonym": "American", "weight": 3,
+      "age": [19, 20], "height": [190, 208],
+      "roles": {"RUCK": 3, "FWD": 3, "DEF": 2},
+      "bias": {"marking": 4, "contested": 2, "ruck": 2, "disposal": -4, "accuracy": -4, "creating": -3, "carry": -1},
+      "u18": {"gm": [2, 5], "di": [8, 14], "mk": [3, 7], "tk": [1, 4]},
+      "reason": "a college athlete with elite size and bounce who is still learning the game",
+      "pathways": [
+        {"team": "Northgate University", "league": "College basketball"},
+        {"team": "Ridgemont College", "league": "College basketball"},
+        {"team": "Lakeview State", "league": "College track and field"},
+        {"team": "Westfield College", "league": "College track and field"},
+        {"team": "Cedar Valley University", "league": "College football"},
+        {"team": "Harbor State", "league": "College football"}
+      ],
+      "groups": [
+        {"weight": 4,
+         "first": ["Jake", "Tyler", "Connor", "Brandon", "Cole", "Dylan", "Garrett", "Hunter", "Mason", "Caleb", "Trevor", "Colby"],
+         "last": ["Miller", "Anderson", "Carter", "Reynolds", "Hughes", "Sullivan", "Bennett", "Foster", "Collins", "Morgan", "Pierce", "Dawson"]},
+        {"weight": 3,
+         "first": ["Jamal", "Terrence", "Malik", "Andre", "Isaiah", "Jalen", "Devin", "Cameron", "Marcus", "Darius"],
+         "last": ["Washington", "Jefferson", "Robinson", "Coleman", "Simmons", "Hayes", "Freeman", "Jackson", "Harris", "Banks"]},
+        {"weight": 2,
+         "first": ["Diego", "Mateo", "Luis", "Javier", "Mario", "Rafael", "Alejandro", "Carlos", "Gabriel", "Nico"],
+         "last": ["Rivera", "Morales", "Castillo", "Herrera", "Navarro", "Salazar", "Ortega", "Mendoza", "Cardenas", "Aguilar"]}
+      ]
+    },
+    {
+      "id": "KEN", "name": "Kenya", "demonym": "Kenyan", "weight": 1,
+      "age": [18, 20], "height": [184, 200],
+      "roles": {"MID": 3, "DEF": 3, "FWD": 2},
+      "bias": {"carry": 6, "pressure": 2, "disposal": -5, "accuracy": -5, "creating": -3, "marking": -1},
+      "u18": {"gm": [1, 4], "di": [6, 12], "mk": [1, 4], "tk": [1, 4]},
+      "reason": "a runner with a huge engine who has only just picked up the game",
+      "pathways": [
+        {"team": "Eldoret", "league": "Distance running"}, {"team": "Nairobi", "league": "Rugby sevens"},
+        {"team": "Nakuru", "league": "Track and field"}, {"team": "Kisumu", "league": "Basketball"}
+      ],
+      "groups": [
+        {"weight": 1, "first": ["Kamau", "Njoroge", "Mwangi", "Karanja", "Githinji", "Maina"],
+         "last": ["Kariuki", "Kimani", "Wambugu", "Gachanja", "Macharia", "Ngugi"]},
+        {"weight": 1, "first": ["Otieno", "Odhiambo", "Omondi", "Ochieng", "Onyango"],
+         "last": ["Owino", "Okoth", "Ogola", "Opiyo", "Oduor", "Ouma"]},
+        {"weight": 1, "first": ["Kiprop", "Kiptoo", "Kibet", "Kipkemboi", "Kiprono"],
+         "last": ["Koech", "Rotich", "Kiprotich", "Cheruiyot", "Langat", "Sang"]}
+      ]
+    },
+    {
+      "id": "NGA", "name": "Nigeria", "demonym": "Nigerian", "weight": 1,
+      "age": [18, 20], "height": [188, 206],
+      "roles": {"FWD": 3, "DEF": 3, "RUCK": 2, "MID": 1},
+      "bias": {"carry": 4, "contested": 2, "marking": 2, "disposal": -5, "accuracy": -5, "creating": -3},
+      "u18": {"gm": [1, 4], "di": [6, 12], "mk": [2, 5], "tk": [1, 4]},
+      "reason": "a long, quick basketballer who jumps at the ball and is still raw with it in hand",
+      "pathways": [
+        {"team": "Lagos", "league": "Basketball"}, {"team": "Abuja", "league": "Track and field"},
+        {"team": "Ibadan", "league": "Soccer"}, {"team": "Port Harcourt", "league": "Basketball"}
+      ],
+      "groups": [
+        {"weight": 1, "first": ["Tunde", "Femi", "Segun", "Kayode", "Dapo", "Seyi", "Bayo"],
+         "last": ["Adeyemi", "Ogunleye", "Balogun", "Adeniyi", "Oyelaran", "Akinola"]},
+        {"weight": 1, "first": ["Chidi", "Emeka", "Ikenna", "Obinna", "Nnamdi", "Chukwuemeka"],
+         "last": ["Okafor", "Nwosu", "Eze", "Okonkwo", "Obi", "Nnadi"]},
+        {"weight": 1, "first": ["Musa", "Ibrahim", "Abubakar", "Yusuf", "Sani"],
+         "last": ["Bello", "Garba", "Danjuma", "Lawal", "Abdullahi", "Suleiman"]}
+      ]
+    },
+    {
+      "id": "RSA", "name": "South Africa", "demonym": "South African", "weight": 1,
+      "age": [18, 20], "height": [184, 202],
+      "roles": {"DEF": 3, "MID": 3, "FWD": 2, "RUCK": 1},
+      "bias": {"contested": 4, "pressure": 3, "carry": 2, "disposal": -3, "accuracy": -3, "creating": -2},
+      "u18": {"gm": [2, 5], "di": [8, 14], "mk": [1, 4], "tk": [3, 6]},
+      "reason": "a rugby or cricket product who is strong, fit and brave in a contest",
+      "pathways": [
+        {"team": "Western Province", "league": "Rugby"}, {"team": "Gauteng", "league": "Cricket"},
+        {"team": "Stellenbosch", "league": "Athletics"}, {"team": "KwaZulu-Natal", "league": "Rugby"}
+      ],
+      "groups": [
+        {"weight": 2, "first": ["Pieter", "Johan", "Francois", "Jaco", "Hennie", "Wian", "Riaan"],
+         "last": ["Botha", "Pretorius", "Kruger", "Joubert", "Venter", "Steyn", "Vermeulen"]},
+        {"weight": 1, "first": ["Liam", "Jordan", "Kyle", "Ryan", "Brad"],
+         "last": ["Hartley", "Pearce", "Whitfield", "Lawson", "Fenwick"]},
+        {"weight": 3, "first": ["Sipho", "Thabo", "Bheki", "Lwazi", "Siyabonga", "Themba", "Sizwe", "Luyanda"],
+         "last": ["Dlamini", "Nkosi", "Khumalo", "Ndlovu", "Zulu", "Mthembu", "Zwane"]}
+      ]
+    },
+    {
+      "id": "GHA", "name": "Ghana", "demonym": "Ghanaian", "weight": 1,
+      "age": [18, 20], "height": [186, 204],
+      "roles": {"DEF": 3, "FWD": 3, "MID": 2, "RUCK": 1},
+      "bias": {"carry": 5, "pressure": 2, "disposal": -5, "accuracy": -5, "creating": -3},
+      "u18": {"gm": [1, 4], "di": [6, 12], "mk": [1, 4], "tk": [1, 4]},
+      "reason": "a fast, springy athlete who covers the ground quickly and is learning the finer points",
+      "pathways": [
+        {"team": "Accra", "league": "Basketball"}, {"team": "Kumasi", "league": "Soccer"},
+        {"team": "Tamale", "league": "Track and field"}, {"team": "Cape Coast", "league": "Basketball"}
+      ],
+      "groups": [
+        {"weight": 1, "first": ["Kwame", "Kofi", "Kwesi", "Yaw", "Kojo", "Kwabena", "Kwaku", "Nana"],
+         "last": ["Mensah", "Owusu", "Boateng", "Asante", "Appiah", "Agyeman", "Osei", "Amoah", "Boakye", "Darko"]}
+      ]
+    }
+  ]
+}
