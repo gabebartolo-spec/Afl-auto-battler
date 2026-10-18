@@ -2789,7 +2789,10 @@ func _test_silent_defaults_announced() -> void:
 	var p: Dictionary = GameState.my_list[4]
 	var bad := []
 	var n := 0
+	var want := 0
 	for t in StoryDeck.all():
+		if int(t.get("default", -1)) >= 0:
+			want += 1
 		var card := GameState.story_card(str(t["id"]), p if str(t["subject"].get("kind", "")) == "player" else {})
 		var line := StoryEngine.silence_line(card)
 		var d := int(card.get("default", -1))
@@ -2805,7 +2808,8 @@ func _test_silent_defaults_announced() -> void:
 				bad.append("%s: %s" % [t["id"], line])
 		elif (t.get("unanswered", {}) as Dictionary).is_empty() and line != "":
 			bad.append("%s says something where leaving it changes nothing: %s" % [t["id"], line])
-	_check(n >= 17 and bad.is_empty(), "Every card with a silent default names it and its cost (%d cards): %s" % [n, " | ".join(PackedStringArray(bad.slice(0, 4)))])
+	# The international cards join the deck only with their switch on, so the count is the deck's own.
+	_check(n == want and n >= 6 and bad.is_empty(), "Every card with a silent default names it and its cost (%d of %d cards): %s" % [n, want, " | ".join(PackedStringArray(bad.slice(0, 4)))])
 	var sore := GameState.story_card("health_pulled_up_sore", p)
 	var sl := StoryEngine.silence_line(sore)
 	_check(sl.contains("Play him") and sl.contains("%") and sl.contains("chance"),
@@ -2893,5 +2897,5 @@ func _test_line_numbers_match_effects() -> void:
 			"Heavy and fresh legs quote the injury rule's own sizes, for every injury (%s / %s)" % [heavy, fresh])
 	var sting := " ".join(StoryEngine.stakes_lines([{"op": "loss_sting", "chance": 20, "d": -8}], {}))
 	_check(not sting.contains("instead") and sting.contains("also falls 8%"), "The finals sting says the fall comes on top of the lift (%s)" % sting)
-	var slow := " ".join(StoryEngine.stakes_lines([{"op": "slow_start", "who": "subject", "chance": 15}], {"finals_week": 0}))
+	var slow := " ".join(StoryEngine.stakes_lines([{"op": "slow_start", "who": "subject", "chance": 15, "on": "week"}], {}))
 	_check(slow.contains("this week's game") and slow.contains("15%") and slow.contains("for the first quarter"), "A slow start in the season names this week's game and its chance (%s)" % slow)
