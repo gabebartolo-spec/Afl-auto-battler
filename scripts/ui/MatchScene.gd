@@ -87,6 +87,22 @@ var _duel_mem := {}             # the feed's memory of the key match-ups (MatchN
 var _matchup_overlay: Control
 var _break_refresh := Callable()   # the one-line break: say each call's answer again after a pick
 var _break_sheets: Array = []      # the one-line break: open sheets, the top one last ({overlay, close})
+## Key moments (director, 2026-10-18, P-14): your match at top speed, down to
+## 1x for your calls, each goal and the breaks, then on again. Playback only:
+## the sim, its log and the result are the same as watching.
+const KM_HOLD := 1.8                 # real seconds at 1x after a goal or a call (a goal's name runs as long)
+var km_hold_seconds := KM_HOLD       # tests shorten it; what stops the match is the same
+var _key_moments := false
+var _km_why := ""                    # what holds 1x now: "goal", "moment" or ""
+var _km_hold := 0.0                  # real seconds of 1x left (counted only while play runs)
+var _km_await := ""                  # 1x, the hold not yet counting, until this event is released
+var _km_goal_at := -1                # the goal (event index) a stop has already slowed for
+## Every stop, in order: {"kind": "goal"|"moment"|"break", "event": index, "q": quarter}.
+var km_stops: Array = []
+## Every released event while in Key moments: [kind, speed, why] (tests).
+var km_trace: Array = []
+var _km_word: Button
+var _km_watch: Button
 
 
 func _ready() -> void:
@@ -102,6 +118,7 @@ func _ready() -> void:
 		_my_side = GameDB.coach_side(str(_res["home"]), str(_res["away"]), GameState.my_club)
 		_pos_before = GameState.my_position()
 		_farewell = _farewell_for(GameState.pending_match)
+		_key_moments = GameState.match_way_live == "key"
 	else:
 		_res = GameState.last_match
 		_review = GameState.review_requested
@@ -128,7 +145,12 @@ func _ready() -> void:
 	_pitch.finished.connect(_on_finished)
 	_pitch.ends_changed.connect(_on_ends_changed)
 	_update_scoreboard({"q": 1, "min": 0, "score": [0, 0], "kind": "info"})
-	if _interactive:
+	if _interactive and GameState.match_way_live == "skip":
+		# Skip (the poster): straight to full time on the plan you took in,
+		# as Skip to full time before the first bounce.
+		GameState.match_way_live = "watch"
+		_on_skip.call_deferred()
+	elif _interactive:
 		_show_coach_box()
 	elif _review:
 		_on_finished()
@@ -168,6 +190,9 @@ func _mount_body(stack: bool) -> void:
 	if _pitch == null:
 		_pitch = PitchView.new()
 		_pitch.speed = GameState.match_speed()
+		if _key_moments:
+			_pitch.speed = SPEEDS.back()
+			set_process(true)
 	# A phone follows the ball close up because its screen is small (and so does
 	# any narrow, stacked window); a wide window shows the whole ground whatever
 	# the platform (director, 2026-10-09; the web build on a PC, 2026-10-12).
@@ -427,15 +452,33 @@ func _controls() -> Control:
 	var row := UiKit.hbox(5)
 	v.add_child(row)
 	_play_btn = UiKit.btn("Pause", UiKit.SECONDARY)
-	_play_btn.custom_minimum_size = Vector2(0, 40)
+	_play_btn.custom_minimum_size = Vector2(0, 44)
 	_play_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_play_btn.clip_text = true
 	_play_btn.pressed.connect(_on_toggle)
 	row.add_child(_play_btn)
 
+	# Key moments shows its name where the speeds sit, in the poster's order
+	# (Watch, then Key moments): Watch drops back to watching at your usual
+	# speed and the speeds come back.
+	_km_watch = UiKit.btn("Watch", UiKit.SECONDARY)
+	_km_watch.name = "KeyMomentsWatch"
+	_km_watch.custom_minimum_size = Vector2(0, 44)
+	_km_watch.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_km_watch.clip_text = true
+	_km_watch.pressed.connect(_on_km_watch)
+	row.add_child(_km_watch)
+	_km_word = UiKit.btn("Key moments", UiKit.SECONDARY)
+	_km_word.name = "KeyMomentsState"
+	_km_word.custom_minimum_size = Vector2(0, 44)
+	_km_word.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_km_word.size_flags_stretch_ratio = 2.0
+	_km_word.clip_text = true
+	row.add_child(_km_word)
+
 	for s in SPEEDS:
 		var b := UiKit.btn("%dx" % int(s), UiKit.SECONDARY)
-		b.custom_minimum_size = Vector2(0, 40)
+		b.custom_minimum_size = Vector2(0, 44)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.clip_text = true
 		b.pressed.connect(_on_speed.bind(s))
@@ -445,7 +488,7 @@ func _controls() -> Control:
 	var row2 := UiKit.hbox(5)
 	v.add_child(row2)
 	var skip := UiKit.btn("Skip to full time", UiKit.SECONDARY)
-	skip.custom_minimum_size = Vector2(0, 40)
+	skip.custom_minimum_size = Vector2(0, 44)
 	skip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	skip.pressed.connect(_on_skip)
 	row2.add_child(skip)
@@ -453,7 +496,7 @@ func _controls() -> Control:
 	# Your own match cannot be left half way (Back says so); a replay can.
 	if not _interactive:
 		var leave := UiKit.btn("Back to hub", UiKit.SECONDARY)
-		leave.custom_minimum_size = Vector2(0, 40)
+		leave.custom_minimum_size = Vector2(0, 44)
 		leave.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		leave.pressed.connect(func(): Router.back())
 		row2.add_child(leave)
@@ -468,6 +511,73 @@ func _sync_controls() -> void:
 	_play_btn.text = "Play" if not _pitch.playing else "Pause"
 	for i in range(SPEEDS.size()):
 		UiKit.set_selected(_speed_btns[i], is_equal_approx(_pitch.speed, SPEEDS[i]))
+		_speed_btns[i].visible = not _key_moments
+	if _km_word != null:
+		_km_word.visible = _key_moments
+		_km_watch.visible = _key_moments
+		UiKit.set_selected(_km_word, true)
+		UiKit.set_selected(_km_watch, false)
+
+
+## Watch from here on: your usual speed, the speed buttons back.
+func _on_km_watch() -> void:
+	_key_moments = false
+	_km_why = ""
+	_km_await = ""
+	set_process(false)
+	_pitch.set_speed(GameState.match_speed())
+	_sync_controls()
+
+
+## Key moments: down to 1x for a stop. `await_kind` holds 1x, uncounted,
+## until that event is released (the goal a shot is heading for, the line of a
+## call just answered); the hold counts down from there.
+func _km_slow(why: String, await_kind := "") -> void:
+	_km_why = why
+	_km_await = await_kind
+	_km_hold = km_hold_seconds
+	_pitch.set_speed(SPEEDS[0])
+
+
+## Key moments: back to top speed.
+func _km_fast() -> void:
+	_km_why = ""
+	_km_await = ""
+	_pitch.set_speed(SPEEDS.back())
+
+
+## The hold after a stop runs on real seconds of play: a close-up or a call
+## over the paused oval does not use it up.
+func _process(delta: float) -> void:
+	if not _key_moments or _km_why == "" or _km_await != "" or _pitch == null or not _pitch.playing:
+		return
+	_km_hold -= delta
+	if _km_hold <= 0.0:
+		_km_fast()
+
+
+## Key moments, on each released event: a goal is slowed for from the play
+## before it (the shot is seen at 1x) and held after it; a call's line is held
+## after it reaches the feed.
+func _km_event(ev: Dictionary, event_index: int) -> void:
+	if not _key_moments or _skipping:
+		return
+	var kind := str(ev.get("kind", ""))
+	if kind == "goal":
+		if _km_goal_at != event_index:
+			_km_goal_at = event_index
+			km_stops.append({"kind": "goal", "event": event_index, "q": int(ev.get("q", 0))})
+		_km_slow("goal")
+	elif kind == "moment" and _km_await == "moment":
+		_km_slow("moment")
+	km_trace.append([kind, _pitch.speed, _km_why])
+	var next := event_index + 1
+	var next_goal := next < _pitch.events.size() \
+			and str((_pitch.events[next] as Dictionary).get("kind", "")) == "goal"
+	if next_goal and _km_goal_at != next:
+		_km_goal_at = next
+		km_stops.append({"kind": "goal", "event": next, "q": int((_pitch.events[next] as Dictionary).get("q", 0))})
+		_km_slow("goal", "goal")
 
 
 func _on_toggle() -> void:
@@ -574,6 +684,11 @@ func _show_coach_box() -> void:
 	_sync_controls()
 	var sim: MatchSim = GameState.pending_sim
 	var q := sim.current_quarter
+	if _key_moments:
+		# The break is the stop; the next quarter starts at top speed.
+		if q > 1:
+			km_stops.append({"kind": "break", "event": _playback_event_index, "q": q})
+		_km_fast()
 	# The calls fill the screen at every break, so the actions sit at the
 	# bottom with the choices just above them.
 	# On a PC the break is a wide landscape sheet with every call in view
@@ -2470,6 +2585,12 @@ func _group_energy(side: int) -> float:
 func _show_moment() -> void:
 	_close_moment()
 	_pitch.pause()
+	if _key_moments:
+		var last: Dictionary = km_stops.back() if not km_stops.is_empty() else {}
+		if str(last.get("kind", "")) != "moment" or int(last.get("event", -1)) != _playback_event_index:
+			km_stops.append({"kind": "moment", "event": _playback_event_index,
+					"q": int(GameState.pending_sim.pending_moment.get("q", 0))})
+		_km_slow("moment")
 	var m: Dictionary = GameState.pending_sim.pending_moment
 	var bounce := str(m.get("kind", "")) == "bounce"
 	if bounce and GameState.vignettes_on():
@@ -2589,6 +2710,9 @@ func _on_moment_choice(i: int) -> void:
 	# The call and how it came off reach the feed as the "moment" event,
 	# when play reaches it.
 	sim.resolve_moment(i)
+	if _key_moments:
+		# 1x until the call's line reaches the feed, then a moment more.
+		_km_slow("moment", "moment")
 	_advance_segment()
 
 
@@ -3266,6 +3390,7 @@ func _on_event(ev: Dictionary) -> void:
 		_track_run(int(ev.get("side", 0)))
 	if _crowd != null and not _skipping:
 		_crowd.event(str(ev.get("kind", "")))
+	_km_event(ev, event_index)
 	_queue_broadcast(ev, event_index)
 
 
@@ -3296,6 +3421,9 @@ func _queue_broadcast(ev: Dictionary, event_index: int) -> void:
 		return
 	# Vignettes off (Settings): no replays. They decide nothing.
 	if not GameState.vignettes_on():
+		return
+	# Key moments stops for goals only: a goal's own close-up plays, nothing else.
+	if _key_moments and str(ev.get("kind", "")) != "goal":
 		return
 	var prev_ev := {}
 	var next_ev := {}

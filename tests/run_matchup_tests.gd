@@ -781,10 +781,20 @@ func _fact_options() -> void:
 	var words_ok := true
 	var words := ["best", "recommend", "suggest", "ideal", "should", "advice", "optimal", "top pick"]
 	var disabled_seen := 0
+	var shown_ok := true
+	var ruck_clean := true
+	var ruck_facts := 0
 	var enabled_seen := 0
 	for code in _state.season.lists:
 		var facts: Array = _state.opponent_facts(str(code))
-		var opts: Array = _state.opponent_fact_options(str(code), facts)
+		var opts: Array = _state.opponent_fact_options(str(code), facts, true)
+		var shown: Array = _state.opponent_fact_options(str(code), facts)
+		for i in range(mini(facts.size(), shown.size())):
+			for o in shown[i]:
+				shown_ok = shown_ok and bool(o["enabled"])
+				if str(facts[i]["key"]) == "ruck":
+					ruck_clean = ruck_clean and str(o["call"]) == "ruck"
+					ruck_facts += 1
 		table_ok = table_ok and opts.size() == facts.size()
 		for i in range(mini(facts.size(), opts.size())):
 			var key := str(facts[i]["key"])
@@ -813,6 +823,17 @@ func _fact_options() -> void:
 				table_ok = false
 				push_error("%s %s: options %s, table %s" % [code, key, str(got), str(want)])
 	_check(table_ok, "Every fact of every opponent has exactly the table's responses for its kind")
+	_check(shown_ok, "The hub shows only responses the coach can take (no greyed ones)")
+	_check(ruck_clean, "No ruck fact carries Tag, Key match-up or a plan across all clubs (%d ruck facts)" % ruck_facts)
+	var two_r := {"id": "r1", "role": "RUCK", "overall": 80, "attr": {}}
+	var one_r := {"id": "r2", "role": "RUCK", "overall": 80, "attr": {}}
+	var mid_r := {"id": "m", "role": "MID", "overall": 70, "attr": {}}
+	_check(FO.takeable(FO.options({"key": "ruck", "player_id": "r1"}, [two_r], [mid_r, one_r], [two_r])).is_empty(),
+			"With one ruck of his own the ruck fact shows nothing")
+	_check(_names(FO.takeable(FO.options({"key": "ruck", "player_id": "r1"}, [two_r], [one_r, one_r.duplicate()], [two_r]))) == ["ruck"],
+			"With two rucks the ruck fact offers the Main ruck call and nothing else")
+	_check(_names(FO.takeable(FO.options({"key": "danger", "player_id": "r1"}, [two_r], [one_r, one_r.duplicate()], [two_r]))) == ["ruck"],
+			"A danger man who is a ruck is answered by the Main ruck call alone, never a tag")
 	_check(order_ok, "The responses always come in the fixed order: tag, key match-up, defensive forward, main ruck, loose interceptor, plan")
 	_check(reasons_ok and disabled_seen > 0, "Every unsuitable response is disabled with its reason (%d seen)" % disabled_seen)
 	_check(words_ok and enabled_seen > 0, "Every other one carries its cost, and none says best, recommended or should (%d seen)" % enabled_seen)
@@ -1284,3 +1305,10 @@ func _plain(c: Control) -> String:
 	if c is Label:
 		return (c as Label).text
 	return (c as RichTextLabel).get_parsed_text() if c is RichTextLabel else ""
+
+
+func _names(opts: Array) -> Array:
+	var r := []
+	for o in opts:
+		r.append(str(o["call"]))
+	return r

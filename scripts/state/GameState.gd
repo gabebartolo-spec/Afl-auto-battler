@@ -38,6 +38,10 @@ var pending_sim: MatchSim = null
 ## the pre-bounce pane opens on, and the fact it restates above it. {"call", "plan",
 ## "player_id", "fact"}. Never saved; the match screen takes it once.
 var call_intent: Dictionary = {}
+## How the match now being set up is taken (MATCH_WAYS): the poster's choice,
+## read once when the live match is prepared. The intra-club match is always
+## watched. The match screen reads it; it never reaches the sim.
+var match_way_live := "watch"
 var pending_round_results: Array = []
 var _others := {}          # the round's other matches, running in the background
 var pending_phase := ""
@@ -558,6 +562,23 @@ func match_speed() -> float:
 func set_match_speed(s: float) -> void:
 	if s in [1.0, 2.0, 4.0, 8.0]:
 		set_setting("match_speed", s)
+
+
+## How you take your own match, chosen on the hub's poster and kept for the
+## next one (director, 2026-10-18, P-14): Watch it, Key moments (top speed,
+## stopping for your calls, the goals and the breaks) or Skip to full time.
+## Watch for anyone who has never chosen. Playback only: the match is the same.
+const MATCH_WAYS := ["watch", "key", "skip"]
+
+
+func match_way() -> String:
+	var w := str(get_setting("match_way", "watch"))
+	return w if w in MATCH_WAYS else "watch"
+
+
+func set_match_way(w: String) -> void:
+	if w in MATCH_WAYS:
+		set_setting("match_way", w)
 
 
 func set_show_real_names(enabled: bool) -> void:
@@ -2140,6 +2161,7 @@ func start_season(club_code: String, list: Array) -> void:
 func prepare_interactive_match() -> bool:
 	if season == null or season.is_season_over():
 		return false
+	match_way_live = match_way()
 	preseason_sim_to_round1()
 	_settle_week_event()
 	last_pos_before = my_position()
@@ -3297,6 +3319,7 @@ func prepare_intra_match() -> bool:
 	intra_fill_invites()
 	var intra: Dictionary = preseason["intra"]
 	_clear_pending()
+	match_way_live = "watch"
 	_intra_built = _intra_build(my_club, str(intra.get("mode", "even")), intra.get("invites", []), true)
 	pending_sim = _intra_built["sim"]
 	pending_match = {"home": str(_intra_built["home"]), "away": str(_intra_built["away"]),
@@ -3418,15 +3441,17 @@ func opponent_facts(code: String) -> Array:
 
 
 ## The responses beside each of `facts` (FactOptions), from the sides the
-## engine will field: one array of options per fact, in the same order.
-func opponent_fact_options(code: String, facts: Array) -> Array:
+## engine will field: one array of options per fact, in the same order. Only the
+## ones the coach can take, unless `every`.
+func opponent_fact_options(code: String, facts: Array, every := false) -> Array:
 	var out := []
 	if season == null or code == "" or not season.lists.has(code):
 		return out
 	var theirs: Array = Squad.new(code, season.lists[code], false, code, season.selections.get(code, {})).ground
 	var mine: Array = my_squad().ground
 	for f in facts:
-		out.append(FactOptions.options(f, theirs, mine, season.lists[code]))
+		var all := FactOptions.options(f, theirs, mine, season.lists[code])
+		out.append(all if every else FactOptions.takeable(all))
 	return out
 
 

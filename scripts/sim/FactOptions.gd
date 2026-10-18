@@ -37,10 +37,10 @@ const COST := {
 ## fact key -> the responses that bear on it, as [call] or ["plan", plan key].
 const TABLE := {
 	"danger": [["tag"], ["matchup"], ["minder"], ["ruck"]],
-	"interceptor": [["minder"], ["plan", "attacking"]],
-	"midfield": [["tag"], ["ruck"], ["plan", "contest"]],
-	"ruck": [["ruck"], ["plan", "contest"]],
-	"attack": [["matchup"], ["loose"], ["plan", "defensive"]],
+	"interceptor": [["minder"], ["plan", "attacking"], ["plan", "controlled"]],
+	"midfield": [["tag"], ["plan", "contest"], ["plan", "controlled"]],
+	"ruck": [["ruck"]],
+	"attack": [["matchup"], ["loose"], ["plan", "defensive"], ["plan", "controlled"]],
 	"defence": [["plan", "attacking"], ["plan", "controlled"]],
 	# Who is missing and a run of results are facts to know, not to answer.
 	"missing": [],
@@ -71,6 +71,11 @@ static func options(fact: Dictionary, theirs: Array, mine: Array, opp_list: Arra
 			o["player_id"] = str(fact.get("player_id", ""))
 			out.append(o)
 	return out
+
+
+## Only the responses the coach can take: what the hub shows (no greyed cards).
+static func takeable(options_for_fact: Array) -> Array:
+	return options_for_fact.filter(func(o): return bool(o["enabled"]))
 
 
 static func _option(key: String, row: Array, who: Dictionary, theirs: Array, mine: Array) -> Dictionary:

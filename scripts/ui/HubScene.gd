@@ -663,6 +663,7 @@ func _week_section(season: Season) -> Control:
 		if not _settled:
 			UiKit.reveal(poster)
 		nv.add_child(poster)
+		nv.add_child(_match_way())
 		var marquee := MarqueeGames.tradition(str(mine["home"]), str(mine["away"]))
 		if not marquee.is_empty():
 			var marquee_line := UiKit.lbl(str(marquee["name"]), UiKit.SMALL, UiKit.EMPH, true)
@@ -835,6 +836,24 @@ func _form_colour(f: float) -> Color:
 	return UiKit.MUTED
 
 
+## How you take the match (director, 2026-10-18, P-14): Watch it, Key moments
+## (top speed, stopping for your calls, the goals and the breaks) or Skip
+## straight to full time. The last one chosen comes up chosen; the main button
+## takes the match that way and says so (_play_label).
+func _match_way() -> Control:
+	return UiKit.choice_grid("MatchWay", [["watch", "Watch"], ["key", "Key moments"], ["skip", "Skip"]],
+			GameState.match_way(), 3, func(key: String) -> void:
+				GameState.set_match_way(key)
+				for b in find_children("PlayMatch", "Button", true, false):
+					(b as Button).text = _play_label())
+
+
+## The main button's words: Skip chosen says what the match screen's own
+## control says; Watch and Key moments play the match.
+func _play_label() -> String:
+	return "Skip to full time" if GameState.match_way() == "skip" else "Play match"
+
+
 ## The week's decision buttons: the primary action last, where the thumb is.
 func _week_actions(season: Season) -> Control:
 	var buttons: Array = []
@@ -866,7 +885,9 @@ func _week_actions(season: Season) -> Control:
 		buttons.append(week)
 	else:
 		buttons.append(_nav_button("Pick the side", func(): Router.go("selection")))
-		buttons.append(_nav_button("Play match", _on_play_match, true))
+		var play := _nav_button(_play_label(), _on_play_match, true)
+		play.name = "PlayMatch"
+		buttons.append(play)
 	var row := UiKit.hbox(8)
 	row.name = "WeekActions"
 	for b in buttons:
@@ -1125,8 +1146,9 @@ func _on_play_match() -> void:
 		return
 	if _pre_match != null or _starting_match:
 		return
-	if not GameState.vignettes_on():
-		# Vignettes off (Settings): no banner scene, straight to the match.
+	if not GameState.vignettes_on() or GameState.match_way() == "skip":
+		# Vignettes off (Settings), or Skip chosen: no banner scene, straight
+		# to the match.
 		_starting_match = true
 		if not GameState.prepare_interactive_match():
 			_starting_match = false

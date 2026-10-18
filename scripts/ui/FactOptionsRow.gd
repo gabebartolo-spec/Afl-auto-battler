@@ -46,10 +46,10 @@ func _button(fact_index: int, o: Dictionary, narrow: bool, on_pick: Callable) ->
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	pad.add_child(col)
-	var head := UiKit.lbl(str(o["label"]), UiKit.SECONDARY, UiKit.TEXT, true)
+	var head := UiKit.lbl(str(o["label"]), UiKit.BODY, UiKit.TEXT, true)
 	head.name = "OptionName"
 	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sub := UiKit.lbl(str(o["cost"]) if enabled else str(o["reason"]), UiKit.SMALL, UiKit.TEXT)
+	var sub := UiKit.lbl(str(o["cost"]) if enabled else str(o["reason"]), UiKit.SMALL, UiKit.MUTED)
 	sub.name = "OptionSub"
 	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(head)
