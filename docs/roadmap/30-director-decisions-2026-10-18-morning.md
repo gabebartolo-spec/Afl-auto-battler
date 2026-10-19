@@ -54,6 +54,10 @@ edits the bible.
 | 44 | Who may add a lesson to a skill's learnings log (global rule 10-10: lead only; CLAUDE.md 10-08: any agent) | "Only the lead" | #840: CLAUDE.md points to the global rule |
 | 45 | Remove gradients and glows from CLAUDE.md's avoid list (his 10-08 "not boring" ruling allows them) | "Yes, remove them" | #840 |
 | 46 | Merge duplicate and stale memory notes; shorten the 10-06 flavour and styling sections to roadmap pointers | "Yes, merge and shorten" | #840 (sections); memory merged outside the repo |
+| 47 | (2026-10-19) A Light block before weeks 6 to 7 had no gain at all: what should it do? | "Give it a real gain" | Light weeks heal the injured a week faster (light_heal_extra 1; size his call) |
+| 48 | (2026-10-19) Rewrite the fitness-base footer with what builds it and its real Round 1 effect? | "Rule + real effect" | training-copy PR |
+| 49 | (2026-10-19) Card numbers measured in things the player never sees ("17% of what a strong base needs") | "write it in plain football language with simple to understand maths" | running as weeks before and after and the base it gives; XP as XP against a senior game's 37; drilling as the plan named, fluency from and to, strength 95% to 100% |
+| 50 | (2026-10-19) Prospects to invite | "these prospects should show their ovr and pot and projected draft ranking" | your recruiters' read and rank, the draft night's own read; sorted by rank |
 
 Left open, no answer yet: the culture young-ceiling size (+1 stays until his playtest) and the Ruthless board warning level (confidence 35, under the 40 poor line).
 

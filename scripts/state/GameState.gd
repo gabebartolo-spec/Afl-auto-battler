@@ -2736,7 +2736,21 @@ func preseason_drills(i: int) -> Array:
 ## The fitness base your plan is heading for, were every block trained as it
 ## is set now: "thin" / "sound" / "strong".
 func preseason_base() -> String:
-	return PreSeason.base_band(PreSeason.planned_run(preseason_blocks()))
+	return PreSeason.base_band(preseason_run_forecast())
+
+
+## The weeks of running your side will have by Round 1: what is already done
+## (cards included, such as a camp) and the weeks still to come as set now.
+## Before week 1 that is exactly the plan's total.
+func preseason_run_forecast() -> float:
+	var blocks := preseason_blocks()
+	var entry: Dictionary = (preseason.get("clubs", {}) as Dictionary).get(my_club, {})
+	var run := float(entry.get("run", 0.0))
+	for w in range(preseason_week() + 1, PreSeason.weeks() + 1):
+		var i := PreSeason.block_of_week(w)
+		if i >= 0 and i < blocks.size():
+			run += PreSeason.work(str(blocks[i][0]), str(blocks[i][1]), "running")
+	return run
 
 
 ## The time trial, by player id: {"best": [...], "worst": [...]}, or {}.
@@ -2760,6 +2774,7 @@ func preseason_step_week() -> String:
 		if clubs.has(str(club)) and season.lists.has(club):
 			# A week passes for anyone already hurt, then the week is trained.
 			Injuries.tick(season.lists[club])
+			_light_heal(clubs[str(club)], season.lists[club], w)
 			_preseason_train(str(club), clubs[str(club)], w)
 	preseason["week"] = w
 	mark_dirty()
@@ -2783,6 +2798,22 @@ func preseason_step_week() -> String:
 		_finish_preseason()
 		return "done"
 	return ""
+
+
+## A Light week is easy on the body: the injured heal light_heal_extra weeks
+## more (a concussion runs on matches, under the protocols, so not that).
+func _light_heal(entry: Dictionary, list: Array, w: int) -> void:
+	var i := PreSeason.block_of_week(w)
+	var blocks: Array = entry.get("blocks", [])
+	if i < 0 or i >= blocks.size() or str(blocks[i][0]) != "light":
+		return
+	for p in list:
+		var left := int(p.get("injury_weeks", 0))
+		if left <= 0 or str(p.get("injury_kind", "")) == "concussion":
+			continue
+		p["injury_weeks"] = maxi(0, left - int(PreSeason.tune("light_heal_extra")))
+		if int(p["injury_weeks"]) == 0:
+			p.erase("injury_kind")
 
 
 ## One club's training week: running work toward its base, skills work as
@@ -3051,10 +3082,19 @@ func plan_known_line(plan: String) -> String:
 	return PreSeason.known_line(plan_level(my_club, plan))
 
 
-## Where the pre-season, as your blocks are set now, leaves a plan.
+## Where the pre-season, as your blocks are set now, leaves a plan (a card's
+## extra drilling, such as staying home from camp, included).
 func plan_level_after_drills(plan: String) -> int:
+	return PreSeason.drilled_level(plan_level(my_club, plan), float(my_drill_credit().get(plan, 0.0)))
+
+
+## Your weeks of drilling by plan: the blocks as set now and any card's.
+func my_drill_credit() -> Dictionary:
 	var credit: Dictionary = PreSeason.drill_credit(preseason_blocks())
-	return PreSeason.drilled_level(plan_level(my_club, plan), float(credit.get(plan, 0.0)))
+	var extra: Dictionary = preseason.get("bonus_drill", {})
+	for plan in extra:
+		credit[plan] = float(credit.get(plan, 0.0)) + float(extra[plan])
+	return credit
 
 
 ## Whether the plans carry a "Plan fluency" line at all (the switch is on).
@@ -3236,14 +3276,21 @@ func preseason_add_running(weeks: float) -> void:
 	entry["run"] = maxf(0.0, float(entry.get("run", 0.0)) + weeks)
 
 
-## Weeks of drilling a card adds to the plan the side plays (or, for a side that
-## plays Balanced, to the plan it knows least): counted with the blocks' own
-## when the pre-season ends (_finish_drills).
-func preseason_add_drill(weeks: int) -> void:
+## The plan a card's drilling goes to: the one the side plays, or for a side
+## that plays Balanced, the one it knows least.
+func card_drill_plan() -> String:
 	var plan := club_plan
 	if not PreSeason.DRILL_PLANS.has(plan):
 		_ensure_plan_known()
 		plan = str(PreSeason.default_drill(plan, plan_known.get(my_club, {}))[0])
+	return plan
+
+
+## Weeks of drilling a card adds to the plan the side plays (or, for a side that
+## plays Balanced, to the plan it knows least): counted with the blocks' own
+## when the pre-season ends (_finish_drills).
+func preseason_add_drill(weeks: int) -> void:
+	var plan := card_drill_plan()
 	var extra: Dictionary = preseason.get("bonus_drill", {})
 	extra[plan] = float(extra.get(plan, 0.0)) + float(weeks)
 	preseason["bonus_drill"] = extra
@@ -3269,6 +3316,31 @@ func intra_prospects() -> Array:
 	for p in draftee_pool:
 		if not drafted_draftees.has(str(p.get("id", ""))):
 			out.append(p)
+	return out
+
+
+## Your recruiters' read of this year's draft class, by id: {"overall": [lo, hi],
+## "potential": [lo, hi], "rank": n}, the rank being where they have him in the
+## class (director, 2026-10-19: prospects show OVR, POT and a projected draft
+## ranking). The same read and weighting the National Draft shows and drafts on
+## (DraftScouting.projection with this season's intake seed, Draft
+## AI_POT_WEIGHT_INTAKE), so the draft night board agrees with it.
+func prospect_reads(prospects: Array) -> Dictionary:
+	var seed := _clock_seed(2) if replay_seed != 0 else posmod(career_seed * 7919 + season_year * 131 + 34, 1000000)
+	var mult := recruiting_uncertainty_mult()
+	var out := {}
+	var order := []
+	for p in prospects:
+		var view := DraftScouting.projection(p, my_club, seed, mult)
+		var id := str(p.get("id", ""))
+		out[id] = {"overall": view["overall"], "potential": view["potential"]}
+		order.append([DraftScouting.scouted_worth(p, my_club, seed, Draft.AI_POT_WEIGHT_INTAKE, mult), id])
+	order.sort_custom(func(a, b):
+		if not is_equal_approx(float(a[0]), float(b[0])):
+			return float(a[0]) > float(b[0])
+		return str(a[1]) < str(b[1]))
+	for i in range(order.size()):
+		(out[str(order[i][1])] as Dictionary)["rank"] = i + 1
 	return out
 
 

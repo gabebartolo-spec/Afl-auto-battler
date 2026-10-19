@@ -103,6 +103,7 @@
 		]
 	},
 	"heavy_week_injury": 0.008,
+	"light_heal_extra": 1,
 	"soft_tissue_kinds": [
 		"hamstring",
 		"calf",
@@ -162,6 +163,7 @@
 		"trial_noise": "Spread of the day's form in the time trial, in durability points.",
 		"default_blocks": "The plan a coach's pre-season opens on: a sound base.",
 		"ai_blocks": "What an AI club runs, by where it is in its cycle (TradeValue.phase): contenders push the running early, middle clubs push skills in the middle block, rebuilders push skills early. An older list does the same at Solid (ai_old_age).",
+		"light_heal_extra": "Extra weeks of healing an injured player gets from one Light training week, on top of the week that passes (director 2026-10-19: Light needs a real gain in every block). Concussions are counted in matches and get none.",
 		"heavy_week_injury": "Chance a fit player of ordinary durability picks up a soft-tissue injury in one Heavy training week (a match is 0.042 for each player on the ground). Durability moves it as it moves a match injury. Light and Solid weeks carry none.",
 		"soft_tissue_kinds": "What a training injury can be: the soft-tissue kinds among the game's injuries.",
 		"ai_old_age": "An AI club whose best side averages this age or more never trains Heavy: its Heavy blocks are Solid.",

@@ -69,6 +69,14 @@ static func club_facts(gs, week: int, ph: String) -> Dictionary:
 	facts.merge(_leader_facts(gs), true)
 	facts.merge(_finals_facts(gs, ph), true)
 	facts.merge(papers_facts(gs), true)
+	if ph == "preseason" and gs.preseason_active():
+		# The camp's levers in real terms: the running the plan adds up to and
+		# where the plan a card drills stands (StoryEngine _running_words, _drill_words).
+		var plan: String = gs.card_drill_plan()
+		facts["pre_run"] = gs.preseason_run_forecast()
+		facts["drill_plan"] = CoachReport.plan_label(plan)
+		facts["drill_level"] = gs.plan_level(gs.my_club, plan)
+		facts["drill_credit"] = float(gs.my_drill_credit().get(plan, 0.0))
 	return facts
 
 

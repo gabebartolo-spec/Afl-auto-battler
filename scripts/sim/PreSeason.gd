@@ -42,6 +42,7 @@ const DEFAULTS := {
 	"trial_worst": 3,
 	"trial_noise": 6.0,
 	"heavy_week_injury": 0.008,
+	"light_heal_extra": 1,
 	"soft_tissue_kinds": ["hamstring", "calf", "groin", "quad"],
 	"ai_old_age": 28.0,
 	"papers_claim_up": 4,
@@ -422,11 +423,11 @@ static func block_title(i: int) -> String:
 const _GAIN := {
 	"running": {
 		"solid": "Running first, for the fitness base. Skills work gets half the time.",
-		"heavy": "A bigger fitness base than a Solid block builds, and more skills work too.",
+		"heavy": "A bigger fitness base than a Solid block builds, and more Skills work too.",
 	},
 	"skills": {
 		"solid": "Skills first, so every fit player develops. Running gets half the time.",
-		"heavy": "More development than a Solid block gives, and more running too.",
+		"heavy": "More development than a Solid block gives, and more Running too.",
 	},
 }
 
@@ -440,12 +441,15 @@ static func gain_line(load: String, focus: String, i: int, plans := []) -> Strin
 			"light":
 				return "%s %s" % [gain_line("light", "running", i), drill]
 			"heavy":
-				return "%s More running and skills work than a Solid block on the plan." % drill
+				return "%s More Running and Skills work than a Solid block on the plan." % drill
 		return drill
 	if load == "light":
+		# Director, 2026-10-19: a Light block needs a real gain in every block,
+		# so a Light week heals the injured a week faster (light_heal_extra).
+		var heal := "Injured players heal twice as fast in these weeks."
 		if is_last_block(i):
-			return "Fresh legs and less soft-tissue risk in Round 1."
-		return "An easier time on the track. Nothing carries to Round 1."
+			return "Fresh legs and less soft-tissue risk in Round 1. %s" % heal
+		return heal
 	return str((_GAIN.get(focus, {}) as Dictionary).get(load, ""))
 
 
@@ -454,26 +458,52 @@ static func cost_line(load: String, focus: String, i: int) -> String:
 	var line := ""
 	match load:
 		"light":
-			line = "Half the running and half the skills work of a Solid block."
+			line = "Half the Running and half the Skills work of a Solid block."
 			if focus == "plan":
-				line = "Half the running and skills work of a Solid block on the plan."
+				line = "Half the Running and Skills work of a Solid block on the plan."
 		"heavy":
 			if is_last_block(i):
 				line = "A risk of soft-tissue injuries in these weeks, and sore legs in Round 1."
 			else:
 				line = "A risk of soft-tissue injuries in these weeks."
 	if focus == "plan" and load != "light":
-		var share := "Running and skills work both get half the time."
+		var share := "Running and Skills work both get half the time."
 		line = share if line == "" else "%s %s" % [line, share]
 	return line
 
 
 const BASE_LABEL := {"thin": "a thin fitness base", "sound": "a sound fitness base", "strong": "a strong fitness base"}
-const BASE_EFFECT := {
-	"thin": "The side starts underdone: it tires sooner and carries more soft-tissue risk for the first six rounds. A planned peak comes lower.",
-	"sound": "The side starts Round 1 at its usual fitness: no early lift, nothing lost.",
-	"strong": "Fresher legs and a little less soft-tissue risk through the first month.",
-}
+
+
+## Weeks of running as a coach would say them: "5", "4.5", "5.3".
+static func run_weeks_text(run: float) -> String:
+	var r := snappedf(run, 0.1)
+	return str(int(r)) if is_equal_approx(r, roundf(r)) else "%.1f" % r
+
+
+## How the base is built, with this plan's own total (director, 2026-10-19:
+## say what builds it, in plain football maths).
+static func base_rule(run: float) -> String:
+	return "Running by Round 1: %s weeks. Under %s is thin, %s or more strong." % [
+			run_weeks_text(run), run_weeks_text(float(tune("base_thin_below"))), run_weeks_text(float(tune("base_strong_from")))]
+
+
+## What the base does in Round 1, with its real sizes: the season curve's
+## tiring and soft-tissue sizes (Conditioning DRAIN_K, INJURY_K) at the base's
+## early value, fading over its rounds.
+static func base_effect(base: String) -> String:
+	match base:
+		"thin":
+			var early := float(tune("thin_early"))
+			return "Round 1: tires %d%% faster, %d%% more soft-tissue injuries, fading over %d rounds; a peak reaches only %d%%." % [
+					roundi(Conditioning.DRAIN_K * early * 100.0), roundi(Conditioning.INJURY_K * early * 100.0),
+					int(tune("thin_weeks")), roundi(float(tune("thin_peak_share")) * 100.0)]
+		"strong":
+			var early := float(tune("strong_early"))
+			return "Round 1: tires %d%% slower, %d%% fewer soft-tissue injuries, fading over %d rounds." % [
+					roundi(Conditioning.DRAIN_K * early * 100.0), roundi(Conditioning.INJURY_K * early * 100.0),
+					int(tune("strong_weeks"))]
+	return "Round 1 at normal fitness: no early lift, no early cost."
 
 
 # ---------------------------------------------------------------------------
