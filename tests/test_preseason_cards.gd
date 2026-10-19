@@ -19,11 +19,11 @@ func run(suite) -> void:
 	var before: int = s.checks
 	Features.set_on("preseason", true)
 	PreSeason.reload()
-	_test_deck()
-	_test_flow()
-	_test_effects()
-	_test_facts()
-	_test_hands_off_and_save()
+	_t("_test_deck")
+	_t("_test_flow")
+	_t("_test_effects")
+	_t("_test_facts")
+	_t("_test_hands_off_and_save")
 	print("Pre-season cards: %d of the story suite's checks" % (s.checks - before))
 	Features.clear("preseason")
 	PreSeason.reload()
@@ -31,6 +31,11 @@ func run(suite) -> void:
 
 func _check(c: bool, m: String) -> void:
 	s._check(c, m)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args, s)
 
 
 func _career(seed := SEED) -> void:

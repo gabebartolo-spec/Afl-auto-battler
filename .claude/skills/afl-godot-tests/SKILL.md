@@ -15,7 +15,7 @@ skill is the routine that avoids both.
 ```bash
 APPDATA="<your scratchpad>/appdata-<task>" \
 GODOT=/c/Users/DANTE/Desktop/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe \
-SUITE_TIMEOUT=900 tools/run_tests.sh matchday assets
+SUITE_TIMEOUT=900 tools/run_tests.sh --quick matchday assets
 ```
 
 - **APPDATA, always.** Every worktree's `user://` is the same folder (it is
@@ -26,8 +26,10 @@ SUITE_TIMEOUT=900 tools/run_tests.sh matchday assets
 - **Name the suites you touched** (1-3 while iterating). `tests/README.md` maps
   suites to areas. CI runs everything; a full local run (~20 min) is for wide
   changes or for checking `main` itself.
-- **`SUITES_ONLY=1`** skips the dataset/export/harness steps when you only
-  need suites.
+- **`--quick`** (first argument) is the local loop: no re-import when `.godot`
+  exists and no dataset, seeds, export or harness checks; CI runs those. Drop
+  it after pulling new assets or scripts other agents added (the import must
+  rerun). `SUITES_ONLY=1` alone skips only the extras.
 - **Long runs go in the background** (`run_in_background`), one long Godot run
   per agent at a time. Record the task id or PID. Stop only what you started:
   never `taskkill /IM` or kill Godot by image name - the other agents' runs die
@@ -52,16 +54,26 @@ Commit the `.uid` of any `.gd` you created. Stage files by name, never
 
 ## Adding a suite or checks
 
-- Runner: `tests/run_<name>_tests.gd`, ending with a print of
-  `"<Name> tests: %d checks, %d failures"` and `quit(1 if failures else 0)`.
-- Register it in four places: `ALL_SUITES` in `tools/run_tests.sh`; the
-  shortest shard in `tools/ci_shards.txt`; a floor in
-  `tests/expected_checks.txt`; a row in `tests/README.md`. Then run
-  `bash tools/check_ci_shards.sh`.
-- **Floors:** set a new suite's floor to its actual count. When you add checks
-  to an existing suite, raise only that suite's line by your increment. If two
-  PRs raised the same line, the merged floor is base + both increments, checked
-  against the real count. Never lower a floor to get green.
+- Runner: `tests/run_<name>_tests.gd`. Its suite keeps `_check` and the
+  two-line `_t` beside it (copy them from any suite; the helper is
+  `tests/functions_ran.gd`), calls every test as `_t("_test_x")` (`await
+  _t("_test_x", [size])` where it awaits), ends with
+  `print(Ran.line("<Name>", self))` and quits 1 on any failure.
+- Register it in three places: `ALL_SUITES` in `tools/run_tests.sh`; the
+  lightest shard in `tools/ci_shards.txt` with about 60 s in
+  `tools/ci_suite_timings.json`; a row in `tests/README.md`. Then run
+  `bash tools/check_ci_shards.sh`. Re-plan all shards weekly from a green main
+  run with `tools/plan_ci_shards.py` (its header says how).
+- **Every test function runs and checks something** (this replaced the check
+  floors on 2026-10-18). The summary reads "Draft tests: 20 of 20 functions,
+  7901 checks, 0 failures". A `_test_*` function that is defined but never
+  called through `_t`, or that makes no check (an empty loop, an early
+  return), fails by name, and `tools/run_tests.sh` fails a line that is
+  "functions short" or has no function count. Adding a test means adding the
+  function and its `_t` line in your own suite file: there is no shared count
+  to raise. A loop over data that could shrink (18 clubs, 22 players) gets a
+  size check before the loop, because a function that drops from 18 checks
+  to 16 still passes.
 - **Seeds:** a test that starts a season or draft sets
   `GameState.replay_seed` first. `GameState._clock_seed` otherwise uses the
   clock, so every run plays a different match and a check can pass or fail on
@@ -93,7 +105,10 @@ evidence: a minimal reproduction, the last good commit, the runtime state.
 
 ## CI
 
-- `tests.yml`: `plan` → five `shard` jobs (from `tools/ci_shards.txt`) →
+- `tests.yml`: `plan` → twelve `shard` jobs (from `tools/ci_shards.txt`, about
+  10-12 min; PRs skip `balance`/`league_balance` and run `calibration` only
+  when `scripts/sim/` or `data/` changed; those three run nightly at 03:00
+  Melbourne; a main push identical to its PR's green tree skips the shards) →
   `extras` (dataset, export, harness) → `test`, the required aggregate, which
   posts last. While shards run, "no `test` result yet" is normal.
 - Read a failure with `gh run view <id> --log-failed`. A job **cancelled with no

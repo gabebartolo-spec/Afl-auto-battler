@@ -18,18 +18,18 @@ func run() -> void:
 	failures.clear()
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
-	_test_rules()
-	_test_dataset()
-	_test_2026_is_history()
-	_test_one_season_and_finals()
-	_test_three_seasons_and_club_change()
-	_test_reload_never_double_counts()
-	_test_draftee_metadata()
-	_test_superdraft_midseason_news()
-	_test_old_saves()
+	_t("_test_rules")
+	_t("_test_dataset")
+	_t("_test_2026_is_history")
+	_t("_test_one_season_and_finals")
+	_t("_test_three_seasons_and_club_change")
+	_t("_test_reload_never_double_counts")
+	_t("_test_draftee_metadata")
+	_t("_test_superdraft_midseason_news")
+	_t("_test_old_saves")
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
-	print("Career tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Career", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -37,6 +37,11 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _new_season(club := "GEE") -> void:

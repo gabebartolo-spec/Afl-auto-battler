@@ -58,6 +58,8 @@ edits the bible.
 | 48 | (2026-10-19) Rewrite the fitness-base footer with what builds it and its real Round 1 effect? | "Rule + real effect" | training-copy PR |
 | 49 | (2026-10-19) Card numbers measured in things the player never sees ("17% of what a strong base needs") | "write it in plain football language with simple to understand maths" | running as weeks before and after and the base it gives; XP as XP against a senior game's 37; drilling as the plan named, fluency from and to, strength 95% to 100% |
 | 50 | (2026-10-19) Prospects to invite | "these prospects should show their ovr and pot and projected draft ranking" | your recruiters' read and rank, the draft night's own read; sorted by rank |
+| 51 | (2026-10-19 evening, after he asked why every simple fix takes so long) Lift the one-Godot-slot limit and finish #832 then #828 before anything else? | "Yes: lift the one-slot limit (I'll say when I'm gaming) and finish #832 then #828 before anything else." | four local Godot slots (one while he games); #832, then #828 |
+| 52 | Process changes for the four bottlenecks: PR runs check only the touched suites plus a smoke set (full run on main); suites found by filename, no hand-kept registries; green and approved PRs merge at once; pipeline fixes go ahead of features; at most 3 open PRs, none left conflicting over an hour; copy and one-line fixes merge on green with the lead's review only (critics and his look stay for new screens and visuals) | "you have my go ahead, just fix it" | #832, #828, then a follow-up CI PR |
 
 Left open, no answer yet: the culture young-ceiling size (+1 stays until his playtest) and the Ruthless board warning level (confidence 35, under the 40 poor line).
 

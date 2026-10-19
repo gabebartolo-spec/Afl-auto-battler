@@ -18,21 +18,21 @@ func run() -> void:
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
-	_test_entry_gates()
-	_test_fair_fixture()
-	_test_2026_baseline()
-	_test_rollover_to_2028()
-	_test_2028_season_runs()
-	_test_rollover_to_2030()
-	_test_save_load_across_expansion()
-	_test_expansion_ceilings()
-	_test_created_club_rules()
-	_test_created_club_career()
-	_test_club_count_defaults()
+	_t("_test_entry_gates")
+	_t("_test_fair_fixture")
+	_t("_test_2026_baseline")
+	_t("_test_rollover_to_2028")
+	_t("_test_2028_season_runs")
+	_t("_test_rollover_to_2030")
+	_t("_test_save_load_across_expansion")
+	_t("_test_expansion_ceilings")
+	_t("_test_created_club_rules")
+	_t("_test_created_club_career")
+	_t("_test_club_count_defaults")
 	GameState.reset()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
-	print("Expansion tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Expansion", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -46,6 +46,11 @@ func _check(condition: bool, message: String) -> void:
 ## plays the same number of games, hosts half of them (within one), rests the
 ## same number of times, and the byes and repeats follow the seed, not the
 ## club list (Season.build_fixture).
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 func _test_fair_fixture() -> void:
 	# 18 to 21 clubs: a created club (Club Forge) can make any of them in any
 	# year, so the counts are built here, not taken from the calendar.

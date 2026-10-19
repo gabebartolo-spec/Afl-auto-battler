@@ -11,17 +11,17 @@ const SUITE_SEED := 2027
 
 func run() -> void:
 	GameState.replay_seed = SUITE_SEED
-	_test_budget_model()
-	_test_budget_allocation_state()
-	_test_recovery()
-	_test_match()
-	_test_selection()
-	_test_career()
-	_test_finals()
-	await _test_ui()
+	_t("_test_budget_model")
+	_t("_test_budget_allocation_state")
+	_t("_test_recovery")
+	_t("_test_match")
+	_t("_test_selection")
+	_t("_test_career")
+	_t("_test_finals")
+	await _t("_test_ui")
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
-	print("Workload tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Workload", self))
 
 
 ## A finger's tap on b where it sits on screen (tests/tap.gd), checked; if
@@ -39,6 +39,11 @@ func _check(ok: bool, message: String) -> void:
 	if not ok:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _test_budget_model() -> void:

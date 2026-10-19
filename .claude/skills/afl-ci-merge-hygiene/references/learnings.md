@@ -63,24 +63,22 @@ size, the player the rule actually reads), not its bar. Never loosen a threshold
 so quick successive merges cancelled each other (20 of the 41 cancelled runs in 150 were `main`;
 several main commits were never tested). #525 gives each main push its own group (its sha) and
 never cancels it. The next two merges (#533, #532) ran side by side, both in progress at once.
-The floor-delta path also ran: the #525 merge itself was green and a delta file
-(`tests/floor_deltas/`) is in use on main.
+The floor-delta path also ran (floors retired 2026-10-18; see afl-godot-tests).
 **Evidence:** #525; main runs efa9e508 (success), 37871766333 (5d9dd0a9) and 37871822739 (5e43b1e6)
 in progress together, neither cancelled.
 **Lesson:** after a burst of merges, read each main sha's own run; a missing verdict is now a
-real gap, not a cancellation. Fold deltas with `tools/fold_floor_deltas.sh` when several pile up.
+real gap, not a cancellation.
 
 ## 2026-10-09 · back-to-back merges to main each get a verdict
 **Finding:** before #525, every push to `main` shared one concurrency group with cancel-in-progress,
 so quick successive merges cancelled each other (20 of the 41 cancelled runs in 150 were `main`;
 several main commits were never tested). #525 gives each main push its own group (its sha) and
 never cancels it. The next two merges (#533, #532) ran side by side, both in progress at once.
-The floor-delta path also ran: the #525 merge itself was green and a delta file
-(`tests/floor_deltas/`) is in use on main.
+The floor-delta path also ran (floors retired 2026-10-18; see afl-godot-tests).
 **Evidence:** #525; main runs efa9e508 (success), 37871766333 (5d9dd0a9) and 37871822739 (5e43b1e6)
 in progress together, neither cancelled.
 **Lesson:** after a burst of merges, read each main sha's own run; a missing verdict is now a
-real gap, not a cancellation. Fold deltas with `tools/fold_floor_deltas.sh` when several pile up.
+real gap, not a cancellation.
 
 ## 2026-10-09 · a new data CSV needs a "keep" import file
 **Finding:** #546 added `data/player_favourite_club.csv` with no `.import`. All test shards were

@@ -18,29 +18,29 @@ func run() -> void:
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
-	_test_default_plan_spends()
-	_test_manual_and_focus()
-	_test_changing_plans()
-	_test_plans_survive_save()
-	_test_plans_match_the_engine()
-	_test_archetypes_differ()
-	_test_traits_through_training()
-	_test_old_plans_migrate()
-	_test_training_news()
-	_test_reserves_development()
-	_test_department_development()
-	_test_stat_guide_complete()
-	_test_dual_role_plans()
-	_test_training_multiselect()
-	_test_plan_is_not_identity()
-	_test_learning_a_position()
-	_test_unicorn()
-	_test_rival_projects()
-	_test_project_endings()
-	_test_teaching_moves_the_ceiling()
+	_t("_test_default_plan_spends")
+	_t("_test_manual_and_focus")
+	_t("_test_changing_plans")
+	_t("_test_plans_survive_save")
+	_t("_test_plans_match_the_engine")
+	_t("_test_archetypes_differ")
+	_t("_test_traits_through_training")
+	_t("_test_old_plans_migrate")
+	_t("_test_training_news")
+	_t("_test_reserves_development")
+	_t("_test_department_development")
+	_t("_test_stat_guide_complete")
+	_t("_test_dual_role_plans")
+	_t("_test_training_multiselect")
+	_t("_test_plan_is_not_identity")
+	_t("_test_learning_a_position")
+	_t("_test_unicorn")
+	_t("_test_rival_projects")
+	_t("_test_project_endings")
+	_t("_test_teaching_moves_the_ceiling")
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
-	print("Training tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Training", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -48,6 +48,11 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _new_season() -> void:

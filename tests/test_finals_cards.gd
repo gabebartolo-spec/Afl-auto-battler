@@ -14,18 +14,18 @@ const NEW_IDS := ["finals_in", "finals_gone", "finals_last_season", "finals_firs
 
 func run(suite) -> void:
 	s = suite
-	_test_deck()
-	_test_finals_math()
-	_test_facts()
-	_test_weeks()
-	_test_text_cases()
-	_test_effects()
-	_test_risks()
-	_test_bye_week()
-	_test_determinism_and_no_finals()
-	_test_old_save()
-	_test_copy()
-	_test_director_fixes()
+	_t("_test_deck")
+	_t("_test_finals_math")
+	_t("_test_facts")
+	_t("_test_weeks")
+	_t("_test_text_cases")
+	_t("_test_effects")
+	_t("_test_risks")
+	_t("_test_bye_week")
+	_t("_test_determinism_and_no_finals")
+	_t("_test_old_save")
+	_t("_test_copy")
+	_t("_test_director_fixes")
 
 
 func _check(c: bool, m: String) -> void:
@@ -34,6 +34,11 @@ func _check(c: bool, m: String) -> void:
 
 ## Geelong, ranked `rank` + 1 on a fabricated ladder with the regular season done and the
 ## finals just drawn: the real bracket, the real lists, nothing yet played.
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args, s)
 func _finals_game(seed: int, rank := 0) -> void:
 	GameState.reset()
 	GameState.career_seed = seed

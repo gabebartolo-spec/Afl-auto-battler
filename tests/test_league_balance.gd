@@ -18,14 +18,14 @@ func run() -> void:
 	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
 	var lb = load("res://tools/balance/league_balance.gd").new()
-	_test_stats(lb)
-	_test_draft(lb)
-	_test_draft_variant(lb)
-	_test_season(lb)
-	_test_sensitivity(lb)
-	_test_draw_rate(lb)
+	_t("_test_stats", [lb])
+	_t("_test_draft", [lb])
+	_t("_test_draft_variant", [lb])
+	_t("_test_season", [lb])
+	_t("_test_sensitivity", [lb])
+	_t("_test_draw_rate", [lb])
 	GameState.replay_seed = 0
-	print("League balance tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("League balance", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -33,6 +33,11 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _test_stats(lb) -> void:

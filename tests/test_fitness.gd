@@ -13,19 +13,19 @@ const SUITE_SEED := 2031
 
 func run() -> void:
 	GameState.replay_seed = SUITE_SEED
-	_test_curves()
-	_test_department()
-	_test_late_change()
-	_test_stamps()
-	_test_match_effect()
-	_test_career()
-	_test_words()
-	_test_plan_copy()
-	await _test_screens()
+	_t("_test_curves")
+	_t("_test_department")
+	_t("_test_late_change")
+	_t("_test_stamps")
+	_t("_test_match_effect")
+	_t("_test_career")
+	_t("_test_words")
+	_t("_test_plan_copy")
+	await _t("_test_screens")
 	GameState.fitness_ai_by_phase = false
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
-	print("Fitness tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Fitness", self))
 
 
 func _check(ok: bool, message: String) -> void:
@@ -33,6 +33,11 @@ func _check(ok: bool, message: String) -> void:
 	if not ok:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _rec(plan: String, offset := 0) -> Dictionary:

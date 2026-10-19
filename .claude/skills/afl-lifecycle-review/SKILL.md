@@ -51,9 +51,11 @@ Put this in the PR body (ROADMAP §0.4a, W7):
    information as the player's club (no psychic or exempt opponents). Seeded
    runs stay reproducible; nothing new reads the clock.
 4. **For simulation changes, check calibration.** Run `calibration` and the
-   touched suites; for scoring or rate changes, ask for (or run) a seeded,
-   paired audit (same seeds before and after) and look at distributions, not
-   one match.
+   touched suites (PR CI runs `calibration` itself when `scripts/sim/` or
+   `data/` changes). A seeded, paired audit (same seeds before and after,
+   distributions, not one match) is needed only when the director asks, before
+   a release, or for a change meant to move the numbers; not as routine proof
+   on every sim tweak (director, 2026-10-19).
 5. **Prove what you suspect.** A suspected defect becomes a small test or a
    scripted reproduction before you report it - "I think" is not a finding.
 

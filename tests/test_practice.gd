@@ -16,22 +16,22 @@ const CLUB := "FRE"
 func run() -> void:
 	GameState.replay_seed = SUITE_SEED
 	Features.set_on("preseason", true)
-	_test_pairs()
-	_test_flow()
-	_test_trial()
-	_test_leaves_nothing()
-	_test_ai_clubs()
-	_test_determinism()
-	_test_saves()
-	_test_sim_to_round_one()
-	await _test_screens_phone()
-	await _test_screens_pc()
-	_test_switch_off()
+	_t("_test_pairs")
+	_t("_test_flow")
+	_t("_test_trial")
+	_t("_test_leaves_nothing")
+	_t("_test_ai_clubs")
+	_t("_test_determinism")
+	_t("_test_saves")
+	_t("_test_sim_to_round_one")
+	await _t("_test_screens_phone")
+	await _t("_test_screens_pc")
+	_t("_test_switch_off")
 	PreSeason.reload()
 	Features.clear("preseason")
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
-	print("Practice tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Practice", self))
 
 
 func _check(ok: bool, message: String) -> void:
@@ -39,6 +39,12 @@ func _check(ok: bool, message: String) -> void:
 	if not ok:
 		failures.append(message)
 		push_error(message)
+
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _career(club := CLUB, seed := SUITE_SEED) -> void:

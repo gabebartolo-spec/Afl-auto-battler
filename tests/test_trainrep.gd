@@ -20,6 +20,11 @@ func _check(condition: bool, message: String) -> void:
 		failures.append(message)
 		push_error(message)
 
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
+
 
 func _settle(n := 6) -> void:
 	for i in range(n):
@@ -54,23 +59,23 @@ func run(tree: SceneTree) -> void:
 	GameState.save_path = "user://test_trainrep.save"
 	GameState.settings_path = "user://test_trainrep.cfg"
 	GameState.delete_saved_career()
-	await _switch_off()
+	await _t("_test_switch_off")
 	Features.set_on("training_report", true)
-	_snapshot_and_report()
-	_retrain_list()
-	_old_save()
+	_t("_test_snapshot_and_report")
+	_t("_test_retrain_list")
+	_t("_test_old_save")
 	for size in SIZES:
 		_tree.root.size = size
 		await _settle()
-		await _taps(size)
+		await _t("_test_taps", [size])
 	Features.clear("training_report")
 	GameState.delete_saved_career()
-	print("Training report tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Training report", self))
 	for f in failures:
 		print("  FAIL: " + f)
 
 
-func _switch_off() -> void:
+func _test_switch_off() -> void:
 	_check(not Features.on("training_report"), "the switch ships off")
 	_fresh()
 	_rounds(4)
@@ -91,7 +96,7 @@ func _switch_off() -> void:
 	GameState.delete_saved_career()
 
 
-func _snapshot_and_report() -> void:
+func _test_snapshot_and_report() -> void:
 	_fresh()
 	var before := {}
 	for p in GameState.my_list:
@@ -158,7 +163,7 @@ func _snapshot_and_report() -> void:
 	_check(not bool(GameState.training_report.get("dismissed", true)), "the new report is not dismissed")
 
 
-func _retrain_list() -> void:
+func _test_retrain_list() -> void:
 	_fresh()
 	_boost_potential(3)
 	_rounds(4)
@@ -222,7 +227,7 @@ func _retrain_list() -> void:
 	_check(fresh_ok, "those who became available this month come first")
 
 
-func _old_save() -> void:
+func _test_old_save() -> void:
 	# A save from before the report has neither key: it loads with safe defaults.
 	_fresh()
 	_rounds(2)
@@ -248,7 +253,7 @@ func _on_screen(c: Control, size: Vector2i) -> bool:
 	return r.position.x >= -0.5 and r.end.x <= size.x + 0.5
 
 
-func _taps(size: Vector2i) -> void:
+func _test_taps(size: Vector2i) -> void:
 	var tag := "%dx%d" % [size.x, size.y]
 	_fresh()
 	_boost_potential(2)
