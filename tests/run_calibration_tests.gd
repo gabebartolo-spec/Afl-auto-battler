@@ -12,6 +12,15 @@ const MATCHES := 400
 const SEED := 1234
 const TOLERANCE := 0.07
 
+var checks := 0
+var failures := []
+
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
+
 ## [label, sim team-stat key, benchmark key]. "score" and "hb" are derived.
 const ROWS := [
 	["Score (pts)", "score", "score"], ["Goals", "goals", "gl"],
@@ -38,6 +47,15 @@ func _run() -> void:
 		push_error("Could not load the match engine")
 		quit(1)
 		return
+	_t("_test_engine_against_2026", [db, squad_script, sim_script])
+	for f in failures:
+		push_error("Calibration: " + f)
+	print(Ran.line("Calibration", self))
+	quit(0 if failures.is_empty() else 1)
+
+
+## The shipped engine against the real 2026 averages (the comparisons written in _run).
+func _test_engine_against_2026(db, squad_script, sim_script) -> void:
 	var codes: Array = db.active_clubs(2026)
 	var bench := _benchmarks(db)
 
@@ -70,8 +88,8 @@ func _run() -> void:
 		team_games += 2
 
 	print("%-16s %9s %8s %6s" % ["Stat/team/game", "REAL 2026", "SIM", "ratio"])
-	var failures := []
 	for row in ROWS:
+		checks += 1
 		var sim := float(totals.get(str(row[1]), 0.0)) / float(team_games)
 		var real := float(bench[str(row[2])])
 		var ratio := sim / real if real > 0.0 else 0.0
@@ -102,16 +120,13 @@ func _run() -> void:
 	top1 /= float(by_club.size())
 	top3 /= float(by_club.size())
 	for row in [["Top kicker share", top1, 0.16], ["Top-3 share", top3, 0.38]]:
+		checks += 1
 		var ratio := float(row[1]) / float(row[2])
 		var flag := ""
 		if absf(ratio - 1.0) > 0.15:
 			flag = "  <-- off"
 			failures.append("%s %.2f (real %.2f)" % [str(row[0]), float(row[1]), float(row[2])])
 		print("%-16s %9.2f %8.2f %6.2f%s" % [str(row[0]), float(row[2]), float(row[1]), ratio, flag])
-	for f in failures:
-		push_error("Calibration: " + f)
-	print("Calibration tests: %d checks, %d failures" % [ROWS.size() + 2, failures.size()])
-	quit(0 if failures.is_empty() else 1)
 
 
 ## Per-team-per-game real averages: every club's season totals over its games

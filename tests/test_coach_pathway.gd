@@ -19,19 +19,19 @@ func run() -> void:
 	failures.clear()
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
-	_test_snapshot()
-	_test_identity()
-	_test_interest()
-	_test_pathway_and_specialty()
-	_test_skills_ignore_playing()
-	_test_reputation()
-	_test_market()
-	_test_archive()
-	_test_generated_and_expansion()
-	_test_game_flow()
+	_t("_test_snapshot")
+	_t("_test_identity")
+	_t("_test_interest")
+	_t("_test_pathway_and_specialty")
+	_t("_test_skills_ignore_playing")
+	_t("_test_reputation")
+	_t("_test_market")
+	_t("_test_archive")
+	_t("_test_generated_and_expansion")
+	_t("_test_game_flow")
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
-	print("Coach pathway tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Coach pathway", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -42,6 +42,11 @@ func _check(condition: bool, message: String) -> void:
 
 
 ## A retiring player, with the transient state a real one carries.
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 func _player(id: String, games: int, goals: int, role := "MID", ovr := 70) -> Dictionary:
 	return {
 		"id": id, "real_name": "", "generic_name": "Lachlan Mercer", "name": "Lachlan Mercer",

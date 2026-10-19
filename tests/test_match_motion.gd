@@ -60,13 +60,13 @@ func run() -> void:
 	GameDB.reload()
 	var res := _result(42)
 	var t0 := Time.get_ticks_msec()
-	_test_measures_prove_themselves(res)
-	_test_motion_limits(res)
+	_t("_test_measures_prove_themselves", [res])
+	_t("_test_motion_limits", [res])
 	var t1 := Time.get_ticks_msec()
-	_test_call_visibility(res)
+	_t("_test_call_visibility", [res])
 	print("  timing: motion limits %.1f s, calls %.1f s" % [(t1 - t0) / 1000.0, (Time.get_ticks_msec() - t1) / 1000.0])
 	GameState.replay_seed = 0
-	print("Match motion tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Match motion", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -77,6 +77,11 @@ func _check(condition: bool, message: String) -> void:
 
 
 ## Fremantle v Melbourne (two clubs with real colour), as the clips show them.
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 func _result(seed: int) -> Dictionary:
 	var res := MatchSim.new(Squad.new("FRE", GameDB.club_list("FRE"), true, "FRE"),
 			Squad.new("MEL", GameDB.club_list("MEL"), false, "MEL"), seed).run()

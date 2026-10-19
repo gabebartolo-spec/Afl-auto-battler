@@ -1,6 +1,6 @@
 ---
 name: afl-ci-merge-hygiene
-description: How to avoid red CI, cancelled runs and merge conflicts in the AFL auto-battler repo, and what to do the moment one happens - a triage tree built from every failed Tests run of 2026-10-06 to 10-08. Use it before pushing or syncing any branch, when merging origin/main into a branch, when editing tests/expected_checks.txt, tools/ci_shards.txt or the roadmap, when a Tests run is red or cancelled, when two PRs fail the same check, and when you take over from the other Claude account. Extends the general github-hygiene skill (~/.claude/skills) with this repo's files and history; general lessons go there.
+description: How to avoid red CI, cancelled runs and merge conflicts in the AFL auto-battler repo, and what to do the moment one happens - a triage tree built from every failed Tests run of 2026-10-06 to 10-08. Use it before pushing or syncing any branch, when merging origin/main into a branch, when editing tools/ci_shards.txt or the roadmap, when a Tests run is red or cancelled, when two PRs fail the same check, and when you take over from the other Claude account. Extends the general github-hygiene skill (~/.claude/skills) with this repo's files and history; general lessons go there.
 ---
 
 # CI and merge hygiene (AFL auto-battler)
@@ -35,9 +35,10 @@ true. This repo copy is the only one; the general rules it builds on are in the
 
 ## Merge conflicts
 
-- **`tests/expected_checks.txt` was in almost every conflict** (stats-hub, stats-book,
-  set-share, kick-fix). Now use floor deltas (below). A leftover conflict: resolve to
-  *base + both increments*, confirm against a real count. Never lower a floor.
+- **The shared check-floor file was in almost every conflict** (stats-hub, stats-book,
+  set-share, kick-fix). The check floors are gone (2026-10-18, test suite audit
+  section 4): a suite now counts its own test functions in its own file, so two PRs
+  never share a count file. See `afl-godot-tests`.
 - ROADMAP/docs: keep both sides. `StatsHubScene.gd`, `MatchSim.gd`, capture tools
   are the other hot files; a PR touching them says so in its [MERGE NOTE].
 - Sync early: merge `origin/main` when you start work on a hot file and again
@@ -72,7 +73,7 @@ true. This repo copy is the only one; the general rules it builds on are in the
 | Clock-seeded check red on main, infects every PR | matchday "shut out of big ratings" x12 (10-06) | seed suites; triage rule 2 |
 | Rare seed in a lifecycle check | contracts rival-takes-starter, league_balance draft, match_game playtest call | pin the seed; add the failing seed as a case |
 | New suite not in shards/timing | stats-hub/ladder/fixture/events, 5 runs | register + re-time, `bash tools/check_ci_shards.sh` before push |
-| Floor drift ("checks went missing") | contracts 232 of 233 | floor = base + your increment, verified |
+| Floor drift (retired 2026-10-18) | contracts 232 of 233 | gone: suites now report "K of M functions" (`afl-godot-tests`) |
 | Merge of two green PRs red | set-share + Stats patch (`stats` bounce count) | run the suites main brought in |
 | Sheet and figures out of step (inferred from the fix commit) | kit-sleeves-v2 `assets` | regenerate together |
 | UI check at two sizes (cause not yet investigated) | stats-book "players kept" 1280x720 + 390x844 | run the suite at both sizes locally |
@@ -84,10 +85,9 @@ true. This repo copy is the only one; the general rules it builds on are in the
 
 - Pushes to `main` each get their own concurrency group and are never cancelled;
   PR runs still cancel when superseded.
-- Floors: do not edit an existing suite's line in `tests/expected_checks.txt`.
-  Add `tests/floor_deltas/<branch>.txt` with `<suite> +N`; floor = base + all
-  deltas. The merger runs `tools/fold_floor_deltas.sh` now and then. A new suite
-  still gets its own new line. (Applies once that PR is on main.)
+- Floors: retired 2026-10-18 (test suite audit section 4). There is no shared
+  floor file or delta folder any more; a suite fails when one of its own
+  `_test_*` functions never ran or made no check.
 
 ## Handing over to the other Claude account
 

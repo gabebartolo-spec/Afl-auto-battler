@@ -32,6 +32,11 @@ func _check(condition: bool, message: String) -> void:
 		_failures.append(message)
 		push_error(message)
 
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
+
 
 func _settle(n := 6) -> void:
 	for i in range(n):
@@ -51,19 +56,19 @@ func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	await _settle()
 
-	await _screens()
-	await _overlays()
-	await _main_menu()
-	await _draft()
-	await _match()
-	await _crawl()
-	await _rest()
-	await _new_career_flow()
+	await _t("_test_screens")
+	await _t("_test_overlays")
+	await _t("_test_main_menu")
+	await _t("_test_draft")
+	await _t("_test_match")
+	await _t("_test_crawl")
+	await _t("_test_rest")
+	await _t("_test_new_career_flow")
 
 	print("BACKTABLE")
 	for line in _table:
 		print(line)
-	print("Back navigation tests: %d checks, %d failures" % [_checks, _failures.size()])
+	print(Ran.line("Back navigation", self))
 	for f in _failures:
 		print("  FAIL: " + f)
 	quit(1 if not _failures.is_empty() else 0)
@@ -200,7 +205,7 @@ func _fingerprint() -> String:
 	return "%s|%s|%s" % [str(s.round_index) if s != null else "-", str(_state.my_club), str(_state.season_year)]
 
 
-func _screens() -> void:
+func _test_screens() -> void:
 	for row in SCREENS:
 		var key := str(row[0])
 		var expect := str(row[2])
@@ -355,7 +360,7 @@ func _tap_named(scene: Node, node_name: String) -> String:
 	return await Tap.tap(c)
 
 
-func _overlays() -> void:
+func _test_overlays() -> void:
 	var pid := _first_player_id()
 	await _overlay_case("hub: settings sheet", "hub", func(s): await _click_named(s, "HubSettings"))
 	await _overlay_case("hub: news", "hub", func(s): s.call("_show_news"))
@@ -390,7 +395,7 @@ func _overlays() -> void:
 # ---------------------------------------------------------------------------
 # Main menu: its sheets, then a lone Back does nothing and never quits
 # ---------------------------------------------------------------------------
-func _main_menu() -> void:
+func _test_main_menu() -> void:
 	for opener in ["MenuSettings", "MenuHelp"]:
 		for way in WAYS:
 			_state.reset()
@@ -430,7 +435,7 @@ func _main_menu() -> void:
 # ---------------------------------------------------------------------------
 # Draft: Back to the menu (it replaces, so the stack stays one deep)
 # ---------------------------------------------------------------------------
-func _draft() -> void:
+func _test_draft() -> void:
 	for way in WAYS:
 		_state.reset()
 		_router.stack = []
@@ -488,7 +493,7 @@ func _live_match() -> bool:
 	return true
 
 
-func _match() -> void:
+func _test_match() -> void:
 	# One live match, taken to a break: Match stats opens and every way out closes
 	# it; then Back with nothing open is refused (a live match is not left half
 	# way) with a visible hint.
@@ -593,7 +598,7 @@ func _crawl_buttons(scene: Node) -> Array:
 	return out
 
 
-func _crawl() -> void:
+func _test_crawl() -> void:
 	for view in CRAWL_VIEWS:
 		var key := str(view[0])
 		var pre: Array = view[1]
@@ -647,7 +652,7 @@ func _crawl() -> void:
 # ---------------------------------------------------------------------------
 # The rest: the draft board and its sheets, the trade view, the save / load menus
 # ---------------------------------------------------------------------------
-func _rest() -> void:
+func _test_rest() -> void:
 	# Draft board: the screen's own Back, and a player sheet opened from the pool.
 	for way in WAYS:
 		await _open_view("draft", ["Choose_COL"])
@@ -701,7 +706,7 @@ func _continue_shows_old_career(menu: Node) -> bool:
 	return cont != null and meta != null and str((meta as Label).text).contains(_db.club_name("COL"))
 
 
-func _new_career_flow() -> void:
+func _test_new_career_flow() -> void:
 	for way in WAYS:
 		_state.reset()
 		_state.start_season("COL", _db.club_list("COL"))

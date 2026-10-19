@@ -18,20 +18,20 @@ const CLUB := "FRE"
 func run() -> void:
 	GameState.replay_seed = SUITE_SEED
 	Features.set_on("preseason", true)
-	_test_rules()
-	_test_deck()
-	_test_flow()
-	_test_answers()
-	_test_reckoning()
-	_test_silence_and_sim()
-	_test_saves()
-	await _test_screen()
-	await _test_switch_off()
+	_t("_test_rules")
+	_t("_test_deck")
+	_t("_test_flow")
+	_t("_test_answers")
+	_t("_test_reckoning")
+	_t("_test_silence_and_sim")
+	_t("_test_saves")
+	await _t("_test_screen")
+	await _t("_test_switch_off")
 	PreSeason.reload()
 	Features.clear("preseason")
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
-	print("Papers tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Papers", self))
 
 
 func _check(ok: bool, message: String) -> void:
@@ -39,6 +39,12 @@ func _check(ok: bool, message: String) -> void:
 	if not ok:
 		failures.append(message)
 		push_error(message)
+
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _career(club := CLUB) -> void:

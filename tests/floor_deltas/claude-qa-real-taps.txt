@@ -1,3 +1,0 @@
-intake_ui +5
-coaches +4
-workload +1

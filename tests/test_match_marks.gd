@@ -31,18 +31,18 @@ func run() -> void:
 	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
 	var res := _result(42)
-	_test_when_marked(res)
-	_test_fades(res)
-	_test_over_the_press(res)
-	_test_corridor_playback(res)
-	_test_contest_playback(res)
+	_t("_test_when_marked", [res])
+	_t("_test_fades", [res])
+	_t("_test_over_the_press", [res])
+	_t("_test_corridor_playback", [res])
+	_t("_test_contest_playback", [res])
 	for sp in [1.0, 4.0]:
-		_test_ball_in_the_ring(res, sp)
-	_test_other_calls(res)
-	_test_moves_nobody(res)
-	await _test_under_the_discs(res)
+		_t("_test_ball_in_the_ring", [res, sp])
+	_t("_test_other_calls", [res])
+	_t("_test_moves_nobody", [res])
+	await _t("_test_under_the_discs", [res])
 	GameState.replay_seed = 0
-	print("Match marks tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Match marks", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -50,6 +50,12 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 ## Fremantle v Melbourne (two clubs with real colour), as the clips show them.

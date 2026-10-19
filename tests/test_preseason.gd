@@ -15,29 +15,29 @@ const CLUB := "FRE"
 
 func run() -> void:
 	GameState.replay_seed = SUITE_SEED
-	_test_switch_default()
+	_t("_test_switch_default")
 	# Everything below is the feature itself: switched on for this suite.
 	Features.set_on("preseason", true)
-	_test_rules()
-	_test_words()
-	_test_hand_over()
-	_test_flow()
-	_test_determinism()
-	_test_own_dice()
-	_test_sim_to_round_one()
-	_test_ai_parity()
-	_test_training_injuries()
-	_test_intra_club()
-	_test_old_saves()
-	await _test_screens()
-	await _test_story_stop()
-	await _test_draft_card()
-	await _test_switch_off()
+	_t("_test_rules")
+	_t("_test_words")
+	_t("_test_hand_over")
+	_t("_test_flow")
+	_t("_test_determinism")
+	_t("_test_own_dice")
+	_t("_test_sim_to_round_one")
+	_t("_test_ai_parity")
+	_t("_test_training_injuries")
+	_t("_test_intra_club")
+	_t("_test_old_saves")
+	await _t("_test_screens")
+	await _t("_test_story_stop")
+	await _t("_test_draft_card")
+	await _t("_test_switch_off")
 	PreSeason.reload()
 	Features.clear("preseason")
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
-	print("Preseason tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Preseason", self))
 
 
 func _check(ok: bool, message: String) -> void:
@@ -49,6 +49,11 @@ func _check(ok: bool, message: String) -> void:
 
 ## A seeded career at `club`; with `open`, its first season starts with a
 ## pre-season, as a new career does in the game.
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 func _career(open := true, club := CLUB) -> void:
 	GameState.reset()
 	GameState.career_seed = SUITE_SEED

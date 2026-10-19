@@ -50,6 +50,11 @@ func _check(condition: bool, message: String) -> void:
 		_failures.append(message)
 		push_error(message)
 
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
+
 
 func _settle(n := 6) -> void:
 	for i in range(n):
@@ -68,20 +73,20 @@ func _run() -> void:
 	_state.replay_seed = SUITE_SEED
 	_state.delete_saved_career()
 
-	_preset()
+	_t("_test_preset")
 	for row in SIZES:
-		await _draft(row)
+		await _t("_test_draft", [row])
 	for row in [SIZES[0], SIZES[2]]:
-		await _screen_field(row, "selection", "BuilderSearch", Callable())
-		await _screen_field(row, "training", "", Callable())
-		await _screen_field(row, "forge", "ForgeClubName", _open_club_form)
-		await _screen_field(row, "list", "NicknameField", _open_nickname)
-	await _nickname_line("PC", false, Vector2i(1280, 720))
-	await _nickname_line("phone", true, Vector2i(390, 844))
+		await _t("_test_screen_field", [row, "selection", "BuilderSearch", Callable()])
+		await _t("_test_screen_field", [row, "training", "", Callable()])
+		await _t("_test_screen_field", [row, "forge", "ForgeClubName", _open_club_form])
+		await _t("_test_screen_field", [row, "list", "NicknameField", _open_nickname])
+	await _t("_test_nickname_line", ["PC", false, Vector2i(1280, 720)])
+	await _t("_test_nickname_line", ["phone", true, Vector2i(390, 844)])
 
 	load("res://scripts/core/ScreenLayout.gd").force_web_phone = false
 	load("res://scripts/core/ScreenLayout.gd").force_web = false
-	print("Keyboard tests: %d checks, %d failures" % [_checks, _failures.size()])
+	print(Ran.line("Keyboard", self))
 	for f in _failures:
 		print("  FAIL: " + f)
 	quit(1 if not _failures.is_empty() else 0)
@@ -91,7 +96,7 @@ func _run() -> void:
 ## thing raising a keyboard is the engine's desktop input-method helper, which
 ## opens and closes by itself and drops what a phone keyboard types
 ## (godotengine/godot#99602).
-func _preset() -> void:
+func _test_preset() -> void:
 	var text := FileAccess.get_file_as_string("res://export_presets.cfg")
 	_check(text.contains("html/experimental_virtual_keyboard=true")
 			and not text.contains("html/experimental_virtual_keyboard=false"),
@@ -161,7 +166,7 @@ func _new_draft() -> Control:
 	return ui
 
 
-func _draft(row: Array) -> void:
+func _test_draft(row: Array) -> void:
 	var label := "Draft, %s" % str(row[0])
 	var full: Vector2i = row[2]
 	var up: Vector2i = row[3]
@@ -267,7 +272,7 @@ func _open_nickname() -> void:
 
 ## A nickname reads on one line beside its Change button, also with the field
 ## open (director 2026-10-14: JEFFO drawn one letter per line).
-func _nickname_line(label: String, phone: bool, size: Vector2i) -> void:
+func _test_nickname_line(label: String, phone: bool, size: Vector2i) -> void:
 	_platform(phone)
 	root.size = size
 	await _settle()
@@ -311,7 +316,7 @@ func _nickname_line(label: String, phone: bool, size: Vector2i) -> void:
 
 
 ## Any other screen with a text field: tap it, keyboard up and down, type.
-func _screen_field(row: Array, route: String, field_name: String, opener: Callable) -> void:
+func _test_screen_field(row: Array, route: String, field_name: String, opener: Callable) -> void:
 	var label := "%s, %s" % [route.capitalize(), str(row[0])]
 	var full: Vector2i = row[2]
 	var up: Vector2i = row[3]
