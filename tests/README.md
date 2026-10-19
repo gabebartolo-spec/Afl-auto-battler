@@ -7,6 +7,7 @@ intake harness), with a pass/fail table at the end:
 ```sh
 GODOT=/path/to/godot tools/run_tests.sh          # everything
 GODOT=/path/to/godot tools/run_tests.sh ai save  # just some suites
+tools/run_tests.sh --verbose ai                  # every step and suite line (default: failures and one summary line)
 ```
 
 GitHub Actions (`.github/workflows/tests.yml`) runs the same script on every
