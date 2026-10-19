@@ -589,7 +589,7 @@ func _news_line(line: String) -> Control:
 	var ids := {}
 	for q in GameState.my_list:
 		ids[GameDB.player_display_name(q)] = str(q["id"])
-	return NameLink.line(line, ids, UiKit.SECONDARY, UiKit.GOOD)
+	return TraitLink.line(line, UiKit.SECONDARY, UiKit.GOOD, ids)
 
 
 ## The plan under his name, said as a plan: "Training as a key defender",
@@ -724,6 +724,7 @@ func _detail_panel() -> Control:
 				t_text.left(1).to_lower() + t_text.substr(1)], 12, UiKit.EMPH)
 		hint.name = "TraitHint"
 		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		TraitLink.tappable(hint, str(n["key"]))
 		body.add_child(hint)
 	if duty == "Reserves":
 		var res_line := UiKit.lbl("Developing in the reserves: +%d XP last game (a senior game is worth up to %d)." % [

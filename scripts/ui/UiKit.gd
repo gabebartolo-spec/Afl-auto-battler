@@ -1297,14 +1297,13 @@ static func chip(text: String, colour: Color) -> PanelContainer:
 
 
 ## A player's traits as one quiet line ("Ball magnet · Big-game player"),
-## Hothead in BAD. Empty when he has none. Tooltips say what each one does.
+## Hothead in BAD. Empty when he has none. Hover or tap says what each one does (TraitLink).
 static func trait_chips(p: Dictionary) -> HBoxContainer:
 	var h := hbox(10)
 	h.name = "Traits"
 	for t in Traits.of(p):
 		var l := line(Traits.label(t), SMALL, BAD if Traits.is_bad(t) else MUTED)
-		l.tooltip_text = Traits.text(t)
-		l.mouse_filter = Control.MOUSE_FILTER_PASS
+		TraitLink.tappable(l, str(t))
 		h.add_child(l)
 	return h
 
