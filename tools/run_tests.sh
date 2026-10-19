@@ -39,7 +39,8 @@ SUITES_ONLY="${SUITES_ONLY:-0}"
 STOP_ON_FAILURE="${STOP_ON_FAILURE:-0}"
 QUICK=0
 if [ "${1:-}" = --quick ]; then QUICK=1; SUITES_ONLY=1; shift; fi
-ALL_SUITES=(draft draft_ui assets intake intake_ui expansion finals save chronology career coaches coach_market coach_pathway coach_effects career_ui potential ratings ai training selection matchup matchday calls roles injuries awards achievements contracts league club match_game pressure workload fitness preseason practice papers plan_know planpane match_visual match_motion league_balance calibration balance stats story back_nav scroll family keyboard nameink rowgap trainrep international namelink match_marks)
+# Every tests/run_<suite>_tests.gd is a suite: no list to keep (tools/list_suites.sh).
+mapfile -t ALL_SUITES < <(tools/list_suites.sh "$RUNNER_DIR")
 [ "$#" -gt 0 ] && SUITES=("$@") || SUITES=("${ALL_SUITES[@]}")
 # Read once and clear it: the harness self-test runs this script again, and a
 # child that inherited EXTRAS_ONLY would run no suites and pass a short one.

@@ -9,8 +9,10 @@ name: Tests
 # audit or capture scripts (tools/audit, tools/visual), which no suite loads.
 #
 # The suites run as parallel shards (tools/ci_shards.txt), so a pull request
-# spreads the workload across runners. The layout is planned from a real run's
-# suite timings (tools/ci_suite_timings.json); the test job prints each shard's
+# spreads the workload across runners. Every tests/run_<suite>_tests.gd is a
+# suite; nothing lists them by hand. The layout is planned from a real run's
+# suite timings (tools/ci_suite_timings.json); a suite added since the last
+# re-plan joins the lightest shard on its own (tools/ci_shards.py). The test job prints each shard's
 # observed time and warns when one runs long, but never fails on it. The
 # league_balance suite (a developer tool) runs on pushes to main, not on pull
 # requests. One more job runs the
@@ -50,7 +52,7 @@ env:
   GODOT_VERSION: "4.7.2"
 
 jobs:
-  # Decides whether the game tests run, and checks every suite is in a shard.
+  # Decides whether the game tests run, and lays out the shards.
   plan:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -103,12 +105,12 @@ jobs:
           echo "code=$code" >> "$GITHUB_OUTPUT"
           echo "reason=$reason" >> "$GITHUB_OUTPUT"
 
-      # A suite missing from tools/ci_shards.txt would never run in CI.
-      - name: Check the shards cover every suite
+      # Every suite on disk runs in exactly one shard: a new one joins the
+      # lightest shard, a removed one is dropped (tools/ci_shards.py).
+      - name: Lay out the shards
         id: shards
         run: |
-          bash tools/check_ci_shards.sh
-          matrix=$(bash tools/check_ci_shards.sh --matrix)
+          matrix=$(python3 tools/ci_shards.py --matrix)
           # Balance suites (director 2026-10-19): pull requests skip balance and
           # league_balance, and run calibration only when scripts/sim/ or data/
           # changed; the nightly schedule runs just those three; main pushes and
@@ -134,11 +136,11 @@ jobs:
           python3 tools/test_check_version.py
           python3 -I tools/check_version.py
 
-      # Every suite needs one shard and one measured timing. Imbalance is
-      # reported after the run, never a failure. Never reduce assertions to speed CI up.
-      - name: Check every suite has a shard and a timing
+      # The shard layout's own tests, and the estimated shard seconds. Imbalance
+      # is reported after the run, never a failure. Never reduce assertions to speed CI up.
+      - name: Check the shard layout
         run: |
-          python3 tools/test_ci_balance.py
+          python3 tools/test_ci_shards.py
           python3 tools/check_ci_balance.py
 
   # A test runner that does not compile (or hangs on load) fails here in seconds,
@@ -332,7 +334,7 @@ jobs:
         run: |
           echo "plan=$PLAN code=$CODE shards=$SHARDS extras=$EXTRAS"
           if [ "$PLAN" != success ]; then
-            echo "::error::the plan job failed: a suite is missing from tools/ci_shards.txt, or the checkout failed"
+            echo "::error::the plan job failed: a suite is in two shards of tools/ci_shards.txt, a plan check failed, or the checkout failed"
             exit 1
           fi
           if [ "$PREFLIGHT" != success ] && [ "$PREFLIGHT" != skipped ]; then

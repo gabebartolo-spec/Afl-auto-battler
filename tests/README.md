@@ -16,9 +16,9 @@ run; a failing run uploads the logs as an artifact.
 
 CI runs the suites as five parallel shards, so a pull request takes about eight
 minutes instead of half an hour. `tools/ci_shards.txt` says which suites each
-shard runs; `tools/check_ci_shards.sh` fails the run if a suite in
-`tools/run_tests.sh` is in no shard, so **a new suite needs a line in
-`tools/ci_shards.txt`** (put it in the shortest shard). One more job runs the dataset, export-data and intake
+shard runs, planned from measured timings. Every `tests/run_<name>_tests.gd`
+is a suite, so a new one needs no list entry: `tools/ci_shards.py` puts it on
+the lightest shard until the weekly re-plan. One more job runs the dataset, export-data and intake
 harness checks once (`EXTRAS_ONLY=1 tools/run_tests.sh`). The required check
 named `test` is the last job and passes only when every shard and that job did.
 
@@ -205,11 +205,9 @@ Python/JavaScript reimplementation.
 ### Adding a suite
 
 1. Write `tests/test_<name>.gd` and a runner `tests/run_<name>_tests.gd` (copy a small one such as `run_league_tests.gd`, which points saves and settings at test files). Copy `_check` and the two-line `_t` with it, call each test as `_t("_test_x")`, and end `run()` with `print(Ran.line("<Name>", self))`.
-2. Add `<name>` to `ALL_SUITES` in `tools/run_tests.sh`.
-3. Add it to the shortest shard in `tools/ci_shards.txt`, then run `bash tools/check_ci_shards.sh`. It prints `ok: N suites in M shards, each exactly once`, or says what is missing.
-4. Add a row to the table above.
+2. Add a row to the table above.
 
-CI's `plan` job runs the same check, so a suite left out of every shard fails the run instead of quietly skipping CI.
+That is all: `tools/run_tests.sh` and CI find the runner by its name. `python3 tools/ci_shards.py` shows which shard CI will run it in.
 
 **Check a loop once, and check its size.** A function that loses some of a loop's checks but keeps one still passes, and a `_check` inside a loop over players, matches or list entries reads as many failures for one cause. Check the size before the loop when it could shrink, collect the failures in the loop, then check once.
 

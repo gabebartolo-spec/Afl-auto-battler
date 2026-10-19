@@ -1,30 +1,28 @@
-"""Check every suite has a shard and a timing; report observed shard imbalance (a warning, never a failure)."""
+"""Print the estimated shard seconds; after a run, report observed shard imbalance (a warning, never a failure).
+
+The layout is tools/ci_shards.py's: a suite with no timing yet counts as DEFAULT_SECONDS.
+"""
 import argparse
 import json
 import pathlib
 import sys
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+from ci_shards import DEFAULT_SECONDS, ROOT, layout, timings
 
 
 def check(root=ROOT, observed=None):
-    baseline = json.loads((root / "tools/ci_suite_timings.json").read_text())
-    times = baseline["seconds"]
-    groups = {}
-    for line in (root / "tools/ci_shards.txt").read_text().splitlines():
-        if line and not line.startswith("#"):
-            key, suites = line.split(":", 1)
-            groups[key] = suites.split()
-    errors = []
-    assigned = [suite for suites in groups.values() for suite in suites]
-    if set(assigned) != set(times) or len(assigned) != len(set(assigned)):
-        errors.append("Every suite needs exactly one shard and a measured timing; refresh the timing baseline when adding/removing suites.")
-    if not errors:
-        totals = {key: sum(times[s] for s in suites) for key, suites in groups.items()}
-        print(f"Estimated shard seconds: {totals}; source run {baseline['source_run']}, measured {baseline['measured_on']}")
+    shards, _notes, errors = layout(root)
     for error in errors:
         print(f"::error::{error}")
+    if errors:
+        return False
+    times = timings(root)
+    groups = {key: names for key, names in shards if names}
+    totals = {key: sum(times.get(s, DEFAULT_SECONDS) for s in names) for key, names in groups.items()}
+    baseline = json.loads((root / "tools/ci_suite_timings.json").read_text()) if (root / "tools/ci_suite_timings.json").exists() else {}
+    print(f"Estimated shard seconds: {totals}; source run {baseline.get('source_run')}, measured {baseline.get('measured_on')}")
     if observed:
+        assigned = {s for names in groups.values() for s in names}
         actual = {}
         seen = set()
         for file in pathlib.Path(observed).glob("*.tsv"):
@@ -35,13 +33,13 @@ def check(root=ROOT, observed=None):
                 total += int(seconds)
             actual[file.stem] = total
         print(f"Actual shard suite seconds: {actual}")
-        if seen == set(assigned) and len(actual) == len(groups):
+        if seen == assigned and len(actual) == len(groups):
             mean = sum(actual.values()) / len(actual)
             if max(actual.values()) > mean * 1.35:
-                print("::warning::Measured shard imbalance exceeds 135% of average. Refresh timings and rebalance before the next CI scheduling change. Runner variability means this observation alone does not fail gameplay checks.")
+                print("::warning::Measured shard imbalance exceeds 135% of average. Re-plan with tools/plan_ci_shards.py from a green main run. Runner variability means this observation alone does not fail gameplay checks.")
         else:
-            print("::warning::Incomplete runtime evidence; no observed balance conclusion available.")
-    return not errors
+            print("::warning::Incomplete runtime evidence (a pull request skips the balance suites); no observed balance conclusion available.")
+    return True
 
 
 if __name__ == "__main__":

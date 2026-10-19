@@ -27,7 +27,7 @@ rules for every project). Decisions not yet in either live in the boss's handoff
 | #607 match-shape audit findings (claude/match-shape-findings) | boss | docs only | green CI. Director decided "Step 1 and then Step 2" (on #607): Step 1 play-on after an intercept or a free, stoppages from contests (boss, claude/match-flow); Step 2 recalibrate contested ball, spoils and turnovers (§1.10 balance gate) |
 
 Gates that always apply: an appearance or UI-treatment PR records the director's look before merge; a PR touching saves, rollover,
-shared sim, recruitment or identity carries a W7 packet and gets one reviewer; a new suite needs `tools/ci_shards.txt` and a floor delta.
+shared sim, recruitment or identity carries a W7 packet and gets one reviewer; a new suite needs only its runner file (CI discovers it and places it on a shard).
 
 ## Waiting on the director
 - Season stats hub: the native-phone review (#567). Phone build (game-debug APK) is HELD until he asks.

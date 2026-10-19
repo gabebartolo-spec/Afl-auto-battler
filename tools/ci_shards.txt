@@ -1,16 +1,16 @@
 # How CI splits the Godot test suites across parallel jobs
 # (.github/workflows/tests.yml). One line per shard: its number, a colon, then
-# the suites it runs. Every suite in tools/run_tests.sh must appear in exactly
-# one shard; tools/check_ci_shards.sh checks that on every CI run, so a new
-# suite cannot quietly skip CI.
+# the suites it runs. The suites are the runners on disk (every
+# tests/run_<suite>_tests.gd); nothing lists them by hand. A suite added since
+# this plan joins the lightest shard on its own (about 60 s until it is timed),
+# and a removed one is dropped: tools/ci_shards.py does both on every CI run.
 #
 # Do not edit the lines below by hand: re-plan from a full green main run
-# (at least weekly, or after adding a suite) with
+# (weekly) with
 #   gh run download <run> -p 'suite-timings-*' -D <dir>
 #   python3 tools/plan_ci_shards.py --timings-dir <dir> --run <run> --shards 12
-# A new suite with no timing yet: add about 60 seconds for it to
-# tools/ci_suite_timings.json and re-plan. balance, league_balance and
-# calibration are planned last because most pull requests skip them.
+# balance, league_balance and calibration are planned last because most pull
+# requests skip them.
 # --- plan ---
 # From main run 39144840688 (2026-10-19), 56 suites, by tools/plan_ci_shards.py --shards 12.
 # Pull-request suite seconds per shard: 637 570 547 547 548 549 547 546 547 547 546 547

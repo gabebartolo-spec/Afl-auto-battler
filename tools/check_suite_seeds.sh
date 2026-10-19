@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # C15 guard: no test suite may start a season, draft or match from the clock.
-# Every suite in ALL_SUITES of tools/run_tests.sh must, in its runner
+# Every suite (each tests/run_<suite>_tests.gd, tools/list_suites.sh) must, in its runner
 # (tests/run_<suite>_tests.gd) or its suite file (tests/test_<suite>.gd), either
 # pin the seed (SUITE_SEED or replay_seed) or carry a one-line comment
 #   ## Seeded by design: <why>
@@ -12,10 +12,9 @@
 set -u
 cd "$(dirname "$0")/.." || exit 1
 
-RUNNER="${RUNNER_FILE:-tools/run_tests.sh}"
-all=$(sed -n 's/^ALL_SUITES=(\(.*\))[[:space:]]*$/\1/p' "$RUNNER")
+all=$(tools/list_suites.sh)
 if [ -z "$all" ]; then
-	echo "ERROR: no ALL_SUITES list found in $RUNNER" >&2
+	echo "ERROR: no tests/run_*_tests.gd found" >&2
 	exit 1
 fi
 

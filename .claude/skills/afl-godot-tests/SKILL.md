@@ -59,11 +59,12 @@ Commit the `.uid` of any `.gd` you created. Stage files by name, never
   `tests/functions_ran.gd`), calls every test as `_t("_test_x")` (`await
   _t("_test_x", [size])` where it awaits), ends with
   `print(Ran.line("<Name>", self))` and quits 1 on any failure.
-- Register it in three places: `ALL_SUITES` in `tools/run_tests.sh`; the
-  lightest shard in `tools/ci_shards.txt` with about 60 s in
-  `tools/ci_suite_timings.json`; a row in `tests/README.md`. Then run
-  `bash tools/check_ci_shards.sh`. Re-plan all shards weekly from a green main
-  run with `tools/plan_ci_shards.py` (its header says how).
+- Nothing to register: the runner file is the suite. `tools/run_tests.sh`, the
+  compile preflight and CI all discover `tests/run_*_tests.gd`
+  (`tools/list_suites.sh`); CI puts a suite with no timing on the lightest shard
+  at about 60 s (`python3 tools/ci_shards.py` shows where). Add a row to
+  `tests/README.md`. Re-plan all shards weekly from a green main run with
+  `tools/plan_ci_shards.py` (its header says how); never edit the plan by hand.
 - **Every test function runs and checks something** (this replaced the check
   floors on 2026-10-18). The summary reads "Draft tests: 20 of 20 functions,
   7901 checks, 0 failures". A `_test_*` function that is defined but never
@@ -105,7 +106,8 @@ evidence: a minimal reproduction, the last good commit, the runtime state.
 
 ## CI
 
-- `tests.yml`: `plan` → twelve `shard` jobs (from `tools/ci_shards.txt`, about
+- `tests.yml`: `plan` → twelve `shard` jobs (`tools/ci_shards.py` lays out
+  `tools/ci_shards.txt` plus any suite added since the last re-plan, about
   10-12 min; PRs skip `balance`/`league_balance` and run `calibration` only
   when `scripts/sim/` or `data/` changed; those three run nightly at 03:00
   Melbourne; a main push identical to its PR's green tree skips the shards) →
