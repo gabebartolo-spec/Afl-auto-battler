@@ -1,2 +1,0 @@
-training +2
-namelink +2
