@@ -21,10 +21,10 @@ true. This repo copy is the only one; the general rules it builds on are in the
    Stats patch (#509) were each green, the merge failed `stats`
    ("running bounce ... runs say 2"). Look at `git diff ORIG_HEAD --stat` for
    `tests/run_*_tests.gd` and for scripts your branch also edits.
-3. **Adding or removing a suite?** Register it in all four places (see
-   afl-godot-tests) and refresh `tools/ci_shards.txt` timings from a complete CI
-   run. Missing this failed the `plan` job on five stats-* branches in a row
-   ("every suite needs exactly one shard and a measured timing").
+3. **Adding or removing a suite?** Nothing to register since 2026-10-19: the
+   runner file is the suite, and CI places a new one on the lightest shard
+   (`tools/ci_shards.py`). The hand-kept lists it replaced failed the `plan` job
+   on five stats-* branches in a row. Re-plan weekly (`tools/plan_ci_shards.py`).
 4. **Seed anything that plays a match, draft or season** (`GameState.replay_seed`
    or `SUITE_SEED`). Clock-seeded checks pass or fail on the opponent drawn.
 5. **Stage files by name**; drop line-ending-only `*.import` changes. Commit the
@@ -72,7 +72,7 @@ true. This repo copy is the only one; the general rules it builds on are in the
 |---|---|---|
 | Clock-seeded check red on main, infects every PR | matchday "shut out of big ratings" x12 (10-06) | seed suites; triage rule 2 |
 | Rare seed in a lifecycle check | contracts rival-takes-starter, league_balance draft, match_game playtest call | pin the seed; add the failing seed as a case |
-| New suite not in shards/timing | stats-hub/ladder/fixture/events, 5 runs | register + re-time, `bash tools/check_ci_shards.sh` before push |
+| New suite not in shards/timing (retired 2026-10-19) | stats-hub/ladder/fixture/events, 5 runs | gone: suites are discovered, a new one joins the lightest shard |
 | Floor drift (retired 2026-10-18) | contracts 232 of 233 | gone: suites now report "K of M functions" (`afl-godot-tests`) |
 | Merge of two green PRs red | set-share + Stats patch (`stats` bounce count) | run the suites main brought in |
 | Sheet and figures out of step (inferred from the fix commit) | kit-sleeves-v2 `assets` | regenerate together |

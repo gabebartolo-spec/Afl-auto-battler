@@ -6,7 +6,7 @@
 # autoload; the fix is load() by path inside _run(), see
 # .claude/skills/afl-godot-tests/SKILL.md).
 #
-#   GODOT=/path/to/godot tools/ci_preflight_compile.sh               # every suite in ALL_SUITES
+#   GODOT=/path/to/godot tools/ci_preflight_compile.sh               # every suite (tools/list_suites.sh)
 #   GODOT=... tools/ci_preflight_compile.sh tests/run_ai_tests.gd    # just these scripts
 #
 # Fast path: ONE Godot process loads every runner in turn (about 6 s for all 53 on a
@@ -15,8 +15,8 @@
 # line names the runner; if that is missing, each runner is retried alone under
 # PREFLIGHT_RUNNER_TIMEOUT (default 20 s) until one fails. Exits 1 naming the runner.
 #
-# The runners come from ALL_SUITES in tools/run_tests.sh (tools/check_ci_shards.sh keeps
-# that identical to tools/ci_shards.txt). The project is imported first, because a fresh
+# The runners are every tests/run_<suite>_tests.gd (tools/list_suites.sh), the same
+# suites tools/run_tests.sh and the CI shards run. The project is imported first, because a fresh
 # checkout has no class cache and every named class would look undeclared;
 # PREFLIGHT_SKIP_IMPORT=1 skips that when it is already imported.
 set -u
@@ -32,9 +32,9 @@ trap 'rm -f "$LOG"' EXIT
 if [ "$#" -gt 0 ]; then
 	runners=("$@")
 else
-	all=$(sed -n 's/^ALL_SUITES=(\(.*\))[[:space:]]*$/\1/p' tools/run_tests.sh | tr -d '\r')
+	all=$(tools/list_suites.sh)
 	if [ -z "$all" ]; then
-		echo "ERROR: no ALL_SUITES list found in tools/run_tests.sh" >&2
+		echo "ERROR: no tests/run_*_tests.gd found" >&2
 		exit 1
 	fi
 	runners=()

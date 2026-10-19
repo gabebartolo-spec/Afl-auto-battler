@@ -21,6 +21,8 @@
 #   SUITE_TIMEOUT=900 tools/run_tests.sh ai finals   # just some suites
 #   tools/run_tests.sh --quick draft_ui              # local loop: no re-import when
 #       .godot exists, and no dataset, seeds, export or harness checks (CI runs those)
+#   tools/run_tests.sh --verbose ai                  # or VERBOSE=1: every step and every
+#       suite's line. By default only failures and one summary line are printed.
 #
 # Exits nonzero if anything failed.
 set -u
@@ -38,8 +40,19 @@ SUITES_ONLY="${SUITES_ONLY:-0}"
 # PR CI stops promptly; local/main/diagnostic runs default to all failures.
 STOP_ON_FAILURE="${STOP_ON_FAILURE:-0}"
 QUICK=0
-if [ "${1:-}" = --quick ]; then QUICK=1; SUITES_ONLY=1; shift; fi
-ALL_SUITES=(draft draft_ui assets intake intake_ui expansion finals save chronology career coaches coach_market coach_pathway coach_effects career_ui potential ratings ai training selection matchup matchday calls roles injuries awards achievements contracts league club match_game pressure workload fitness preseason practice papers plan_know planpane match_visual match_motion league_balance calibration balance stats story back_nav scroll family keyboard nameink rowgap trainrep international namelink match_marks)
+VERBOSE="${VERBOSE:-0}"
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		--quick) QUICK=1; SUITES_ONLY=1; shift ;;
+		--verbose) VERBOSE=1; shift ;;
+		*) break ;;
+	esac
+done
+say() { if [ "$VERBOSE" = 1 ]; then echo "$@"; fi; }
+passed=0
+failed_names=()
+# Every tests/run_<suite>_tests.gd is a suite: no list to keep (tools/list_suites.sh).
+mapfile -t ALL_SUITES < <(tools/list_suites.sh "$RUNNER_DIR")
 [ "$#" -gt 0 ] && SUITES=("$@") || SUITES=("${ALL_SUITES[@]}")
 # Read once and clear it: the harness self-test runs this script again, and a
 # child that inherited EXTRAS_ONLY would run no suites and pass a short one.
@@ -65,12 +78,12 @@ note_error() {  # message
 	if [ "$in_ci" = 1 ]; then echo "::error::$1"; else echo "ERROR: $1"; fi
 }
 
-echo "== Godot: $("$GODOT" --headless --version 2>/dev/null | tail -1)"
+say "== Godot: $("$GODOT" --headless --version 2>/dev/null | tail -1)"
 if [ "$QUICK" = 1 ] && [ -d .godot ]; then
-echo "== Quick: skipping the import (.godot exists; a script error still fails its suite)"
+say "== Quick: skipping the import (.godot exists; a script error still fails its suite)"
 summary+=("| import | skipped | --quick |")
 else
-echo "== Importing the project"
+say "== Importing the project"
 timeout 600 "$GODOT" --headless --path . --editor --import > "$LOG_DIR/import.log" 2>&1
 import_code=$?
 if [ "$import_code" != 0 ] || grep -qE "SCRIPT ERROR|Parse Error|Compile Error" "$LOG_DIR/import.log"; then
@@ -123,7 +136,10 @@ for suite in ${SUITES[@]+"${SUITES[@]}"}; do
 	if [ "$skipped" -gt 0 ]; then
 		detail="$detail ($skipped skipped on purpose)"
 	fi
-	printf '%-5s %-11s %4ss  %s\n' "$status" "$suite" "$secs" "$detail"
+	if [ "$status" = FAIL ] || [ "$VERBOSE" = 1 ]; then
+		printf '%-5s %-11s %4ss  %s\n' "$status" "$suite" "$secs" "$detail"
+	fi
+	if [ "$status" = FAIL ]; then failed_names+=("$suite"); else passed=$((passed + 1)); fi
 	if [ "$status" = FAIL ]; then
 		failed=1
 		note_error "suite '$suite' failed: $detail"
@@ -149,7 +165,7 @@ for suite in ${SUITES[@]+"${SUITES[@]}"}; do
 done
 
 if [ "$SUITES_ONLY" != 1 ]; then
-echo "== Dataset check"
+say "== Dataset check"
 if python3 tools/validate_data.py > "$LOG_DIR/validate.log" 2>&1; then
 	summary+=("| validate_data | pass | |")
 else
@@ -159,7 +175,7 @@ else
 	summary+=("| validate_data | FAIL | see log |")
 fi
 
-echo "== Suite seeds"
+say "== Suite seeds"
 if bash tools/check_suite_seeds.sh > "$LOG_DIR/suite_seeds.log" 2>&1; then
 	summary+=("| suite_seeds | pass | |")
 else
@@ -169,7 +185,7 @@ else
 	summary+=("| suite_seeds | FAIL | see log |")
 fi
 
-echo "== Exported-build data check"
+say "== Exported-build data check"
 if GODOT="$GODOT" tools/check_export_data.sh > "$LOG_DIR/export_data.log" 2>&1; then
 	summary+=("| export_data | pass | |")
 else
@@ -179,7 +195,7 @@ else
 	summary+=("| export_data | FAIL | see log |")
 fi
 
-echo "== Intake / development harness"
+say "== Intake / development harness"
 if python3 tools/intake_harness.py --quiet > "$LOG_DIR/intake_harness.log" 2>&1; then
 	summary+=("| intake_harness | pass | |")
 else
@@ -191,7 +207,7 @@ fi
 
 # CI runs the build-number check once, in the plan job, and sets SKIP_VERSION_CHECK=1 here.
 if [ "${SKIP_VERSION_CHECK:-0}" != 1 ]; then
-echo "== One version (project.godot config/version is the only copy)"
+say "== One version (project.godot config/version is the only copy)"
 if python3 tools/test_check_version.py > "$LOG_DIR/one_version.log" 2>&1 && python3 -I tools/check_version.py >> "$LOG_DIR/one_version.log" 2>&1; then
 	summary+=("| one_version | pass | |")
 else
@@ -202,7 +218,7 @@ else
 fi
 fi
 
-echo "== Offline promise (Android preset requests vibrate only)"
+say "== Offline promise (Android preset requests vibrate only)"
 if python3 tools/test_android_permissions.py > "$LOG_DIR/offline_promise.log" 2>&1 		&& python3 tools/check_android_permissions.py >> "$LOG_DIR/offline_promise.log" 2>&1; then
 	summary+=("| offline_promise | pass | |")
 else
@@ -215,7 +231,7 @@ fi
 
 # The harness checks itself: a test function that never ran must fail.
 if [ "$SUITES_ONLY" != 1 ] && [ "$#" -eq 0 ]; then
-	echo "== Harness self-test"
+	say "== Harness self-test"
 	if GODOT="$GODOT" tools/test_run_tests.sh > "$LOG_DIR/harness_selftest.log" 2>&1; then
 		summary+=("| harness_selftest | pass | |")
 	else
@@ -234,6 +250,9 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
 		printf '%s\n' "${summary[@]}"
 	} >> "$GITHUB_STEP_SUMMARY"
 fi
-echo "Logs: $LOG_DIR"
-[ "$failed" = 0 ] && echo "All checks passed." || echo "Some checks FAILED."
+if [ "$failed" = 0 ]; then
+	echo "All checks passed: $passed suites$([ "$SUITES_ONLY" != 1 ] && echo ' and the dataset, export and harness checks'). Logs: $LOG_DIR"
+else
+	echo "Some checks FAILED${failed_names[0]+: suites ${failed_names[*]}} ($passed suites passed). Logs: $LOG_DIR"
+fi
 exit "$failed"

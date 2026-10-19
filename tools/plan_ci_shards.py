@@ -7,14 +7,15 @@
 
 balance, league_balance and calibration are off most pull-request runs (tests.yml), so they
 are planned last, onto the lightest shards, and the pull-request shards stay balanced without them.
+The suites are the runners on disk (tools/ci_shards.py): one with no timing yet is planned at
+DEFAULT_SECONDS, and a timing for a suite that no longer exists is left out.
 """
 import argparse
 import datetime
 import json
 import pathlib
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-LATE = ("league_balance", "balance", "calibration")  # longest first among themselves
+from ci_shards import DEFAULT_SECONDS, LATE, ROOT, discover  # LATE: longest first among themselves
 
 
 def plan(times, count):
@@ -45,7 +46,7 @@ def main():
         baseline = {"measured_on": datetime.date.today().isoformat(),
                     "source_run": args.run or 0, "seconds": dict(sorted(times.items()))}
         timings_file.write_text(json.dumps(baseline, indent=2) + "\n", newline="\n")
-    times = baseline["seconds"]
+    times = {s: baseline["seconds"].get(s, DEFAULT_SECONDS) for s in discover()}
     bins = plan(times, args.shards)
     pr_totals = [sum(times[s] for s in b[1] if s not in LATE) for b in bins]
     header = (ROOT / "tools/ci_shards.txt").read_text().split("\n# --- plan ---")[0].rstrip("\n")
