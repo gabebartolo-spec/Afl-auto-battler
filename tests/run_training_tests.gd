@@ -25,8 +25,8 @@ func _run() -> void:
 	suite.run()
 	_checks = suite.checks
 	_failures.append_array(suite.failures)
-	await _training_hero()
-	print("Training tests: %d checks, %d failures" % [_checks, _failures.size()])
+	await _t("_test_training_hero")
+	print(Ran.line("Training", self, [suite]))
 	quit(0 if _failures.is_empty() else 1)
 
 
@@ -34,7 +34,7 @@ func _run() -> void:
 ## picture in the club's wash beside the week's news, never red, no word cut
 ## short, and a player still opens on a real tap. Without the file the news
 ## has the panel to itself.
-func _training_hero() -> void:
+func _test_training_hero() -> void:
 	var gs = root.get_node("GameState")
 	var db = root.get_node("GameDB")
 	var art = load("res://scripts/ui/UiArt.gd")
@@ -123,6 +123,11 @@ func _check(condition: bool, message: String) -> void:
 
 
 ## Never touch a real career save or settings file from a test run.
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 func _isolate_saves() -> void:
 	var gs = root.get_node("GameState")
 	gs.autosave_enabled = false

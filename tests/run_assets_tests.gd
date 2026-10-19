@@ -53,23 +53,23 @@ func _run() -> void:
 	_state.show_real_names = false
 	_state.replay_seed = 2027
 	SV = load("res://scripts/ui/match/StoppageVignette.gd")
-	_figure_sheets()
-	_figure_contacts()
-	_hair_atlases()
-	_ball()
-	_honours()
-	await _vignettes_play_through()
-	_music_files()
-	_music_player()
-	_banners()
-	print("Assets tests: %d checks, %d failures" % [_checks, _failures.size()])
+	_t("_test_figure_sheets")
+	_t("_test_figure_contacts")
+	_t("_test_hair_atlases")
+	_t("_test_ball")
+	_t("_test_honours")
+	await _t("_test_vignettes_play_through")
+	_t("_test_music_files")
+	_t("_test_music_player")
+	_t("_test_banners")
+	print(Ran.line("Assets", self))
 	quit(1 if not _failures.is_empty() else 0)
 
 
 # ---------------------------------------------------------------------------
 # Figure sheets
 # ---------------------------------------------------------------------------
-func _figure_sheets() -> void:
+func _test_figure_sheets() -> void:
 	var shade := _source_image("shade")
 	var mask := _source_image("mask")
 	var design := _source_image("design")
@@ -148,7 +148,7 @@ func _figure_sheets() -> void:
 const CARRIED := ["chaired", "coach_sit", "coach_seated"]
 
 
-func _figure_contacts() -> void:
+func _test_figure_contacts() -> void:
 	var missing := []
 	var odd := []
 	for body in VignetteFigures.BODIES:
@@ -208,7 +208,7 @@ func _body_near(shade: Image, x: int, y: int, r: Rect2i) -> bool:
 # ---------------------------------------------------------------------------
 # Hair overlays: the bald figures' hair, one atlas per style (VignetteFigures)
 # ---------------------------------------------------------------------------
-func _hair_atlases() -> void:
+func _test_hair_atlases() -> void:
 	var files: Array = VignetteFigures.HAIR_FILES
 	var index: Dictionary = VignetteFigures.HAIR_STYLE_INDEX
 	_check(files.size() > 0 and files.size() == index.size() and files.size() == VignetteFigures.HAIR_TEXTURES.size()
@@ -293,7 +293,7 @@ func _source_image(which: String) -> Image:
 # ---------------------------------------------------------------------------
 # The football: a Sherrin spinning end over end (VignetteBall), red by day, yellow at night
 # ---------------------------------------------------------------------------
-func _ball() -> void:
+func _test_ball() -> void:
 	var path := "res://assets/vignette/ball.png"
 	var tex: Texture2D = VignetteBall.TEX
 	var img := Image.load_from_file(ProjectSettings.globalize_path(path))
@@ -340,7 +340,7 @@ const HONOUR_IDS := ["premiership_cup", "premiership_flag", "league_bnf_medal", 
 		"rising_star", "coaches_award", "club_bnf", "all_australian", "minor_premiership"]
 
 
-func _honours() -> void:
+func _test_honours() -> void:
 	var manifest = JSON.parse_string(FileAccess.get_file_as_string(HONOURS_DIR + "honours.json"))
 	var honours: Dictionary = manifest.get("honours", {}) if manifest is Dictionary else {}
 	var ids := honours.keys()
@@ -438,7 +438,7 @@ func _lossless_mipmapped(path: String) -> bool:
 # ---------------------------------------------------------------------------
 # Vignettes in motion
 # ---------------------------------------------------------------------------
-func _vignettes_play_through() -> void:
+func _test_vignettes_play_through() -> void:
 	root.size = Vector2i(390, 844)
 	SV.log_frames = true
 	# The tool itself: a frame past the end of a move is caught.
@@ -525,7 +525,7 @@ func _overruns() -> Array:
 # ---------------------------------------------------------------------------
 # Music
 # ---------------------------------------------------------------------------
-func _music_files() -> void:
+func _test_music_files() -> void:
 	var mm = root.get_node("MusicManager")
 	var listed: Array = mm.TRACK_PATHS
 	var files := []
@@ -673,7 +673,7 @@ func _levels_of(pcm: PackedByteArray, rate: int, channels: int) -> Dictionary:
 			"seconds": float(count) / (rate * channels)}
 
 
-func _music_player() -> void:
+func _test_music_player() -> void:
 	var mm = root.get_node("MusicManager")
 	var player: AudioStreamPlayer = mm.find_child("BackgroundMusic", true, false)
 	_check(player != null and player.volume_db < -6.0, "Menu music plays quietly")
@@ -748,7 +748,7 @@ const BANNER_LONGEST := {"{us}": "Kangaroos", "{them}": "Kangaroos", "{player}":
 		"{games}": "300", "{year}": "2031"}
 
 
-func _banners() -> void:
+func _test_banners() -> void:
 	var B: GDScript = load("res://scripts/core/Banners.gd")
 	var d: Dictionary = B.data()
 	_check(not d.is_empty(), "The banner rhymes load")
@@ -878,3 +878,8 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)

@@ -18,16 +18,16 @@ func run() -> void:
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
-	_test_weights()
-	_test_role_attributes()
-	_test_archetypes()
-	_test_scale()
-	_test_ovr_tracks_strength()
-	_test_save_recomputes()
-	_test_attr_adjustment()
+	_t("_test_weights")
+	_t("_test_role_attributes")
+	_t("_test_archetypes")
+	_t("_test_scale")
+	_t("_test_ovr_tracks_strength")
+	_t("_test_save_recomputes")
+	_t("_test_attr_adjustment")
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
-	print("Ratings tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Ratings", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -38,6 +38,11 @@ func _check(condition: bool, message: String) -> void:
 
 
 ## A flat 50 in every attribute.
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 func _base() -> Dictionary:
 	var a := {}
 	for k in ["disposal", "contested", "marking", "pressure", "intercept", "carry", "goalkicking",

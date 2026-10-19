@@ -16,16 +16,16 @@ func run() -> void:
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
-	_test_durability_matters()
-	_test_season_rate_and_absence()
-	_test_heal_at_rollover()
-	_test_concussion()
-	_test_suspension()
-	_test_tribunal_challenge()
-	_test_played_and_simulated_alike()
-	_test_no_second_roll()
+	_t("_test_durability_matters")
+	_t("_test_season_rate_and_absence")
+	_t("_test_heal_at_rollover")
+	_t("_test_concussion")
+	_t("_test_suspension")
+	_t("_test_tribunal_challenge")
+	_t("_test_played_and_simulated_alike")
+	_t("_test_no_second_roll")
 	GameState.replay_seed = 0
-	print("Injuries tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Injuries", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -33,6 +33,11 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _test_durability_matters() -> void:

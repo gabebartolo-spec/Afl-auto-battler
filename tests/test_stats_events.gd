@@ -22,15 +22,15 @@ func run() -> void:
 		var sim := MatchSim.new(Squad.new(h, GameDB.club_list(h), true, h),
 				Squad.new(a, GameDB.club_list(a), false, a), 4100 + i)
 		results.append(sim.run())
-	_possessions(results)
-	_ruck(results)
-	_shots(results)
-	_bounces(results)
-	_involvements(results)
-	_contested_marks(results)
-	_broken_tackles(results)
-	_old_boxes()
-	print("Stats event tests: %d checks, %d failures" % [checks, failures.size()])
+	_t("_test_possessions", [results])
+	_t("_test_ruck", [results])
+	_t("_test_shots", [results])
+	_t("_test_bounces", [results])
+	_t("_test_involvements", [results])
+	_t("_test_contested_marks", [results])
+	_t("_test_broken_tackles", [results])
+	_t("_test_old_boxes")
+	print(Ran.line("Stats event", self))
 
 
 func _n(st: Dictionary, k: String) -> int:
@@ -40,7 +40,7 @@ func _n(st: Dictionary, k: String) -> int:
 ## Every disposal is one possession, contested or not (a crumb's snap off the
 ## deck is a contested ground ball with no disposal); a ground-ball get is a
 ## contested possession; the team totals are the players'.
-func _possessions(results: Array) -> void:
+func _test_possessions(results: Array) -> void:
 	var bad := ""
 	var cp := 0
 	var up := 0
@@ -66,7 +66,7 @@ func _possessions(results: Array) -> void:
 
 ## A hit-out is a ruck contest won: both rucks are in every contest, so the
 ## two sides' contests match and equal every hit-out of the match.
-func _ruck(results: Array) -> void:
+func _test_ruck(results: Array) -> void:
 	var bad := ""
 	for r in results:
 		var contests := [0, 0]
@@ -85,7 +85,7 @@ func _ruck(results: Array) -> void:
 
 ## Every goal and behind a player kicks is a shot; set shots are a share of
 ## them, with their own goals and behinds.
-func _shots(results: Array) -> void:
+func _test_shots(results: Array) -> void:
 	var bad := ""
 	var shots := 0
 	var sets := 0
@@ -106,7 +106,7 @@ func _shots(results: Array) -> void:
 
 ## A running bounce is a run with the ball: every one is on a disposal whose
 ## event carries the run, one for every 15 metres of it.
-func _bounces(results: Array) -> void:
+func _test_bounces(results: Array) -> void:
 	var bad := ""
 	var total := 0
 	for r in results:
@@ -127,7 +127,7 @@ func _bounces(results: Array) -> void:
 
 ## A goal assist is a score involvement, not a goal: the assist goes to a
 ## teammate who was in the chain.
-func _involvements(results: Array) -> void:
+func _test_involvements(results: Array) -> void:
 	var bad := ""
 	for r in results:
 		for side in [0, 1]:
@@ -144,7 +144,7 @@ func _involvements(results: Array) -> void:
 
 ## A forward's mark inside 50 is contested only when a defender was at it,
 ## and says who (his direct opponent, or the spare): never a roll.
-func _contested_marks(results: Array) -> void:
+func _test_contested_marks(results: Array) -> void:
 	var bad := ""
 	var contested := 0
 	var lead := 0
@@ -168,7 +168,7 @@ func _contested_marks(results: Array) -> void:
 ## A tackle the carrier breaks is a don't argue (a fend) or an evaded tackle
 ## (director, 2026-10-08): the side's count is its players', strength in the
 ## contest leans to the fend and pace to the evade.
-func _broken_tackles(results: Array) -> void:
+func _test_broken_tackles(results: Array) -> void:
 	var bad := ""
 	var total := 0
 	for r in results:
@@ -197,7 +197,7 @@ func _broken_tackles(results: Array) -> void:
 
 ## A match packed before the two were recorded reads back as it was: the
 ## team-only numbers (possession chains) stay where they were.
-func _old_boxes() -> void:
+func _test_old_boxes() -> void:
 	var old_n := StatBook.FIRST_KEYS.size()
 	var old_tn := old_n + 4
 	var team := PackedInt32Array()
@@ -219,3 +219,8 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)

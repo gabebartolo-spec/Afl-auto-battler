@@ -16,29 +16,29 @@ func run() -> void:
 	failures.clear()
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
-	_test_mid_season_round_trip()
-	_test_reload_plays_like_straight()
-	_test_market_opens_fresh()
-	_test_second_offseason_after_reload()
-	_test_second_career_plays_like_first()
-	_test_reload_before_offseason()
-	_test_review_after_reload()
-	_test_training_survives()
-	_test_adjusted_players_survive()
-	_test_no_save_mid_match()
-	_test_mid_draft_round_trip()
-	_test_intake_and_second_season()
-	_test_bad_file_is_ignored()
-	_test_old_club_code_migrates()
-	_test_safe_replacement()
-	_test_fictional_identity()
-	_test_apostrophe_names()
-	_test_career_facts()
-	_test_player_club_follows_list()
-	_test_card_names_never_blank()
+	_t("_test_mid_season_round_trip")
+	_t("_test_reload_plays_like_straight")
+	_t("_test_market_opens_fresh")
+	_t("_test_second_offseason_after_reload")
+	_t("_test_second_career_plays_like_first")
+	_t("_test_reload_before_offseason")
+	_t("_test_review_after_reload")
+	_t("_test_training_survives")
+	_t("_test_adjusted_players_survive")
+	_t("_test_no_save_mid_match")
+	_t("_test_mid_draft_round_trip")
+	_t("_test_intake_and_second_season")
+	_t("_test_bad_file_is_ignored")
+	_t("_test_old_club_code_migrates")
+	_t("_test_safe_replacement")
+	_t("_test_fictional_identity")
+	_t("_test_apostrophe_names")
+	_t("_test_career_facts")
+	_t("_test_player_club_follows_list")
+	_t("_test_card_names_never_blank")
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
-	print("Save tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Save", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -46,6 +46,11 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _new_season(club := "GEE") -> void:

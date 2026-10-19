@@ -43,6 +43,16 @@ func _run() -> void:
 	root.size = Vector2i(390, 844)
 	_rel.set_rows_for_test(null)
 
+	await _t("_test_relations")
+	_state.replay_seed = 0
+	print(Ran.line("Family", self))
+	for f in _failures:
+		print("FAIL: ", f)
+	quit(0 if _failures.is_empty() else 1)
+
+
+## Brothers and families: the shipped rows, both ways round, generated ties and the save (the checks written in _run).
+func _test_relations() -> void:
 	var jacob: Dictionary = _rel.find("Jacob", "van Rooyen", "2003-04-16").get("p", {})
 	var benji: Dictionary = _rel.find("Benji", "van Rooyen", "2008-09-17").get("p", {})
 	var jack: Dictionary = _rel.find("Jack", "Henry", "1998-08-29").get("p", {})
@@ -281,11 +291,6 @@ func _run() -> void:
 				back = q
 		_check(not back.is_empty() and back.get("family", []).size() == 1 and _rel.line(back) == line_before,
 				"The tie survives a save and load: " + (_rel.line(back) if not back.is_empty() else "missing"))
-	_state.replay_seed = 0
-	print("%d checks, %d failures" % [_checks, _failures.size()])
-	for f in _failures:
-		print("FAIL: ", f)
-	quit(0 if _failures.is_empty() else 1)
 
 
 func _board_hash() -> int:
@@ -318,3 +323,8 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)

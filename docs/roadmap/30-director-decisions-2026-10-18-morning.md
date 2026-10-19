@@ -54,6 +54,8 @@ edits the bible.
 | 44 | Who may add a lesson to a skill's learnings log (global rule 10-10: lead only; CLAUDE.md 10-08: any agent) | "Only the lead" | #840: CLAUDE.md points to the global rule |
 | 45 | Remove gradients and glows from CLAUDE.md's avoid list (his 10-08 "not boring" ruling allows them) | "Yes, remove them" | #840 |
 | 46 | Merge duplicate and stale memory notes; shorten the 10-06 flavour and styling sections to roadmap pointers | "Yes, merge and shorten" | #840 (sections); memory merged outside the repo |
+| 51 | (2026-10-19 evening, after he asked why every simple fix takes so long) Lift the one-Godot-slot limit and finish #832 then #828 before anything else? | "Yes: lift the one-slot limit (I'll say when I'm gaming) and finish #832 then #828 before anything else." | four local Godot slots (one while he games); #832, then #828 |
+| 52 | Process changes for the four bottlenecks: PR runs check only the touched suites plus a smoke set (full run on main); suites found by filename, no hand-kept registries; green and approved PRs merge at once; pipeline fixes go ahead of features; at most 3 open PRs, none left conflicting over an hour; copy and one-line fixes merge on green with the lead's review only (critics and his look stay for new screens and visuals) | "you have my go ahead, just fix it" | #832, #828, then a follow-up CI PR |
 
 Left open, no answer yet: the culture young-ceiling size (+1 stays until his playtest) and the Ruthless board warning level (confidence 35, under the 40 poor line).
 

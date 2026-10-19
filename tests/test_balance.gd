@@ -21,7 +21,14 @@ func run() -> void:
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
-	_test_sim_round_is_the_match_engine()
+	_t("_test_sim_round_is_the_match_engine")
+	_t("_test_seasons_keep_the_league")
+	GameState.replay_seed = 0
+	print(Ran.line("Balance", self))
+
+
+## Three seasons must not inflate the league (the checks written in run()).
+func _test_seasons_keep_the_league() -> void:
 	GameState.reset()
 	GameState.start_season("GEE", GameDB.club_list("GEE"))
 	var start := _league()
@@ -52,8 +59,6 @@ func run() -> void:
 				GameState.season_year, float(now["top50"]), float(start["top50"])])
 		_check(int(now["max"]) >= 85, "%d still has a star rated 85+ (%d)" % [
 				GameState.season_year, int(now["max"])])
-	GameState.replay_seed = 0
-	print("Balance tests: %d checks, %d failures" % [checks, failures.size()])
 
 
 func _check(condition: bool, message: String) -> void:
@@ -61,6 +66,11 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _league() -> Dictionary:

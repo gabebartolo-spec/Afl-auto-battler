@@ -33,29 +33,29 @@ func _run() -> void:
 	suite.run()
 	_checks += suite.checks
 	_failures.append_array(suite.failures)
-	await _hub_tests()
-	await _poster_ball()
-	await _fact_options()
-	_former_rules()
-	await _former_player()
-	await _wide_hub_footer()
-	await _phone_footer_fits()
-	await _regular_bye()
-	await _finals_week_by_week()
-	await _finals_cup()
-	await _finals_status_paths()
-	await _coach_approach_card()
-	await _season_wrap()
-	await _season_review_scrolls()
-	await _pre_match_scene()
-	_pre_match_captions()
-	_banner_scene_budget()
+	await _t("_test_hub_tests")
+	await _t("_test_poster_ball")
+	await _t("_test_fact_options")
+	_t("_test_former_rules")
+	await _t("_test_former_player")
+	await _t("_test_wide_hub_footer")
+	await _t("_test_phone_footer_fits")
+	await _t("_test_regular_bye")
+	await _t("_test_finals_week_by_week")
+	await _t("_test_finals_cup")
+	await _t("_test_finals_status_paths")
+	await _t("_test_coach_approach_card")
+	await _t("_test_season_wrap")
+	await _t("_test_season_review_scrolls")
+	await _t("_test_pre_match_scene")
+	_t("_test_pre_match_captions")
+	_t("_test_banner_scene_budget")
 	_state.replay_seed = 0
-	print("Matchup + hub tests: %d checks, %d failures" % [_checks, _failures.size()])
+	print(Ran.line("Matchup + hub", self, [suite]))
 	quit(0 if _failures.is_empty() else 1)
 
 
-func _hub_tests() -> void:
+func _test_hub_tests() -> void:
 	var db = root.get_node("GameDB")
 	_reset()
 	_state.start_season("COL", db.club_list("COL"))
@@ -189,7 +189,7 @@ func _hub_tests() -> void:
 ## On a PC window the club buttons stay pinned in view but sit under the
 ## ladder column, not stretched across the whole page (director: no
 ## full-width bars on PC). Real taps reach them.
-func _wide_hub_footer() -> void:
+func _test_wide_hub_footer() -> void:
 	var db = root.get_node("GameDB")
 	_reset()
 	_state.start_season("COL", db.club_list("COL"))
@@ -225,7 +225,7 @@ func _wide_hub_footer() -> void:
 ## in full (none ellipsised), each button is thumb-high, the row stays on screen, and a real
 ## finger's tap reaches "Sim the week" where it now sits. Checked with no job open on the
 ## staff and with one open ("Coaching · 1", the longest label the row carries).
-func _phone_footer_fits() -> void:
+func _test_phone_footer_fits() -> void:
 	var db = root.get_node("GameDB")
 	for vacancies in [0, 1]:
 		for w in [320, 360, 390, 412]:
@@ -270,7 +270,7 @@ func _phone_footer_fits() -> void:
 	root.size = Vector2i(390, 844)
 
 
-func _regular_bye() -> void:
+func _test_regular_bye() -> void:
 	var db = root.get_node("GameDB")
 	_reset()
 	_state.start_season("MEL", db.club_list("MEL"))
@@ -316,7 +316,7 @@ func _regular_bye() -> void:
 ## Out of the finals, the league still plays them a week at a time: the hub
 ## offers the week, shows its results, and the season (and its awards) ends
 ## only after the Grand Final. Sim to Grand Final stays as the fast-forward.
-func _finals_week_by_week() -> void:
+func _test_finals_week_by_week() -> void:
 	var db = root.get_node("GameDB")
 	var out := ""
 	for code in ["GWS", "RIC", "NTH", "WCE", "STK", "ESS", "ADE"]:
@@ -378,7 +378,7 @@ func _finals_week_by_week() -> void:
 
 ## A rival's approach for your coach sits on the hub until you answer it: a
 ## finger's tap on an answer settles it and leaves the outcome in words.
-func _coach_approach_card() -> void:
+func _test_coach_approach_card() -> void:
 	var db = root.get_node("GameDB")
 	_reset()
 	_state.start_season("GEE", db.club_list("GEE"))
@@ -409,7 +409,7 @@ func _coach_approach_card() -> void:
 
 ## The Season Review runs well past one phone screen: everything under the
 ## top bar scrolls, so the National Draft button at the bottom is reachable.
-func _season_review_scrolls() -> void:
+func _test_season_review_scrolls() -> void:
 	var db = root.get_node("GameDB")
 	_reset()
 	_state.start_season("COL", db.club_list("COL"))
@@ -432,7 +432,7 @@ func _season_review_scrolls() -> void:
 
 
 ## The off-season wrap sits over the hub until you begin the season.
-func _season_wrap() -> void:
+func _test_season_wrap() -> void:
 	_reset()
 	_state.start_season("GEE", root.get_node("GameDB").club_list("GEE"))
 	_state.season_wrap = {"year": _state.season_year, "seen": false,
@@ -477,7 +477,7 @@ func _season_wrap() -> void:
 ## The match ball on the poster (director, 2026-10-14): the real picture
 ## where the "v" was, never tinted, taking no room from the clubs' names and
 ## no taps; without the file the "v" is back and nothing has moved.
-func _poster_ball() -> void:
+func _test_poster_ball() -> void:
 	var db = root.get_node("GameDB")
 	var art = load("res://scripts/ui/UiArt.gd")
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
@@ -575,7 +575,7 @@ func _poster_ball() -> void:
 ## for you in this career and left is one; one who never played for you, or
 ## whose spell with you ended before the game began, is not. The report says
 ## what he did only when he played most of it or kicked a goal.
-func _former_rules() -> void:
+func _test_former_rules() -> void:
 	var FP = load("res://scripts/sim/FormerPlayers.gd")
 	var gone := {"id": "fp_gone", "club": "CAR", "career": {"stints": [["FRE", 2026, 2031, 142, 37], ["CAR", 2032, 2032, 9, 2]]}}
 	var never := {"id": "fp_never", "club": "CAR", "career": {"stints": [["CAR", 2027, 2032, 80, 10]]}}
@@ -633,7 +633,7 @@ func _former_rules() -> void:
 ## the poster, his name in his new club's ink and a tap on it opens him; nothing
 ## for one who never played for you. After the match the report says what he did,
 ## only when he played.
-func _former_player() -> void:
+func _test_former_player() -> void:
 	var db = root.get_node("GameDB")
 	var kit = load("res://scripts/ui/UiKit.gd")
 	var FP = load("res://scripts/sim/FormerPlayers.gd")
@@ -761,7 +761,7 @@ func _tap_scan(label: Control, host: Node) -> bool:
 ## allow, in a fixed order, none marked best; the unsuitable ones are disabled
 ## and say why; a real tap on one starts the match on that call's picker, with the
 ## fact restated above it, and the pick lands as it does from the break.
-func _fact_options() -> void:
+func _test_fact_options() -> void:
 	var db = root.get_node("GameDB")
 	var FO = load("res://scripts/sim/FactOptions.gd")
 	_reset()
@@ -1011,7 +1011,7 @@ func _reset() -> void:
 ## qualifying final's loser is still alive (the double chance), every other loser's season
 ## has ended, the premiers say so (found by uiart: "Your season ended in the Qualifying
 ## Final 2" over a side in the Grand Final).
-func _finals_status_paths() -> void:
+func _test_finals_status_paths() -> void:
 	var db = root.get_node("GameDB")
 	_reset()
 	_state.start_season("FRE", db.club_list("FRE"))
@@ -1066,7 +1066,7 @@ func _finals_status_paths() -> void:
 ## The cup on the finals series (director, 2026-10-14): the real cup art over
 ## the Grand Final before it is played, phone and PC, and big in the
 ## premier's colour once it is won. Every match is still there to tap.
-func _finals_cup() -> void:
+func _test_finals_cup() -> void:
 	var db = root.get_node("GameDB")
 	var kit = load("res://scripts/ui/UiKit.gd")
 	_reset()
@@ -1201,7 +1201,12 @@ func _check(condition: bool, message: String) -> void:
 ## The banner scene's frame budget (web build on a PC ran it slowly): what is the same
 ## every frame is worked out once, not each frame - the stand ring, the oval's turf and
 ## markings points - and the banner's tear times are the same as working each piece out.
-func _banner_scene_budget() -> void:
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
+func _test_banner_scene_budget() -> void:
 	var VG = load("res://scripts/ui/match/VignetteGround.gd")
 	var a = VG._ring_columns(74.0, 86.0, 2.1875)
 	_check(is_same(a, VG._ring_columns(74.0, 86.0, 2.1875)), "The stand ring is made once, not every frame")
@@ -1233,7 +1238,7 @@ func _banner_scene_budget() -> void:
 	_check(Time.get_ticks_usec() - t0 < 50000, "200 frames of the stand ring take under 50 ms (a generous ceiling)")
 
 
-func _pre_match_captions() -> void:
+func _test_pre_match_captions() -> void:
 	var db = root.get_node("GameDB")
 	_reset()
 	_state.start_season("COL", db.club_list("COL"))
@@ -1261,7 +1266,7 @@ func _pre_match_captions() -> void:
 ## a couple of seconds of match day (warm-up, final instructions, through the
 ## banner) while the match is set up, then the match. A tap sends them
 ## through the banner at once.
-func _pre_match_scene() -> void:
+func _test_pre_match_scene() -> void:
 	var db = root.get_node("GameDB")
 	var router = root.get_node("Router")
 	for skip in [false, true]:

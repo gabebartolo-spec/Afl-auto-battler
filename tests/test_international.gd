@@ -23,6 +23,11 @@ func _check(condition: bool, message: String) -> void:
 		failures.append(message)
 		push_error(message)
 
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
+
 
 func _digest(p: Dictionary) -> String:
 	return "%s|%s|%d|%d|%s|%s" % [p["id"], p["role"], int(p["overall"]),
@@ -36,6 +41,17 @@ func run() -> void:
 	state.autosave_enabled = false
 	state.save_path = "user://test_intl.save"
 	state.settings_path = "user://test_intl.cfg"
+	_t("_test_classes", [state, db])
+	_t("_test_career", [state, db])
+	Features.clear("international_prospects")
+	state.delete_saved_career()
+	print(Ran.line("International", self))
+	for f in failures:
+		print("FAIL: ", f)
+
+
+## The switch, the generated classes and what the draft shows of him (the checks written in run()).
+func _test_classes(state: Node, db: Node) -> void:
 	_check(Features.KNOWN.has("international_prospects"), "The switch is a known feature")
 	_check(Features.on("international_prospects"), "The switch ships on (project setting)")
 	Features.set_on("international_prospects", false)
@@ -232,15 +248,8 @@ func run() -> void:
 			seen_last[ln] = true
 	_check(dup == 0, "With the switch on no class repeats a surname over 150 years (%d)" % dup)
 
-	_career(state, db)
-	Features.clear("international_prospects")
-	state.delete_saved_career()
-	print("International tests: %d checks, %d failures" % [_checks, failures.size()])
-	for f in failures:
-		print("FAIL: ", f)
 
-
-func _career(state: Node, db: Node) -> void:
+func _test_career(state: Node, db: Node) -> void:
 	# Old save: a career begun and saved with the switch off loads with it on.
 	Features.set_on("international_prospects", false)
 	state.replay_seed = SEED

@@ -29,6 +29,13 @@ func _check(condition: bool, message: String) -> void:
 		push_error(message)
 
 
+const Ran := preload("res://tests/functions_ran.gd")
+
+
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
+
+
 func _settle(n := 6) -> void:
 	for i in range(n):
 		await process_frame
@@ -45,21 +52,21 @@ func _run() -> void:
 	_gs.save_path = "user://test_traitlink.save"
 	_gs.settings_path = "user://test_traitlink.cfg"
 	_gs.show_real_names = false
-	_words()
+	await _t("_test_words")
 	for club in ["FRE", "MEL"]:
 		for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
-			await _sheet_flow(club, sz)
-	await _line_flow(Vector2i(390, 844))
-	await _line_flow(Vector2i(1280, 720))
-	await _training_news(Vector2i(390, 844))
-	print("Trait link tests: %d checks, %d failures" % [_checks, _failures.size()])
+			await _t("_test_sheet_flow", [club, sz])
+	await _t("_test_line_flow", [Vector2i(390, 844)])
+	await _t("_test_line_flow", [Vector2i(1280, 720)])
+	await _t("_test_training_news", [Vector2i(390, 844)])
+	print(Ran.line("Trait link", self))
 	for f in _failures:
 		print("  FAIL: " + f)
 	quit(0 if _failures.is_empty() else 1)
 
 
 ## Every trait and synergy has a name that can be tapped and words that explain it.
-func _words() -> void:
+func _test_words() -> void:
 	var all: Dictionary = _tl.names()
 	var want := Traits.DEFS.size() + Traits.SYNERGIES.size() + Traits.EARNED.size() + 1
 	_check(all.size() == want, "every trait and synergy is a tappable name (%d of %d)" % [all.size(), want])
@@ -95,7 +102,7 @@ func _touch(pos: Vector2, down: bool) -> void:
 
 
 ## A player with traits, on a player sheet over a screen.
-func _sheet_flow(club: String, sz: Vector2i) -> void:
+func _test_sheet_flow(club: String, sz: Vector2i) -> void:
 	var tag := "%s %dx%d" % [club, sz.x, sz.y]
 	_gs.reset()
 	_gs.start_season(club, _db.club_list(club))
@@ -161,7 +168,7 @@ func _sheet_flow(club: String, sz: Vector2i) -> void:
 
 
 ## A synergy named in a sentence: a real touch along the line finds it.
-func _line_flow(sz: Vector2i) -> void:
+func _test_line_flow(sz: Vector2i) -> void:
 	var tag := "line %dx%d" % [sz.x, sz.y]
 	root.size = sz
 	var host := Control.new()
@@ -196,7 +203,7 @@ func _line_flow(sz: Vector2i) -> void:
 	await _settle()
 
 
-func _training_news(sz: Vector2i) -> void:
+func _test_training_news(sz: Vector2i) -> void:
 	var tag := "news %dx%d" % [sz.x, sz.y]
 	_gs.reset()
 	_gs.set_setting("seen_training_intro", true)
