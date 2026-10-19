@@ -16,16 +16,16 @@ func run() -> void:
 	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
 	_menu("fair", "shrewd")
-	_test_difficulty()
-	_test_trade_margin()
-	_test_news()
-	_test_marquee_games()
-	_test_banner_context()
-	_test_real_names_default()
+	_t("_test_difficulty")
+	_t("_test_trade_margin")
+	_t("_test_news")
+	_t("_test_marquee_games")
+	_t("_test_banner_context")
+	_t("_test_real_names_default")
 	_menu("fair", "shrewd")
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
-	print("League tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("League", self))
 
 
 ## The banner's occasion comes from what anyone at the ground knows: the
@@ -170,6 +170,11 @@ func _check(condition: bool, message: String) -> void:
 
 
 ## The New career menu's two dials, as the setup screen sets them.
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 func _menu(board: String, rivals: String) -> void:
 	GameState.set_new_career_dial("board_patience", board)
 	GameState.set_new_career_dial("rival_recruiting", rivals)

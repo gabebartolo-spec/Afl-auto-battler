@@ -26,11 +26,11 @@ func _run() -> void:
 	_state.settings_path = "user://test_settings.cfg"
 	_state.show_real_names = false
 	_state.replay_seed = SUITE_SEED
-	await _main_ruck_default_and_sticks()
-	await _play_through_order()
-	await _tag_is_permanent()
+	await _t("_test_main_ruck_default_and_sticks")
+	await _t("_test_play_through_order")
+	await _t("_test_tag_is_permanent")
 	_state.autosave_enabled = true
-	print("Match calls tests: %d checks, %d failures" % [_checks, _failures.size()])
+	print(Ran.line("Match calls", self))
 	for f in _failures:
 		print("ERROR: " + f)
 	quit(0 if _failures.is_empty() else 1)
@@ -50,7 +50,12 @@ func _check(condition: bool, message: String) -> void:
 
 ## Old calls with main_ruck "" load and get the assistant's pick, which Start
 ## takes to the engine; a coach's change sticks into the next quarter.
-func _main_ruck_default_and_sticks() -> void:
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
+func _test_main_ruck_default_and_sticks() -> void:
 	var db = root.get_node("GameDB")
 	var Ms = load("res://scripts/sim/MatchSim.gd")
 	root.size = Vector2i(420, 860)
@@ -85,7 +90,7 @@ func _main_ruck_default_and_sticks() -> void:
 
 ## "Play through (forward, midfield, back)": the value lists the same order,
 ## with "no one" holding an empty slot's place, for every combination.
-func _play_through_order() -> void:
+func _test_play_through_order() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.start_season("MEL", db.club_list("MEL"))
@@ -129,7 +134,7 @@ func _any_text(node: Node, text: String) -> bool:
 
 ## The tag is the coach's call all match (director, 2026-10-14): a named
 ## tagger is not rotated off while his tag is on, and a mid/forward can be tagged.
-func _tag_is_permanent() -> void:
+func _test_tag_is_permanent() -> void:
 	var db = root.get_node("GameDB")
 	var Ms = load("res://scripts/sim/MatchSim.gd")
 	_state.reset()

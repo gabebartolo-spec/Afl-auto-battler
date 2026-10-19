@@ -54,7 +54,7 @@ func _test_rivalry_catalogue() -> void:
 	_check(Rivalries.state(quiet, "NTH", "STK") == "",
 			"Routine meetings alone do not manufacture a rivalry")
 
-func test_media_conference_rules() -> void:
+func _test_media_conference_rules() -> void:
 	var MediaConferenceScript = load("res://scripts/sim/MediaConference.gd")
 	var VignetteScript = load("res://scripts/ui/MediaConferenceVignette.gd")
 	var recent := {}
@@ -240,6 +240,11 @@ func _check(condition: bool, message: String) -> void:
 		_failures.append(message)
 		push_error(message)
 
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
+
 
 func _settle() -> void:
 	for i in range(4):
@@ -295,15 +300,15 @@ func _test_sheets_fit_their_content() -> void:
 
 
 func _run() -> void:
-	_test_rivalry_catalogue()
+	_t("_test_rivalry_catalogue")
 	await process_frame
 	_state = root.get_node("GameState")
 	_router = root.get_node("Router")
 	_db = root.get_node("GameDB")
-	_test_history_records_are_stored_facts()
-	await _test_sheets_fit_their_content()
-	_test_player_goal_milestones()
-	test_media_conference_rules()
+	_t("_test_history_records_are_stored_facts")
+	await _t("_test_sheets_fit_their_content")
+	_t("_test_player_goal_milestones")
+	_t("_test_media_conference_rules")
 	# Never touch a real career save or settings file from a test run.
 	_state.autosave_enabled = false
 	_state.save_path = "user://test_career.save"
@@ -312,8 +317,26 @@ func _run() -> void:
 	_state.replay_seed = SUITE_SEED
 	_state.delete_saved_career()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_settings.cfg"))
-	_test_press_rolls()
+	_t("_test_press_rolls")
 
+	await _t("_test_menu_and_career")
+	await _t("_test_season_awards")
+	await _t("_test_back_arrow_taps")
+	await _t("_test_finals_card_taps")
+	await _t("_test_remembered")
+	_t("_test_type_roles")
+	await _t("_test_names_fit")
+	_state.delete_saved_career()
+	await _t("_test_new_career_keeps_the_save")
+	await _t("_test_pc_hub_and_list_layout")
+	await _t("_test_list_shape_fits_phones")
+	print(Ran.line("Career UI", self))
+	_state.replay_seed = 0
+	quit(0 if _failures.is_empty() else 1)
+
+
+## The menu, a new career and the screens a coach meets, in order (the checks written in _run).
+func _test_menu_and_career() -> void:
 	_check(not bool(ProjectSettings.get_setting("application/config/quit_on_go_back", true)),
 			"Android back does not quit the app by default")
 
@@ -1881,20 +1904,6 @@ Your career stays on this device.",
 	_check(_router.current() == "main" and not _state.has_saved_career() and _state.season == null,
 			"Delete this career removes the save and returns to the menu")
 
-	await _test_season_awards()
-	await _test_back_arrow_taps()
-	await _test_finals_card_taps()
-	await _test_remembered()
-	_test_type_roles()
-	await _test_names_fit()
-	_state.delete_saved_career()
-	await _new_career_keeps_the_save()
-	await _pc_hub_and_list_layout()
-	await _list_shape_fits_phones()
-	print("Career UI tests: %d checks, %d failures" % [_checks, _failures.size()])
-	_state.replay_seed = 0
-	quit(0 if _failures.is_empty() else 1)
-
 
 ## The top bar's back arrow, tapped as a finger taps it, leaves every screen -
 ## first closing a first-visit help sheet over it, as Android's Back does
@@ -2306,7 +2315,7 @@ func _find_named(n: Node, named: String, out: Array) -> void:
 ## one they have. The old save stays until the new career has a club; Back on
 ## Choose your club steps back to the New career options, and Continue still
 ## offers the old career. Real taps at each step.
-func _new_career_keeps_the_save() -> void:
+func _test_new_career_keeps_the_save() -> void:
 	_state.reset()
 	_state.start_season("COL", _db.club_list("COL"))
 	_check(_state.save_career(), "(setup) the old career is saved")
@@ -2362,7 +2371,7 @@ func _new_career_keeps_the_save() -> void:
 ## web's PC pass (2026-10-12): at 1280x720 the hub shows Play match and Play
 ## round together without scrolling, and My list's Captaincy row is a row of
 ## text, not a bar across the window.
-func _pc_hub_and_list_layout() -> void:
+func _test_pc_hub_and_list_layout() -> void:
 	root.size = Vector2i(1280, 720)
 	_state.reset()
 	_state.start_season("COL", _db.club_list("COL"))
@@ -2408,7 +2417,7 @@ func _pc_hub_and_list_layout() -> void:
 ## scroll). Every control in the pane is on screen, or inside a scroll that
 ## brings it on screen; a finger's tap on a guernsey at the foot of the oval
 ## opens his profile; a swipe that starts on a guernsey scrolls the pane.
-func _list_shape_fits_phones() -> void:
+func _test_list_shape_fits_phones() -> void:
 	for sz in [Vector2i(360, 740), Vector2i(390, 844), Vector2i(412, 915)]:
 		var tag := "%dx%d" % [sz.x, sz.y]
 		root.size = sz

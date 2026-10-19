@@ -149,12 +149,12 @@ The director runs three agents at once, one per tier. The Low agent also keeps t
 
 **Working alongside the other agents**
 - Before taking an item, run `git worktree list` and `gh pr list`. A sibling worktree or an open PR on the same files means someone has it.
-- Hot files: `scripts/sim/MatchSim.gd`, `scripts/state/GameState.gd`, `scripts/ui/UiKit.gd`, `scripts/ui/match/MatchNotes.gd`, `tests/expected_checks.txt` and this file. Keep hunks small and rebase on `main` just before you push.
-- `tests/expected_checks.txt` has one floor per suite, and two PRs that raise the same suite's floor collide. Raise only the lines for suites you changed. When resolving a collision, the floor is the base plus both PRs' increments, checked against the suite's actual count on the merged result. Do not take the higher of the two, and never lower a floor to get green CI. Put the base and your increment in the merge note.
+- Hot files: `scripts/sim/MatchSim.gd`, `scripts/state/GameState.gd`, `scripts/ui/UiKit.gd`, `scripts/ui/match/MatchNotes.gd` and this file. Keep hunks small and rebase on `main` just before you push.
+- There is no shared check-count file (the floors were retired on 2026-10-18, test suite audit section 4). A suite calls each test function through `_t("_test_x")` and fails, by name, any `_test_*` function that never ran or made no check; a PR that adds a test edits only its own suite file.
 - In this file, edit only your own item. The maintenance log gets a new line at the top from nearly every PR, so a conflict there is normal: keep both sides.
 - Godot is the bottleneck when several agents run it at once. Locally, run only the 1–3 suites your change touches (`tools/run_tests.sh <suites>`); CI runs the rest, as five parallel shards in about eight minutes. Never run the full suite locally. Only one long local Godot run per agent at a time, with its own user data (`APPDATA=<scratch dir>` on Windows), because every checkout shares one `user://`.
 - Long audits (more than about five minutes) go to the audit workflow, not your machine: `gh workflow run audit.yml --ref <branch> -f impl=<name> -f env="KEY=VAL"`, then `gh run download <run-id> -n audit-<name>`.
-- A new suite needs a line in `tools/ci_shards.txt` as well as a floor in `tests/expected_checks.txt`; CI fails if a suite is in no shard.
+- A new suite needs a line in `tools/ci_shards.txt`; CI fails if a suite is in no shard.
 - Do not push to a branch while its CI runs unless you must: a push cancels the run and restarts about eight minutes of work. Ask the Low agent for a sync instead. The Low agent owns merges and cannot push to your branch, so sync your own branch when asked.
 
 **Team workflow (director-approved research findings W1–W7, 2026-10-06)**

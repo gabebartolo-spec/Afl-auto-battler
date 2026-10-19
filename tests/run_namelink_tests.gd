@@ -28,6 +28,11 @@ func _check(condition: bool, message: String) -> void:
 		_failures.append(message)
 		push_error(message)
 
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
+
 
 func _settle(n := 6) -> void:
 	for i in range(n):
@@ -47,17 +52,17 @@ func _run() -> void:
 	_gs.show_real_names = false
 	for club in ["FRE", "MEL"]:
 		for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
-			await _training(club, sz)
-	await _hub_tribunal(Vector2i(390, 844))
-	await _hub_tribunal(Vector2i(1280, 720))
-	await _inked_lines(Vector2i(390, 844))
-	await _inked_lines(Vector2i(1280, 720))
-	await _plain_names(Vector2i(390, 844))
-	await _plain_names(Vector2i(1280, 720))
-	await _drag_over_name(Vector2i(390, 844))
-	await _line_pitch(Vector2i(390, 844))
-	await _line_pitch(Vector2i(1280, 720))
-	print("Name link tests: %d checks, %d failures" % [_checks, _failures.size()])
+			await _t("_test_training", [club, sz])
+	await _t("_test_hub_tribunal", [Vector2i(390, 844)])
+	await _t("_test_hub_tribunal", [Vector2i(1280, 720)])
+	await _t("_test_inked_lines", [Vector2i(390, 844)])
+	await _t("_test_inked_lines", [Vector2i(1280, 720)])
+	await _t("_test_plain_names", [Vector2i(390, 844)])
+	await _t("_test_plain_names", [Vector2i(1280, 720)])
+	await _t("_test_drag_over_name", [Vector2i(390, 844)])
+	await _t("_test_line_pitch", [Vector2i(390, 844)])
+	await _t("_test_line_pitch", [Vector2i(1280, 720)])
+	print(Ran.line("Name link", self))
 	for f in _failures:
 		print("  FAIL: " + f)
 	quit(0 if _failures.is_empty() else 1)
@@ -75,7 +80,7 @@ func _sheet_name(sheet: Control) -> String:
 	return ""
 
 
-func _training(club: String, sz: Vector2i) -> void:
+func _test_training(club: String, sz: Vector2i) -> void:
 	var tag := "%s %dx%d" % [club, sz.x, sz.y]
 	_gs.reset()
 	_gs.set_setting("seen_training_intro", true)
@@ -210,7 +215,7 @@ func _drag(pos: Vector2, rel: Vector2) -> void:
 
 
 ## A swipe that begins on a name scrolls the page and opens nothing.
-func _drag_over_name(sz: Vector2i) -> void:
+func _test_drag_over_name(sz: Vector2i) -> void:
 	_gs.reset()
 	_gs.start_season("FRE", _db.club_list("FRE"))
 	root.size = sz
@@ -254,7 +259,7 @@ func _drag_over_name(sz: Vector2i) -> void:
 
 
 ## A hub line that names a player: the tribunal card's case.
-func _hub_tribunal(sz: Vector2i) -> void:
+func _test_hub_tribunal(sz: Vector2i) -> void:
 	var tag := "hub %dx%d" % [sz.x, sz.y]
 	_gs.reset()
 	_gs.set_setting("seen_training_intro", true)
@@ -284,7 +289,7 @@ func _hub_tribunal(sz: Vector2i) -> void:
 
 ## A name tinted by NameInk (match feed, breaks, full time, hub lines) is a tap too;
 ## inside a button it is not, so the button keeps its own tap.
-func _inked_lines(sz: Vector2i) -> void:
+func _test_inked_lines(sz: Vector2i) -> void:
 	var tag := "inked %dx%d" % [sz.x, sz.y]
 	var ink: GDScript = load("res://scripts/ui/NameInk.gd")
 	_gs.reset()
@@ -320,7 +325,7 @@ func _inked_lines(sz: Vector2i) -> void:
 
 
 ## Phase 2 helpers: a plain label that is a name, and a row with a job of its own.
-func _plain_names(sz: Vector2i) -> void:
+func _test_plain_names(sz: Vector2i) -> void:
 	var tag := "plain %dx%d" % [sz.x, sz.y]
 	_gs.reset()
 	_gs.start_season("MEL", _db.club_list("MEL"))
@@ -368,7 +373,7 @@ func _plain_names(sz: Vector2i) -> void:
 
 ## Names in stacked lines: a thumb that lands in the gap between two lines still opens
 ## the name on the nearer line, and the two lines' strips never overlap.
-func _line_pitch(sz: Vector2i) -> void:
+func _test_line_pitch(sz: Vector2i) -> void:
 	var tag := "pitch %dx%d" % [sz.x, sz.y]
 	_gs.reset()
 	_gs.start_season("FRE", _db.club_list("FRE"))

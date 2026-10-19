@@ -17,20 +17,20 @@ func run() -> void:
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
-	_test_every_club()
-	_test_deterministic()
-	_test_line_extremes()
-	_test_missing_player()
-	_test_danger()
-	_test_danger_needs_a_lever()
-	_test_interceptor_fact()
-	_test_form()
-	_test_unusual_data()
-	_test_own_notes()
-	_test_copy_helpers()
-	_test_matchup_copy()
+	_t("_test_every_club")
+	_t("_test_deterministic")
+	_t("_test_line_extremes")
+	_t("_test_missing_player")
+	_t("_test_danger")
+	_t("_test_danger_needs_a_lever")
+	_t("_test_interceptor_fact")
+	_t("_test_form")
+	_t("_test_unusual_data")
+	_t("_test_own_notes")
+	_t("_test_copy_helpers")
+	_t("_test_matchup_copy")
 	GameState.replay_seed = 0
-	print("Matchup tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Matchup", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -38,6 +38,11 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _league() -> Dictionary:

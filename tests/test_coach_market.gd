@@ -18,23 +18,23 @@ func run() -> void:
 	failures.clear()
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
-	_test_move_rules()
-	_test_eligibility()
-	_test_hiring()
-	_test_senior_coach_decisions()
-	_test_retirement_and_pruning()
-	_test_vacancy_chain()
-	_test_your_staff()
-	_test_generation_and_expansion()
-	_test_long_run()
-	_test_game_flow()
-	_test_assistant_contracts()
-	_test_your_expiring_staff()
-	_test_approaches_market()
-	_test_approaches_flow()
+	_t("_test_move_rules")
+	_t("_test_eligibility")
+	_t("_test_hiring")
+	_t("_test_senior_coach_decisions")
+	_t("_test_retirement_and_pruning")
+	_t("_test_vacancy_chain")
+	_t("_test_your_staff")
+	_t("_test_generation_and_expansion")
+	_t("_test_long_run")
+	_t("_test_game_flow")
+	_t("_test_assistant_contracts")
+	_t("_test_your_expiring_staff")
+	_t("_test_approaches_market")
+	_t("_test_approaches_flow")
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
-	print("Coach market tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Coach market", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -42,6 +42,11 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _coach(cid: String, status: String, club: String, job: String, skills := [72, 72, 72], spec := "") -> Dictionary:

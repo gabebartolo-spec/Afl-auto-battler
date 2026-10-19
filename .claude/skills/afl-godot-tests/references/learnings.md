@@ -20,3 +20,19 @@ reference to `load("res://scripts/sim/<Class>.gd")` fixed each one; `intake_ui` 
 its chain can reach an autoload; `load()` the script by path and type the result loosely. When a suite "times out"
 on CI at exactly the shard limit having printed nothing, suspect this before a slow test. A preflight that compiles
 each runner headless with a short timeout would turn the 900 s hang into a 30 s fail (not built yet).
+
+## 2026-10-18 · count test functions, not checks: the floor registry cost more than it caught
+**Finding:** the check-count floors (`expected_checks.txt` plus a delta file per PR) never caught a real
+defect: the one "checks went missing" failure on record was a false alarm (c6f35800, a floor from "one
+lucky run"), and the truncations that did happen were caught by the script-error rule (#46). Meanwhile
+114 of 162 merged PRs (#643 to #814) edited the floors, 145 delta files sat unfolded on main, and on
+2026-10-18 #810 (+33) and #806 (+51) both counted the same 31 checks: main went red at 7,870 against a
+7,901 floor and every open PR failed until hotfix #822. A floor also cannot be set "from the test code"
+in a loop suite (156 call sites in `test_draft.gd` make 7,901 checks).
+**Evidence:** test suite audit 2026-10-18 section 4 (`docs/research/TEST_SUITE_AUDIT_2026-10-18.md`,
+approved by the director); the replacement, branch `claude/function-count-not-floors`: every suite calls
+its tests through `tests/functions_ran.gd`, and `tools/test_run_tests.sh` proves a fixture with an
+uncalled `_test_x` and one with a check-less test both fail by name.
+**Lesson:** guard "did every test run" with something that lives in the test's own file (a function
+that never ran or made no check fails by name), never with a shared number every PR must edit. A guard
+that every PR touches will conflict, and a guard that has never caught anything costs more than it saves.
