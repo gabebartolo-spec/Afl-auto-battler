@@ -1612,6 +1612,8 @@ func _open_player(id: String) -> void:
 					UiKit.BAD if Traits.is_bad(str(t)) else UiKit.TEXT)
 			tl.name = "Trait_" + str(t)
 			tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			if TraitLink.known(str(t)):
+				TraitLink.tappable(tl, str(t))
 			kv.add_child(tl)
 
 	# The Combine: his results on the day (measured, the same for every club),

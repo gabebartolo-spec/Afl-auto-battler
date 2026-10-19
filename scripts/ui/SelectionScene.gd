@@ -356,13 +356,13 @@ func _synergy_view() -> Control:
 	for r in Traits.progress(GameState.my_squad().ground):
 		if bool(r["active"]):
 			on.append(Traits.with_effect(str(r["key"])))
-	var l := _para("Your side has: " + ", ".join(on) + "." if not on.is_empty()
+	var l := TraitLink.line("Your side has: " + ", ".join(on) + "." if not on.is_empty()
 			else "No line synergies in this side.", 13, UiKit.GOOD if not on.is_empty() else UiKit.MUTED)
 	l.name = "SynergyLine"
 	h.add_child(l)
 	var short := Traits.short_text(GameState.my_squad().ground)
 	if short != "":
-		var s := _para(short, 13, UiKit.MUTED)
+		var s := TraitLink.line(short, 13, UiKit.MUTED)
 		s.name = "SynergyShort"
 		h.add_child(s)
 	var rules := UiKit.btn("Synergies", 14)

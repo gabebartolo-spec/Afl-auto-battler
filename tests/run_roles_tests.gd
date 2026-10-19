@@ -109,9 +109,9 @@ func _test_selection_tests() -> void:
 	var rules_btn: Button = ui.find_child("SynergyRules", true, false)
 	_check(rules_btn != null and rules_btn.size.y >= 44, "A Synergies button opens the rules")
 	# The nearest synergy the side doesn't have, as a fact (director: "Build it").
-	var short_l: Label = ui.find_child("SynergyShort", true, false)
+	var short_l: RichTextLabel = ui.find_child("SynergyShort", true, false)
 	var short_want := Traits.short_text(_state.my_squad().ground)
-	_check((short_l == null and short_want == "") or (short_l != null and short_l.text == short_want),
+	_check((short_l == null and short_want == "") or (short_l != null and short_l.get_parsed_text() == short_want),
 			"Selection says the nearest synergy and what it's short (%s)" % short_want)
 	var lock := func(n: int) -> Array:
 		var out := []
@@ -434,8 +434,8 @@ func _test_selection_pages_tests() -> void:
 		await _settle()
 		_check(wk == "" and ui.find_child("WeekSheet", true, false) != null and ui.find_child("WeekPage", true, false) == null,
 				"Phone: a real tap on the row opens the week over the side (%s %s)" % [tag, wk])
-		var sl: Label = ui.find_child("SynergyLine", true, false)
-		_check(sl != null and sl.text == _synergy_words(), "Phone: the synergies follow the swap (%s)" % tag)
+		var sl: RichTextLabel = ui.find_child("SynergyLine", true, false)
+		_check(sl != null and sl.get_parsed_text() == _synergy_words(), "Phone: the synergies follow the swap (%s)" % tag)
 		var rules: Button = ui.find_child("SynergyRules", true, false)
 		_check(sl != null and rules != null and _gap_x(sl, rules) < 48.0 and _gap_y(sl, rules) < 24.0,
 				"Phone: Synergies sits right under its own line (%s)" % tag)
@@ -478,7 +478,7 @@ func _test_selection_pages_tests() -> void:
 			_check(pc_hint != null and pc_hint.text.contains("Click a player"), "PC: the help line says Click (%s)" % ptag)
 			var week_w := (ui.find_child("WeekScroll", true, false) as Control).size.x
 			_check(week_w >= 460.0 and week_w <= 600.5, "PC: the week keeps a readable column, %d wide (%s)" % [int(week_w), ptag])
-			var sl2: Label = ui.find_child("SynergyLine", true, false)
+			var sl2: RichTextLabel = ui.find_child("SynergyLine", true, false)
 			var rules2: Button = ui.find_child("SynergyRules", true, false)
 			var rep2: Button = ui.find_child("AssistantReport", true, false)
 			var head2: Control = ui.find_child("WeekHeading", true, false)
@@ -500,7 +500,7 @@ func _test_selection_pages_tests() -> void:
 			_check(ta == "" and tb == "" and str(_state.my_selection()["MID"][0]) == w0
 					and str(_state.my_selection()["WING"][0]) == c0
 					and ui.find_child("SynergyLine", true, false).get_instance_id() != sline_before
-					and ui.find_child("SynergyLine", true, false).text == _synergy_words(),
+					and (ui.find_child("SynergyLine", true, false) as RichTextLabel).get_parsed_text() == _synergy_words(),
 					"PC: a real swap rebuilds the synergies and match facts at once (%s)" % ptag)
 			var why4: String = await Tap.tap(ui.find_child("SynergyRules", true, false))
 			await _settle()

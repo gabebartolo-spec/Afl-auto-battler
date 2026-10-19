@@ -2355,14 +2355,15 @@ func _break_answers() -> Dictionary:
 
 ## A "Gain:" / "Cost:" style row: the marker bold, the sentence beside it, both
 ## in full ink (the card-stakes pattern).
-func _plan_row(mark: String, text: String, node_name: String) -> Control:
+func _plan_row(mark: String, text: String, node_name: String, traits := false) -> Control:
 	var item := UiKit.hbox(6)
 	item.name = node_name
 	var mk := UiKit.lbl(mark, UiKit.SECONDARY, UiKit.TEXT, true)
 	mk.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	mk.autowrap_mode = TextServer.AUTOWRAP_OFF
 	item.add_child(mk)
-	var l := _say(text, UiKit.SECONDARY, UiKit.TEXT)
+	# Synergies named here explain themselves on a tap (TraitLink).
+	var l: Control = TraitLink.line(text, UiKit.SECONDARY, UiKit.TEXT) if traits else _say(text, UiKit.SECONDARY, UiKit.TEXT)
 	l.name = "Text"
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2453,8 +2454,8 @@ func _synergy_block() -> Control:
 	var v := UiKit.vbox(3)
 	v.name = "SynergyBlock"
 	v.add_child(UiKit.lbl("Synergies", UiKit.SECONDARY, UiKit.TEXT, true))
-	v.add_child(_plan_row("Yours:", _synergy_names(syn[_my_side]), "SynYours"))
-	v.add_child(_plan_row("Theirs:", _synergy_names(syn[1 - _my_side]), "SynTheirs"))
+	v.add_child(_plan_row("Yours:", _synergy_names(syn[_my_side]), "SynYours", true))
+	v.add_child(_plan_row("Theirs:", _synergy_names(syn[1 - _my_side]), "SynTheirs", true))
 	return v
 
 
@@ -3174,7 +3175,7 @@ func _best_so_far() -> Control:
 	return box
 
 
-func _glance_section(v: VBoxContainer, title: String, node_name: String, lines: Array) -> void:
+func _glance_section(v: VBoxContainer, title: String, node_name: String, lines: Array, traits := false) -> void:
 	if lines.is_empty():
 		return
 	v.add_child(UiKit.spacer(UiKit.GAP))
@@ -3182,7 +3183,7 @@ func _glance_section(v: VBoxContainer, title: String, node_name: String, lines: 
 	var box := UiKit.vbox(4)
 	box.name = node_name
 	for t in lines:
-		var l := _say(str(t), UiKit.BODY, UiKit.TEXT)
+		var l: Control = TraitLink.line(str(t), UiKit.BODY, UiKit.TEXT) if traits else _say(str(t), UiKit.BODY, UiKit.TEXT)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(l)
 	v.add_child(box)
@@ -4000,7 +4001,7 @@ func _ft_summary(v: VBoxContainer) -> void:
 		var matchup_lines: Array = MatchNotes.interceptor_story(_res, me) + MatchNotes.duel_story(_res, me)
 		_glance_section(v, "Key match-ups", "FullTimeMatchups", matchup_lines.slice(0, 3))
 		# Your synergies: the stat each one shows up in, from this match.
-		_glance_section(v, "Your synergies", "FullTimeSynergies", MatchNotes.synergy_lines(_res, me).slice(0, 3))
+		_glance_section(v, "Your synergies", "FullTimeSynergies", MatchNotes.synergy_lines(_res, me).slice(0, 3), true)
 
 	# Your calls, quarter by quarter: what each was about and how that went.
 	if mine and _interactive:

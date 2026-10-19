@@ -17,7 +17,7 @@
 1: save
 2: match_game
 3: story chronology namelink calibration
-4: career match_marks
+4: career match_marks traitlink
 5: match_visual stats intake family
 6: preseason expansion pressure intake_ui nameink
 7: matchday career_ui draft_ui awards fitness selection

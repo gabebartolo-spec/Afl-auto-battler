@@ -132,6 +132,8 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 		var tl := UiKit.lbl("%s. %s" % [Traits.label(str(t)), Traits.scout(str(t))], UiKit.SMALL,
 				UiKit.BAD if Traits.is_bad(str(t)) else UiKit.TEXT)
 		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		tl.name = "Trait_" + str(t)
+		TraitLink.tappable(tl, str(t))
 		v.add_child(tl)
 
 	# What he has done.

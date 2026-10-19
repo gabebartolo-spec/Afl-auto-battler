@@ -213,9 +213,10 @@ static func _still(label: Control, at: Vector2) -> bool:
 
 static func _on_meta(meta: Variant, label: RichTextLabel) -> void:
 	var s := str(meta)
-	if not s.begins_with(SCHEME):
+	# A trait's name in the same line (TraitLink) takes the same tap; its id keeps its scheme.
+	if not (s.begins_with(SCHEME) or s.begins_with(TraitLink.SCHEME)):
 		return
-	var id := s.substr(SCHEME.length())
+	var id := s if s.begins_with(TraitLink.SCHEME) else s.substr(SCHEME.length())
 	if int(label.get_meta("name_link_up_frame", -1)) == Engine.get_process_frames():
 		# Reported as the finger lifted.
 		if _still(label, label.get_global_mouse_position()):
@@ -242,6 +243,8 @@ static func find(id: String) -> Dictionary:
 ## Open his profile over the screen `from` is on. Returns the sheet, or null when
 ## no one has that id. A profile already open is replaced, not stacked.
 static func open(from: Node, id: String) -> Control:
+	if id.begins_with(TraitLink.SCHEME):
+		return TraitLink.open(from, id.substr(TraitLink.SCHEME.length()))
 	var p := find(id)
 	if p.is_empty() or from == null or not from.is_inside_tree():
 		return null
@@ -328,6 +331,8 @@ static func on_profile_tap(row: Control) -> bool:
 static func close_open(scene: Node) -> bool:
 	if scene == null:
 		return false
+	if TraitLink.close_open(scene):
+		return true
 	for c in scene.get_children():
 		if c.name == SHEET_NAME and c.has_meta("name_link") and not c.is_queued_for_deletion():
 			c.queue_free()
