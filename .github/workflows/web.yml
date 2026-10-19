@@ -13,6 +13,11 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    # A docs-only merge builds nothing new, and starting a run here would
+    # cancel the build of the last code merge (concurrency below).
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
 
 permissions:
   contents: read
