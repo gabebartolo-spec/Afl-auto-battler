@@ -3,7 +3,7 @@
 The Settings sheet and the main menu read it (BuildInfo.label). This fails if a second copy
 of the number appears: a hard-coded version in scripts/, or one in export_presets.cfg (the
 Android version name and the Windows file/product version must be empty so Godot uses
-config/version), or an Android version code that has drifted from the patch number.
+config/version), or an Android version code that has drifted from the version (major*10000 + minor*100 + patch).
 
     python3 -I tools/check_version.py [repo root]
 """
@@ -27,6 +27,7 @@ def problems(project_text, presets_text, script_texts):
     if not m:
         return ["project.godot config/version is %r, not major.minor.patch" % version]
     major, minor, patch = m.group(1), m.group(2), int(m.group(3))
+    code = int(major) * 10000 + int(minor) * 100 + patch
     stray = re.compile(r"(?<![\w.])%s\.%s\.\d+(?:\.\d+)?(?![\w.])" % (major, minor))
     for path, text in script_texts.items():
         for n, line in enumerate(text.splitlines(), 1):
@@ -39,9 +40,9 @@ def problems(project_text, presets_text, script_texts):
                 out.append("export_presets.cfg %s=%r must be empty (Godot then uses config/version)"
                            % (key, m2.group(1)))
     for m2 in re.finditer(r"(?m)^version/code=(\d+)\s*$", presets_text):
-        if int(m2.group(1)) != patch:
-            out.append("export_presets.cfg version/code=%s but the patch number is %d (tools/bump_version.py keeps them level)"
-                       % (m2.group(1), patch))
+        if int(m2.group(1)) != code:
+            out.append("export_presets.cfg version/code=%s but %s needs %d (tools/bump_version.py keeps them level)"
+                       % (m2.group(1), version, code))
     return out
 
 

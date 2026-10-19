@@ -6,14 +6,27 @@ extends BroadcastVignette
 ## his arms go up. His number is worn on the back, so it isn't shown here: the
 ## caption names him.
 
-const REVEAL_TIME := 2.4
-## Walk-on, turn to face us, arms up.
+const REVEAL_TIME := 2.7
+## Walk-on, plant the last step, turn to face us, then the arms go up: a
+## small dip, arms out, hands up, arms full up (motion critic, 2026-10-18:
+## no pose changes in a single frame, no camera move on the frame he stops).
 const WALK_END := 1.4
-const ARMS_UP := 1.8
-## Walking pace: cycles of the walk per second.
-const PACES := 0.9
+const PLANT_END := 1.52
+## Each pose change: one frame (POSE_BLEND) of the next pose half over the
+## last, then the pose held (POSE_STEP in all). Never a longer cross-dissolve.
+const POSE_STEP := 0.12
+const POSE_BLEND := 0.04
+const TURN_END := PLANT_END + POSE_STEP
+const ARMS_START := 1.8
+## Idle, small dip, arms out, hands up, arms up: four changes.
+const ARMS_UP := ARMS_START + 4 * POSE_STEP
+## One step of the walk, in metres: the gait is driven by the ground he covers,
+## so the boots do not slide, and he lands his last step with his feet together.
+const STEP_M := 0.55
 var club := ""
 var number := 0
+## False on draft night: the new man walks on and faces the room, no medal.
+var medal := true
 
 func setup_winner(code: String, jumper := 0, player_id := "") -> void:
 	club = code
@@ -60,12 +73,16 @@ func _draw() -> void:
 	var stage_y := h * 0.64          # the front edge of the stage, where he stands
 	# Room above him for his arms up (about 1.25 of his height) under the letterbox.
 	var scale := minf(w / 260.0, (stage_y - 16.0) / (FIGURE_PX * 1.25))
-	var walk := smoothstep(0.0, WALK_END, _t)
-	var x := lerpf(w * 0.23, w * 0.5, walk)
-	# The camera from the back of the room: panning with him across the stage, in on him
-	# as the medal goes on, easing out a touch for the arms going up (VignetteCamera).
+	# Already walking as he comes on (the gait starts at once), easing to a stop.
+	var k_walk := clampf(_t / WALK_END, 0.0, 1.0)
+	var walk := 1.0 - (1.0 - k_walk) * (1.0 - k_walk)
+	var x0 := w * 0.23
+	var x := lerpf(x0, w * 0.5, walk)
+	# The camera from the back of the room: panning with him across the stage; once he
+	# has turned to us, in on him as the medal goes on; easing out a touch once his arms
+	# are up (VignetteCamera). Never a camera move starting on the frame he stops.
 	var G := VignetteCamera
-	var zoom: float = G.glide(G.glide(1.15, 1.28, _t, WALK_END - 0.2, 1.9), 1.16, _t, ARMS_UP, REVEAL_TIME)
+	var zoom: float = G.glide(G.glide(1.15, 1.28, _t, TURN_END, ARMS_START + 0.15), 1.16, _t, ARMS_UP + POSE_BLEND, REVEAL_TIME)
 	var focus := Vector2(x, stage_y - 0.9 * PX_PER_M * scale)
 	_view = G.view(size, focus + G.breathe(_t, size), zoom)
 	draw_set_transform_matrix(_view)
@@ -73,17 +90,26 @@ func _draw() -> void:
 	_draw_spotlight(Vector2(x, stage_y), w, h)
 	_draw_lectern(Vector2(w * 0.74, stage_y - 0.02 * h), scale)
 	var hip := Vector2(x, stage_y - 38.0 * scale)
+	# Whole steps over the walk, so the last one lands feet together (frame 0 or 4).
+	var span_m := (w * 0.5 - x0) / (PX_PER_M * scale)
+	var steps := maxi(2, roundi(span_m / STEP_M))
+	var planted := (steps * 4) % 8
 	if _t < WALK_END:
-		_figure(hip, scale, 0, "walk", "front_r", int(_t * PACES * 8.0) % 8, 0, _look)
-	elif _t < ARMS_UP:
-		_figure(hip, scale, 0, "idle", "front", 0, 0, _look)
+		var gait := int((x - x0) / maxf(1.0, w * 0.5 - x0) * steps * 4.0)
+		_figure(hip, scale, 0, "walk", "front_r", gait % 8, 0, _look)
+	elif _t < ARMS_START:
+		# He plants his last step, then turns square to us.
+		_poses(PLANT_END, [["walk", "front_r", planted], ["idle", "front", 0]], hip, scale)
 	else:
-		_figure(hip, scale, 0, "celebrate", "front", 0, 0, _look)
+		# A small dip at the knees, arms out, hands up (the leap's take-off frames,
+		# both boots on the boards), then arms full up.
+		_poses(ARMS_START, [["idle", "front", 0], ["leap", "front", 1], ["leap", "front", 2],
+				["leap", "front", 3], ["celebrate", "front", 0]], hip, scale)
 	# The medal settles onto his chest on its ribbon; no invented facial likeness.
-	if _t >= WALK_END:
+	if medal and _t >= WALK_END:
 		var neck := _at(hip, scale, Vector2(0.0, 1.55))
 		var chest := _at(hip, scale, Vector2(0.0, 1.28))
-		var medal_y := lerpf(chest.y - 0.2 * PX_PER_M * scale, chest.y, smoothstep(WALK_END, 1.9, _t))
+		var medal_y := lerpf(chest.y - 0.2 * PX_PER_M * scale, chest.y, smoothstep(TURN_END, ARMS_START + 0.1, _t))
 		var tie := Vector2(x, medal_y)
 		var ribbon := Color(0.85, 0.82, 0.72)
 		draw_line(neck + Vector2(-0.07, 0.0) * PX_PER_M * scale, tie, ribbon, maxf(1.5, scale), true)
@@ -94,6 +120,26 @@ func _draw() -> void:
 	# Letterbox matches the existing cinematic close-ups.
 	draw_rect(Rect2(0, 0, w, 10), Color.BLACK)
 	draw_rect(Rect2(0, h - 10, w, 10), Color.BLACK)
+
+
+## A run of poses from t0: each new pose comes in over one frame (POSE_BLEND,
+## half over the last), then holds to the end of its POSE_STEP; the last holds.
+func _poses(t0: float, seq: Array, hip: Vector2, scale: float) -> void:
+	var e := maxf(0.0, _t - t0)
+	var i := mini(seq.size() - 1, int(e / POSE_STEP))
+	var into := e - i * POSE_STEP
+	if i > 0 and into < POSE_BLEND and int(e / POSE_STEP) < seq.size():
+		var was: Array = seq[i - 1]
+		_figure(hip, scale, 0, was[0], was[1], was[2], 0, _look)
+		var now: Array = seq[i]
+		_fig_alpha = 0.5
+		_no_shadow = true
+		_figure(hip, scale, 0, now[0], now[1], now[2], 0, _look)
+		_fig_alpha = 1.0
+		_no_shadow = false
+		return
+	var pose: Array = seq[i]
+	_figure(hip, scale, 0, pose[0], pose[1], pose[2], 0, _look)
 
 
 ## The room behind him: dark walls, warm wall lights, the stage with its club-colour
@@ -157,7 +203,7 @@ func _draw_lectern(base: Vector2, scale: float) -> void:
 ## seated at them watching the stage, and the nearest heads big in the foreground - all in
 ## silhouette against the stage light. They applaud once the medal is on.
 func _draw_audience(w: float, h: float, stage_y: float) -> void:
-	var clap := _t >= 1.6
+	var clap := _t >= TURN_END
 	var guest := Color(0.05, 0.048, 0.058)
 	var rim := Color(0.62, 0.55, 0.46, 0.6)
 	var table_y := stage_y + h * 0.17

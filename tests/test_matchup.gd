@@ -52,10 +52,10 @@ func _league() -> Dictionary:
 	return lists
 
 
-## Player-facing copy must not leak the calculation.
+## Player-facing copy must not name the engine's rating terms.
 func _clean(text: String) -> bool:
 	var rx := RegEx.new()
-	rx.compile("%|\\d+\\.\\d|rating|coefficient|\\+\\d|-\\d|OVR")
+	rx.compile("rating|coefficient|OVR")
 	return text != "" and rx.search(text) == null
 
 
@@ -74,7 +74,7 @@ func _test_every_club() -> void:
 				clean = false
 				push_error("Leaky fact for %s: %s" % [code, x["text"]])
 	_check(all_ok, "No club gets more than %d facts" % Matchup.MAX_FACTS)
-	_check(clean, "Facts are football words: no percentages, decimals or ratings")
+	_check(clean, "Facts are football words: no rating, coefficient or OVR")
 	_check(total > 0, "The league produces some facts (%d)" % total)
 
 
@@ -297,7 +297,7 @@ func _test_copy_helpers() -> void:
 			and GameState.ordinal(13) == "13th" and GameState.ordinal(21) == "21st"
 			and GameState.ordinal(22) == "22nd", "Ladder positions read 1st, 2nd, 11th, 21st")
 	var line := GameState.form_line({"value": 0.42, "label": "Good", "last": "WWLWW"})
-	_check(line == "Form: Good  ·  WWLWW", "The form line has no internal number (%s)" % line)
+	_check(line == "Form: Good  ·  WWLWW", "The form line reads label then results (%s)" % line)
 
 
 ## Every key match-up line names both players - no "on him", no dangling

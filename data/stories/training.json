@@ -561,5 +561,320 @@
 				}
 			}
 		]
+	},
+	{
+		"id": "pre_recruit_behind",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"new_here": true,
+				"fit": true
+			},
+			"pick": "lowest:overall"
+		},
+		"title": [
+			"{name} is behind the group"
+		],
+		"text": [
+			"{first} came in this summer and the running group has already left him. The fitness staff want to know what you want done."
+		],
+		"choices": [
+			{
+				"key": "extra",
+				"label": "Put him on extra sessions",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 8
+					},
+					{
+						"op": "morale",
+						"d": -3
+					}
+				],
+				"result": "{first} puts in the extra sessions, and feels singled out."
+			},
+			{
+				"key": "group",
+				"label": "Keep him with the group",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3
+					},
+					{
+						"op": "culture",
+						"strand": "standards",
+						"d": -1,
+						"why": "A new recruit was left to carry short in pre-season"
+					}
+				],
+				"result": "{first} stays with the group and keeps struggling to catch up."
+			}
+		],
+		"category": "training",
+		"phase": [
+			"preseason"
+		],
+		"cooldown": 20,
+		"per_season": 1
+	},
+	{
+		"id": "pre_bulking_up",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"age_max": 22,
+				"pot_gap_min": 6,
+				"fit": true
+			},
+			"pick": "highest:pot_gap"
+		},
+		"title": [
+			"{name} has put on size"
+		],
+		"text": [
+			"{first} has packed on muscle over the summer and it shows in the contested work. The gym staff want to keep pushing him; the physio would rather hold the weight where it is."
+		],
+		"choices": [
+			{
+				"key": "build",
+				"label": "Keep building him up",
+				"effects": [
+					{
+						"op": "xp",
+						"d": 12
+					},
+					{
+						"op": "sore"
+					}
+				],
+				"result": "{first} keeps adding size through the last blocks."
+			},
+			{
+				"key": "hold",
+				"label": "Hold the weight where it is",
+				"effects": [
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You listened to the physio about his body"
+					},
+					{
+						"op": "forgo_xp",
+						"d": 12
+					}
+				],
+				"result": "{first} holds his weight and works on his speed instead."
+			}
+		],
+		"category": "training",
+		"phase": [
+			"preseason"
+		],
+		"cooldown": 20,
+		"per_season": 1
+	},
+	{
+		"id": "pre_camp",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"The pre-season camp"
+		],
+		"text": [
+			"The leaders want to get the group away before the last block. There are three ways to spend it."
+		],
+		"choices": [
+			{
+				"key": "hard",
+				"label": "A hard camp",
+				"effects": [
+					{
+						"op": "running",
+						"d": 1
+					},
+					{
+						"op": "xp",
+						"d": 6,
+						"who": "all"
+					},
+					{
+						"op": "morale",
+						"d": -3,
+						"who": "all"
+					}
+				],
+				"result": "Three days of sand hills, two-a-days and sore bodies."
+			},
+			{
+				"key": "bond",
+				"label": "A bonding camp",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 4,
+						"who": "all"
+					},
+					{
+						"op": "culture",
+						"strand": "together",
+						"d": 1,
+						"why": "A team camp away together in pre-season"
+					},
+					{
+						"op": "running",
+						"d": -1
+					}
+				],
+				"result": "Three days away together, with more laughs than running."
+			},
+			{
+				"key": "drill",
+				"label": "Stay home and drill the plan",
+				"effects": [
+					{
+						"op": "drill",
+						"d": 2
+					},
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "all"
+					}
+				],
+				"result": "A week at the club, running the plan until it's second nature."
+			}
+		],
+		"category": "training",
+		"phase": [
+			"preseason"
+		],
+		"cooldown": 20,
+		"per_season": 1
+	},
+	{
+		"id": "pre_flag_hangover",
+		"subject": {
+			"kind": "club"
+		},
+		"when": {
+			"premiers": true
+		},
+		"title": [
+			"Premiers, and the legs know it"
+		],
+		"text": [
+			"A flag is a long night, and the list has come back soft. The fitness staff say the base is behind where it should be this time of year."
+		],
+		"choices": [
+			{
+				"key": "run",
+				"label": "Run it out of them",
+				"effects": [
+					{
+						"op": "running",
+						"d": 1
+					},
+					{
+						"op": "culture",
+						"strand": "standards",
+						"d": 1,
+						"why": "You made the premiers earn their legs back"
+					},
+					{
+						"op": "morale",
+						"d": -3,
+						"who": "all"
+					}
+				],
+				"result": "Early mornings until the flag is out of their legs."
+			},
+			{
+				"key": "ease",
+				"label": "Let them enjoy it a little longer",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "all"
+					},
+					{
+						"op": "culture",
+						"strand": "together",
+						"d": 1,
+						"why": "You let the premiers enjoy the flag a little longer"
+					},
+					{
+						"op": "running",
+						"d": -1
+					}
+				],
+				"result": "The premiers get a few more easy weeks, and the running waits."
+			}
+		],
+		"category": "training",
+		"phase": [
+			"preseason"
+		],
+		"cooldown": 20,
+		"per_season": 1
+	},
+	{
+		"id": "pre_sim_heated",
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"Match sim got heated"
+		],
+		"text": [
+			"Two of the boys had to be pulled apart at match sim. The assistants reckon it's the edge you've been after."
+		],
+		"choices": [
+			{
+				"key": "leave",
+				"label": "Leave it on the track",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "all"
+					},
+					{
+						"op": "culture",
+						"strand": "standards",
+						"d": -1,
+						"why": "A fight at match sim was left alone"
+					}
+				],
+				"result": "It stays on the track."
+			},
+			{
+				"key": "pull",
+				"label": "Pull the group up on it",
+				"effects": [
+					{
+						"op": "culture",
+						"strand": "standards",
+						"d": 1,
+						"why": "You pulled the group up after a fight at match sim"
+					},
+					{
+						"op": "morale",
+						"d": -3,
+						"who": "all"
+					}
+				],
+				"result": "You pull the group up. The standard is set."
+			}
+		],
+		"category": "training",
+		"phase": [
+			"preseason"
+		],
+		"cooldown": 20,
+		"per_season": 1
 	}
 ]

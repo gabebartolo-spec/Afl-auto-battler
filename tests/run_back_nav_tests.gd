@@ -19,6 +19,7 @@ var _failures: Array[String] = []
 var _table: Array[String] = []
 
 const SUITE_SEED := 2027
+const Tap := preload("res://tests/tap.gd")
 
 
 func _initialize() -> void:
@@ -344,6 +345,21 @@ func _click_named(scene: Node, node_name: String) -> String:
 	return await _click(scene.find_child(node_name, true, false))
 
 
+## A real tap on a control that may sit below the fold of its page (the season
+## plan row, under the week's facts and their options): the player scrolls to
+## it, then the touch lands at its on-screen position (tests/tap.gd).
+func _tap_named(scene: Node, node_name: String) -> String:
+	var c := scene.find_child(node_name, true, false) as Control
+	if c == null:
+		return "no control"
+	for i in range(90):
+		var fading := current_scene as CanvasItem
+		if fading == null or fading.modulate.a >= 0.99:
+			break
+		await process_frame
+	return await Tap.tap(c)
+
+
 func _test_overlays() -> void:
 	var pid := _first_player_id()
 	await _overlay_case("hub: settings sheet", "hub", func(s): await _click_named(s, "HubSettings"))
@@ -359,11 +375,11 @@ func _test_overlays() -> void:
 				break
 		await process_frame
 		s.call("_on_sim_round"))
-	await _overlay_case("hub: season plan", "hub", func(s): await _click_named(s, "SeasonPlanLine"))
+	await _overlay_case("hub: season plan", "hub", func(s): await _tap_named(s, "SeasonPlanLine"))
 	await _overlay_case("list: player profile", "list", func(s): s.call("_open_profile", pid))
 	await _overlay_case("list: captaincy sheet", "list", func(s): s.call("_open_captaincy"))
 	await _overlay_case("training: stat guide", "training", func(s): await _click_named(s, "StatGuideButton"))
-	await _overlay_case("training: season plan", "training", func(s): await _click_named(s, "SeasonPlanLine"))
+	await _overlay_case("training: season plan", "training", func(s): await _tap_named(s, "SeasonPlanLine"))
 	await _overlay_case("training: first-visit intro", "training", func(s): s.call("_show_intro"),
 			func(): _state.set_setting("seen_training_intro", false))
 	await _overlay_case("stats: first-visit intro", "stats", func(s): s.call("_show_intro"))

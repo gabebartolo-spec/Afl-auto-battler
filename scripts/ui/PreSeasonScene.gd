@@ -4,7 +4,9 @@ extends Control
 ##   the plan       a load and a focus for each of the three blocks, then go;
 ##   the time trial who ran well and who did not, and the blocks still to come;
 ##   the intra-club  how the two sides are made and which draft prospects are
-##                   invited, then (coached or simmed) what the match showed.
+##                   invited, then (coached or simmed) what the match showed;
+##   the practice    the club you play, the side and plan you take and which
+##                   prospects you trial, then what the match showed.
 ## Every choice says what it gains and what it costs in words, and the fitness
 ## base the training builds is pinned above the way on, so it answers each
 ## change in view. Nothing is recommended. The hub sends the coach here while a
@@ -78,13 +80,37 @@ func _build() -> void:
 	for i in range(PreSeason.block_count()):
 		if not GameState.preseason_block_open(i):
 			first = i + 1
-	if stop == "intra":
+	if stop == "papers":
+		if _wide():
+			# A PC: the story on the left, the ladder beside it.
+			var pcols := UiKit.hbox(28)
+			var pl := _papers_story()
+			pl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			pcols.add_child(pl)
+			var pr := _papers_ladder()
+			pr.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			pcols.add_child(pr)
+			page.add_child(pcols)
+		else:
+			page.add_child(_papers_story())
+			page.add_child(_papers_ladder())
+	if stop == "story":
+		page.add_child(_story_cards())
+		page.add_child(_blocks_section(first, _wide()))
+		page.add_child(_base_result())
+	elif stop == "intra":
 		if GameState.intra_played():
 			page.add_child(_intra_report())
 			page.add_child(_blocks_section(first, _wide()))
 			page.add_child(_base_result())
 		else:
 			page.add_child(_intra_setup())
+	elif stop == "practice":
+		if GameState.practice_played():
+			page.add_child(_match_report(GameState.preseason_practice().get("report", {}), "Practice", GameState.draftee_pool))
+			page.add_child(_base_result())
+		else:
+			page.add_child(_practice_setup())
 	elif stop == "trial" and _wide():
 		# A PC: the time trial on the left, the weeks to come beside it.
 		var cols := UiKit.hbox(28)
@@ -193,6 +219,12 @@ func _hero(stop: String) -> String:
 			return "The time trial"
 		"intra":
 			return "The intra-club match"
+		"practice":
+			return "The practice match"
+		"papers":
+			return "The papers"
+		"story":
+			return "After week %d of %d" % [GameState.preseason_week(), PreSeason.weeks()]
 	return "Week %d of 8" % mini(PreSeason.weeks(), GameState.preseason_week() + 1)
 
 
@@ -206,7 +238,136 @@ func _hero_sub(stop: String) -> String:
 			if GameState.intra_played():
 				return "End of week 5. It counts for nothing on the ladder; what it showed is below."
 			return "End of week 5: two sides of 23 from your own list, with prospects from this year's National Draft filling the spots. It counts for nothing on the ladder."
+		"practice":
+			var opp := GameDB.club_name(GameState.practice_opponent())
+			if GameState.practice_played():
+				return "End of week 7, against %s. It counts for nothing on the ladder; what it showed is below. Week 8 is a quiet week: no training, and the papers come out." % opp
+			return "End of week 7: one match against %s. It counts for nothing on the ladder." % opp
+		"papers":
+			return "Week 8. Training is done. This is the ladder the papers have printed, and what they want to know."
+		"story":
+			return "Something has come up. Answer it, or press on and nothing changes."
 	return "Training is under way."
+
+
+# ---------------------------------------------------------------------------
+# The papers: the story to answer, and the ladder they printed
+# ---------------------------------------------------------------------------
+## The one story, with the three answers (back it, deflect, talk it up), each
+## with what it gains and what it costs; or, once answered, what you said.
+func _papers_story() -> Control:
+	var v := UiKit.vbox(8)
+	v.name = "PapersStory"
+	var rec: Dictionary = GameState.papers_record()
+	var card: Dictionary = GameState.papers_card()
+	if card.is_empty():
+		var none := UiKit.lbl("The papers have no question for you this year.", UiKit.BODY, UiKit.TEXT)
+		none.name = "PapersNothing"
+		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(none)
+		return v
+	# Every name in the story wears his club's colour (NameInk).
+	var names := NameInk.from_lists(GameState.season.lists)
+	var title := NameInk.label(str(card.get("title", "")), names, UiKit.HEADING, UiKit.TEXT, true)
+	title.name = "PapersTitle"
+	v.add_child(title)
+	var text := NameInk.label(str(card.get("text", "")), names, UiKit.BODY, UiKit.TEXT)
+	text.name = "PapersText"
+	v.add_child(text)
+	if bool(rec.get("answered", false)):
+		v.add_child(UiKit.spacer(4))
+		var said := NameInk.label(str(rec.get("result", "")), names, UiKit.BODY, UiKit.TEXT, true)
+		said.name = "PapersResult"
+		v.add_child(said)
+		return v
+	var silence := str((card.get("unanswered", {}) as Dictionary).get("hint", ""))
+	if silence != "":
+		var sl := NameInk.label(silence, names, UiKit.SECONDARY, UiKit.TEXT)
+		sl.name = "PapersSilence"
+		v.add_child(sl)
+	var opts: Array = card.get("options", [])
+	for i in range(opts.size()):
+		var o: Dictionary = opts[i]
+		var col := UiKit.vbox(3)
+		var b := UiKit.btn(str(o.get("label", "")), UiKit.BODY, false)
+		b.name = "Papers_%d" % i
+		b.custom_minimum_size = Vector2(0, 48)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var index := i
+		b.pressed.connect(func():
+			GameState.papers_answer(index)
+			GameState.autosave()
+			_build())
+		col.add_child(b)
+		for line in StoryEngine.stakes_lines(o.get("effects", []), card.get("facts", {})):
+			var mark := ""
+			var kind := "Note"
+			if line.begins_with(StoryEngine.GAIN_MARK):
+				mark = "Gain:"
+				kind = "Gain"
+			elif line.begins_with(StoryEngine.COST_MARK):
+				mark = "Cost:"
+				kind = "Cost"
+			var cl := NameInk.label(line.substr(mark.length()).strip_edges() if mark != "" else line, names, UiKit.SECONDARY, UiKit.TEXT)
+			cl.name = "Papers%s_%d" % [kind, i]
+			if mark == "":
+				col.add_child(cl)
+				continue
+			var item := UiKit.hbox(6)
+			var mk := UiKit.lbl(mark, UiKit.SECONDARY, UiKit.TEXT, true)
+			mk.name = "Papers%sMark_%d" % [kind, i]
+			mk.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			mk.autowrap_mode = TextServer.AUTOWRAP_OFF
+			mk.custom_minimum_size = Vector2(40, 0)
+			item.add_child(mk)
+			cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			item.add_child(cl)
+			col.add_child(item)
+		v.add_child(col)
+	return v
+
+
+## The ladder the papers printed, best first: your club in bold, every club
+## in its own colour.
+func _papers_ladder() -> Control:
+	var v := UiKit.vbox(2)
+	v.name = "PapersLadder"
+	v.add_child(_section_head("The papers' ladder"))
+	var order: Array = GameState.papers_record().get("order", [])
+	# A PC is short: the ladder is two columns of nine, so all of it is in view.
+	var cols: Array = [v, v]
+	if _wide():
+		var pair := UiKit.hbox(24)
+		pair.name = "PapersLadderColumns"
+		var left := UiKit.vbox(2)
+		var right := UiKit.vbox(2)
+		left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		pair.add_child(left)
+		pair.add_child(right)
+		v.add_child(pair)
+		cols = [left, right]
+	for i in range(order.size()):
+		var code := str(order[i])
+		var row := UiKit.hbox(10)
+		row.name = "PapersRow_%d" % i
+		row.custom_minimum_size = Vector2(0, 28)
+		var pos := UiKit.figure(str(i + 1), UiKit.NUMBER)
+		pos.custom_minimum_size = Vector2(26, 0)
+		pos.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		pos.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(pos)
+		var mark := UiKit.club_marker(code, 20.0)
+		mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(mark)
+		var mine := code == GameState.my_club
+		var nm := UiKit.lbl(GameDB.club_name(code), UiKit.BODY, UiKit.club_name_colour(UiKit.club_ink(code)), mine)
+		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(nm)
+		(cols[0] if i < (order.size() + 1) / 2 else cols[1]).add_child(row)
+	return v
 
 
 # ---------------------------------------------------------------------------
@@ -306,71 +467,231 @@ func _refresh_invites() -> void:
 ## After it is played: the score, who stood out, who struggled, who was hurt,
 ## and what was seen of each prospect.
 func _intra_report() -> Control:
+	return _match_report(GameState.preseason_intra().get("report", {}), "Intra", GameState.intra_prospects())
+
+
+## A played pre-season match, in either kind: node names start with `prefix`.
+func _match_report(rep: Dictionary, prefix: String, pool: Array) -> Control:
 	var v := UiKit.vbox(6)
-	v.name = "IntraReport"
-	var rep: Dictionary = GameState.preseason_intra().get("report", {})
+	v.name = prefix + "Report"
 	var names: Array = rep.get("names", ["", ""])
 	var goals: Array = rep.get("goals", [0, 0])
 	var behinds: Array = rep.get("behinds", [0, 0])
 	for side in range(2):
 		var row := UiKit.hbox(8)
-		var nm := UiKit.lbl(str(names[side]), UiKit.NAME, UiKit.TEXT, true)
-		nm.name = "IntraSide_%d" % side
-		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# A practice match: each club's name in its own ink, the score right after it.
+		var ink: Color = UiKit.TEXT
+		if prefix == "Practice":
+			ink = UiKit.club_name_colour(UiKit.club_ink(GameState.my_club if side == 0 else str(rep.get("opponent", ""))))
+		var nm := UiKit.lbl(str(names[side]), UiKit.NAME, ink, true)
+		nm.name = prefix + "Side_%d" % side
+		nm.autowrap_mode = TextServer.AUTOWRAP_OFF
+		nm.custom_minimum_size = Vector2(150, 0)
 		row.add_child(nm)
 		var fig := UiKit.figure(UiKit.scoreline(int(goals[side]), int(behinds[side])), UiKit.NUMBER)
-		fig.name = "IntraScore_%d" % side
+		fig.name = prefix + "Score_%d" % side
 		row.add_child(fig)
 		v.add_child(row)
-	for part in [["Stood out", "stood", "IntraStood"], ["Struggled", "struggled", "IntraStruggled"]]:
+	# On a PC the sections sit in two columns, so the whole report is in view.
+	var cols: BoxContainer = UiKit.hbox(28) if _wide() else UiKit.vbox(6)
+	var left := UiKit.vbox(6)
+	var right := UiKit.vbox(6)
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cols.add_child(left)
+	cols.add_child(right)
+	v.add_child(cols)
+	for part in [["Stood out", "stood", prefix + "Stood"], ["Struggled", "struggled", prefix + "Struggled"]]:
 		var ids: Array = rep.get(str(part[1]), [])
 		if ids.is_empty():
 			continue
-		v.add_child(UiKit.spacer(4))
-		v.add_child(_section_head(str(part[0])))
+		left.add_child(UiKit.spacer(8))
+		left.add_child(_report_head(str(part[0])))
 		for i in range(ids.size()):
-			v.add_child(_runner(str(ids[i]), "", "%s_%d" % [str(part[2]), i]))
+			left.add_child(_runner(str(ids[i]), "", "%s_%d" % [str(part[2]), i]))
 	var hurt: Array = rep.get("hurt", [])
 	if not hurt.is_empty():
-		v.add_child(UiKit.spacer(4))
-		v.add_child(_section_head("Hurt in the match"))
+		left.add_child(UiKit.spacer(8))
+		left.add_child(_report_head("Hurt in the match"))
 		for i in range(hurt.size()):
 			var l := UiKit.lbl(str(hurt[i]), UiKit.BODY, UiKit.BAD)
-			l.name = "IntraHurt_%d" % i
+			l.name = prefix + "Hurt_%d" % i
 			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			v.add_child(l)
+			left.add_child(l)
 	var seen: Array = rep.get("prospects", [])
 	if not seen.is_empty():
 		var names_by_id := {}
-		for p in GameState.intra_prospects():
+		for p in pool:
 			names_by_id[str(p["id"])] = GameDB.player_display_name(p)
-		v.add_child(UiKit.spacer(4))
-		v.add_child(_section_head("Prospects seen"))
+		right.add_child(UiKit.spacer(8))
+		right.add_child(_report_head("Prospects seen"))
 		var note := UiKit.lbl("Each line is on his draft card from now on.", UiKit.SECONDARY, UiKit.TEXT)
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(note)
+		right.add_child(note)
 		for i in range(seen.size()):
 			var row: Dictionary = seen[i]
 			var box := UiKit.vbox(0)
 			var n := UiKit.name_label(str(names_by_id.get(str(row["id"]), "A prospect")))
-			n.name = "IntraSeen_%d" % i
+			n.name = prefix + "Seen_%d" % i
 			box.add_child(n)
 			var line := UiKit.lbl(str(row.get("line", "")), UiKit.SECONDARY, UiKit.TEXT)
-			line.name = "IntraSeenLine_%d" % i
+			line.name = prefix + "SeenLine_%d" % i
 			line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			box.add_child(line)
 			box.add_child(UiKit.rule())
-			v.add_child(box)
+			right.add_child(box)
 	return v
 
 
+# ---------------------------------------------------------------------------
+# The practice match: the club you play, your side and plan, who to trial
+# ---------------------------------------------------------------------------
+var _trial_count: Label
+var _trial_cost: Label
+var _trial_rows := {}       # prospect id -> Button
+
+
+## Before it is played. Nothing is chosen for him: the side is the one he has
+## named, the plan the one he has set, and the trial is his to fill or leave.
+func _practice_setup() -> Control:
+	var v := UiKit.vbox(UiKit.SECTION)
+	v.name = "PracticeSetup"
+	var opp := GameState.practice_opponent()
+	var fixture := UiKit.vbox(6)
+	fixture.add_child(_section_head("The match"))
+	for side in [[GameState.my_club, "PracticeHome", "Home"], [opp, "PracticeAway", "Away"]]:
+		var teams := UiKit.hbox(10)
+		teams.add_child(UiKit.club_marker(str(side[0]), 28.0))
+		var nm := UiKit.lbl(GameDB.club_name(str(side[0])), UiKit.NAME, UiKit.club_name_colour(UiKit.club_ink(str(side[0]))), true)
+		nm.name = str(side[1])
+		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		teams.add_child(nm)
+		var where := UiKit.lbl(str(side[2]), UiKit.SECONDARY, UiKit.TEXT)
+		where.autowrap_mode = TextServer.AUTOWRAP_OFF
+		where.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		teams.add_child(where)
+		fixture.add_child(teams)
+	var at_home := UiKit.lbl("Both clubs trial prospects of their own. Your listed players carry %d%% of a normal match's injury risk; a trialled prospect cannot be hurt." % roundi(float(PreSeason.tune("practice_injury_rate")) * 100.0),
+			UiKit.SECONDARY, UiKit.TEXT)
+	at_home.name = "PracticeRisk"
+	at_home.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	fixture.add_child(at_home)
+	v.add_child(fixture)
+
+	var mine := UiKit.vbox(6)
+	mine.add_child(_section_head("Your side and plan"))
+	var side := UiKit.lbl("The side you have named on Selection, or the best available if you have not. Injured players sit out.",
+			UiKit.BODY, UiKit.TEXT)
+	side.name = "PracticeSide"
+	side.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	mine.add_child(side)
+	var plan := UiKit.lbl("Game plan: %s" % CoachReport.plan_label(GameState.club_plan), UiKit.BODY, UiKit.TEXT, true)
+	plan.name = "PracticePlan"
+	mine.add_child(plan)
+	var ways := UiKit.hbox(6)
+	for nav in [["Selection", "selection", "PracticeSelection"], ["Game plan", "coaching", "PracticePlanGo"]]:
+		var b := UiKit.btn(str(nav[0]), UiKit.BODY)
+		b.name = str(nav[2])
+		b.custom_minimum_size = Vector2(0, 44)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL if not _wide() else Control.SIZE_SHRINK_BEGIN
+		var key := str(nav[1])
+		b.pressed.connect(func(): Router.go(key))
+		ways.add_child(b)
+	mine.add_child(ways)
+	v.add_child(mine)
+
+	var guests := UiKit.vbox(6)
+	guests.name = "PracticeInvites"
+	guests.add_child(_section_head("Prospects to trial"))
+	var gain := _stake(guests, "Gain:", "PracticeGain")
+	gain.text = "His draft card gets a line on what he did against a senior side, and your recruiters' read of his rating is %d%% tighter. He cannot be hurt." % roundi((1.0 - float(PreSeason.tune("intra_seen_uncertainty"))) * 100.0)
+	_trial_cost = _stake(guests, "Cost:", "PracticeCost")
+	_trial_count = UiKit.lbl("", UiKit.BODY, UiKit.TEXT, true)
+	_trial_count.name = "PracticeCount"
+	guests.add_child(_trial_count)
+	_trial_rows = {}
+	var grid := GridContainer.new()
+	grid.name = "PracticeProspects"
+	grid.columns = 3 if _wide() else 1
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 6)
+	for p in GameState.intra_prospects():
+		var id := str(p["id"])
+		var b := UiKit.btn("", UiKit.BODY)
+		b.name = "Trial_" + id
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.custom_minimum_size = Vector2(0, 34 if _wide() else 44)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.text = "%s  ·  %s, age %d" % [GameDB.player_display_name(p),
+				str(UiKit.ROLE_LABEL.get(str(p.get("role", "")), str(p.get("role", "")))), int(float(p.get("age", 18.0)))]
+		b.pressed.connect(func():
+			GameState.toggle_practice_invite(id)
+			_refresh_trial())
+		_trial_rows[id] = b
+		grid.add_child(b)
+	guests.add_child(grid)
+	v.add_child(guests)
+	_refresh_trial()
+	return v
+
+
+func _refresh_trial() -> void:
+	var invites: Array = GameState.practice_invites()
+	for id in _trial_rows:
+		_paint_choice(_trial_rows[id], invites.has(str(id)))
+	if _trial_count != null and is_instance_valid(_trial_count):
+		_trial_count.text = "%d of %d trialled" % [invites.size(), PreSeason.practice_guests()]
+	if _trial_cost != null and is_instance_valid(_trial_cost):
+		_trial_cost.text = _trial_cost_text(invites)
+
+
+## The trial's cost, sized: how far below the starters they replace the chosen
+## prospects rate (every prospect on offer, before any is chosen).
+func _trial_cost_text(invites: Array) -> String:
+	var gap := GameState.practice_trial_gap_pct(invites)
+	match invites.size():
+		0:
+			if gap <= 0:
+				return "A prospect plays in place of the weakest starter in his line; the prospects here rate no lower than the starters they would replace."
+			return "A prospect plays in place of the weakest starter in his line; on average the prospects here rate about %d%% below the starter they would replace, so your side is weaker on the day." % gap
+		1:
+			if gap <= 0:
+				return "He plays in place of the weakest starter in his line and rates no lower than him."
+			return "He plays in place of the weakest starter in his line and rates about %d%% below him, so your side is weaker on the day." % gap
+	if gap <= 0:
+		return "Each plays in place of the weakest starter in his line; they rate no lower than the starters they replace."
+	return "Each plays in place of the weakest starter in his line; on average they rate about %d%% below the starters they replace, so your side is weaker on the day." % gap
+
+
 ## A 2 px rule in the club's colour: the section belongs to your club.
+## The card or cards the block threw up, answered here as on the hub.
+func _story_cards() -> Control:
+	var v := UiKit.vbox(10)
+	v.name = "PreSeasonCards"
+	var names := NameInk.from_lists(GameState.season.lists)
+	for i in range(GameState.week_events.size()):
+		v.add_child(EventCardView.build(i, not _wide(), func(): _build(),
+				func(t: String): EventCardView.rule_sheet(self, t), names))
+	return v
+
+
 func _club_rule() -> Control:
 	var r := ColorRect.new()
 	r.color = UiKit.club_ink(GameState.my_club)
 	r.custom_minimum_size = Vector2(0, 2)
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return r
+
+
+## A report section's head: a rule in the club's colour over its name in bold,
+## so Stood out, Struggled and Prospects seen read as separate sections.
+func _report_head(text: String) -> Control:
+	var v := UiKit.vbox(4)
+	v.add_child(_club_rule())
+	v.add_child(UiKit.lbl(text, UiKit.HEADING, UiKit.club_name_colour(UiKit.club_ink(GameState.my_club)), true))
+	return v
 
 
 func _section_head(text: String) -> Label:
@@ -418,7 +739,7 @@ func _blocks_section(first: int, across: bool) -> Control:
 		# Side by side, each block (and its club bar) is as tall as its own words.
 		b.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		holder.add_child(b)
-	var quiet := UiKit.lbl("Week 8 is a quiet week: no training and nothing to choose. Heavy or fresh legs from weeks 6 to 7 last into Round 1.",
+	var quiet := UiKit.lbl("Week 8 is a quiet week: no training to choose, and the papers print their ladder. Heavy or fresh legs from weeks 6 to 7 last into Round 1.",
 			UiKit.SECONDARY, UiKit.TEXT)
 	quiet.name = "PreSeasonQuietWeek"
 	quiet.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -675,10 +996,13 @@ func _runner(id: String, place: String, node_name: String) -> Control:
 		fig.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		fig.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(fig)
-	var n := UiKit.name_label(GameDB.player_display_name(p) if not p.is_empty() else "A player who has left")
+	# His name wears his club's colour, and where he plays sits beside it.
+	var n := UiKit.lbl(GameDB.player_display_name(p) if not p.is_empty() else "A player who has left",
+			UiKit.NAME, UiKit.club_name_colour(UiKit.club_ink(GameState.my_club)), true)
 	n.name = node_name
-	n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	n.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	n.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	n.autowrap_mode = TextServer.AUTOWRAP_OFF
 	h.add_child(NameLink.tappable(n, id) if not p.is_empty() else n)
 	if not p.is_empty():
 		var role := UiKit.lbl(str(UiKit.ROLE_LABEL.get(str(p.get("role", "")), str(p.get("role", "")))),
@@ -686,6 +1010,10 @@ func _runner(id: String, place: String, node_name: String) -> Control:
 		role.autowrap_mode = TextServer.AUTOWRAP_OFF
 		role.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(role)
+	var rest := Control.new()
+	rest.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rest.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(rest)
 	box.add_child(h)
 	box.add_child(UiKit.rule())
 	return box
@@ -715,18 +1043,19 @@ func _primary(text: String) -> Button:
 func _actions(stop: String) -> Control:
 	var v := UiKit.vbox(6)
 	v.name = "PreSeasonActions"
-	var setup := stop == "intra" and not GameState.intra_played()
-	var go := _primary("Start training" if stop == "plan" else ("Coach the match" if setup else "Back to training"))
+	var setup := (stop == "intra" and not GameState.intra_played()) or (stop == "practice" and not GameState.practice_played())
+	var go := _primary("Start training" if stop == "plan" else ("Coach the match" if setup else
+			("On to Round 1" if stop == "papers" else "Back to training")))
 	go.name = "PreSeasonGo"
 	go.custom_minimum_size = Vector2(0, 48)
-	go.pressed.connect(_on_coach if setup else _on_go)
+	go.pressed.connect((_on_coach_practice if stop == "practice" else _on_coach) if setup else _on_go)
 	var quiet := UiKit.hbox(6)
 	quiet.name = "PreSeasonNav"
 	if setup:
 		var sim_it := UiKit.btn("Sim the match", UiKit.BODY)
-		sim_it.name = "IntraSim"
+		sim_it.name = "PracticeSim" if stop == "practice" else "IntraSim"
 		sim_it.custom_minimum_size = Vector2(0, 44)
-		sim_it.pressed.connect(_on_sim_intra)
+		sim_it.pressed.connect(_on_sim_practice if stop == "practice" else _on_sim_intra)
 		quiet.add_child(sim_it)
 	if stop == "plan":
 		var sim := UiKit.btn("Sim to Round 1", UiKit.BODY)
@@ -779,6 +1108,17 @@ func _on_coach() -> void:
 		Router.go("match")
 
 
+func _on_coach_practice() -> void:
+	if GameState.prepare_practice_match():
+		Router.go("match")
+
+
+func _on_sim_practice() -> void:
+	GameState.sim_practice_match()
+	GameState.autosave()
+	_build()
+
+
 ## Or sim it: the report is the next thing on this screen.
 func _on_sim_intra() -> void:
 	GameState.sim_intra_match()
@@ -805,6 +1145,10 @@ func handle_back() -> bool:
 	if plan_sheet != null and is_instance_valid(plan_sheet) and not plan_sheet.is_queued_for_deletion():
 		plan_sheet.queue_free()
 		_build()
+		return true
+	var rule := get_node_or_null("RuleSheet")
+	if rule != null and is_instance_valid(rule) and not rule.is_queued_for_deletion():
+		rule.queue_free()
 		return true
 	if _settings != null and is_instance_valid(_settings):
 		_settings.queue_free()

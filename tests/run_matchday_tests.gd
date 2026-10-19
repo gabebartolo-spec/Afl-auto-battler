@@ -195,12 +195,10 @@ func _test_phone_match(sz: Vector2i) -> void:
 	await _settle()
 	var viewport := Rect2(Vector2.ZERO, Vector2(sz))
 
-	# Before the bounce: the calls, no report, no numbers from the engine.
+	# Before the bounce: the calls, no report.
 	var box: Node = m.find_child("CoachBox", true, false)
 	_check(box != null, "The match opens on your calls (%s)" % tag)
 	var text := _text(box)
-	_check(not text.contains("pts") and not text.contains("Expected points") and not text.contains("%"),
-			"The first coach box shows no engine numbers (%s)" % tag)
 	for n in ["PlanPicker", "TagPicker", "FocusPicker_focus_mid", "FocusPicker_focus_fwd", "FocusPicker_focus_def",
 			"PepPicker", "RotationPicker", "LegsView", "TagNote"]:
 		_check(box.find_child(n, true, false) != null, "The coach box keeps %s (%s)" % [n, tag])
@@ -307,10 +305,7 @@ func _test_phone_match(sz: Vector2i) -> void:
 	_check(facts != null and facts.get_child_count() <= 3,
 			"What happened in the quarter is three things at most (%s)" % tag)
 	var bt := _text(box)
-	# "pts" as a word: a quarter's "4 intercepts so far" is football, not an engine number.
-	var pts_word := RegEx.create_from_string("\\bpts\\b")
-	_check(pts_word.search(bt) == null and not bt.contains("Expected points") and not bt.contains(" def ")
-			and not bt.contains("defeated"), "The break shows no engine numbers or result words (%s)" % tag)
+	_check(not bt.contains(" def ") and not bt.contains("defeated"), "The break shows no result words (%s)" % tag)
 	_check(bt.contains("Tag on ") and box.find_child("CallsDid", true, false) != null,
 			"The break says what your calls did, your tag among them (%s)" % tag)
 	var qh: Label = box.find_child("QuarterHeading", true, false)
@@ -376,8 +371,6 @@ func _test_phone_match(sz: Vector2i) -> void:
 					"The defender goes to him from the next quarter (%s)" % tag)
 			_check(((qsim._own[myside] as Dictionary)["duels"] as Dictionary).has(fid),
 					"A match-up you change stays your call (%s)" % tag)
-			var btext := _text(box)
-			_check(not btext.contains("%") and pts_word.search(btext) == null, "The match-ups show no engine numbers (%s)" % tag)
 	var small := []
 	for b in box.find_children("*", "Button", true, false):
 		if b.is_visible_in_tree() and b.size.y < 40:
@@ -2498,14 +2491,18 @@ func _bounce_matches_sim(tokens: Array, sim) -> bool:
 	return true
 
 
-## Press answers keep their board and morale effects, and each says what it
-## does under its button (director, 2026-10-10). A real tap on the
-## accountable answer moves the board and the players exactly as its line says.
+## Press answers are rolls with their odds shown (bible §4; director
+## 2026-10-18, ch. 30 row 33): each line under an answer gives both ways it
+## can land, the odds and the sizes. A real tap on the first answer applies
+## the outcome the career's press stream drew, and the sheet after says so.
 func _test_press_effects_shown(db) -> void:
 	var MC = load("res://scripts/sim/MediaConference.gd")
 	_state.media_conference = MC.pick({"club": "COL", "opponent_name": "Carlton", "round": 8,
 			"result": {"home": "COL", "away": "CAR", "score": [55, 101]}}, {})
 	var opts: Array = _state.media_conference.get("options", [])
+	_state.board["confidence"] = 50
+	var who: Dictionary = _state.my_list[0]
+	who["morale"] = 50
 	var hub = load("res://scenes/HubScene.tscn").instantiate()
 	root.add_child(hub)
 	await _settle()
@@ -2515,26 +2512,28 @@ func _test_press_effects_shown(db) -> void:
 	var shown := opts.size() == 3
 	for i in range(opts.size()):
 		var line: Label = hub.find_child("MediaAnswerLine_%d" % i, true, false)
-		var o: Dictionary = opts[i]
+		var kind: String = MC.kind_of(opts[i], i)
+		var c: int = _state.press_chance(i)
 		var text := "" if line == null else line.text
-		var board_ok := (int(o.get("board", 0)) > 0) == text.begins_with("The board likes it") \
-				and (int(o.get("board", 0)) < 0) == text.contains("the board wanted")
-		var morale_ok := (int(o.get("morale", 0)) < 0) == text.contains("hung out to dry") \
-				and (int(o.get("morale", 0)) > 0) == text.contains("feel backed")
-		shown = shown and line != null and line.is_visible_in_tree() and board_ok and morale_ok \
-				and not text.contains("%") and not text.contains("+")
-	_check(shown, "Every press answer shows what it does to the board and the players, in words")
-	_state.board["confidence"] = 50
-	var who: Dictionary = _state.my_list[0]
-	who["morale"] = 50
+		shown = shown and line != null and line.is_visible_in_tree() and text == MC.odds_line(kind, c) 				and text.contains("%d%%" % c) and text.contains("%d%%" % (100 - c))
+	_check(shown, "Every press answer shows both ways it can land, with the odds and the sizes")
+	var c0: int = _state.press_chance(0)
+	var landed := "a" if MC.roll(_state.career_seed, _state.season_year, int(_state.media_conference.get("round", 0)),
+			str(_state.media_conference.get("key", "")), 0) <= c0 else "b"
+	var out: Dictionary = MC.ANSWERS["criticise"][landed]
 	var answer: Button = hub.find_child("MediaAnswer_0", true, false)
-	var o0: Dictionary = opts[0] if not opts.is_empty() else {}
 	var tapped: String = await Tap.tap(answer) if answer != null else "missing"
 	await _settle()
-	_check(tapped == "" and _state.board_confidence() == 50 + int(o0.get("board", 0))
-			and int(who["morale"]) == 50 + int(o0.get("morale", 0)) and int(o0.get("board", 0)) > 0
-			and int(o0.get("morale", 0)) < 0,
-			"A real tap on the accountable answer lifts the board and costs the players, as its line says (%s)" % tapped)
+	var after: Label = hub.find_child("MediaOutcomeLine", true, false)
+	_check(tapped == "" and _state.board_confidence() == 50 + int(out["board"])
+			and int(who["morale"]) == 50 + int(out["morale"]) and after != null and after.is_visible_in_tree()
+			and after.text == MC.after_line("criticise", landed),
+			"A real tap on the first answer applies the outcome the press stream drew, and the sheet after says how it landed (%s, %s)" % [tapped, landed])
+	var done: Button = hub.find_child("MediaOutcomeDone", true, false)
+	var closed: String = await Tap.tap(done) if done != null else "missing"
+	await _settle()
+	_check(closed == "" and hub.find_child("MediaOutcome", true, false) == null,
+			"A real tap on Done closes the press outcome (%s)" % closed)
 	if is_instance_valid(hub):
 		hub.queue_free()
 	_state.media_conference = {}

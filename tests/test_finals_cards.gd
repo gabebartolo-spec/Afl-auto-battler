@@ -824,9 +824,12 @@ func _test_copy() -> void:
 		var t := _deck_card(id)
 		var txt := str(t["title"][0]) + " " + str(t["text"][-1] if not (t["text"][-1] is Dictionary) else t["text"][0]["text"])
 		_check(txt.contains("could be") or txt.contains("may be"), "%s says 'could be' or 'may be', never a certainty (%s)" % [id, txt])
-	# No two cards share a phrase of four words (the 'leave it to' label is the captain cards' own).
+	# A phrase of four words that two cards share is a writer's warning (printed below). It fails the
+	# check only when the two cards can be dealt in the same week (director 2026-10-18, ch. 30 row 36).
+	# The 'leave it to' label is the captain cards' own.
 	var grams := {}
 	var dup := []
+	var clash := []
 	for t in StoryDeck.all():
 		var seen_here := {}
 		var texts := []
@@ -844,9 +847,40 @@ func _test_copy() -> void:
 				seen_here[g] = true
 		for g in seen_here:
 			if grams.has(g) and (NEW_IDS.has(str(t["id"])) or NEW_IDS.has(str(grams[g]))):
+				var other := _deck_card(str(grams[g]))
+				var same_week := _share_a_finals_week(t, other)
+				print("writer: %s and %s share '%s'%s" % [grams[g], t["id"], g,
+						" (can be dealt in the same week)" if same_week else ""])
 				dup.append("%s/%s: %s" % [t["id"], grams[g], g])
+				if same_week:
+					clash.append("%s/%s: %s" % [t["id"], grams[g], g])
 			grams[g] = str(t["id"])
-	_check(dup.is_empty(), "No finals card shares a four-word phrase with another card: %s" % " | ".join(PackedStringArray(dup.slice(0, 4))))
+	_check(clash.is_empty(), "No two cards that can be dealt in the same week share a four-word phrase (%d shared phrases in all, printed as writer warnings): %s" % [dup.size(), " | ".join(PackedStringArray(clash.slice(0, 4)))])
+
+
+## The finals weeks (1 to 5, the Grand Final) a card can be dealt in, from its phase and its
+## finals_week, finals_week_min and finals_week_max conditions; lo > hi when it is never a finals card.
+func _finals_weeks(t: Dictionary) -> Vector2i:
+	var phases: Array = t.get("phase", [])
+	if not phases.is_empty() and not phases.has("finals"):
+		return Vector2i(1, 0)
+	var when: Dictionary = t.get("when", {})
+	var lo := 1
+	var hi := 5
+	if when.has("finals_week"):
+		lo = int(when["finals_week"])
+		hi = lo
+	if when.has("finals_week_min"):
+		lo = maxi(lo, int(when["finals_week_min"]))
+	if when.has("finals_week_max"):
+		hi = mini(hi, int(when["finals_week_max"]))
+	return Vector2i(lo, hi)
+
+
+func _share_a_finals_week(a: Dictionary, b: Dictionary) -> bool:
+	var wa := _finals_weeks(a)
+	var wb := _finals_weeks(b)
+	return wa.x <= wa.y and wb.x <= wb.y and maxi(wa.x, wb.x) <= mini(wa.y, wb.y)
 
 
 ## The director's fixes (2026-10-14): a captain the group would not listen to changes no morale; a

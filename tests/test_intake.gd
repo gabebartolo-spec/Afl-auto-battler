@@ -871,7 +871,7 @@ func _test_real_lists_start() -> void:
 	var real_size := 0
 	for code in active:
 		real_size += GameDB.club_list(code).size() + GameDB.club_additions(code).size()
-	_check(real_size == 806, "The real lists are complete: 806 registered players at the end of 2026 (%d)" % real_size)
+	_check(real_size == 808, "The real lists are complete: 808 registered players, the 806 of 2026 and two signed in the trade period (%d)" % real_size)
 	var untried: Array = GameDB.club_additions("GEE")
 	var all_ok := untried.size() == 12
 	for q in untried:
@@ -902,6 +902,27 @@ func _test_real_lists_start() -> void:
 			freed += 1
 	_check(kept - (real_size - gone) == GameState.intake_assignments.size() and freed == delisted,
 			"Each club keeps its list less the 2026 retirements and delistings; the delisted are free agents (%d gone)" % gone)
+	# The 2026 trade period and free agency (data/club_moves_2026.csv): each
+	# player who changed club is on his new club's list, once, and nowhere else.
+	var moved_ok := 0
+	var wrong := []
+	for code in active:
+		for q in GameState.league_lists[code] as Array:
+			var mv: Dictionary = GameDB.club_move(q)
+			if mv.is_empty():
+				continue
+			if str(q["club"]) == str(mv["to"]) and code == str(mv["to"]) and str(q.get("data_club", "")) == str(mv["from"]):
+				moved_ok += 1
+			else:
+				wrong.append(str(q.get("real_name", "?")))
+	_check(wrong.is_empty() and moved_ok == GameDB.club_moves.size() and moved_ok >= 30,
+			"Everyone who changed club in the 2026 trade period is on his new list, once, and played 2026 for his old club (%d, wrong: %s)" % [moved_ok, str(wrong)])
+	var pendlebury_at := ""
+	for code in active:
+		for q in GameState.league_lists[code] as Array:
+			if str(q.get("real_name", "")) == "Scott Pendlebury":
+				pendlebury_at = code
+	_check(pendlebury_at == "GCS", "Pendlebury, traded to Gold Coast, opens on the Gold Coast list (%s)" % pendlebury_at)
 	var order: Array = GameState.opening_order(active)
 	var same := order.duplicate()
 	same.sort()
