@@ -210,6 +210,9 @@ func _summary() -> Control:
 			what.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		what.name = "TrainingNews"
 		v.add_child(what)
+		var rises := GameState.training_rise_lines()
+		if not rises.is_empty():
+			v.add_child(_rise_list(rises))
 		var month := TrainingReportSheet.link(self, _open_player)
 		if month != null:
 			v.add_child(month)
@@ -590,6 +593,24 @@ func _news_line(line: String) -> Control:
 	for q in GameState.my_list:
 		ids[GameDB.player_display_name(q)] = str(q["id"])
 	return NameLink.line(line, ids, UiKit.SECONDARY, UiKit.GOOD)
+
+
+## Everyone who rose, one "Name 76 to 77" each, two to a row once there are
+## several so a long list stays short; each name a tap to his profile.
+func _rise_list(lines: PackedStringArray) -> Control:
+	var ids := {}
+	for q in GameState.my_list:
+		ids[GameDB.player_display_name(q)] = str(q["id"])
+	var grid := GridContainer.new()
+	grid.name = "TrainingRises"
+	grid.columns = 2 if lines.size() > 4 else 1
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 2)
+	for l in lines:
+		var r := NameLink.line(l, ids, UiKit.SECONDARY, UiKit.GOOD)
+		r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.add_child(r)
+	return grid
 
 
 ## The plan under his name, said as a plan: "Training as a key defender",

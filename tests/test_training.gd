@@ -524,6 +524,17 @@ func _test_training_news() -> void:
 	GameState.last_training_report = {"auto": out}
 	var line := GameState.training_summary_line()
 	_check(line.begins_with("Training:") and line.contains("OVR"), "The summary line reports it (%s)" % line)
+	# Every riser is named with his from-to, however many (director, 2026-10-19).
+	var many := []
+	for q in GameState.my_list.slice(0, 13):
+		many.append([str(q["id"]), 70, 71])
+	GameState.last_training_report = {"auto": {"rises": many, "traits": [], "at_pot": []}}
+	var names := GameState.training_rise_lines()
+	var all_named := names.size() == 13
+	for q in GameState.my_list.slice(0, 13):
+		all_named = all_named and names.has("%s 70 to 71" % GameDB.player_display_name(q))
+	_check(all_named, "All 13 risers are named with from and to (%d listed)" % names.size())
+	_check(not GameState.training_summary_line().contains("more"), "The summary never says 'N more'")
 	GameState.last_training_report = {"auto": {"points": 5, "rises": [], "traits": []}}
 	_check(GameState.training_summary_line() == "", "Stat points alone are not news")
 

@@ -149,7 +149,14 @@ func _training(club: String, sz: Vector2i) -> void:
 		await _settle()
 		_check(_sheet(scene) == null, "%s: Back closes it" % tag)
 	# The week's news: a real tap on a name.
-	var news := scene.find_child("TrainingNews", true, false)
+	var news: Node = null
+	var rises_box := scene.find_child("TrainingRises", true, false)
+	if rises_box != null and rises_box.get_child_count() > 0:
+		news = rises_box.get_child(0)
+	_check(rises_box != null and rises_box.get_child_count() == 2, "%s: both risers are listed by name" % tag)
+	_check(news is RichTextLabel and (news as RichTextLabel).get_theme_font("normal_font") == load("res://assets/fonts/ARDSignwriter-Regular.ttf")
+			and (news as RichTextLabel).get_theme_font("bold_font") == load("res://assets/fonts/ARDSignwriter-Bold.ttf"),
+			"%s: the news names are set in the game's faces" % tag)
 	_check(news is RichTextLabel, "%s: the news line carries tappable names" % tag)
 	if news is RichTextLabel:
 		var opened := await _tap_scan(news, scene)
