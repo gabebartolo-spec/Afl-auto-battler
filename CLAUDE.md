@@ -95,8 +95,7 @@ where the two conflict. Still never at the cost of readability or usability.
 
 **Visual identity.** Avoid dark green/charcoal rounded cards everywhere, gold as
 the universal accent, nested rounded rectangles, piles of pills/chips/badges,
-every fact in its own card, generic dashboard grids, gradients, glows, big
-corner radii, excess separators, decorative stat boxes and icons. Prefer flat,
+every fact in its own card, generic dashboard grids, big corner radii, excess separators, decorative stat boxes and icons. Prefer flat,
 editorial layouts: typography, alignment, spacing, restrained surfaces.
 
 **Readability is a pillar (design bible, director 2026-10-13).** It applies to
@@ -123,26 +122,12 @@ like this game, or like any AI-generated sports-management app? If the latter,
 simplify it. Authored and restrained, not weird; never at the cost of
 usability.
 
-## Explicitly assigned flavour work — 2026-10-06
+## Assigned flavour and styling work (director, 2026-10-06)
 
-The director reviewed and included FL-001–FL-008 for Claude's queue. Read [ROADMAP §9.3](docs/roadmap/21-9-3-approved-flavour-and-culture-work-director-decisions.md#93-approved-flavour-and-culture-work--director-decisions-2026-10-06) for scope, dependencies, statuses and validation. Audit decorative appearance so it is distinct from actual game information. Necessary new ritual/farewell vignette scenes are explicitly authorised; use the shared 2.5D art and preserve tactical-scene gates. Every addition has zero gameplay effects. This approval does not mark any implementation complete or authorise unrelated research candidates.
+- **Flavour FL-001-FL-008:** scope and status in [ROADMAP §9.3](docs/roadmap/21-9-3-approved-flavour-and-culture-work-director-decisions.md#93-approved-flavour-and-culture-work--director-decisions-2026-10-06). Every addition has zero gameplay effects and must look distinct from real game information; new ritual/farewell vignette scenes are authorised (shared 2.5D art, tactical-scene gates kept).
+- **Styling STYLE-01-STYLE-08:** scope in [ROADMAP §9.5](docs/roadmap/23-9-5-approved-visual-styling-work-director-interview-2026.md#95-approved-visual-styling-work--director-interview-2026-10-06). Dark Android first. Light theme parked (director 2026-10-13: "im also happy to abandon 'light mode' for now"): no new light-theme work, captures or tests; the code stays. A visual treatment merges only after the director approves its look; green CI is not enough.
+- The Training player-row name/secondary-line stack is a confirmed vertical-alignment defect.
 
+## Skills
 
-## Explicitly assigned visual styling — 2026-10-06
-
-The director included all eight STYLE-01–STYLE-08 work packages after the complete interview. Read [ROADMAP §9.5](docs/roadmap/23-9-5-approved-visual-styling-work-director-interview-2026.md#95-approved-visual-styling-work--director-interview-2026-10-06). Dark Android is primary; wide-screen maintenance follows. The light theme is parked by the director (2026-10-13: "im also happy to abandon 'light mode' for now, i dont want to waste time on it"): no new light-theme work, captures or tests until he says otherwise; the code stays. The Training **player-row** name/secondary-line stack is a confirmed vertical-alignment defect, independent of broad restyling. Inspect the current implementation/art branch before repairing audit-snapshot findings.
-
-The art agent has higher authority than ChatGPT on visual direction; Claude implements its treatment and reports constraints. **All final decisions go through the director.** Scope approval permits scoped prototypes/reviewable implementation, not final font, palette, geometry or layout selection. Obtain final director appearance approval before completing/merging visual treatments; ordinary green CI is insufficient. Preserve gameplay, information, touch/Back, existing 2.5D art and correctness/performance gates. No new scene authority or competing design system is added. No rejected style candidates remain.
-
-## Skills improve over time (director, 2026-10-08, all projects, both accounts)
-
-- **Learnings, with an evidence bar.** Any agent may add a finding to a skill's
-  `references/learnings.md`, but only once it has proved effective: a quality-check method that
-  caught or prevented a real defect; a recurring failure whose fix was verified afterwards by a
-  test, capture or green CI; or a measured time saving. Each entry names the date, project,
-  evidence (PR, commit, run or capture) and the general lesson. No hunches or untested ideas. If a
-  finding contradicts the skill, correct the skill itself instead of appending a note. A lesson
-  that keeps holding true is promoted into the skill's main text.
-- **Project spin-off skills.** An agent may create a project-specific skill in this repo, named
-  `afl-<topic>`, when a general skill needs project-only detail. It says which general skill it
-  extends, and general lessons still go back into the general skill so other projects benefit.
+Learnings and spin-off skills follow the global rules in `~/.claude/CLAUDE.md` (only the lead adds a learning, with evidence). A project skill is named `afl-<topic>` and says which general skill it extends.
