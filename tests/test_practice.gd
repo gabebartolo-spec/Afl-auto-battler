@@ -443,6 +443,21 @@ func _test_screens_phone() -> void:
 	_check(_label(scene, "PracticeCount") == "0 of 3 trialled" and _label(scene, "PracticePlan").begins_with("Game plan: ")
 			and scene.find_child("PracticeSelection", true, false) != null and _fits(scene, 390.0),
 			"Phone: it says how many are trialled, the plan, and fits the screen")
+	var seen_id := ""
+	var unseen_id := ""
+	for q in GameState.intra_prospects():
+		var mine: Dictionary = (q.get("seen", {}) as Dictionary).get(GameState.my_club, {}) if q.get("seen") is Dictionary else {}
+		if seen_id == "" and not mine.is_empty():
+			seen_id = str(q["id"])
+		elif unseen_id == "" and mine.is_empty():
+			unseen_id = str(q["id"])
+	var seen_row := scene.find_child("Trial_" + seen_id, true, false) as Button
+	var unseen_row := scene.find_child("Trial_" + unseen_id, true, false) as Button
+	_check(seen_row != null and unseen_row != null and seen_row.text.contains("
+Intra-club: ")
+			and bool(seen_row.get_meta("seen", false)) and not unseen_row.text.contains("Intra-club")
+			and (seen_row.get_theme_stylebox("normal") as StyleBoxFlat).bg_color != (unseen_row.get_theme_stylebox("normal") as StyleBoxFlat).bg_color,
+			"Phone: a prospect trialled in the intra-club match stands out on the club's colour, with what he did there")
 	var ids: Array = GameState.intra_prospects().slice(0, 2).map(func(p): return str(p["id"]))
 	for id in ids:
 		_check(await _tap(scene.find_child("Trial_" + str(id), true, false), "a prospect"),

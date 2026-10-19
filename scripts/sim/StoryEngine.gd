@@ -632,8 +632,8 @@ static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
 		"trust":
 			return [] if d == 0 else [["gain" if d > 0 else "cost", _trust_words(d)]]
 		"xp":
-			return [["gain", "Development worth %s of a senior game %s." % [xp_share(d),
-					"for him" if who == "subject" else ("for each player in the side" if who == "side" else ("for each of the others" if who == "others" else "for everyone"))]]]
+			var whom: String = "He gets" if who == "subject" else ("Each player in the side gets" if who == "side" else ("Each of the others gets" if who == "others" else "Every player gets"))
+			return [["gain", "%s %d XP of development (a senior game gives %d)." % [whom, d, SENIOR_GAME_XP]]]
 		"fresh":
 			return [["gain", "Fresh legs: %d%% less likely to be injured this week." % roundi((1.0 - ClubLife.FRESH_RISK) * 100.0)]]
 		"rest":
@@ -688,15 +688,15 @@ static func _effect_parts(e: Dictionary, facts: Dictionary) -> Array:
 		"culture":
 			return [] if d == 0 else [["gain" if d > 0 else "cost", _culture_words(e, d)]]
 		"running":
-			return [] if d == 0 else [["gain" if d > 0 else "cost", _running_words(d)]]
+			return [] if d == 0 else [["gain" if d > 0 else "cost", _running_words(d, facts)]]
 		"drill":
-			return [] if d <= 0 else [["gain", _drill_words(d)]]
+			return [] if d <= 0 else [["gain", _drill_words(d, facts)]]
 		# Contract talk put off: the early deal's premium is not paid now.
 		"open_price":
 			return [["gain", "No %s early premium: his price waits on his form, lower if it drops, higher if he improves." % _pct(EARLY_PREMIUM_PCT)]]
 		# A choice that holds a player back from development the other choice gives.
 		"forgo_xp":
-			return [] if d <= 0 else [["cost", "Slower growth: he goes without development worth %s of a senior game." % xp_share(d)]]
+			return [] if d <= 0 else [["cost", "Slower growth: he goes without %d XP of development (a senior game gives %d)." % [d, SENIOR_GAME_XP]]]
 	return []
 
 
@@ -748,11 +748,6 @@ static func _pct(n: int) -> String:
 	return "%d%%" % n
 
 
-## Development as a share of a senior game's: "16%".
-static func xp_share(d: int) -> String:
-	return _pct(maxi(1, roundi(float(d) * 100.0 / float(SENIOR_GAME_XP))))
-
-
 ## His chance of an injury playing sore, as a percentage ("about 20%"); an
 ## older card that only carried the "1 in N" odds keeps them.
 static func _sore_chance(facts: Dictionary) -> String:
@@ -802,37 +797,54 @@ static func _culture_words(e: Dictionary, d: int) -> String:
 	return "%s %s %s." % [label, "rises" if d > 0 else "falls", _pct(absi(d))]
 
 
-## Weeks of running, sized against the running a strong fitness base needs
-## (PreSeason base_strong_from): "A week of hard running goes toward the fitness
-## base, 17% of what a strong base needs."
-static func running_share(d: int) -> String:
-	return _pct(roundi(float(absi(d)) * 100.0 / maxf(0.01, float(PreSeason.tune("base_strong_from")))))
+## Weeks of running, in plain football maths (director, 2026-10-19: "plain
+## football language with simple to understand maths"): the weeks the plan
+## adds up to before and after, and what that does to the fitness base. In
+## the pre-season the facts carry the forecast (pre_run); elsewhere the line
+## says only the weeks.
+static func _running_words(d: int, facts := {}) -> String:
+	var n := absi(d)
+	var head := ("%s more week%s of running" % [_count(n).capitalize(), "" if n == 1 else "s"]) if d > 0 			else ("%s week%s less running" % [_count(n).capitalize(), "" if n == 1 else "s"])
+	if not facts.has("pre_run"):
+		return "%s: a strong fitness base takes %s weeks of running by Round 1." % [head, PreSeason.run_weeks_text(float(PreSeason.tune("base_strong_from")))]
+	var was := float(facts["pre_run"])
+	var now := maxf(0.0, was + float(d))
+	var b0 := PreSeason.base_band(was)
+	var b1 := PreSeason.base_band(now)
+	var sums := "%s: %s weeks becomes %s" % [head, PreSeason.run_weeks_text(was), PreSeason.run_weeks_text(now)]
+	if b0 != b1:
+		return "%s, so the fitness base %s from %s to %s." % [sums, "goes" if d > 0 else "drops", b0, b1]
+	var hint := ""
+	if d > 0 and b1 != "strong":
+		var need := float(PreSeason.tune("base_strong_from")) if b1 == "sound" else float(PreSeason.tune("base_thin_below"))
+		hint = " (%s makes it %s)" % [PreSeason.run_weeks_text(need), "strong" if b1 == "sound" else "sound"]
+	elif d < 0 and b1 != "thin":
+		var floor_w := float(PreSeason.tune("base_thin_below")) if b1 == "sound" else float(PreSeason.tune("base_strong_from"))
+		hint = " (under %s it turns %s)" % [PreSeason.run_weeks_text(floor_w), "thin" if b1 == "sound" else "sound"]
+	return "%s, and the fitness base stays %s%s." % [sums, b1, hint]
 
 
-static func _running_words(d: int) -> String:
-	var wk := "A week" if absi(d) == 1 else "%s weeks" % _count(absi(d)).capitalize()
-	if d > 0:
-		return "%s of hard running goes toward the fitness base, %s of what a strong base needs." % [wk, running_share(d)]
-	return "%s of running comes off the fitness base, %s of what a strong base needs." % [wk, running_share(d)]
-
-
-## Weeks of drilling: a step of fluency in the plan (how well the side knows it) every
-## drill_step_weeks, each step keeping more of what the plan gives
-## (PreSeason familiar_mult); "up to", as a plan known well goes no higher.
-static func drill_step_pct() -> int:
-	var mult: Dictionary = PreSeason.tune("familiar_mult")
-	return roundi((float(mult.get("well", 1.0)) - float(mult.get("partly", 1.0))) * 100.0)
-
-
-static func _drill_words(d: int) -> String:
-	var steps := float(d) / maxf(0.01, float(PreSeason.tune("drill_step_weeks")))
-	var weeks := "%s more week%s drilling the game plan" % [_count(d).capitalize(), "" if d == 1 else "s"]
-	if is_equal_approx(steps, roundf(steps)) and steps >= 1.0:
-		var n := roundi(steps)
-		return "%s: fluency in it rises %s step%s, each keeping up to %s more of what the plan gives." % [
-				weeks, _count(n), "" if n == 1 else "s", _pct(drill_step_pct())]
-	return "%s: %s of a step of fluency in it, a step keeping up to %s more of what the plan gives." % [
-			weeks, _pct(roundi(steps * 100.0)), _pct(drill_step_pct())]
+## Weeks of drilling the plan the side plays, in plain words: where its
+## fluency goes and what that is worth (PreSeason familiar_mult), from the
+## pre-season facts (drill_plan, drill_level, drill_credit).
+static func _drill_words(d: int, facts := {}) -> String:
+	var head := "%s more week%s on the game plan" % [_count(d).capitalize(), "" if d == 1 else "s"]
+	var step := int(PreSeason.tune("drill_step_weeks"))
+	if not facts.has("drill_plan"):
+		return "%s: every %d weeks of drilling raises the side's fluency in a plan one step (low, medium, high)." % [head, step]
+	var plan := str(facts["drill_plan"])
+	var base := int(facts.get("drill_level", PreSeason.WELL))
+	var credit := float(facts.get("drill_credit", 0.0))
+	var l0 := PreSeason.drilled_level(base, credit)
+	var l1 := PreSeason.drilled_level(base, credit + float(d))
+	if l1 != l0:
+		return "%s: the side's fluency in %s goes from %s to %s, so the plan works at %d%% of its strength instead of %d%%." % [
+				head, plan, PreSeason.fluency_word(l0), PreSeason.fluency_word(l1),
+				roundi(PreSeason.familiar_mult(l1) * 100.0), roundi(PreSeason.familiar_mult(l0) * 100.0)]
+	if l0 >= PreSeason.WELL:
+		return "%s: the side already knows %s as well as it can (high fluency), so it gains nothing more." % [head, plan]
+	return "%s: not enough on its own to lift the side's fluency in %s from %s (a step takes %d weeks)." % [
+			head, plan, PreSeason.fluency_word(l0), step]
 
 
 ## A role trial: where he plays and for how long.

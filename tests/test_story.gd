@@ -208,14 +208,14 @@ const GAIN_WORDS := {
 	"morale": "(?i)morale", "xp": "(?i)development", "board": "(?i)board confidence", "trust": "trusts you ([0-9]+% )?more",
 	"fresh": "legs", "promise_win": "Win and", "extend_early": "signs on", "captaincy_swap": "takes the armband",
 	"rush_back": "cleared to play", "role_trial": "plays as a", "rest": "can't get hurt", "culture": "(Standards|Togetherness|Ambition) rises [0-9]+%",
-	"running": "hard running goes toward", "drill": "drilling the game plan", "open_price": "early premium",
+	"running": "more weeks? of running", "drill": "on the game plan", "open_price": "early premium",
 }
 const COST_WORDS := {
 	"morale": "(?i)morale", "board": "(?i)board confidence", "trust": "trusts you ([0-9]+% )?less",
 	"rest": "misses", "heavy_legs": "Heavy legs", "sore": "chance he is injured", "expects_game": "expects a game",
 	"start_backing": "expects to be picked", "back_kid": "is promised", "promise_win": "Lose or draw and", "extend_early": "Locked in", "captaincy_swap": "mid-season",
 	"rush_back": "hurt again", "slow_start": "slowly", "loss_sting": "also falls", "role_trial": "away from his usual spot", "on_record": "on the record",
-	"culture": "(Standards|Togetherness|Ambition) falls [0-9]+%", "running": "comes off the fitness base", "forgo_xp": "Slower growth",
+	"culture": "(Standards|Togetherness|Ambition) falls [0-9]+%", "running": "less running", "forgo_xp": "Slower growth",
 }
 const SAMPLE_FACTS := {"sore_odds": "about 1 in 6", "run_games": 3, "early_price": "$1m", "more_seasons": "two more seasons"}
 
@@ -2849,7 +2849,7 @@ func _test_silent_defaults_announced() -> void:
 func _test_every_line_has_a_size() -> void:
 	_start()
 	var p: Dictionary = GameState.my_list[4]
-	var sized := RegEx.create_from_string("[0-9]+%|this week's game|takes the armband|cleared to play|next (one|two|three|four|five|six) game|games? away from his usual spot")
+	var sized := RegEx.create_from_string("[0-9]+%|[0-9]+ XP|[0-9.]+ weeks?|this week's game|takes the armband|cleared to play|next (one|two|three|four|five|six) game|games? away from his usual spot")
 	var bad := []
 	var parts_seen := 0
 	for t in StoryDeck.all():
@@ -2894,7 +2894,7 @@ func _test_line_numbers_match_effects() -> void:
 					"morale", "board", "trust":
 						want = "%d%%" % absi(StoryEngine.effect_d(e, card["facts"]))
 					"xp":
-						want = "%d%% of a senior game" % maxi(1, roundi(float(e["d"]) * 100.0 / float(GameState.XP_SENIOR_GAME)))
+						want = "%d XP of development (a senior game gives %d)" % [int(e["d"]), GameState.XP_SENIOR_GAME]
 					"slow_start":
 						want = "About a %d%% chance" % int(e["chance"])
 					"loss_sting":
@@ -2905,12 +2905,11 @@ func _test_line_numbers_match_effects() -> void:
 					"culture":
 						want = "%s %d%%" % ["rises" if int(e["d"]) > 0 else "falls", absi(int(e["d"]))]
 					"running":
-						want = "%d%% of what a strong base needs" % roundi(absf(float(e["d"])) * 100.0 / float(PreSeason.tune("base_strong_from")))
+						want = ("more week" if int(e["d"]) > 0 else "less running")
 					"drill":
-						var mult: Dictionary = PreSeason.tune("familiar_mult")
-						want = "up to %d%% more" % roundi((float(mult["well"]) - float(mult["partly"])) * 100.0)
+						want = "more week%s on the game plan" % ("" if int(e["d"]) == 1 else "s")
 					"forgo_xp":
-						want = "development worth %d%% of a senior game" % maxi(1, roundi(float(e["d"]) * 100.0 / float(GameState.XP_SENIOR_GAME)))
+						want = "goes without %d XP" % int(e["d"])
 					"open_price":
 						want = "No %d%% early premium" % StoryEngine.EARLY_PREMIUM_PCT
 				if want == "":
