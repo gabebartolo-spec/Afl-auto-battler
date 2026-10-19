@@ -19,6 +19,8 @@
 #
 #   GODOT=/path/to/godot tools/run_tests.sh          # default: godot on PATH
 #   SUITE_TIMEOUT=900 tools/run_tests.sh ai finals   # just some suites
+#   tools/run_tests.sh --quick draft_ui              # local loop: no re-import when
+#       .godot exists, and no dataset, seeds, export or harness checks (CI runs those)
 #
 # Exits nonzero if anything failed.
 set -u
@@ -29,11 +31,14 @@ SUITE_TIMEOUT="${SUITE_TIMEOUT:-900}"
 # Where the runners live (tools/test_run_tests.sh points this at its fixtures).
 RUNNER_DIR="${RUNNER_DIR:-tests}"
 # SUITES_ONLY=1 skips the dataset, export and harness steps after the suites.
+# SKIP_VERSION_CHECK=1 leaves out the build-number check (CI runs it once, in plan).
 # EXTRAS_ONLY=1 runs only those steps (and the harness self-test), no suites.
 # CI splits the work this way: shards run SUITES_ONLY, one job runs EXTRAS_ONLY.
 SUITES_ONLY="${SUITES_ONLY:-0}"
 # PR CI stops promptly; local/main/diagnostic runs default to all failures.
 STOP_ON_FAILURE="${STOP_ON_FAILURE:-0}"
+QUICK=0
+if [ "${1:-}" = --quick ]; then QUICK=1; SUITES_ONLY=1; shift; fi
 ALL_SUITES=(draft draft_ui assets intake intake_ui expansion finals save chronology career coaches coach_market coach_pathway coach_effects career_ui potential ratings ai training selection matchup matchday calls roles injuries awards achievements contracts league club match_game pressure workload fitness preseason practice papers plan_know planpane match_visual match_motion league_balance calibration balance stats story back_nav scroll family keyboard nameink rowgap trainrep international namelink match_marks traitlink)
 [ "$#" -gt 0 ] && SUITES=("$@") || SUITES=("${ALL_SUITES[@]}")
 # Read once and clear it: the harness self-test runs this script again, and a
@@ -61,6 +66,10 @@ note_error() {  # message
 }
 
 echo "== Godot: $("$GODOT" --headless --version 2>/dev/null | tail -1)"
+if [ "$QUICK" = 1 ] && [ -d .godot ]; then
+echo "== Quick: skipping the import (.godot exists; a script error still fails its suite)"
+summary+=("| import | skipped | --quick |")
+else
 echo "== Importing the project"
 timeout 600 "$GODOT" --headless --path . --editor --import > "$LOG_DIR/import.log" 2>&1
 import_code=$?
@@ -72,6 +81,7 @@ if [ "$import_code" != 0 ] || grep -qE "SCRIPT ERROR|Parse Error|Compile Error" 
 	exit 1
 else
 	summary+=("| import | pass | |")
+fi
 fi
 
 for suite in ${SUITES[@]+"${SUITES[@]}"}; do
@@ -179,6 +189,8 @@ else
 	summary+=("| intake_harness | FAIL | see log |")
 fi
 
+# CI runs the build-number check once, in the plan job, and sets SKIP_VERSION_CHECK=1 here.
+if [ "${SKIP_VERSION_CHECK:-0}" != 1 ]; then
 echo "== One version (project.godot config/version is the only copy)"
 if python3 tools/test_check_version.py > "$LOG_DIR/one_version.log" 2>&1 && python3 -I tools/check_version.py >> "$LOG_DIR/one_version.log" 2>&1; then
 	summary+=("| one_version | pass | |")
@@ -187,6 +199,7 @@ else
 	note_error "tools/check_version.py: a second copy of the build number (see tools/bump_version.py)"
 	failed=1
 	summary+=("| one_version | FAIL | see log |")
+fi
 fi
 
 echo "== Offline promise (Android preset requests vibrate only)"
