@@ -1337,7 +1337,13 @@ func _one_line_break(sz: Vector2i) -> void:
 		await _settle()
 		var t: Dictionary = sim.tactics[me]
 		_check(w_start == "" and m.find_child("CoachBox", true, false) == null, "Start quarter takes a real tap and closes the break (%s%s)" % [tag, (": " + w_start) if w_start != "" else ""])
-		_check(str(t.get("gameplan", "")) == new_plan and str(t.get("tag_id", "")) == picked_id and str(t.get("tagger_id", "")) == tagger_id,
+		# A tag ends with its man if he goes off hurt or stops being a midfielder.
+		var tag_ended := false
+		for d in sim.tag_drops:
+			tag_ended = tag_ended or str(d.get("id", "")) == picked_id
+		for inj in sim.injuries:
+			tag_ended = tag_ended or str(inj.get("id", "")) == picked_id
+		_check(str(t.get("gameplan", "")) == new_plan and (str(t.get("tag_id", "")) == picked_id or (tag_ended and str(t.get("tag_id", "")) == "")) and str(t.get("tagger_id", "")) == tagger_id,
 				"The quarter starts with the calls made behind the rows (%s: %s, tag %s by %s)" % [tag, str(t.get("gameplan", "")), str(t.get("tag_id", "")), str(t.get("tagger_id", ""))])
 	else:
 		_check(false, "(setup) a tag and a choice of tagger are on offer (%s)" % tag)

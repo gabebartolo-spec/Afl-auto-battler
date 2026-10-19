@@ -342,6 +342,10 @@ func _test_rating() -> void:
 	var by := {"DEF": [], "MID": [], "FWD": [], "RUCK": []}
 	var best := {}
 	var clubs := ["COL", "CAR", "GEE", "SYD", "BRL", "MEL", "HAW", "ESS", "FRE", "ADE", "GWS", "PAD"]
+	# This reads the engine's spread across positions, not the director's hand-set
+	# stars (data/ovr_overrides.csv), so it plays on the data without them.
+	GameDB.skip_ovr_overrides = true
+	GameDB.reload()
 	for i in range(16):  # 16 games: 8 left the parity read to a few big days
 		var res := _match(40 + i, clubs[i % 8], clubs[i % 8 + 4])
 		for side in [0, 1]:
@@ -350,6 +354,8 @@ func _test_rating() -> void:
 				(by[str(p["role"])] as Array).append(int(p["rating"]))
 			for p in rated.slice(0, 3):
 				best[str(p["role"])] = int(best.get(str(p["role"]), 0)) + 1
+	GameDB.skip_ovr_overrides = false
+	GameDB.reload()
 	var p90 := {}
 	for role in by:
 		var v: Array = by[role]
@@ -619,6 +625,22 @@ func _story(q: Array, goals_log: Array) -> Dictionary:
 
 ## Comebacks told better (director, 2026-10-14): every line true to the scores, nothing when
 ## there is nothing to say, and the sim untouched.
+## The first seed from `from` up where MEL (home) lose a game the other side turned.
+func _find_lost_turn_seed(from: int) -> int:
+	for seed in range(from, from + 80):
+		var home := Squad.new("MEL", GameDB.club_list("MEL"), true, "MEL")
+		var away := Squad.new("FRE", GameDB.club_list("FRE"), false, "FRE")
+		home.ai_plans = true
+		away.ai_plans = true
+		var sim := MatchSim.new(home, away, seed)
+		for q in range(4):
+			sim.run_quarter()
+		var res := sim.result()
+		if int(res["score"][0]) < int(res["score"][1]) and not ComebackTelling.turning_quarter(res, 0).is_empty():
+			return seed
+	return from
+
+
 func _test_comeback_telling() -> void:
 	# Quarter rows are [home goals, away goals, home behinds, away behinds].
 	var turned := _story([[0, 3, 0, 0], [4, 1, 0, 0], [2, 0, 0, 0]], [])
@@ -654,9 +676,12 @@ func _test_comeback_telling() -> void:
 	_check(ComebackTelling.break_line({}, 0) == "", "No quarters, no line")
 
 	# Seeded matches (SYD v CAR 175, MEL v FRE 188, SYD v CAR 3). me = home.
-	var cases := {175: "win", 188: "loss", 3: "none"}
+	# The loss is found, not fixed: hand-set ratings (data/ovr_overrides.csv) change
+	# Melbourne and Fremantle's games, so it is the first MEL v FRE game from 188
+	# up that Melbourne's side turned against them.
+	var cases := {175: "win", _find_lost_turn_seed(188): "loss", 3: "none"}
 	for seed in cases:
-		var pr: Array = ["MEL", "FRE"] if seed == 188 else ["SYD", "CAR"]
+		var pr: Array = ["MEL", "FRE"] if str(cases[seed]) == "loss" else ["SYD", "CAR"]
 		var home := Squad.new(pr[0], GameDB.club_list(pr[0]), true, pr[0])
 		var away := Squad.new(pr[1], GameDB.club_list(pr[1]), false, pr[1])
 		home.ai_plans = true
