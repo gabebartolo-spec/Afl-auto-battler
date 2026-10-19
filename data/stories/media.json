@@ -60,6 +60,10 @@
 					{
 						"op": "flag",
 						"name": "backed_in_papers"
+					},
+					{
+						"op": "expects_game",
+						"sting": 12
 					}
 				],
 				"result": "{name} stays in the side."
@@ -333,8 +337,7 @@
 					{
 						"op": "trust",
 						"d": 4,
-						"why": "You let him front the group",
-						"line": "He trusts you more."
+						"why": "You let him front the group"
 					},
 					{
 						"op": "delegate",
@@ -366,8 +369,7 @@
 					{
 						"op": "trust",
 						"d": -2,
-						"why": "You kept it between you two when he asked for the group",
-						"line": "He trusts you a little less."
+						"why": "You kept it between you two when he asked for the group"
 					}
 				],
 				"result": "You talk it through with {name} alone."
@@ -551,5 +553,311 @@
 				"result": "In and out of the parade, no Brownlow. The sponsors grumble to the board."
 			}
 		]
+	},
+	{
+		"id": "media_papers_finish",
+		"category": "media",
+		"scripted": true,
+		"cooldown": 0,
+		"subject_cooldown": 0,
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"{paper} has {club} finishing {pred_word}"
+		],
+		"text": [
+			"{writer} has the club finishing {pred_word} this season, outside the finals. The papers want your answer."
+		],
+		"unanswered": {
+			"board": -3,
+			"text": "You say nothing. The papers have the last word."
+		},
+		"choices": [
+			{
+				"key": "back",
+				"label": "Say it is about right",
+				"effects": [
+					{
+						"op": "board",
+						"d": 2
+					},
+					{
+						"op": "morale",
+						"d": -3,
+						"who": "all"
+					}
+				],
+				"result": "You tell the press the list is about where they have it."
+			},
+			{
+				"key": "deflect",
+				"label": "Say the ladder is settled on the field",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 1,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "You tell the press the ladder is settled on the field, not in the papers."
+			},
+			{
+				"key": "talk_up",
+				"label": "Say the club will finish {claim_word} or better",
+				"effects": [
+					{
+						"op": "board",
+						"d": 4
+					},
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "all"
+					},
+					{
+						"op": "on_record"
+					},
+					{
+						"op": "flag",
+						"name": "talked_up",
+						"on": "club"
+					}
+				],
+				"result": "You tell the press the club will finish {claim_word} or better."
+			}
+		],
+		"default": -1
+	},
+	{
+		"id": "media_papers_pressure",
+		"category": "media",
+		"scripted": true,
+		"cooldown": 0,
+		"subject_cooldown": 0,
+		"subject": {
+			"kind": "club"
+		},
+		"title": [
+			"{paper} asks how long you have"
+		],
+		"text": [
+			"{writer} has the club finishing {pred_word}. The board's goal is to {goal_line}. He asks whether you are under pressure."
+		],
+		"unanswered": {
+			"board": -4,
+			"text": "You say nothing. The question stays in the papers."
+		},
+		"choices": [
+			{
+				"key": "back",
+				"label": "Say the board is entitled to ask",
+				"effects": [
+					{
+						"op": "board",
+						"d": 3
+					},
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "all"
+					}
+				],
+				"result": "You tell the press the board is entitled to ask, and so are they."
+			},
+			{
+				"key": "deflect",
+				"label": "Say you only think about Round 1",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 2,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": -2
+					}
+				],
+				"result": "You tell the press you only think about Round 1."
+			},
+			{
+				"key": "talk_up",
+				"label": "Say the club will finish {claim_word} or better",
+				"effects": [
+					{
+						"op": "board",
+						"d": 5
+					},
+					{
+						"op": "morale",
+						"d": 2,
+						"who": "all"
+					},
+					{
+						"op": "on_record"
+					},
+					{
+						"op": "flag",
+						"name": "talked_up",
+						"on": "club"
+					}
+				],
+				"result": "You tell the press the club will finish {claim_word} or better."
+			}
+		],
+		"default": -1
+	},
+	{
+		"id": "media_papers_breakout",
+		"category": "media",
+		"scripted": true,
+		"cooldown": 0,
+		"subject_cooldown": 0,
+		"subject": {
+			"kind": "player",
+			"where": {
+				"fit": true
+			},
+			"pick": "random"
+		},
+		"title": [
+			"{writer} tips {name} to break out"
+		],
+		"text": [
+			"{writer} says {name} is the one to watch this year, and asks whether you agree."
+		],
+		"unanswered": {
+			"trust": -2,
+			"why": "You said nothing when the papers tipped him",
+			"text": "You say nothing. {first} reads it on his own."
+		},
+		"choices": [
+			{
+				"key": "back",
+				"label": "Say he has earned the attention",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 6
+					},
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You backed him when the papers tipped him"
+					},
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "others"
+					}
+				],
+				"result": "You tell the press {name} has earned the attention."
+			},
+			{
+				"key": "deflect",
+				"label": "Say he still has plenty to prove",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 2,
+						"who": "others"
+					},
+					{
+						"op": "morale",
+						"d": -4
+					},
+					{
+						"op": "trust",
+						"d": -3,
+						"why": "You played down the papers' tip"
+					}
+				],
+				"result": "You tell the press {name} still has plenty to prove."
+			},
+			{
+				"key": "talk_up",
+				"label": "Promise him a run in the side",
+				"effects": [
+					{
+						"op": "trust",
+						"d": 5,
+						"why": "You promised him a run after the papers tipped him"
+					},
+					{
+						"op": "start_backing"
+					}
+				],
+				"result": "You tell the press {name} will get a run in the side."
+			}
+		],
+		"default": -1
+	},
+	{
+		"id": "media_papers_reckoning",
+		"category": "media",
+		"cooldown": 40,
+		"subject_cooldown": 0,
+		"per_season": 1,
+		"subject": {
+			"kind": "club"
+		},
+		"needs": {
+			"flag": "talked_up",
+			"after": 6,
+			"within": 22
+		},
+		"when": {
+			"words_behind_min": 1
+		},
+		"title": [
+			"{club} is {ladder_word}; you said {words_word}"
+		],
+		"text": [
+			"Before the season you told the press {club} would finish {words_word} or better. It sits {ladder_word}, and the papers have printed your words back."
+		],
+		"unanswered": {
+			"board": -4,
+			"text": "You say nothing. The papers keep your words in print."
+		},
+		"choices": [
+			{
+				"key": "own_it",
+				"label": "Say you got it wrong",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 2,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": -3
+					}
+				],
+				"result": "You tell the press you were too bold."
+			},
+			{
+				"key": "hold",
+				"label": "Say the season is not over",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": -5
+					}
+				],
+				"result": "You tell the press the season is not over."
+			}
+		],
+		"default": -1
 	}
 ]

@@ -16,21 +16,21 @@ const CLUB := "FRE"
 
 func run() -> void:
 	GameState.replay_seed = SUITE_SEED
-	_test_switch_off()
+	_t("_test_switch_off")
 	Features.set_on("preseason", true)
-	_test_rules()
-	_test_words()
-	_test_match_effect()
-	_test_drilling()
-	_test_ai()
-	_test_off_season_and_fade()
-	_test_old_saves()
-	await _test_screens()
+	_t("_test_rules")
+	_t("_test_words")
+	_t("_test_match_effect")
+	_t("_test_drilling")
+	_t("_test_ai")
+	_t("_test_off_season_and_fade")
+	_t("_test_old_saves")
+	await _t("_test_screens")
 	PreSeason.reload()
 	Features.clear("preseason")
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
-	print("Plan familiarity tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Plan familiarity", self))
 
 
 func _check(ok: bool, message: String) -> void:
@@ -38,6 +38,11 @@ func _check(ok: bool, message: String) -> void:
 	if not ok:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _career(open := true, club := CLUB) -> void:
@@ -113,7 +118,10 @@ func _sim(known0: Dictionary, known1: Dictionary, plan0: String, plan1: String, 
 func _test_switch_off() -> void:
 	PreSeason.reload()
 	_career(false)
-	_check(not Features.on("preseason"), "The pre-season switch ships off")
+	# The switch ships ON since 1.0.1; this test forces it off to prove the game
+	# without the pre-season is the game as it was.
+	Features.set_on("preseason", false)
+	_check(not Features.on("preseason"), "The pre-season switch can be turned off for a run")
 	GameState.set_club_plan("attacking")
 	GameState._refresh_coach_tactics()
 	_check(GameState.plan_known.is_empty() and CoachEffects.known.is_empty()
@@ -138,6 +146,7 @@ func _test_switch_off() -> void:
 		GameState.advance()
 	_check(GameState.plan_known.is_empty() and GameState.plan_idle.is_empty(),
 			"Three rounds on, still nothing kept: the game is as it was")
+	Features.set_on("preseason", true)
 
 
 func _test_rules() -> void:

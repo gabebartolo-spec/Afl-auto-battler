@@ -22,14 +22,14 @@ func _run() -> void:
 	_state.settings_path = "user://test_settings.cfg"
 	_state.show_real_names = false
 	_state.replay_seed = 2027
-	await _plan_lines()
-	await _calls_record()
-	print("Plan pane tests: %d checks, %d failures" % [_checks, _failures.size()])
+	await _t("_test_plan_lines")
+	await _t("_test_calls_record")
+	print(Ran.line("Plan pane", self))
 	quit(0 if _failures.is_empty() else 1)
 
 
 ## Every plan's blurb has the parts it should, none of them grey or long.
-func _plan_lines() -> void:
+func _test_plan_lines() -> void:
 	var UK = load("res://scripts/ui/UiKit.gd")
 	var db = root.get_node("GameDB")
 	_state.reset()
@@ -90,7 +90,7 @@ func _plan_lines() -> void:
 ## The record of calls under the Game plan, Pep talk and Rotations: nothing
 ## before the first bounce, then a line for each quarter played, in order,
 ## with the right clubs and calls (theirs only for the game plan).
-func _calls_record() -> void:
+func _test_calls_record() -> void:
 	var db = root.get_node("GameDB")
 	var Cr = load("res://scripts/sim/CoachReport.gd")
 	var UK = load("res://scripts/ui/UiKit.gd")
@@ -176,3 +176,8 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)

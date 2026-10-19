@@ -18,17 +18,17 @@ func run() -> void:
 	failures.clear()
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
-	_test_finals_open_after_last_round()
-	_test_wildcard_week_and_reseed()
-	_test_interactive_finals_series()
-	_test_simulated_finals_series()
-	_test_extra_time()
-	_test_home_and_away_never_extra_time()
-	_test_grand_final_at_the_mcg()
-	_test_rest_of_week_in_background()
-	_test_draws_on_the_ladder()
+	_t("_test_finals_open_after_last_round")
+	_t("_test_wildcard_week_and_reseed")
+	_t("_test_interactive_finals_series")
+	_t("_test_simulated_finals_series")
+	_t("_test_extra_time")
+	_t("_test_home_and_away_never_extra_time")
+	_t("_test_grand_final_at_the_mcg")
+	_t("_test_rest_of_week_in_background")
+	_t("_test_draws_on_the_ladder")
 	GameState.replay_seed = 0
-	print("Finals tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Finals", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -39,6 +39,11 @@ func _check(condition: bool, message: String) -> void:
 
 
 ## Fast-forward to the last home-and-away round and play it.
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 func _to_last_round() -> Season:
 	GameState.reset()
 	GameState.start_season("ADE", GameDB.club_list("ADE"))

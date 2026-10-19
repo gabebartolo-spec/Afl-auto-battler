@@ -4,18 +4,25 @@
 # one shard; tools/check_ci_shards.sh checks that on every CI run, so a new
 # suite cannot quietly skip CI.
 #
-# Planned from the real per-suite seconds of main run 39119858455 (2026-10-18,
-# all 53 suites, matchday included; tools/ci_suite_timings.json). Longest-first,
-# with league_balance placed last on the lightest shard because pull requests
-# do not run it (only main pushes do). Estimated suite seconds per shard:
-#   pull request: 1,041 1,041 1,039 1,038 1,038   (the old slowest shard took 1,902)
-#   main push:    shard 1 adds league_balance (157): 1,194
-# Setup, import and runner variation come on top; the test job prints each
-# shard's observed time and warns past 135% of the mean. A new suite with no
-# timing yet: add about 60 seconds for it to tools/ci_suite_timings.json and
-# put it on the lightest shard; re-plan from a fresh main run when it drifts.
-1: match_visual preseason plan_know calibration league match_motion trainrep intake assets potential coach_pathway league_balance
-2: career contracts injuries career_ui expansion rowgap roles intake_ui calls nameink ratings
-3: save coach_market matchup draft_ui pressure awards achievements coach_effects namelink
-4: match_game matchday international coaches finals stats workload keyboard fitness family
-5: story back_nav club balance ai draft training scroll chronology selection planpane
+# Do not edit the lines below by hand: re-plan from a full green main run
+# (at least weekly, or after adding a suite) with
+#   gh run download <run> -p 'suite-timings-*' -D <dir>
+#   python3 tools/plan_ci_shards.py --timings-dir <dir> --run <run> --shards 12
+# A new suite with no timing yet: add about 60 seconds for it to
+# tools/ci_suite_timings.json and re-plan. balance, league_balance and
+# calibration are planned last because most pull requests skip them.
+# --- plan ---
+# From main run 39144840688 (2026-10-19), 56 suites, by tools/plan_ci_shards.py --shards 12.
+# Pull-request suite seconds per shard: 637 570 547 547 548 549 547 546 547 547 546 547
+1: save
+2: match_game
+3: story chronology namelink calibration
+4: career match_marks
+5: match_visual stats intake family
+6: preseason expansion pressure intake_ui nameink
+7: matchday career_ui draft_ui awards fitness selection
+8: back_nav matchup league training keyboard planpane league_balance
+9: contracts match_motion ai coaches workload coach_pathway
+10: club practice international rowgap roles coach_effects
+11: plan_know draft injuries achievements scroll potential balance
+12: coach_market papers finals trainrep calls assets ratings

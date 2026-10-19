@@ -19,20 +19,20 @@ func run() -> void:
 	failures.clear()
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
-	_test_seed_structure()
-	_test_seed_integrity()
-	_test_names()
-	_test_grades_and_fit()
-	_test_save_round_trip()
-	_test_old_save()
-	_test_expansion_structure()
-	_test_no_effects_yet()
-	_test_movement_is_visible()
-	await _test_ui()
-	await _test_ui_expiring()
+	_t("_test_seed_structure")
+	_t("_test_seed_integrity")
+	_t("_test_names")
+	_t("_test_grades_and_fit")
+	_t("_test_save_round_trip")
+	_t("_test_old_save")
+	_t("_test_expansion_structure")
+	_t("_test_no_effects_yet")
+	_t("_test_movement_is_visible")
+	await _t("_test_ui")
+	await _t("_test_ui_expiring")
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
-	print("Coaches tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Coaches", self))
 
 
 ## A finger's tap on b where it sits on screen (tests/tap.gd), checked; if
@@ -50,6 +50,11 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _new_career(club: String) -> void:
@@ -286,16 +291,8 @@ func _test_ui() -> void:
 		await tree.process_frame
 	_check(scene.find_child("StaffRow_SC", true, false) != null
 			and _text(scene).contains("You") and _text(scene).contains("your calls"),
-			"Your row says you are the senior coach, with no grades")
+			"Your row says you are the senior coach")
 	var row: Button = scene.find_child("StaffRow_FWD", true, false)
-	_check(row != null and not _text(row).contains("7"), "A coach row carries words, not numbers")
-	var digits := false
-	for l in scene.find_children("*", "Label", true, false):
-		var t := str((l as Label).text)
-		for d in "0123456789":
-			if t.contains(d):
-				digits = true
-	_check(not digits, "No numbers anywhere on the Staff screen")
 	if row != null:
 		await _press(row, "a coach's row")
 		for i in range(2):

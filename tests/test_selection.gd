@@ -17,21 +17,21 @@ func run() -> void:
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
-	_test_auto_matches_select_22()
-	_test_ruck_selection_integrity()
-	_test_named_side()
-	_test_formation_layout()
-	_test_complete_synergy()
-	_test_gaps_and_overflow()
-	_test_left_out_player_sits_out()
-	_test_selection_saved()
-	_test_with_us_and_milestones()
-	_test_fifth_interchange()
-	_test_dual_ruck()
-	_test_merit_second_position()
+	_t("_test_auto_matches_select_22")
+	_t("_test_ruck_selection_integrity")
+	_t("_test_named_side")
+	_t("_test_formation_layout")
+	_t("_test_complete_synergy")
+	_t("_test_gaps_and_overflow")
+	_t("_test_left_out_player_sits_out")
+	_t("_test_selection_saved")
+	_t("_test_with_us_and_milestones")
+	_t("_test_fifth_interchange")
+	_t("_test_dual_ruck")
+	_t("_test_merit_second_position")
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
-	print("Selection tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Selection", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -39,6 +39,11 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _ids(arr: Array) -> Array:

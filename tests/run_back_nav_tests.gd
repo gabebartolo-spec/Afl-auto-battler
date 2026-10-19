@@ -19,6 +19,7 @@ var _failures: Array[String] = []
 var _table: Array[String] = []
 
 const SUITE_SEED := 2027
+const Tap := preload("res://tests/tap.gd")
 
 
 func _initialize() -> void:
@@ -30,6 +31,11 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _settle(n := 6) -> void:
@@ -50,19 +56,19 @@ func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	await _settle()
 
-	await _screens()
-	await _overlays()
-	await _main_menu()
-	await _draft()
-	await _match()
-	await _crawl()
-	await _rest()
-	await _new_career_flow()
+	await _t("_test_screens")
+	await _t("_test_overlays")
+	await _t("_test_main_menu")
+	await _t("_test_draft")
+	await _t("_test_match")
+	await _t("_test_crawl")
+	await _t("_test_rest")
+	await _t("_test_new_career_flow")
 
 	print("BACKTABLE")
 	for line in _table:
 		print(line)
-	print("Back navigation tests: %d checks, %d failures" % [_checks, _failures.size()])
+	print(Ran.line("Back navigation", self))
 	for f in _failures:
 		print("  FAIL: " + f)
 	quit(1 if not _failures.is_empty() else 0)
@@ -199,7 +205,7 @@ func _fingerprint() -> String:
 	return "%s|%s|%s" % [str(s.round_index) if s != null else "-", str(_state.my_club), str(_state.season_year)]
 
 
-func _screens() -> void:
+func _test_screens() -> void:
 	for row in SCREENS:
 		var key := str(row[0])
 		var expect := str(row[2])
@@ -339,7 +345,22 @@ func _click_named(scene: Node, node_name: String) -> String:
 	return await _click(scene.find_child(node_name, true, false))
 
 
-func _overlays() -> void:
+## A real tap on a control that may sit below the fold of its page (the season
+## plan row, under the week's facts and their options): the player scrolls to
+## it, then the touch lands at its on-screen position (tests/tap.gd).
+func _tap_named(scene: Node, node_name: String) -> String:
+	var c := scene.find_child(node_name, true, false) as Control
+	if c == null:
+		return "no control"
+	for i in range(90):
+		var fading := current_scene as CanvasItem
+		if fading == null or fading.modulate.a >= 0.99:
+			break
+		await process_frame
+	return await Tap.tap(c)
+
+
+func _test_overlays() -> void:
 	var pid := _first_player_id()
 	await _overlay_case("hub: settings sheet", "hub", func(s): await _click_named(s, "HubSettings"))
 	await _overlay_case("hub: news", "hub", func(s): s.call("_show_news"))
@@ -354,11 +375,11 @@ func _overlays() -> void:
 				break
 		await process_frame
 		s.call("_on_sim_round"))
-	await _overlay_case("hub: season plan", "hub", func(s): await _click_named(s, "SeasonPlanLine"))
+	await _overlay_case("hub: season plan", "hub", func(s): await _tap_named(s, "SeasonPlanLine"))
 	await _overlay_case("list: player profile", "list", func(s): s.call("_open_profile", pid))
 	await _overlay_case("list: captaincy sheet", "list", func(s): s.call("_open_captaincy"))
 	await _overlay_case("training: stat guide", "training", func(s): await _click_named(s, "StatGuideButton"))
-	await _overlay_case("training: season plan", "training", func(s): await _click_named(s, "SeasonPlanLine"))
+	await _overlay_case("training: season plan", "training", func(s): await _tap_named(s, "SeasonPlanLine"))
 	await _overlay_case("training: first-visit intro", "training", func(s): s.call("_show_intro"),
 			func(): _state.set_setting("seen_training_intro", false))
 	await _overlay_case("stats: first-visit intro", "stats", func(s): s.call("_show_intro"))
@@ -374,7 +395,7 @@ func _overlays() -> void:
 # ---------------------------------------------------------------------------
 # Main menu: its sheets, then a lone Back does nothing and never quits
 # ---------------------------------------------------------------------------
-func _main_menu() -> void:
+func _test_main_menu() -> void:
 	for opener in ["MenuSettings", "MenuHelp"]:
 		for way in WAYS:
 			_state.reset()
@@ -414,7 +435,7 @@ func _main_menu() -> void:
 # ---------------------------------------------------------------------------
 # Draft: Back to the menu (it replaces, so the stack stays one deep)
 # ---------------------------------------------------------------------------
-func _draft() -> void:
+func _test_draft() -> void:
 	for way in WAYS:
 		_state.reset()
 		_router.stack = []
@@ -472,7 +493,7 @@ func _live_match() -> bool:
 	return true
 
 
-func _match() -> void:
+func _test_match() -> void:
 	# One live match, taken to a break: Match stats opens and every way out closes
 	# it; then Back with nothing open is refused (a live match is not left half
 	# way) with a visible hint.
@@ -577,7 +598,7 @@ func _crawl_buttons(scene: Node) -> Array:
 	return out
 
 
-func _crawl() -> void:
+func _test_crawl() -> void:
 	for view in CRAWL_VIEWS:
 		var key := str(view[0])
 		var pre: Array = view[1]
@@ -631,7 +652,7 @@ func _crawl() -> void:
 # ---------------------------------------------------------------------------
 # The rest: the draft board and its sheets, the trade view, the save / load menus
 # ---------------------------------------------------------------------------
-func _rest() -> void:
+func _test_rest() -> void:
 	# Draft board: the screen's own Back, and a player sheet opened from the pool.
 	for way in WAYS:
 		await _open_view("draft", ["Choose_COL"])
@@ -685,7 +706,7 @@ func _continue_shows_old_career(menu: Node) -> bool:
 	return cont != null and meta != null and str((meta as Label).text).contains(_db.club_name("COL"))
 
 
-func _new_career_flow() -> void:
+func _test_new_career_flow() -> void:
 	for way in WAYS:
 		_state.reset()
 		_state.start_season("COL", _db.club_list("COL"))

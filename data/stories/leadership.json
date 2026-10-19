@@ -81,6 +81,12 @@
 						"op": "xp",
 						"d": 4,
 						"who": "others"
+					},
+					{
+						"op": "slow_start",
+						"who": "subject",
+						"chance": 10,
+						"on": "week"
 					}
 				],
 				"result": "{name} takes the kids on Wednesday."
@@ -580,6 +586,10 @@
 						"op": "morale",
 						"d": 2,
 						"who": "all"
+					},
+					{
+						"op": "board",
+						"d": -2
 					}
 				],
 				"result": "They talked it through."
@@ -815,6 +825,10 @@
 					{
 						"op": "flag",
 						"name": "cs_good"
+					},
+					{
+						"op": "expects_game",
+						"sting": 6
 					}
 				],
 				"result": "{name} talked it through."
@@ -891,6 +905,10 @@
 					{
 						"op": "flag",
 						"name": "cs_good"
+					},
+					{
+						"op": "expects_game",
+						"sting": 6
 					}
 				],
 				"result": "{name} knows you're still with him."
@@ -907,6 +925,11 @@
 					{
 						"op": "flag",
 						"name": "cs_good"
+					},
+					{
+						"op": "morale",
+						"d": -2,
+						"who": "subject"
 					}
 				],
 				"result": "{name} appreciates it."
@@ -1072,6 +1095,10 @@
 					{
 						"op": "flag",
 						"name": "cc_start"
+					},
+					{
+						"op": "board",
+						"d": -2
 					}
 				],
 				"result": "You opened the talks early."
@@ -1685,5 +1712,143 @@
 				"result": "No farewell talk this week. He's just the captain until the siren."
 			}
 		]
+	},
+	{
+		"id": "pre_leaders_vote",
+		"subject": {
+			"kind": "club"
+		},
+		"when": {
+			"has_vice": true
+		},
+		"title": [
+			"The leaders have voted"
+		],
+		"text": [
+			"The leadership group met last night and voted for an extra morning session each week of the last block. They want to know you'll back it."
+		],
+		"choices": [
+			{
+				"key": "back",
+				"label": "Back the vote",
+				"effects": [
+					{
+						"op": "running",
+						"d": 1
+					},
+					{
+						"op": "culture",
+						"strand": "standards",
+						"d": 1,
+						"why": "You backed the leadership group's vote for extra work"
+					},
+					{
+						"op": "morale",
+						"d": -3,
+						"who": "all"
+					}
+				],
+				"result": "The extra mornings are on. The leaders are pleased, and the rest are tired."
+			},
+			{
+				"key": "overrule",
+				"label": "Overrule them",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "all"
+					},
+					{
+						"op": "culture",
+						"strand": "together",
+						"d": -1,
+						"why": "You overruled the leadership group's vote"
+					}
+				],
+				"result": "The vote doesn't stand. The group is glad of the mornings, and the leaders aren't."
+			}
+		],
+		"category": "leadership",
+		"phase": [
+			"preseason"
+		],
+		"cooldown": 20,
+		"per_season": 1
+	},
+	{
+		"id": "pre_star_last",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"trial_place": "worst",
+				"overall_rank_max": 12,
+				"fit": true
+			},
+			"pick": "highest:overall"
+		},
+		"title": [
+			"{name} finished near the back"
+		],
+		"text": [
+			"{first} is one of your best and came in among the last three in the time trial. The group saw it."
+		],
+		"choices": [
+			{
+				"key": "call",
+				"label": "Call it out in front of the group",
+				"effects": [
+					{
+						"op": "culture",
+						"strand": "standards",
+						"d": 1,
+						"why": "You called out a star's slow time trial in front of the group"
+					},
+					{
+						"op": "morale",
+						"d": 3,
+						"who": "others"
+					},
+					{
+						"op": "morale",
+						"d": -4
+					},
+					{
+						"op": "trust",
+						"d": -4,
+						"why": "You called him out in front of the group"
+					}
+				],
+				"result": "{first} takes it hard. The rest of the group sits up."
+			},
+			{
+				"key": "quiet",
+				"label": "A quiet word",
+				"effects": [
+					{
+						"op": "trust",
+						"d": 4,
+						"why": "You had a quiet word with him after the time trial"
+					},
+					{
+						"op": "morale",
+						"d": 2
+					},
+					{
+						"op": "culture",
+						"strand": "standards",
+						"d": -1,
+						"why": "A star's slow time trial went unremarked"
+					}
+				],
+				"result": "A quiet word after the session. {first} knows, and the group sees nothing."
+			}
+		],
+		"category": "leadership",
+		"phase": [
+			"preseason"
+		],
+		"cooldown": 20,
+		"per_season": 1
 	}
 ]

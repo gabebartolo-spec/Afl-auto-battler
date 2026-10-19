@@ -40,6 +40,8 @@ extends SceneTree
 ##                   from the ball and from the away side's centroid, its spread
 ##                   across, and the most of its discs within 6 m of the ball
 ##                   (SHAPE lines; in possession, without it, at a stoppage)
+##                   and each frame's markings for the home side (MARK lines: ring
+##                   strength, centre, the ball's distance from it, the pad; corridor)
 
 ## --size WxH: the window (default 900x700; 390x330 is the oval's share of a phone).
 var W := 900
@@ -310,6 +312,7 @@ func _motion_frame(pitch, n: int) -> void:
 			_max_move = most
 			_max_move_at = n
 	print("MOTION frame %d %.2f m" % [n, most])
+	_mark_frame(pitch, n)
 	_prev_disc = drawn.duplicate()
 	_prev_period = pitch.period
 	var d = pitch.director
@@ -370,3 +373,25 @@ func _snapshot(pitch) -> Dictionary:
 	for i in range(screen.size()):
 		players.append({"side": int(snap["tokens"][i]["side"]), "i": i, "pos": screen[i]})
 	return {"players": players, "ball": snap["ball_screen"]}
+
+
+## One movie frame's markings for the home side (MARK lines): each ring's strength,
+## its centre, the drawn ball's distance from it and the pad's radius (metres), and
+## the corridor's strength with who has the ball. For checking a clip frame by frame.
+func _mark_frame(pitch, n: int) -> void:
+	var al: Dictionary = pitch.mark_alphas()
+	var sc: float = pitch._scale()
+	if sc <= 0.0:
+		return
+	var bp: Vector2 = pitch.ball_point()
+	var parts: Array = []
+	for nm in ["stop", "open"]:
+		var a := float((al[nm] as Array)[0])
+		var r: Dictionary = (pitch._stop_ring if nm == "stop" else pitch._open_ring)[0]
+		if a > 0.0 and not r.is_empty():
+			var at: Vector2 = r["at"]
+			parts.append("%s %.3f at (%.1f, %.1f) ball %.1f m pad %.1f m%s" % [nm, a, at.x, at.y,
+					pitch._w2s(at).distance_to(bp) / sc, pitch.mark_pad_radius(float(r["r"])),
+					" leaving" if nm == "open" and pitch.open_ring_leaving(0) else ""])
+	parts.append("corridor %.3f poss %d mode %s" % [float((al["corridor"] as Array)[0]), int(pitch.director._poss), str(pitch.director.mode)])
+	print("MARK frame %d %s" % [n, ", ".join(parts)])

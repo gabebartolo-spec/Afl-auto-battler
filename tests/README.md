@@ -18,66 +18,72 @@ CI runs the suites as five parallel shards, so a pull request takes about eight
 minutes instead of half an hour. `tools/ci_shards.txt` says which suites each
 shard runs; `tools/check_ci_shards.sh` fails the run if a suite in
 `tools/run_tests.sh` is in no shard, so **a new suite needs a line in
-`tools/ci_shards.txt`** (put it in the shortest shard) as well as a floor in
-`expected_checks.txt`. One more job runs the dataset, export-data and intake
+`tools/ci_shards.txt`** (put it in the shortest shard). One more job runs the dataset, export-data and intake
 harness checks once (`EXTRAS_ONLY=1 tools/run_tests.sh`). The required check
 named `test` is the last job and passes only when every shard and that job did.
 
 Run only the suites your change touches while you work; CI runs the rest.
+
+**Every test function runs.** A suite calls each test through `_t("_test_x")`
+(`tests/functions_ran.gd`) and ends with a line such as "Draft tests: 20 of 20
+functions, 7901 checks, 0 failures". A `_test_*` function that is never called,
+or that makes no check (an empty loop, an early return), fails by name, and
+`tools/run_tests.sh` fails a line that is "functions short" or has no function
+count. There is no shared count file: a PR that adds a test edits only its own
+suite. (This replaced the check floors on 2026-10-18, test suite audit section 4.)
 
 **Taps and seeds.** A test that stands for a player's tap uses `tests/tap.gd` (`await Tap.tap(button)` returns "" when the tap reached it). It sends a touch at the button's place on screen, so a covering sheet or an off-screen button fails. A test that starts a season sets `GameState.replay_seed` first: a clock seed makes a different match every run (ROADMAP §0.4a, proof practices). Every suite that starts a season or draft sets `SUITE_SEED` (a `const` in the suite, 2027) as `GameState.replay_seed` in `run()` and resets it to 0 before the summary line (C15). A suite already deterministic another way (explicit `MatchSim` or `Draft` seeds) says so in one line, `## Seeded by design: <why>`; `tools/check_suite_seeds.sh` runs with the dataset checks and fails, naming the suite, if a suite has neither. If a seeded suite fails, fix the code or report it to the suite's owner, do not edit the check to pass.
 
 ### Which suite covers what
 
 Pick the suites for the code you changed and run just those (`tools/run_tests.sh <suites>`).
-Floor is the fewest checks the suite may run (`expected_checks.txt`; a suite reporting fewer fails the run). Times are seconds on a CI runner, from the first sharded run.
 
-| Suite | Covers | Floor | CI s |
-|---|---|---:|---:|
-| `draft` | The League Draft model: cap, snake order, rival picks, pick log | 7807 | 24 |
-| `draft_ui` | The draft screen's layout and state: containers, widths, rotate and resume | 1130 | 5 |
-| `intake` | The National Draft model: the 2026 class, projection, season rollover | 2210 | 6 |
-| `intake_ui` | The National Draft on the shared draft screen | 500 | 4 |
-| `expansion` | Tasmania in 2028 and Canberra in 2030, and a Club Forge club entering with the career | 488 | 53 |
-| `finals` | The wildcard finals bracket, extra time, draws | 109 | 68 |
-| `save` | Saving and loading a career, including old-save migrations and the safe write: a failed or interrupted write never loses the career, and a failed swap leaves the newer save readable | 76 | 29 |
-| `chronology` | 2026 is history, careers start in 2027, and every system agrees | 31 | 4 |
-| `career` | Games, goals and club stints across a dynasty | 71 | 229 |
-| `coaches` | The coaching world: six jobs a club, records, grades, the Staff screen | 340 | 35 |
-| `coach_market` | Coach moves, hiring, sackings, retirements, assistant contracts | 63 | 95 |
-| `coach_pathway` | Retired players becoming coaches, and the record they carry | 57 | 2 |
-| `coach_effects` | What coaching does: teaching, tactics, man-management | 36 | 5 |
-| `career_ui` | Main menu and save flow, Back, the Hub, Training, selection and trade screens, at 320, 360 and 430 wide | 280 | 70 |
-| `potential` | Potential (POT) rules, rehab years, draft pedigree | 36 | 5 |
-| `ratings` | The overall rating model | 39 | 2 |
-| `ai` | Rival clubs' drafting and selection | 35 | 58 |
-| `training` | Training plans and the stat guide | 107 | 32 |
-| `selection` | Team selection and named sides | 37 | 4 |
-| `matchup` | This week's opponent facts | 95 | 36 |
-| `matchday` | Match-day wording: the feed, quarter breaks, full time, the match screen | 504 | 21 |
-| `roles` | Roles, wings, taggers and rucks as real jobs | 218 | 8 |
-| `injuries` | Injury rates, durability, healing, and played v simulated parity | 31 | 78 |
-| `awards` | Brownlow, Coleman, best and fairest, All-Australian | 22 | 49 |
-| `achievements` | Club achievements | 153 | 48 |
-| `contracts` | Contracts, free agency and trades (seeded: a clock seed once made the pick-limit check flaky) | 233 | 29 |
-| `league` | The two difficulty dials (saved, old saves mapped, trade bargaining) and the league news feed | 60 | 52 |
-| `club` | The board, morale and the weekly event card | 199 | 103 |
-| `story` | The week's story cards: the deck's checks, cooldowns, arcs, trust, ten seasons of repeats, the save round trip, cards never moving the dice | 94 | - |
-| `nameink` | A player's name in running text wears his club's ink: the index from the lists, the markup, every club's ink readable on dark, the match feed and goal rows carrying both clubs' colours | 16 | - |
-| `match_game` | Legs and rotations, match moments and calls, the rival coach, key match-ups, Play through by job | 346 | 333 |
-| `pressure` | Pressure acts and the team Pressure Rating | 21 | 38 |
-| `workload` | Workload across the campaign | 32 | 8 |
-| `fitness` | Season conditioning: each plan's curve, the high-performance department, late changes, AI plans by phase, the save, the plan screens in words and real taps | 37 | 15 |
-| `preseason` | The pre-season: blocks, load and focus in words, the fitness base handed to the season plan, development inside the season limit, AI clubs by the same rules, its own dice, old saves, and the stops by real taps on a phone and a PC, and the feature switch off | 163 | - |
-| `match_visual` | The live match view is presentation only (PitchView, MatchDirector, MatchMotion) | 108 | 210 |
-| `league_balance` | Smoke checks for the balance harness in `tools/balance` | 23 | 223 |
-| `calibration` | The engine against real 2026 numbers (seeded matches) | 17 | 69 |
-| `balance` | A long-career guard: three seasons must not inflate the league | 13 | 149 |
-| `assets` | The art and music as shipped: figure-sheet frames against the layout, vignettes playing their moves through, banners, music files, levels and the player | 95 | 3 |
-| `keyboard` | The phone keyboard on every screen with a text field: the window loses the keyboard's height (phone on its side, upright, tablet) and the same field keeps the focus and its text; text arriving the way the engine's web keyboard sends it fills the field and filters the list; the web export has the phone keyboard on | 445 | - |
-| `international` | International prospects (switch `international_prospects`): one or two per generated class over 150 seeded years, never none or three, from seven countries; names from their own country's lists; raw but high-ceiling ratings shaped by their code; switched off the class is unchanged; one drafted, kept across a save and a season rollover; an old save loads | 1767 | - |
+| Suite | Covers |
+|---|---|
+| `draft` | The League Draft model: cap, snake order, rival picks, pick log |
+| `draft_ui` | The draft screen's layout and state: containers, widths, rotate and resume |
+| `intake` | The National Draft model: the 2026 class, projection, season rollover |
+| `intake_ui` | The National Draft on the shared draft screen |
+| `expansion` | Tasmania in 2028 and Canberra in 2030, and a Club Forge club entering with the career |
+| `finals` | The wildcard finals bracket, extra time, draws |
+| `save` | Saving and loading a career, including old-save migrations and the safe write: a failed or interrupted write never loses the career, and a failed swap leaves the newer save readable |
+| `chronology` | 2026 is history, careers start in 2027, and every system agrees |
+| `career` | Games, goals and club stints across a dynasty |
+| `coaches` | The coaching world: six jobs a club, records, grades, the Staff screen |
+| `coach_market` | Coach moves, hiring, sackings, retirements, assistant contracts |
+| `coach_pathway` | Retired players becoming coaches, and the record they carry |
+| `coach_effects` | What coaching does: teaching, tactics, man-management |
+| `career_ui` | Main menu and save flow, Back, the Hub, Training, selection and trade screens, at 320, 360 and 430 wide |
+| `potential` | Potential (POT) rules, rehab years, draft pedigree |
+| `ratings` | The overall rating model |
+| `ai` | Rival clubs' drafting and selection |
+| `training` | Training plans and the stat guide |
+| `selection` | Team selection and named sides |
+| `matchup` | This week's opponent facts |
+| `matchday` | Match-day wording: the feed, quarter breaks, full time, the match screen |
+| `roles` | Roles, wings, taggers and rucks as real jobs |
+| `injuries` | Injury rates, durability, healing, and played v simulated parity |
+| `awards` | Brownlow, Coleman, best and fairest, All-Australian |
+| `achievements` | Club achievements |
+| `contracts` | Contracts, free agency and trades (seeded: a clock seed once made the pick-limit check flaky) |
+| `league` | The two difficulty dials (saved, old saves mapped, trade bargaining) and the league news feed |
+| `club` | The board, morale and the weekly event card |
+| `story` | The week's story cards: the deck's checks, cooldowns, arcs, trust, ten seasons of repeats, the save round trip, cards never moving the dice |
+| `nameink` | A player's name in running text wears his club's ink: the index from the lists, the markup, every club's ink readable on dark, the match feed and goal rows carrying both clubs' colours |
+| `match_game` | Legs and rotations, match moments and calls, the rival coach, key match-ups, Play through by job |
+| `pressure` | Pressure acts and the team Pressure Rating |
+| `workload` | Workload across the campaign |
+| `fitness` | Season conditioning: each plan's curve, the high-performance department, late changes, AI plans by phase, the save, the plan screens in words and real taps |
+| `preseason` | The pre-season: blocks, load and focus in words, the fitness base handed to the season plan, development inside the season limit, AI clubs by the same rules, its own dice, old saves, and the stops by real taps on a phone and a PC, and the feature switch off |
+| `match_visual` | The live match view is presentation only (PitchView, MatchDirector, MatchMotion) |
+| `league_balance` | Smoke checks for the balance harness in `tools/balance` |
+| `calibration` | The engine against real 2026 numbers (seeded matches) |
+| `balance` | A long-career guard: three seasons must not inflate the league |
+| `assets` | The art and music as shipped: figure-sheet frames against the layout, vignettes playing their moves through, banners, music files, levels and the player |
+| `keyboard` | The phone keyboard on every screen with a text field: the window loses the keyboard's height (phone on its side, upright, tablet) and the same field keeps the focus and its text; text arriving the way the engine's web keyboard sends it fills the field and filters the list; the web export has the phone keyboard on |
+| `international` | International prospects (switch `international_prospects`): one or two per generated class over 150 seeded years, never none or three, from seven countries; names from their own country's lists; raw but high-ceiling ratings shaped by their code; switched off the class is unchanged; one drafted, kept across a save and a season rollover; an old save loads |
 | `namelink` | A player's name opens his profile: real touches at 390x844 and 1280x720 on the Training header, a row's Profile tap and a name in the week's news; a drag that starts on a name still scrolls; Back closes the profile and leaves the screen as it was. |
-| `trainrep` | The monthly training report: the block snapshot, a known riser with his stats, the retraining list matching the Training menu's own (and the club's two-project limit), the switch off leaving the hub as it was, an old save, and real taps on a phone and a PC (open, a name, a retraining entry, Close, Android Back) | 100 | - |
+| `trainrep` | The monthly training report: the block snapshot, a known riser with his stats, the retraining list matching the Training menu's own (and the club's two-project limit), the switch off leaving the hub as it was, an old save, and real taps on a phone and a PC (open, a name, a retraining entry, Close, Android Back) |
 
 By area:
 
@@ -198,15 +204,14 @@ Python/JavaScript reimplementation.
 
 ### Adding a suite
 
-1. Write `tests/test_<name>.gd` and a runner `tests/run_<name>_tests.gd` (copy a small one such as `run_league_tests.gd`, which points saves and settings at test files).
+1. Write `tests/test_<name>.gd` and a runner `tests/run_<name>_tests.gd` (copy a small one such as `run_league_tests.gd`, which points saves and settings at test files). Copy `_check` and the two-line `_t` with it, call each test as `_t("_test_x")`, and end `run()` with `print(Ran.line("<Name>", self))`.
 2. Add `<name>` to `ALL_SUITES` in `tools/run_tests.sh`.
-3. Add its floor, the count it prints, to `tests/expected_checks.txt`. When an existing suite gains checks, don't edit its line: add `tests/floor_deltas/<branch>.txt` with `<suite> +N` (see `tests/floor_deltas/README.md`); the floor is the base plus all deltas, so PRs don't collide.
-4. Add it to the shortest shard in `tools/ci_shards.txt`, then run `bash tools/check_ci_shards.sh`. It prints `ok: N suites in M shards, each exactly once`, or says what is missing.
-5. Add a row to the table above.
+3. Add it to the shortest shard in `tools/ci_shards.txt`, then run `bash tools/check_ci_shards.sh`. It prints `ok: N suites in M shards, each exactly once`, or says what is missing.
+4. Add a row to the table above.
 
 CI's `plan` job runs the same check, so a suite left out of every shard fails the run instead of quietly skipping CI.
 
-**A floor counts rules, not data.** A `_check` inside a loop over players, matches or list entries makes the count move whenever the engine or a seed changes how many there are, and the floor then fails for no real reason (it happened three times in one day: "Needs a lift" in matchday, "No player on two lists" in expansion, and a floor recount on the fair fixture). Write one check per case: collect the failures in the loop, then check once.
+**Check a loop once, and check its size.** A function that loses some of a loop's checks but keeps one still passes, and a `_check` inside a loop over players, matches or list entries reads as many failures for one cause. Check the size before the loop when it could shrink, collect the failures in the loop, then check once.
 
 ```gdscript
 var twice := []

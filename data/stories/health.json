@@ -29,10 +29,11 @@
 			{
 				"key": "rest",
 				"label": "Rest him this week",
-				"note": "He'll be right for next week.",
+				"note": "He misses this round only.",
 				"effects": [
 					{
-						"op": "rest"
+						"op": "rest",
+						"spares": "sore"
 					}
 				],
 				"result": "{name} is rested this week."
@@ -123,7 +124,8 @@
 				"label": "Sit him out",
 				"effects": [
 					{
-						"op": "rest"
+						"op": "rest",
+						"spares": "sore"
 					}
 				],
 				"result": "{name} sits this one out."
@@ -228,6 +230,12 @@
 						"op": "morale",
 						"d": 2,
 						"who": "others"
+					},
+					{
+						"op": "slow_start",
+						"who": "subject",
+						"chance": 10,
+						"on": "week"
 					}
 				],
 				"result": "{name} spends the week with the kid in rehab."
@@ -239,6 +247,10 @@
 					{
 						"op": "morale",
 						"d": -2
+					},
+					{
+						"op": "xp",
+						"d": 4
 					}
 				],
 				"result": "{name} sticks to his own program."
@@ -293,7 +305,8 @@
 				"label": "Don't risk him",
 				"effects": [
 					{
-						"op": "rest"
+						"op": "rest",
+						"spares": "sore"
 					},
 					{
 						"op": "morale",
@@ -377,5 +390,58 @@
 				"result": "The side stays as it is. He'll be in a suit on the bench."
 			}
 		]
+	},
+	{
+		"id": "pre_knee_return",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"injury_kind": "knee",
+				"injured_weeks_min": 1,
+				"injured_weeks_max": 6,
+				"rushable": true
+			},
+			"pick": "highest:overall"
+		},
+		"title": [
+			"{name}'s knee"
+		],
+		"text": [
+			"{first} is running again after his knee. The physio hasn't cleared him yet, but he is asking to join full sessions and reckons he is ready."
+		],
+		"choices": [
+			{
+				"key": "rush",
+				"label": "Clear him to play",
+				"effects": [
+					{
+						"op": "rush_back"
+					}
+				],
+				"result": ""
+			},
+			{
+				"key": "physio",
+				"label": "Follow the physio's plan",
+				"effects": [
+					{
+						"op": "trust",
+						"d": 3,
+						"why": "You kept to the physio's plan for his knee"
+					},
+					{
+						"op": "morale",
+						"d": -3
+					}
+				],
+				"result": "{first} does as the physio says, and grumbles about it."
+			}
+		],
+		"category": "health",
+		"phase": [
+			"preseason"
+		],
+		"cooldown": 20,
+		"per_season": 1
 	}
 ]

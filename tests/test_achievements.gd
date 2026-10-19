@@ -20,20 +20,20 @@ func run() -> void:
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
-	_test_catalog()
-	_test_premiership_types()
-	_test_grand_final()
-	_test_top_ladder_and_slam()
-	_test_flags_window()
-	_test_second_chance()
-	_test_wins()
-	_test_debuts()
-	_test_no_double_unlock()
-	_test_full_season()
+	_t("_test_catalog")
+	_t("_test_premiership_types")
+	_t("_test_grand_final")
+	_t("_test_top_ladder_and_slam")
+	_t("_test_flags_window")
+	_t("_test_second_chance")
+	_t("_test_wins")
+	_t("_test_debuts")
+	_t("_test_no_double_unlock")
+	_t("_test_full_season")
 	GameState.reset()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
-	print("Achievements tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Achievements", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -47,6 +47,11 @@ func _check(condition: bool, message: String) -> void:
 # Context builders (the shape GameState passes to Achievements.check_season)
 # ---------------------------------------------------------------------------
 ## A ladder for `ordered` (top to bottom) with distinct points/percentage.
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 func _ladder(ordered: Array) -> Dictionary:
 	var out := {}
 	for i in range(ordered.size()):

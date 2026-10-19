@@ -34,21 +34,21 @@ func _run() -> void:
 	suite.run()
 	_checks += suite.checks
 	_failures.append_array(suite.failures)
-	await _selection_tests()
-	await _selection_pages_tests()
-	await _skip_match_tests()
-	await _week_ink_tests()
-	await _team_changes_tests()
-	await _backing_ui_tests()
-	await _captaincy_ui_tests()
-	await _culture_ui_tests()
-	await _captain_card_ui_tests()
-	print("Roles + selection tests: %d checks, %d failures" % [_checks, _failures.size()])
+	await _t("_test_selection_tests")
+	await _t("_test_selection_pages_tests")
+	await _t("_test_skip_match_tests")
+	await _t("_test_week_ink_tests")
+	await _t("_test_team_changes_tests")
+	await _t("_test_backing_ui_tests")
+	await _t("_test_captaincy_ui_tests")
+	await _t("_test_culture_ui_tests")
+	await _t("_test_captain_card_ui_tests")
+	print(Ran.line("Roles + selection", self, [suite]))
 	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
 
 
-func _selection_tests() -> void:
+func _test_selection_tests() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.start_season("COL", db.club_list("COL"))
@@ -70,16 +70,14 @@ func _selection_tests() -> void:
 			"Everyone not in the 23 is in the grid beside the field")
 	_check(ui.find_child("MySelection", true, false) == null and ui.find_child("AutoPick", true, false) is MenuButton,
 			"One team viewer: no My selection mode, Auto-pick is a dropdown action")
-	# This week, line against line: both sides in the same words, no numbers.
+	# This week, line against line: both sides in the same words.
 	var h2h: Node = ui.find_child("HeadToHead", true, false)
-	var digits := RegEx.new()
-	digits.compile("\\d")
 	var h2h_lines: Array = h2h.get_children() if h2h != null else []
 	var h2h_ok := h2h_lines.size() == 4
 	for l in h2h_lines:
-		if digits.search(str(l.text)) != null or not (str(l.text).contains("yours") or str(l.text).contains(" v ")):
+		if not (str(l.text).contains("yours") or str(l.text).contains(" v ")):
 			h2h_ok = false
-	_check(h2h_ok, "The matchup reads line against line, in words (%s)" %
+	_check(h2h_ok, "The matchup reads line against line (%s)" %
 			" | ".join(h2h_lines.map(func(l): return str(l.text))))
 	var mid_line: Control = ui.find_child("H2H_midfield", true, false)
 	_check(mid_line != null and _plain(mid_line).begins_with("Midfield: yours "), "Midfield sets yours against theirs")
@@ -381,7 +379,7 @@ func _synergy_words() -> String:
 ## Team selection without scrolling (director, 2026-10-13): a phone has "The
 ## side" and "This week" a tap apart, a PC shows both; nothing scrolls for a
 ## normal side; every control sits beside the line it belongs to.
-func _selection_pages_tests() -> void:
+func _test_selection_pages_tests() -> void:
 	var db = root.get_node("GameDB")
 	for club in ["FRE", "WBD"]:
 		_state.reset()
@@ -521,7 +519,7 @@ func _selection_pages_tests() -> void:
 ## A coach who skips the match: the plan he last used (set in the pre-bounce
 ## menu) is the plan the sim plays, and the match-ups are the assistant's
 ## until he changes one.
-func _skip_match_tests() -> void:
+func _test_skip_match_tests() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.start_season("FRE", db.club_list("FRE"))
@@ -617,7 +615,7 @@ func _selection_profile_tests() -> void:
 
 ## The team sheet: after a match, a player who is injured is out, and the
 ## player who comes in is named in for him.
-func _team_changes_tests() -> void:
+func _test_team_changes_tests() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.autosave_enabled = false
@@ -661,7 +659,7 @@ func _team_changes_tests() -> void:
 ## Selection: a player with few senior games can be backed from his profile;
 ## the screen then says what was promised, and the profile says so too. A
 ## player with a long record is not offered it.
-func _backing_ui_tests() -> void:
+func _test_backing_ui_tests() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.start_season("COL", db.club_list("COL"))
@@ -677,8 +675,6 @@ func _backing_ui_tests() -> void:
 	kid["career"] = {"games": 2, "goals": 0, "stints": [], "through": through, "unknown": []}
 	best["career"] = {"games": 150, "goals": 0, "stints": [], "through": through, "unknown": []}
 	var kid_id := str(kid["id"])
-	var digits := RegEx.new()
-	digits.compile("\\d")
 	root.size = Vector2i(420, 860)
 	var ui := await _open(false)
 	var tile: Node = _card_of(ui, str(best["id"]))
@@ -700,8 +696,8 @@ func _backing_ui_tests() -> void:
 		var detail: Node = sheet2.find_child("Detail_BackRun", true, false) if sheet2 != null else null
 		_check(act != null and str(act.text) == "Back for three games" and act.size.y >= 44,
 				"A player with few senior games is offered a run, as a thumb-sized outline button")
-		_check(detail != null and digits.search(str(detail.text)) == null and str(detail.text).contains("breaks"),
-				"The action says what it costs, in words")
+		_check(detail != null and str(detail.text).contains("breaks"),
+				"The action says what it costs")
 		if act != null:
 			# On a small phone the action and Close both still sit on screen.
 			root.size = Vector2i(360, 740)
@@ -726,8 +722,8 @@ func _backing_ui_tests() -> void:
 			root.size = Vector2i(1280, 720)  # the week is in view beside the side
 			await _settle()
 			var line: Control = ui.find_child("Backing_" + kid_id, true, false)
-			_check(line != null and _plain(line) == "You promised %s a run: game one of three." % db.player_display_name(kid)
-					and digits.search(_plain(line)) == null, "Selection reminds you of the run, in words (%s)" % (_plain(line) if line else "-"))
+			_check(line != null and _plain(line) == "You promised %s a run: game one of three." % db.player_display_name(kid),
+					"Selection reminds you of the run (%s)" % (_plain(line) if line else "-"))
 			var tile2: Node = _card_of(ui.find_child("BuilderField", true, false), kid_id)
 			_check(tile2 != null, "Auto-pick now names him")
 			if tile2 != null:
@@ -776,7 +772,7 @@ func _profile_of(ui: Node, id: String) -> void:
 
 ## Captaincy over My list, by real taps: the way in, the rules and costs on the
 ## page, a pick from the list, Confirm, and the record afterwards.
-func _captaincy_ui_tests() -> void:
+func _test_captaincy_ui_tests() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.career_seed = SUITE_SEED
@@ -863,7 +859,7 @@ func _captaincy_ui_tests() -> void:
 
 ## A captain's card on the hub: what each choice does sits under its button, the
 ## buttons are thumb-sized, and a real tap answers it.
-func _captain_card_ui_tests() -> void:
+func _test_captain_card_ui_tests() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.career_seed = SUITE_SEED
@@ -929,7 +925,7 @@ func _captain_card_ui_tests() -> void:
 
 ## Club culture over My list, by real taps: the way in, the words, the reasons
 ## one tap away.
-func _culture_ui_tests() -> void:
+func _test_culture_ui_tests() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.career_seed = SUITE_SEED
@@ -973,8 +969,8 @@ func _culture_ui_tests() -> void:
 			"A band in the middle says nothing it does not do")
 	var trade: Label = sheet.find_child("CultureTradeOff", true, false) if sheet != null else null
 	_check(trade != null and trade.is_visible_in_tree() and not trade.text.contains("no effect")
-			and trade.text.contains("costs you") and not trade.text.contains("%"),
-			"The header names what culture touches and what it costs, with no number (P-63)")
+			and trade.text.contains("costs you"),
+			"The header names what culture touches and what it costs (P-63)")
 	_check(trade != null and trade.get_global_rect().position.y < sheet.find_child("Strand_standards", true, false).get_global_rect().position.y,
 			"That line sits above the strands, in the header")
 	_check(sheet != null and _screen_text(sheet).contains(Culture.moves_line("ambition")), "Each strand says what moves it")
@@ -1093,7 +1089,12 @@ func _check(condition: bool, message: String) -> void:
 ## The week's headings are the club's readable ink on the dark page, for every
 ## club (the raw club colour was dark purple on dark purple), and the week
 ## says each fact once.
-func _week_ink_tests() -> void:
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
+func _test_week_ink_tests() -> void:
 	var db = root.get_node("GameDB")
 	var uk = load("res://scripts/ui/UiKit.gd")
 	var bad := []

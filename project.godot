@@ -10,7 +10,7 @@ config_version=5
 
 config/name="Aussie Rules Dynasties"
 config/description="Build an Australian rules football dynasty: shape your list, coach the season and carry the club through the years."
-config/version="0.1.13"
+config/version="1.0.1"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.7")
 config/icon="res://icon.svg"
@@ -64,7 +64,7 @@ environment/defaults/default_clear_color=Color(0.071, 0.067, 0.063, 1)
 ; Feature switches (scripts/core/Features.gd). A feature merged before its
 ; patch is ready ships OFF here; its tests and tools turn it on for themselves,
 ; and a dev run does with:  godot --path . -- --features preseason
-preseason=false
+preseason=true
 speccy_front=false
 international_prospects=true
 training_report=false

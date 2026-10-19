@@ -22,13 +22,13 @@ func run() -> void:
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
-	_test_league_draft_balance()
-	_test_club_evaluation()
-	_test_no_cap_deadlock()
-	_test_intake_values_potential()
-	_test_rivals_train()
+	_t("_test_league_draft_balance")
+	_t("_test_club_evaluation")
+	_t("_test_no_cap_deadlock")
+	_t("_test_intake_values_potential")
+	_t("_test_rivals_train")
 	GameState.replay_seed = 0
-	print("AI tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("AI", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -36,6 +36,11 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _all_ai_draft(seed: int) -> Draft:

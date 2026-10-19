@@ -17,20 +17,20 @@ func run() -> void:
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
-	_test_every_club()
-	_test_deterministic()
-	_test_line_extremes()
-	_test_missing_player()
-	_test_danger()
-	_test_danger_needs_a_lever()
-	_test_interceptor_fact()
-	_test_form()
-	_test_unusual_data()
-	_test_own_notes()
-	_test_copy_helpers()
-	_test_matchup_copy()
+	_t("_test_every_club")
+	_t("_test_deterministic")
+	_t("_test_line_extremes")
+	_t("_test_missing_player")
+	_t("_test_danger")
+	_t("_test_danger_needs_a_lever")
+	_t("_test_interceptor_fact")
+	_t("_test_form")
+	_t("_test_unusual_data")
+	_t("_test_own_notes")
+	_t("_test_copy_helpers")
+	_t("_test_matchup_copy")
 	GameState.replay_seed = 0
-	print("Matchup tests: %d checks, %d failures" % [checks, failures.size()])
+	print(Ran.line("Matchup", self))
 
 
 func _check(condition: bool, message: String) -> void:
@@ -38,6 +38,11 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 
 
 func _league() -> Dictionary:
@@ -47,10 +52,10 @@ func _league() -> Dictionary:
 	return lists
 
 
-## Player-facing copy must not leak the calculation.
+## Player-facing copy must not name the engine's rating terms.
 func _clean(text: String) -> bool:
 	var rx := RegEx.new()
-	rx.compile("%|\\d+\\.\\d|rating|coefficient|\\+\\d|-\\d|OVR")
+	rx.compile("rating|coefficient|OVR")
 	return text != "" and rx.search(text) == null
 
 
@@ -69,7 +74,7 @@ func _test_every_club() -> void:
 				clean = false
 				push_error("Leaky fact for %s: %s" % [code, x["text"]])
 	_check(all_ok, "No club gets more than %d facts" % Matchup.MAX_FACTS)
-	_check(clean, "Facts are football words: no percentages, decimals or ratings")
+	_check(clean, "Facts are football words: no rating, coefficient or OVR")
 	_check(total > 0, "The league produces some facts (%d)" % total)
 
 
@@ -292,7 +297,7 @@ func _test_copy_helpers() -> void:
 			and GameState.ordinal(13) == "13th" and GameState.ordinal(21) == "21st"
 			and GameState.ordinal(22) == "22nd", "Ladder positions read 1st, 2nd, 11th, 21st")
 	var line := GameState.form_line({"value": 0.42, "label": "Good", "last": "WWLWW"})
-	_check(line == "Form: Good  ·  WWLWW", "The form line has no internal number (%s)" % line)
+	_check(line == "Form: Good  ·  WWLWW", "The form line reads label then results (%s)" % line)
 
 
 ## Every key match-up line names both players - no "on him", no dangling

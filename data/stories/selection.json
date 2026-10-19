@@ -595,5 +595,63 @@
 				"result": "{first} does the radio, the TV and the newspaper photo. He's loving every minute."
 			}
 		]
+	},
+	{
+		"id": "pre_kid_flying",
+		"subject": {
+			"kind": "player",
+			"where": {
+				"trial_place": "best",
+				"age_max": 23,
+				"games_max": 30,
+				"fit": true
+			},
+			"pick": "highest:pot_gap"
+		},
+		"title": [
+			"{name} is flying on the track"
+		],
+		"text": [
+			"{first} won the time trial from players who've been here for years. He's already asking if he's in for Round 1."
+		],
+		"choices": [
+			{
+				"key": "promise",
+				"label": "Promise him a run",
+				"effects": [
+					{
+						"op": "morale",
+						"d": 5
+					},
+					{
+						"op": "start_backing"
+					}
+				]
+			},
+			{
+				"key": "show",
+				"label": "Tell him what he has to show",
+				"effects": [
+					{
+						"op": "trust",
+						"d": 2,
+						"why": "You were straight with him about what he has to show"
+					},
+					{
+						"op": "morale",
+						"d": -2
+					},
+					{
+						"op": "explain"
+					}
+				]
+			}
+		],
+		"category": "selection",
+		"phase": [
+			"preseason"
+		],
+		"cooldown": 20,
+		"per_season": 1
 	}
 ]

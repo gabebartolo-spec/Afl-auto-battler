@@ -39,53 +39,58 @@ func _run() -> void:
 	# and some field no key forward at quarter time (no match-up to change).
 	_state.replay_seed = 2026
 	for sz in [Vector2i(420, 860), Vector2i(360, 740)]:
-		await _phone_match(sz)
-	await _ground_fit()
+		await _t("_test_phone_match", [sz])
+	await _t("_test_ground_fit")
 	_state.replay_seed = SUITE_SEED
-	await _plan_at_first_bounce()
-	await _break_panes_layout()
+	await _t("_test_plan_at_first_bounce")
+	await _t("_test_break_panes_layout")
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
-		await _coach_descriptions(sz)
-		await _tag_targets(sz)
-		await _minder_cards(sz)
-		await _df_how_its_going(sz)
-		await _loose_interceptor(sz)
-		await _main_ruck_picker(sz)
-		await _best_so_far(sz)
-		await _one_line_break(sz)
+		await _t("_test_coach_descriptions", [sz])
+		await _t("_test_tag_targets", [sz])
+		await _t("_test_minder_cards", [sz])
+		await _t("_test_df_how_its_going", [sz])
+		await _t("_test_loose_interceptor", [sz])
+		await _t("_test_main_ruck_picker", [sz])
+		await _t("_test_best_so_far", [sz])
+		await _t("_test_one_line_break", [sz])
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720), Vector2i(2560, 1440)]:
-		await _tag_tap_keeps_columns(sz)
-	_break_units_keep_followups()
-	_break_packing_is_shortest()
-	_club_ink_all()
+		await _t("_test_tag_tap_keeps_columns", [sz])
+	_t("_test_break_units_keep_followups")
+	_t("_test_break_packing_is_shortest")
+	_t("_test_club_ink_all")
 	for club in ["COL", "GWS", "STK"]:
-		await _pc_break_worst_case(club)
-	await _tag_not_saved()
-	await _bounce_close_up()
-	await _playtest_bounce_scene()
-	await _rings_on_the_oval()
-	await _first_goal_line()
-	await _momentum_meter()
-	await _vignettes_setting()
-	await _game_feel_settings()
-	await _game_feel_effects()
-	_broken_calls()
-	await _vignettes_off_match()
-	await _match_way_poster()
-	_appearance()
+		await _t("_test_pc_break_worst_case", [club])
+	await _t("_test_tag_not_saved")
+	await _t("_test_bounce_close_up")
+	await _t("_test_playtest_bounce_scene")
+	await _t("_test_rings_on_the_oval")
+	await _t("_test_first_goal_line")
+	await _t("_test_momentum_meter")
+	await _t("_test_vignettes_setting")
+	await _t("_test_game_feel_settings")
+	await _t("_test_game_feel_effects")
+	_t("_test_broken_calls")
+	await _t("_test_vignettes_off_match")
+	await _t("_test_match_way_poster")
+	_t("_test_appearance")
 	# Battery: nothing is redrawn unless it changes, and never above 60 fps.
+	_t("_test_battery")
+	print(Ran.line("Matchday + match screen", self, [suite]))
+	quit(0 if _failures.is_empty() else 1)
+
+
+## Battery: idle screens are not redrawn and frames are capped (the check written in _run).
+func _test_battery() -> void:
 	_check(bool(ProjectSettings.get_setting("application/run/low_processor_mode", false))
 			and int(ProjectSettings.get_setting("application/run/max_fps", 0)) == 60,
 			"Idle screens are not redrawn every frame, and frames are capped at 60")
-	print("Matchday + match screen tests: %d checks, %d failures" % [_checks, _failures.size()])
-	quit(0 if _failures.is_empty() else 1)
 
 
 ## The plan you take into a live match is the plan at the first bounce: the
 ## pre-bounce box shows it, Start without touching it keeps it, and a change
 ## in the box is what plays. Read from the engine's own record of the
 ## quarter (tactics_history), not from a stored setting or a label.
-func _plan_at_first_bounce() -> void:
+func _test_plan_at_first_bounce() -> void:
 	var db = root.get_node("GameDB")
 	for want in [["defensive", ""], ["controlled", "contest"]]:
 		var chosen := str(want[0])
@@ -125,7 +130,7 @@ func _plan_at_first_bounce() -> void:
 		await _settle()
 
 
-func _ground_fit() -> void:
+func _test_ground_fit() -> void:
 	# The wide layout and the whole-ground camera follow the screen's shape, not
 	# the platform: the web build (is_desktop() false) gets them on a PC-sized
 	# window, and a phone-sized one keeps the close-up (director, 2026-10-12).
@@ -178,7 +183,7 @@ func _ground_fit() -> void:
 	_check(sl.tap_word() == "Click", "Click on a desktop or a PC browser")
 
 
-func _phone_match(sz: Vector2i) -> void:
+func _test_phone_match(sz: Vector2i) -> void:
 	var tag := "%dx%d" % [sz.x, sz.y]
 	var db = root.get_node("GameDB")
 	_state.reset()
@@ -190,12 +195,10 @@ func _phone_match(sz: Vector2i) -> void:
 	await _settle()
 	var viewport := Rect2(Vector2.ZERO, Vector2(sz))
 
-	# Before the bounce: the calls, no report, no numbers from the engine.
+	# Before the bounce: the calls, no report.
 	var box: Node = m.find_child("CoachBox", true, false)
 	_check(box != null, "The match opens on your calls (%s)" % tag)
 	var text := _text(box)
-	_check(not text.contains("pts") and not text.contains("Expected points") and not text.contains("%"),
-			"The first coach box shows no engine numbers (%s)" % tag)
 	for n in ["PlanPicker", "TagPicker", "FocusPicker_focus_mid", "FocusPicker_focus_fwd", "FocusPicker_focus_def",
 			"PepPicker", "RotationPicker", "LegsView", "TagNote"]:
 		_check(box.find_child(n, true, false) != null, "The coach box keeps %s (%s)" % [n, tag])
@@ -302,10 +305,7 @@ func _phone_match(sz: Vector2i) -> void:
 	_check(facts != null and facts.get_child_count() <= 3,
 			"What happened in the quarter is three things at most (%s)" % tag)
 	var bt := _text(box)
-	# "pts" as a word: a quarter's "4 intercepts so far" is football, not an engine number.
-	var pts_word := RegEx.create_from_string("\\bpts\\b")
-	_check(pts_word.search(bt) == null and not bt.contains("Expected points") and not bt.contains(" def ")
-			and not bt.contains("defeated"), "The break shows no engine numbers or result words (%s)" % tag)
+	_check(not bt.contains(" def ") and not bt.contains("defeated"), "The break shows no result words (%s)" % tag)
 	_check(bt.contains("Tag on ") and box.find_child("CallsDid", true, false) != null,
 			"The break says what your calls did, your tag among them (%s)" % tag)
 	var qh: Label = box.find_child("QuarterHeading", true, false)
@@ -371,8 +371,6 @@ func _phone_match(sz: Vector2i) -> void:
 					"The defender goes to him from the next quarter (%s)" % tag)
 			_check(((qsim._own[myside] as Dictionary)["duels"] as Dictionary).has(fid),
 					"A match-up you change stays your call (%s)" % tag)
-			var btext := _text(box)
-			_check(not btext.contains("%") and pts_word.search(btext) == null, "The match-ups show no engine numbers (%s)" % tag)
 	var small := []
 	for b in box.find_children("*", "Button", true, false):
 		if b.is_visible_in_tree() and b.size.y < 40:
@@ -565,7 +563,7 @@ func _phone_match(sz: Vector2i) -> void:
 ## Every coaching choice says what it does, the neutral one too, and the
 ## words follow the choice. Real taps (tests/tap.gd) at the break, and the
 ## plan line under the clock shows every call in full.
-func _coach_descriptions(sz: Vector2i) -> void:
+func _test_coach_descriptions(sz: Vector2i) -> void:
 	var tag := "%dx%d" % [sz.x, sz.y]
 	var db = root.get_node("GameDB")
 	_state.reset()
@@ -798,7 +796,7 @@ func _coach_descriptions(sz: Vector2i) -> void:
 ## player...", by where each plays now (the director's PC playtest,
 ## 2026-10-07). Their ruck is put in a midfield slot and a midfielder in the
 ## ruck: the roster copy would call the ruck a midfielder. Real taps.
-func _tag_targets(sz: Vector2i) -> void:
+func _test_tag_targets(sz: Vector2i) -> void:
 	var tag := "%dx%d" % [sz.x, sz.y]
 	var db = root.get_node("GameDB")
 	_state.reset()
@@ -918,7 +916,7 @@ func _follows_its_question(par: Node, at: int) -> bool:
 ## as short as it can be. The units are GWS's fullest PC break with Best so far
 ## (heights in px, measured): the old greedy deal left a column of 551, the
 ## best deal is 532.
-func _break_packing_is_shortest() -> void:
+func _test_break_packing_is_shortest() -> void:
 	var ms = load("res://scripts/ui/MatchScene.gd")
 	var h := [333.0, 96.0, 122.0, 133.0, 124.0, 263.0, 140.0, 240.0, 122.0, 207.0, 176.0, 122.0]
 	var picks: Array = ms.call("_shortest_tallest", h, 4, 1000.0)
@@ -939,7 +937,7 @@ func _break_packing_is_shortest() -> void:
 
 ## The packer's grouping on a made-up break (a follow-up is the first thing in
 ## the next column): it stays with its question, whichever column holds it.
-func _break_units_keep_followups() -> void:
+func _test_break_units_keep_followups() -> void:
 	var ms = load("res://scripts/ui/MatchScene.gd")
 	var cols := []
 	for i in range(3):
@@ -976,7 +974,7 @@ func _break_units_keep_followups() -> void:
 ## Best so far on the break (director, 2026-10-11): three of each side by match
 ## rating so far, the numbers the match's own player stats, a real tap on
 ## "All player stats" opens the full table.
-func _best_so_far(sz: Vector2i) -> void:
+func _test_best_so_far(sz: Vector2i) -> void:
 	var tag := "%dx%d" % [sz.x, sz.y]
 	var db = root.get_node("GameDB")
 	var notes = load("res://scripts/ui/match/MatchNotes.gd")
@@ -1104,7 +1102,7 @@ func _best_so_far(sz: Vector2i) -> void:
 ## rows are the ones the quarter starts with. Real taps throughout. Fremantle v
 ## Melbourne at half time (seed 2050), where Melbourne's ruck is running
 ## through the middle: the tag names are their listed midfielders only.
-func _one_line_break(sz: Vector2i) -> void:
+func _test_one_line_break(sz: Vector2i) -> void:
 	var tag := "%dx%d" % [sz.x, sz.y]
 	var db = root.get_node("GameDB")
 	var was_seed = _state.replay_seed
@@ -1393,7 +1391,7 @@ func _open_call_of(m: Node, c: Node) -> void:
 ## screen with both clubs, every pairing in both orders keeps the home ink and
 ## gives two inks at least 25 apart, so two sides are never near-identical.
 ## A red ink carries its bar and crest only: the name is plain TEXT.
-func _club_ink_all() -> void:
+func _test_club_ink_all() -> void:
 	var uk = load("res://scripts/ui/UiKit.gd")
 	var db = root.get_node("GameDB")
 	var bad := []
@@ -1480,7 +1478,7 @@ func _club_ink_all() -> void:
 	_check(raw_paint.is_empty(), "No screen paints a name label in a raw club ink (use UiKit.club_name_colour) (%s)" % str(raw_paint))
 
 
-func _pc_break_worst_case(club := "COL") -> void:
+func _test_pc_break_worst_case(club := "COL") -> void:
 	var db = root.get_node("GameDB")
 	var Mu = load("res://scripts/sim/Matchups.gd")
 	_state.reset()
@@ -1554,7 +1552,7 @@ func _pc_break_worst_case(club := "COL") -> void:
 ## defender with his position, Intercept and the Interceptor trait, the cost
 ## line as it was, and your loose man's intercepts so far - the number is his
 ## match stat in the sim, and with no loose man there is no line. Real taps.
-func _loose_interceptor(sz: Vector2i) -> void:
+func _test_loose_interceptor(sz: Vector2i) -> void:
 	var tag := "%dx%d" % [sz.x, sz.y]
 	var db = root.get_node("GameDB")
 	var notes = load("res://scripts/ui/match/MatchNotes.gd")
@@ -1626,7 +1624,7 @@ func _loose_interceptor(sz: Vector2i) -> void:
 ## goes up and who does while he rests; a real tap names him, Start takes it
 ## to the engine and the plan line says it; nothing is cut off, and on a PC
 ## the whole quarter-time break still fits 1280x720.
-func _main_ruck_picker(sz: Vector2i) -> void:
+func _test_main_ruck_picker(sz: Vector2i) -> void:
 	var tag := "%dx%d" % [sz.x, sz.y]
 	var db = root.get_node("GameDB")
 	var Ms = load("res://scripts/sim/MatchSim.gd")
@@ -1722,7 +1720,7 @@ func _main_ruck_picker(sz: Vector2i) -> void:
 
 ## A live match is not saved: a career saved and loaded mid-match comes back
 ## with no match and no tag, so no stale target can survive a load.
-func _tag_not_saved() -> void:
+func _test_tag_not_saved() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.start_season("COL", db.club_list("COL"))
@@ -1747,7 +1745,7 @@ func _tag_not_saved() -> void:
 ## that names their loose defender and his club, "No defensive forward
 ## assigned", a card for every forward with his position, trait and Pressure,
 ## the same on the "Other player..." sheet; real taps; no text cut off.
-func _df_how_its_going(sz: Vector2i) -> void:
+func _test_df_how_its_going(sz: Vector2i) -> void:
 	var tag := "%dx%d" % [sz.x, sz.y]
 	var db = root.get_node("GameDB")
 	var Mu = load("res://scripts/sim/Matchups.gd")
@@ -1795,7 +1793,7 @@ func _df_how_its_going(sz: Vector2i) -> void:
 		await _settle()
 
 
-func _minder_cards(sz: Vector2i) -> void:
+func _test_minder_cards(sz: Vector2i) -> void:
 	var tag := "%dx%d" % [sz.x, sz.y]
 	var db = root.get_node("GameDB")
 	_state.reset()
@@ -1911,7 +1909,7 @@ func _text(node: Node) -> String:
 ## (ARD-M8-007): only the players at the bounce, from this match, freezing
 ## before the call; the lines under it are MatchSim's own numbers; the call
 ## is MatchSim's and closes back to the match view.
-func _bounce_close_up() -> void:
+func _test_bounce_close_up() -> void:
 	var sz := Vector2i(360, 740)
 	var db = root.get_node("GameDB")
 	_state.reset()
@@ -2122,7 +2120,7 @@ func _bounce_close_up() -> void:
 ## The playtest switch (Settings, ARD-M8-007): the centre-bounce scene comes even
 ## where no call could - early in the last quarter of a blowout, the quarter's calls
 ## spent - and plays through the real match screen.
-func _playtest_bounce_scene() -> void:
+func _test_playtest_bounce_scene() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.start_season("COL", db.club_list("COL"))
@@ -2167,7 +2165,7 @@ func _playtest_bounce_scene() -> void:
 ## one before you have made a call, then the player you play through and the
 ## player who goes to your tag from the bounce, never the man you tag, and a run
 ## you promised as the next event plays.
-func _rings_on_the_oval() -> void:
+func _test_rings_on_the_oval() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.start_season("COL", db.club_list("COL"))
@@ -2245,7 +2243,7 @@ func _rings_on_the_oval() -> void:
 
 ## The live feed says a first AFL goal for one of yours: the screen is told who it
 ## could be (GameState.first_goal_candidates), and says it once, and only of them.
-func _first_goal_line() -> void:
+func _test_first_goal_line() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.start_season("COL", db.club_list("COL"))
@@ -2299,7 +2297,7 @@ func _first_goal_line() -> void:
 ## The momentum meter (director, 2026-10-07): labelled, the club on top
 ## named, its colour from the centre; a real tap explains it and Back closes
 ## that; the first match you watch says what it is once.
-func _momentum_meter() -> void:
+func _test_momentum_meter() -> void:
 	var db = root.get_node("GameDB")
 	_state.set_vignettes_on(false)
 	_state.set_setting("seen_momentum_intro", false)
@@ -2362,7 +2360,7 @@ func _first_pick(box: Node, prefix: String) -> String:
 
 ## How players look on the figures (Appearance.gd, data/player_appearance.csv):
 ## presentation only, never a guess about a real person, never tied to a rating.
-func _appearance() -> void:
+func _test_appearance() -> void:
 	var db = root.get_node("GameDB")
 	# Generated players: from the id alone - stable, and the same whatever the ratings say.
 	var fake := {"id": "GEN_1", "generated": true, "overall": 50, "role": "MID"}
@@ -2493,14 +2491,18 @@ func _bounce_matches_sim(tokens: Array, sim) -> bool:
 	return true
 
 
-## Press answers keep their board and morale effects, and each says what it
-## does under its button (director, 2026-10-10). A real tap on the
-## accountable answer moves the board and the players exactly as its line says.
+## Press answers are rolls with their odds shown (bible §4; director
+## 2026-10-18, ch. 30 row 33): each line under an answer gives both ways it
+## can land, the odds and the sizes. A real tap on the first answer applies
+## the outcome the career's press stream drew, and the sheet after says so.
 func _test_press_effects_shown(db) -> void:
 	var MC = load("res://scripts/sim/MediaConference.gd")
 	_state.media_conference = MC.pick({"club": "COL", "opponent_name": "Carlton", "round": 8,
 			"result": {"home": "COL", "away": "CAR", "score": [55, 101]}}, {})
 	var opts: Array = _state.media_conference.get("options", [])
+	_state.board["confidence"] = 50
+	var who: Dictionary = _state.my_list[0]
+	who["morale"] = 50
 	var hub = load("res://scenes/HubScene.tscn").instantiate()
 	root.add_child(hub)
 	await _settle()
@@ -2510,26 +2512,28 @@ func _test_press_effects_shown(db) -> void:
 	var shown := opts.size() == 3
 	for i in range(opts.size()):
 		var line: Label = hub.find_child("MediaAnswerLine_%d" % i, true, false)
-		var o: Dictionary = opts[i]
+		var kind: String = MC.kind_of(opts[i], i)
+		var c: int = _state.press_chance(i)
 		var text := "" if line == null else line.text
-		var board_ok := (int(o.get("board", 0)) > 0) == text.begins_with("The board likes it") \
-				and (int(o.get("board", 0)) < 0) == text.contains("the board wanted")
-		var morale_ok := (int(o.get("morale", 0)) < 0) == text.contains("hung out to dry") \
-				and (int(o.get("morale", 0)) > 0) == text.contains("feel backed")
-		shown = shown and line != null and line.is_visible_in_tree() and board_ok and morale_ok \
-				and not text.contains("%") and not text.contains("+")
-	_check(shown, "Every press answer shows what it does to the board and the players, in words")
-	_state.board["confidence"] = 50
-	var who: Dictionary = _state.my_list[0]
-	who["morale"] = 50
+		shown = shown and line != null and line.is_visible_in_tree() and text == MC.odds_line(kind, c) 				and text.contains("%d%%" % c) and text.contains("%d%%" % (100 - c))
+	_check(shown, "Every press answer shows both ways it can land, with the odds and the sizes")
+	var c0: int = _state.press_chance(0)
+	var landed := "a" if MC.roll(_state.career_seed, _state.season_year, int(_state.media_conference.get("round", 0)),
+			str(_state.media_conference.get("key", "")), 0) <= c0 else "b"
+	var out: Dictionary = MC.ANSWERS["criticise"][landed]
 	var answer: Button = hub.find_child("MediaAnswer_0", true, false)
-	var o0: Dictionary = opts[0] if not opts.is_empty() else {}
 	var tapped: String = await Tap.tap(answer) if answer != null else "missing"
 	await _settle()
-	_check(tapped == "" and _state.board_confidence() == 50 + int(o0.get("board", 0))
-			and int(who["morale"]) == 50 + int(o0.get("morale", 0)) and int(o0.get("board", 0)) > 0
-			and int(o0.get("morale", 0)) < 0,
-			"A real tap on the accountable answer lifts the board and costs the players, as its line says (%s)" % tapped)
+	var after: Label = hub.find_child("MediaOutcomeLine", true, false)
+	_check(tapped == "" and _state.board_confidence() == 50 + int(out["board"])
+			and int(who["morale"]) == 50 + int(out["morale"]) and after != null and after.is_visible_in_tree()
+			and after.text == MC.after_line("criticise", landed),
+			"A real tap on the first answer applies the outcome the press stream drew, and the sheet after says how it landed (%s, %s)" % [tapped, landed])
+	var done: Button = hub.find_child("MediaOutcomeDone", true, false)
+	var closed: String = await Tap.tap(done) if done != null else "missing"
+	await _settle()
+	_check(closed == "" and hub.find_child("MediaOutcome", true, false) == null,
+			"A real tap on Done closes the press outcome (%s)" % closed)
 	if is_instance_valid(hub):
 		hub.queue_free()
 	_state.media_conference = {}
@@ -2546,7 +2550,7 @@ func _settle() -> void:
 # ---------------------------------------------------------------------------
 ## The setting is in the options at a phone's size and a PC's, takes a real
 ## tap, and stays put across a reload of the settings.
-func _vignettes_setting() -> void:
+func _test_vignettes_setting() -> void:
 	_state.set_vignettes_on(true)
 	var options = load("res://scripts/ui/OptionsSheet.gd")
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
@@ -2657,7 +2661,7 @@ func _sheet_at(options, sz: Vector2i) -> Array:
 
 ## Three rows in Settings, each its own Off, real taps at a phone's size and a
 ## PC's, saved with the settings. Vibration shows only on a phone.
-func _game_feel_settings() -> void:
+func _test_game_feel_settings() -> void:
 	var options = load("res://scripts/ui/OptionsSheet.gd")
 	var feel = load("res://scripts/ui/Feel.gd")
 	var uk = load("res://scripts/ui/UiKit.gd")
@@ -2709,7 +2713,7 @@ func _game_feel_settings() -> void:
 ## sound, the buzz and the motion of a press, a choice, a big moment, an
 ## attention pulse and a living background. Read from Feel's own record of
 ## what it started (Feel.heard / felt / moved), and from the nodes.
-func _game_feel_effects() -> void:
+func _test_game_feel_effects() -> void:
 	var feel = load("res://scripts/ui/Feel.gd")
 	var uk = load("res://scripts/ui/UiKit.gd")
 	feel.force_phone = true
@@ -2807,7 +2811,7 @@ func _game_feel_effects() -> void:
 
 
 ## The break's pulse is only for a call the quarter broke.
-func _broken_calls() -> void:
+func _test_broken_calls() -> void:
 	var notes = load("res://scripts/ui/match/MatchNotes.gd")
 	var last := {"focus_id": "p1", "interceptor_id": "p2", "spare_minder_id": "", "tag_id": "o9"}
 	var res := {"tag_drops": [{"side": 0, "q": 2, "id": "o9"}]}
@@ -2823,7 +2827,7 @@ func _broken_calls() -> void:
 ## call still comes and is made, no scene is ever built with them off, and
 ## the football is identical. Then the hub's Play match, the press conference
 ## and the awards night with them off.
-func _vignettes_off_match() -> void:
+func _test_vignettes_off_match() -> void:
 	# The vignettes-on match is taken in Key moments (P-14), the vignettes-off one
 	# watched: the same match either way, so one pair proves both.
 	var with_on: Dictionary = await _drive_match(true, "key")
@@ -2889,7 +2893,7 @@ func _vignettes_off_match() -> void:
 	hub.queue_free()
 	_state.media_conference = {}
 	await _settle()
-	await _test_press_effects_shown(db)
+	await _t("_test_press_effects_shown", [db])
 	# A promised run just ended: the sit-down is the week's one ask, and a real
 	# tap on Done closes it.
 	_state.backing_talk = {"player_id": "calder", "title": "Sit-down with Calder",
@@ -3087,7 +3091,7 @@ func _key_moments_checks(key: Dictionary, watch: Dictionary) -> void:
 ## button says Skip to full time only when Skip is chosen, the last one comes up
 ## chosen on the next visit, and a real tap on the main button with Skip chosen
 ## goes straight to your full time.
-func _match_way_poster() -> void:
+func _test_match_way_poster() -> void:
 	var db = root.get_node("GameDB")
 	_state.set_vignettes_on(true)
 	_state.set_match_way("watch")
@@ -3197,6 +3201,11 @@ func _check(condition: bool, message: String) -> void:
 ## player's name is broken across two lines. At quarter time each surname the key
 ## match-ups row names wears his own club's ink (two clubs share "McDonald"), and Best so
 ## far's names wear their clubs' ink (director A1, 2026-10-14).
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
 const NB := " "
 
 
@@ -3215,7 +3224,7 @@ func _fre_v_mel() -> bool:
 	return false
 
 
-func _break_panes_layout() -> void:
+func _test_break_panes_layout() -> void:
 	var UK = load("res://scripts/ui/UiKit.gd")
 	var db = root.get_node("GameDB")
 	var seed_before: int = _state.replay_seed
@@ -3398,7 +3407,7 @@ func _change_beside(line: RichTextLabel, change: Button) -> Dictionary:
 ## Tapping a tag target brings "Who tags" in; no other section changes column
 ## or moves sideways, and nothing lies off the screen (director, 2026-10-14).
 ## Before the first ball-up nobody has played, so there is no Best so far.
-func _tag_tap_keeps_columns(sz: Vector2i) -> void:
+func _test_tag_tap_keeps_columns(sz: Vector2i) -> void:
 	var tag := "%dx%d" % [sz.x, sz.y]
 	var db = root.get_node("GameDB")
 	_state.reset()

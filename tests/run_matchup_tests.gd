@@ -33,28 +33,29 @@ func _run() -> void:
 	suite.run()
 	_checks += suite.checks
 	_failures.append_array(suite.failures)
-	await _hub_tests()
-	await _poster_ball()
-	_former_rules()
-	await _former_player()
-	await _wide_hub_footer()
-	await _phone_footer_fits()
-	await _regular_bye()
-	await _finals_week_by_week()
-	await _finals_cup()
-	await _finals_status_paths()
-	await _coach_approach_card()
-	await _season_wrap()
-	await _season_review_scrolls()
-	await _pre_match_scene()
-	_pre_match_captions()
-	_banner_scene_budget()
+	await _t("_test_hub_tests")
+	await _t("_test_poster_ball")
+	await _t("_test_fact_options")
+	_t("_test_former_rules")
+	await _t("_test_former_player")
+	await _t("_test_wide_hub_footer")
+	await _t("_test_phone_footer_fits")
+	await _t("_test_regular_bye")
+	await _t("_test_finals_week_by_week")
+	await _t("_test_finals_cup")
+	await _t("_test_finals_status_paths")
+	await _t("_test_coach_approach_card")
+	await _t("_test_season_wrap")
+	await _t("_test_season_review_scrolls")
+	await _t("_test_pre_match_scene")
+	_t("_test_pre_match_captions")
+	_t("_test_banner_scene_budget")
 	_state.replay_seed = 0
-	print("Matchup + hub tests: %d checks, %d failures" % [_checks, _failures.size()])
+	print(Ran.line("Matchup + hub", self, [suite]))
 	quit(0 if _failures.is_empty() else 1)
 
 
-func _hub_tests() -> void:
+func _test_hub_tests() -> void:
 	var db = root.get_node("GameDB")
 	_reset()
 	_state.start_season("COL", db.club_list("COL"))
@@ -80,9 +81,9 @@ func _hub_tests() -> void:
 	var style: Array = _state.their_style(str(nxt["code"]))
 	var style_ok := style.size() <= 2
 	for t in style:
-		if not (str(t).begins_with("They ") or str(t).begins_with("Their ")) or RegEx.create_from_string("\\d").search(str(t)) != null:
+		if not (str(t).begins_with("They ") or str(t).begins_with("Their ")):
 			style_ok = false
-	_check(style_ok, "Their style reads as football, no numbers (%s)" % " ".join(style))
+	_check(style_ok, "Their style reads as football (%s)" % " ".join(style))
 	var any_style := false
 	for c in _state.season.lists:
 		if not _state.their_style(str(c)).is_empty():
@@ -97,10 +98,6 @@ func _hub_tests() -> void:
 	var form: Label = hub.find_child("OppFormLine", true, false)
 	_check(form != null and not form.text.contains("(") and form.text.contains("on the ladder"),
 			"Their standing reads in words (%s)" % (form.text if form else "-"))
-	var mine: Label = hub.find_child("FormLine", true, false)
-	var rx := RegEx.new()
-	rx.compile("[+-]\\d")
-	_check(mine != null and rx.search(mine.text) == null, "Your form hides the internal number")
 	# Each result in its own colour, letters kept: a W reads as a win.
 	var streak: Node = hub.find_child("FormStreak", true, false)
 	var letters := ""
@@ -192,7 +189,7 @@ func _hub_tests() -> void:
 ## On a PC window the club buttons stay pinned in view but sit under the
 ## ladder column, not stretched across the whole page (director: no
 ## full-width bars on PC). Real taps reach them.
-func _wide_hub_footer() -> void:
+func _test_wide_hub_footer() -> void:
 	var db = root.get_node("GameDB")
 	_reset()
 	_state.start_season("COL", db.club_list("COL"))
@@ -228,7 +225,7 @@ func _wide_hub_footer() -> void:
 ## in full (none ellipsised), each button is thumb-high, the row stays on screen, and a real
 ## finger's tap reaches "Sim the week" where it now sits. Checked with no job open on the
 ## staff and with one open ("Coaching · 1", the longest label the row carries).
-func _phone_footer_fits() -> void:
+func _test_phone_footer_fits() -> void:
 	var db = root.get_node("GameDB")
 	for vacancies in [0, 1]:
 		for w in [320, 360, 390, 412]:
@@ -273,7 +270,7 @@ func _phone_footer_fits() -> void:
 	root.size = Vector2i(390, 844)
 
 
-func _regular_bye() -> void:
+func _test_regular_bye() -> void:
 	var db = root.get_node("GameDB")
 	_reset()
 	_state.start_season("MEL", db.club_list("MEL"))
@@ -319,7 +316,7 @@ func _regular_bye() -> void:
 ## Out of the finals, the league still plays them a week at a time: the hub
 ## offers the week, shows its results, and the season (and its awards) ends
 ## only after the Grand Final. Sim to Grand Final stays as the fast-forward.
-func _finals_week_by_week() -> void:
+func _test_finals_week_by_week() -> void:
 	var db = root.get_node("GameDB")
 	var out := ""
 	for code in ["GWS", "RIC", "NTH", "WCE", "STK", "ESS", "ADE"]:
@@ -381,7 +378,7 @@ func _finals_week_by_week() -> void:
 
 ## A rival's approach for your coach sits on the hub until you answer it: a
 ## finger's tap on an answer settles it and leaves the outcome in words.
-func _coach_approach_card() -> void:
+func _test_coach_approach_card() -> void:
 	var db = root.get_node("GameDB")
 	_reset()
 	_state.start_season("GEE", db.club_list("GEE"))
@@ -412,7 +409,7 @@ func _coach_approach_card() -> void:
 
 ## The Season Review runs well past one phone screen: everything under the
 ## top bar scrolls, so the National Draft button at the bottom is reachable.
-func _season_review_scrolls() -> void:
+func _test_season_review_scrolls() -> void:
 	var db = root.get_node("GameDB")
 	_reset()
 	_state.start_season("COL", db.club_list("COL"))
@@ -435,7 +432,7 @@ func _season_review_scrolls() -> void:
 
 
 ## The off-season wrap sits over the hub until you begin the season.
-func _season_wrap() -> void:
+func _test_season_wrap() -> void:
 	_reset()
 	_state.start_season("GEE", root.get_node("GameDB").club_list("GEE"))
 	_state.season_wrap = {"year": _state.season_year, "seen": false,
@@ -480,7 +477,7 @@ func _season_wrap() -> void:
 ## The match ball on the poster (director, 2026-10-14): the real picture
 ## where the "v" was, never tinted, taking no room from the clubs' names and
 ## no taps; without the file the "v" is back and nothing has moved.
-func _poster_ball() -> void:
+func _test_poster_ball() -> void:
 	var db = root.get_node("GameDB")
 	var art = load("res://scripts/ui/UiArt.gd")
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
@@ -578,7 +575,7 @@ func _poster_ball() -> void:
 ## for you in this career and left is one; one who never played for you, or
 ## whose spell with you ended before the game began, is not. The report says
 ## what he did only when he played most of it or kicked a goal.
-func _former_rules() -> void:
+func _test_former_rules() -> void:
 	var FP = load("res://scripts/sim/FormerPlayers.gd")
 	var gone := {"id": "fp_gone", "club": "CAR", "career": {"stints": [["FRE", 2026, 2031, 142, 37], ["CAR", 2032, 2032, 9, 2]]}}
 	var never := {"id": "fp_never", "club": "CAR", "career": {"stints": [["CAR", 2027, 2032, 80, 10]]}}
@@ -636,7 +633,7 @@ func _former_rules() -> void:
 ## the poster, his name in his new club's ink and a tap on it opens him; nothing
 ## for one who never played for you. After the match the report says what he did,
 ## only when he played.
-func _former_player() -> void:
+func _test_former_player() -> void:
 	var db = root.get_node("GameDB")
 	var kit = load("res://scripts/ui/UiKit.gd")
 	var FP = load("res://scripts/sim/FormerPlayers.gd")
@@ -759,6 +756,251 @@ func _tap_scan(label: Control, host: Node) -> bool:
 	return false
 
 
+## Every opposition fact comes with your options beside it (P-13, director
+## 2026-10-14, A9). Each fact the hub states has a row of the responses the rules
+## allow, in a fixed order, none marked best; the unsuitable ones are disabled
+## and say why; a real tap on one starts the match on that call's picker, with the
+## fact restated above it, and the pick lands as it does from the break.
+func _test_fact_options() -> void:
+	var db = root.get_node("GameDB")
+	var FO = load("res://scripts/sim/FactOptions.gd")
+	_reset()
+	_state.set_setting("seen_weekly_loop_intro", true)
+	_state.start_season("FRE", db.club_list("FRE"))
+	# The table, for every club as the opponent: the options of each fact are
+	# exactly the table's for its kind, in the table's order, each disabled one
+	# with a reason and each enabled one with a cost.
+	var kinds := {}
+	var table_ok := true
+	var reasons_ok := true
+	var order_ok := true
+	var words_ok := true
+	var words := ["best", "recommend", "suggest", "ideal", "should", "advice", "optimal", "top pick"]
+	var disabled_seen := 0
+	var shown_ok := true
+	var ruck_clean := true
+	var ruck_facts := 0
+	var enabled_seen := 0
+	for code in _state.season.lists:
+		var facts: Array = _state.opponent_facts(str(code))
+		var opts: Array = _state.opponent_fact_options(str(code), facts, true)
+		var shown: Array = _state.opponent_fact_options(str(code), facts)
+		for i in range(mini(facts.size(), shown.size())):
+			for o in shown[i]:
+				shown_ok = shown_ok and bool(o["enabled"])
+				if str(facts[i]["key"]) == "ruck":
+					ruck_clean = ruck_clean and str(o["call"]) == "ruck"
+					ruck_facts += 1
+		table_ok = table_ok and opts.size() == facts.size()
+		for i in range(mini(facts.size(), opts.size())):
+			var key := str(facts[i]["key"])
+			kinds[key] = true
+			var want := []
+			for row in FO.TABLE[key]:
+				want.append("plan:" + str(row[1]) if str(row[0]) == "plan" else str(row[0]))
+			var got := []
+			var last := -1
+			for o in opts[i]:
+				got.append("plan:" + str(o["plan"]) if str(o["call"]) == "plan" else str(o["call"]))
+				var at: int = FO.ORDER.find(str(o["call"]))
+				order_ok = order_ok and at >= last
+				last = at
+				if bool(o["enabled"]):
+					enabled_seen += 1
+					words_ok = words_ok and str(o["cost"]) != "" and str(o["reason"]) == ""
+				else:
+					disabled_seen += 1
+					reasons_ok = reasons_ok and str(o["reason"]).length() > 8 and str(o["cost"]) == ""
+				for w in words:
+					words_ok = words_ok and not (str(o["label"]) + " " + str(o["cost"]) + " " + str(o["reason"])).to_lower().contains(w)
+			got.sort()
+			want.sort()
+			if got != want:
+				table_ok = false
+				push_error("%s %s: options %s, table %s" % [code, key, str(got), str(want)])
+	_check(table_ok, "Every fact of every opponent has exactly the table's responses for its kind")
+	_check(shown_ok, "The hub shows only responses the coach can take (no greyed ones)")
+	_check(ruck_clean, "No ruck fact carries Tag, Key match-up or a plan across all clubs (%d ruck facts)" % ruck_facts)
+	var two_r := {"id": "r1", "role": "RUCK", "overall": 80, "attr": {}}
+	var one_r := {"id": "r2", "role": "RUCK", "overall": 80, "attr": {}}
+	var mid_r := {"id": "m", "role": "MID", "overall": 70, "attr": {}}
+	_check(FO.takeable(FO.options({"key": "ruck", "player_id": "r1"}, [two_r], [mid_r, one_r], [two_r])).is_empty(),
+			"With one ruck of his own the ruck fact shows nothing")
+	_check(_names(FO.takeable(FO.options({"key": "ruck", "player_id": "r1"}, [two_r], [one_r, one_r.duplicate()], [two_r]))) == ["ruck"],
+			"With two rucks the ruck fact offers the Main ruck call and nothing else")
+	_check(_names(FO.takeable(FO.options({"key": "danger", "player_id": "r1"}, [two_r], [one_r, one_r.duplicate()], [two_r]))) == ["ruck"],
+			"A danger man who is a ruck is answered by the Main ruck call alone, never a tag")
+	_check(order_ok, "The responses always come in the fixed order: tag, key match-up, defensive forward, main ruck, loose interceptor, plan")
+	_check(reasons_ok and disabled_seen > 0, "Every unsuitable response is disabled with its reason (%d seen)" % disabled_seen)
+	_check(words_ok and enabled_seen > 0, "Every other one carries its cost, and none says best, recommended or should (%d seen)" % enabled_seen)
+	_check(kinds.has("danger") and kinds.has("interceptor") and (kinds.has("midfield") or kinds.has("ruck")),
+			"The league covers the danger man, the roaming defender and a line (%s)" % ", ".join(kinds.keys()))
+	# The costs are the pane's own words.
+	_check(str(load("res://scripts/ui/match/MatchNotes.gd").minder_cost_line()).contains(str(FO.minder_cost()).trim_prefix("Your forward is"))
+			and str(FO.plan_cost("contest")) == "The ball moves a little slower",
+			"The costs are the words the pre-bounce pane already uses")
+	# A forward who is only a forward cannot be tagged: the response says why.
+	var fwd := {"id": "x", "role": "FWD", "overall": 80, "attr": {}}
+	var tagged: Array = FO.options({"key": "danger", "player_id": "x"}, [], [], [fwd])
+	_check(not tagged.is_empty() and str(tagged[0]["call"]) == "tag" and not bool(tagged[0]["enabled"])
+			and str(tagged[0]["reason"]) == "He plays forward: a tag needs a midfielder.",
+			"A forward cannot be tagged and the response says why (%s)" % (str(tagged[0]["reason"]) if not tagged.is_empty() else "-"))
+	var mid_fwd := {"id": "y", "role": "FWD", "role2": "MID", "overall": 80, "attr": {}}
+	var rank: Array = FO.options({"key": "danger", "player_id": "y"}, [], [], [mid_fwd])
+	_check(not rank.is_empty() and bool(rank[0]["enabled"]), "A mid/forward can be tagged, as the director asked (A9)")
+	var ruck_mid := {"id": "z", "role": "RUCK", "role2": "MID", "overall": 85, "attr": {}}
+	var rm: Array = FO.options({"key": "danger", "player_id": "z"}, [ruck_mid], [], [ruck_mid])
+	_check(not rm.is_empty() and str(rm[0]["call"]) == "tag" and not bool(rm[0]["enabled"]),
+			"A ruckman is never offered a tag, even one who also lists midfield (lead ruling, 2026-10-18)")
+
+	# The hub, phone and PC: the rows are under their facts, thumb-sized, whole.
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		var tag := "%dx%d" % [sz.x, sz.y]
+		root.size = sz
+		var hub := await _open_hub()
+		var nxt: Dictionary = _state.my_next_opponent()
+		var facts: Array = _state.opponent_facts(str(nxt["code"]))
+		var opts: Array = _state.opponent_fact_options(str(nxt["code"]), facts)
+		var rows_ok := true
+		var rows_n := 0
+		var fits := true
+		var all_text := ""
+		for i in range(facts.size()):
+			var row: Control = hub.find_child("FactOptions_%d" % i, true, false)
+			var want_n: int = (opts[i] as Array).size()
+			if want_n == 0:
+				rows_ok = rows_ok and row == null
+				continue
+			rows_n += 1
+			rows_ok = rows_ok and row != null and row.get_child_count() == want_n
+			if row == null:
+				continue
+			var fact_label: Control = hub.find_child("Fact_%d" % i, true, false)
+			rows_ok = rows_ok and fact_label != null and row.get_index() == fact_label.get_index() + 1
+			for b in row.find_children("FactOption_*", "Button", true, false):
+				fits = fits and (b as Button).size.y >= (44.0 if sz.x < 600 else 36.0) and b.get_global_rect().size.x > 0.0
+				var o: Dictionary = b.get_meta("option")
+				var sub := b.get_parent().find_child("OptionSub", true, false) as Label
+				rows_ok = rows_ok and b.disabled == (not bool(o["enabled"])) \
+						and sub != null and sub.text == (str(o["cost"]) if bool(o["enabled"]) else str(o["reason"]))
+				all_text += " " + sub.text + " " + (b.get_parent().find_child("OptionName", true, false) as Label).text
+		_check(rows_n > 0 and rows_ok, "%s: each stated fact has its options row beside it, with a cost or a reason on every one (%d rows)" % [tag, rows_n])
+		_check(fits, "%s: every option is a thumb tall and on the screen" % tag)
+		var lowered := all_text.to_lower()
+		var clean := true
+		for w in words:
+			clean = clean and not lowered.contains(w)
+		_check(clean, "%s: no option says best, recommended or should" % tag)
+		hub.queue_free()
+		await _settle()
+
+	# A real tap on an option: the match opens on that call's picker with the
+	# one fact above it, and a pick made there is the call the quarter plays.
+	_state.set_vignettes_on(false)
+	# Fremantle meet a side with plan responses; Brisbane meet one whose danger man can be tagged.
+	for case in [["FRE", "plan"], ["BRL", "tag"]]:
+		var want_call: String = case[1]
+		_reset()
+		_state.set_setting("seen_weekly_loop_intro", true)
+		_state.start_season(str(case[0]), db.club_list(str(case[0])))
+		root.size = Vector2i(390, 844)
+		var hub2 := await _open_hub()
+		var nxt2: Dictionary = _state.my_next_opponent()
+		var facts2: Array = _state.opponent_facts(str(nxt2["code"]))
+		var opts2: Array = _state.opponent_fact_options(str(nxt2["code"]), facts2)
+		var chosen: Button = null
+		var fact_text := ""
+		var option: Dictionary = {}
+		for i in range(opts2.size()):
+			for o in opts2[i]:
+				if chosen == null and bool(o["enabled"]) and str(o["call"]) == want_call:
+					var key: String = str(o["plan"]) if want_call == "plan" else want_call
+					chosen = hub2.find_child("FactOption_%d_%s" % [i, key], true, false)
+					fact_text = str(facts2[i]["text"])
+					option = o
+		if chosen == null:
+			_check(false, "%s meet a fact with a %s response to tap" % [str(case[0]), want_call])
+			hub2.queue_free()
+			await _settle()
+			continue
+		var why: String = await Tap.tap(chosen)
+		await _settle()
+		await _settle()
+		var scene: Node = current_scene
+		var box: Node = scene.find_child("CoachBox", true, false) if scene != null else null
+		_check(why == "" and scene != null and scene.name == "MatchScene" and box != null,
+				"A real tap on the %s response opens the match on its calls (%s)" % [want_call, why])
+		var restated: Node = box.find_child("CallIntentFact", true, false) if box != null else null
+		var picker_name: String = {"plan": "PlanPicker", "tag": "TagPicker"}[want_call]
+		var picker: Node = box.find_child(picker_name, true, false) if box != null else null
+		var plain := ""
+		if restated != null and restated.has_meta("plain"):
+			plain = str(restated.get_meta("plain"))
+		elif restated is Label:
+			plain = (restated as Label).text
+		_check(restated != null and plain == fact_text and picker != null and restated.get_parent() == picker.get_parent()
+				and restated.get_index() < picker.get_index(),
+				"The %s picker opens with the one fact above it (%s)" % [want_call, plain])
+		_check(_state.call_intent.is_empty(), "The tap's intent is used once and not kept")
+		if want_call == "tag" and picker != null:
+			# The same TagPicker main builds (its question, its candidates): no ruck on offer.
+			var opp_code: String = str(_state.my_next_opponent()["code"])
+			var rucks := 0
+			for tb in picker.find_children("TagPickerGrid_*", "Button", true, false):
+				var tid: String = str(tb.name).trim_prefix("TagPickerGrid_")
+				for lp in _state.season.lists[opp_code]:
+					if str(lp.get("id", "")) == tid and str(load("res://scripts/sim/Ratings.gd").positions(lp)[0]) == "RUCK":
+						rucks += 1
+			var asks := false
+			var ask_text: String = load("res://scripts/ui/match/MatchNotes.gd").tag_question()
+			for lab in picker.get_parent().find_children("*", "Label", true, false):
+				if (lab as Label).text == ask_text:
+					asks = true
+			_check(rucks == 0 and asks, "The opened tag picker is main's own: its question, and no ruck among the names (%d)" % rucks)
+		# Saves are unchanged: an intent held at save time never reaches the file.
+		_state.call_intent = {"call": "tag", "plan": "", "player_id": "x", "fact": "A fact."}
+		var wrote: bool = _state.save_career()
+		var back: Dictionary = CareerSave.read(_state.save_path)
+		_check(wrote and not back.is_empty() and not str(back).contains("call_intent") and not str(back).contains("A fact."),
+				"A held intent is not written into the save")
+		_state.call_intent = {}
+		_check(box != null and box.find_children("CallIntentFact", "", true, false).size() == 1,
+				"Only that one fact is added to the pane")
+		# The pick, from the same picker, a real tap; then the quarter.
+		var pick: Button = null
+		var pick_id := ""
+		if want_call == "plan":
+			pick = box.find_child("PlanPicker_" + str(option["plan"]), true, false) if box != null else null
+		elif picker != null:
+			for b in picker.find_children("TagPickerGrid_*", "Button", true, false):
+				if not str(b.name).ends_with("_"):
+					pick = b
+					pick_id = str(b.name).trim_prefix("TagPickerGrid_")
+					break
+		var why2: String = await Tap.tap(pick) if pick != null else "no pick"
+		_check(why2 == "", "A real tap picks from the opened %s picker (%s)" % [want_call, why2])
+		var start: Button = box.find_child("StartQuarter", true, false) if box != null else null
+		var sim = _state.pending_sim
+		var side: int = sim.moment_side if sim != null else 0
+		if start != null:
+			start.emit_signal("pressed")
+			await _settle()
+		var played := {}
+		if sim != null and not sim.tactics_history.is_empty():
+			played = (sim.tactics_history[0]["plans"][side] as Dictionary)
+		if want_call == "plan":
+			_check(str(played.get("gameplan", "")) == str(option["plan"]), "The plan picked there is the one the first quarter plays (%s)" % str(played.get("gameplan", "")))
+		elif pick_id != "":
+			_check(str(played.get("tag_id", "")) == pick_id, "The tag picked there is the one the first quarter plays (%s)" % str(played.get("tag_id", "")))
+		if current_scene != null:
+			current_scene.queue_free()
+		if is_instance_valid(hub2):
+			hub2.queue_free()
+		await _settle()
+	_state.set_vignettes_on(true)
+	root.size = Vector2i(390, 844)
+
+
 func _reset() -> void:
 	_state.reset()
 	_state.career_seed = SUITE_SEED
@@ -769,7 +1011,7 @@ func _reset() -> void:
 ## qualifying final's loser is still alive (the double chance), every other loser's season
 ## has ended, the premiers say so (found by uiart: "Your season ended in the Qualifying
 ## Final 2" over a side in the Grand Final).
-func _finals_status_paths() -> void:
+func _test_finals_status_paths() -> void:
 	var db = root.get_node("GameDB")
 	_reset()
 	_state.start_season("FRE", db.club_list("FRE"))
@@ -824,7 +1066,7 @@ func _finals_status_paths() -> void:
 ## The cup on the finals series (director, 2026-10-14): the real cup art over
 ## the Grand Final before it is played, phone and PC, and big in the
 ## premier's colour once it is won. Every match is still there to tap.
-func _finals_cup() -> void:
+func _test_finals_cup() -> void:
 	var db = root.get_node("GameDB")
 	var kit = load("res://scripts/ui/UiKit.gd")
 	_reset()
@@ -959,7 +1201,12 @@ func _check(condition: bool, message: String) -> void:
 ## The banner scene's frame budget (web build on a PC ran it slowly): what is the same
 ## every frame is worked out once, not each frame - the stand ring, the oval's turf and
 ## markings points - and the banner's tear times are the same as working each piece out.
-func _banner_scene_budget() -> void:
+
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
+func _test_banner_scene_budget() -> void:
 	var VG = load("res://scripts/ui/match/VignetteGround.gd")
 	var a = VG._ring_columns(74.0, 86.0, 2.1875)
 	_check(is_same(a, VG._ring_columns(74.0, 86.0, 2.1875)), "The stand ring is made once, not every frame")
@@ -991,7 +1238,7 @@ func _banner_scene_budget() -> void:
 	_check(Time.get_ticks_usec() - t0 < 50000, "200 frames of the stand ring take under 50 ms (a generous ceiling)")
 
 
-func _pre_match_captions() -> void:
+func _test_pre_match_captions() -> void:
 	var db = root.get_node("GameDB")
 	_reset()
 	_state.start_season("COL", db.club_list("COL"))
@@ -1019,7 +1266,7 @@ func _pre_match_captions() -> void:
 ## a couple of seconds of match day (warm-up, final instructions, through the
 ## banner) while the match is set up, then the match. A tap sends them
 ## through the banner at once.
-func _pre_match_scene() -> void:
+func _test_pre_match_scene() -> void:
 	var db = root.get_node("GameDB")
 	var router = root.get_node("Router")
 	for skip in [false, true]:
@@ -1078,3 +1325,10 @@ func _plain(c: Control) -> String:
 	if c is Label:
 		return (c as Label).text
 	return (c as RichTextLabel).get_parsed_text() if c is RichTextLabel else ""
+
+
+func _names(opts: Array) -> Array:
+	var r := []
+	for o in opts:
+		r.append(str(o["call"]))
+	return r

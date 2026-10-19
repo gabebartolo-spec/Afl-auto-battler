@@ -44,7 +44,7 @@ def main():
                 times[suite] = int(seconds)
         baseline = {"measured_on": datetime.date.today().isoformat(),
                     "source_run": args.run or 0, "seconds": dict(sorted(times.items()))}
-        timings_file.write_text(json.dumps(baseline, indent=2) + "\n")
+        timings_file.write_text(json.dumps(baseline, indent=2) + "\n", newline="\n")
     times = baseline["seconds"]
     bins = plan(times, args.shards)
     pr_totals = [sum(times[s] for s in b[1] if s not in LATE) for b in bins]
@@ -54,7 +54,7 @@ def main():
              f" by tools/plan_ci_shards.py --shards {args.shards}.",
              "# Pull-request suite seconds per shard: " + " ".join(str(t) for t in pr_totals)]
     lines += [f"{i}: {' '.join(b[1])}" for i, b in enumerate(bins, 1)]
-    (ROOT / "tools/ci_shards.txt").write_text("\n".join(lines) + "\n")
+    (ROOT / "tools/ci_shards.txt").write_text("\n".join(lines) + "\n", newline="\n")
     print("\n".join(lines[-args.shards - 1:]))
 
 

@@ -25,6 +25,11 @@ func _check(condition: bool, message: String) -> void:
 		_failures.append(message)
 		push_error(message)
 
+## Runs one test function; it must make at least one check (tests/functions_ran.gd).
+const Ran := preload("res://tests/functions_ran.gd")
+func _t(test: String, args := []) -> Variant:
+	return await Ran.one(self, test, args)
+
 
 func _settle(n := 6) -> void:
 	for i in range(n):
@@ -41,9 +46,9 @@ func _run() -> void:
 	_state.save_path = "user://test_nameink.save"
 	_state.settings_path = "user://test_nameink.cfg"
 	_state.delete_saved_career()
-	_helper()
-	await _match_screen()
-	print("Name colour tests: %d checks, %d failures" % [_checks, _failures.size()])
+	_t("_test_helper")
+	await _t("_test_match_screen")
+	print(Ran.line("Name colour", self))
 	quit(0 if _failures.is_empty() else 1)
 
 
@@ -51,7 +56,7 @@ func _html(club: String) -> String:
 	return UK.club_name_colour(UK.club_ink(club)).to_html(false)
 
 
-func _helper() -> void:
+func _test_helper() -> void:
 	var idx: Dictionary = NI.from_clubs(["FRE", "GWS"])
 	var fre: Dictionary = _db.club_list("FRE")[0]
 	var gws: Dictionary = _db.club_list("GWS")[0]
@@ -114,7 +119,7 @@ func _helper() -> void:
 			"Adelaide's name ink is the Crows' gold, not a red that reads as Melbourne or Essendon (director, 2026-10-14)")
 
 
-func _match_screen() -> void:
+func _test_match_screen() -> void:
 	_state.reset()
 	_state.replay_seed = 2027
 	root.size = Vector2i(390, 844)

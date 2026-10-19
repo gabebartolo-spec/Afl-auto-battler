@@ -1,6 +1,6 @@
 ---
 name: afl-team-pr
-description: Opening, syncing and handing over a pull request the AFL team's way - branch and worktree, what goes in the PR body ([MERGE NOTE], floors, director gates, W7), who merges, when not to push, and how to message the other agents about it. Use it whenever you are about to open a PR, update one after main moved, resolve a conflict in tests/expected_checks.txt or the roadmap, or tell another agent about a PR or CI result.
+description: Opening, syncing and handing over a pull request the AFL team's way - branch and worktree, what goes in the PR body ([MERGE NOTE], director gates, W7), who merges, when not to push, and how to message the other agents about it. Use it whenever you are about to open a PR, update one after main moved, resolve a conflict in the roadmap or a shared registry, or tell another agent about a PR or CI result.
 ---
 
 # A PR the team's way
@@ -27,7 +27,7 @@ git fetch -q origin
 git worktree add -b claude/<topic> ../Afl-auto-battler-<topic> origin/main
 ```
 
-- Running suites, import churn, floors: afl-godot-tests. Evidence: afl-proof-evidence. Branch, commit and merge rules: github-hygiene.
+- Running suites, import churn, the function count: afl-godot-tests. Evidence: afl-proof-evidence. Branch, commit and merge rules: github-hygiene.
 
 ## PR body
 
@@ -38,7 +38,7 @@ git worktree add -b claude/<topic> ../Afl-auto-battler-<topic> origin/main
 5. Tests: suites run and counts.
 6. [MERGE NOTE]:
    - hot files (MatchSim, GameState, ROADMAP section files, CLAUDE.md, tests.yml);
-   - floors: add `tests/floor_deltas/<branch>.txt` (`<suite> +N`); never edit an existing floor line;
+   - tests: call each new `_test_*` through `_t(...)` in your suite's own file (no shared count file);
    - ordering against other open PRs;
    - W7 needed (save, rollover, shared sim, recruitment, identity: afl-lifecycle-review) and by whom;
    - director gate: any change of appearance waits for the director's look, recorded on the PR; green CI never clears it.
