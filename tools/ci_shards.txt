@@ -4,15 +4,25 @@
 # one shard; tools/check_ci_shards.sh checks that on every CI run, so a new
 # suite cannot quietly skip CI.
 #
-# Rebalanced from all 37 suite durations in completed run 37460575183
-# (2026-10-06). Previous suite totals: 347, 489, 778, 734, 768 seconds.
-# Longest-first allocation keeps the same five jobs and every suite once;
-# estimated totals on that run: 603, 603, 604, 603, 603 seconds.
-# This removes about 174 seconds from the longest shard's suite workload.
-# Setup, import, queue time and runner variation are additional costs.
-# Re-measure after CI: these estimates are not a wall-clock guarantee.
-1: match_game pressure league intake chronology ratings back_nav family keyboard nameink international
-2: match_visual ai matchup awards assets roles intake_ui stats story match_marks
-3: career contracts injuries coaches training save draft_ui preseason practice papers
-4: league_balance calibration finals matchday expansion draft selection coach_pathway scroll plan_know planpane rowgap namelink trainrep
-5: club balance match_motion coach_market career_ui achievements workload fitness coach_effects potential calls
+# Do not edit the lines below by hand: re-plan from a full green main run
+# (at least weekly, or after adding a suite) with
+#   gh run download <run> -p 'suite-timings-*' -D <dir>
+#   python3 tools/plan_ci_shards.py --timings-dir <dir> --run <run> --shards 12
+# A new suite with no timing yet: add about 60 seconds for it to
+# tools/ci_suite_timings.json and re-plan. balance, league_balance and
+# calibration are planned last because most pull requests skip them.
+# --- plan ---
+# From main run 39144840688 (2026-10-19), 56 suites, by tools/plan_ci_shards.py --shards 12.
+# Pull-request suite seconds per shard: 637 570 547 547 548 549 547 546 547 547 546 547
+1: save
+2: match_game
+3: story chronology namelink calibration
+4: career match_marks
+5: match_visual stats intake family
+6: preseason expansion pressure intake_ui nameink
+7: matchday career_ui draft_ui awards fitness selection
+8: back_nav matchup league training keyboard planpane league_balance
+9: contracts match_motion ai coaches workload coach_pathway
+10: club practice international rowgap roles coach_effects
+11: plan_know draft injuries achievements scroll potential balance
+12: coach_market papers finals trainrep calls assets ratings

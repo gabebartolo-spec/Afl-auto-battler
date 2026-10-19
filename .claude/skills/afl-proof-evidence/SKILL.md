@@ -17,7 +17,7 @@ practices").
 | Change | Evidence that counts |
 |---|---|
 | Data, copy or docs | The touched suites; nothing more |
-| Simulation rule or balance | Seeded, paired audit (same seeds before/after), distributions and the calibration suite; never one favourite match |
+| Simulation rule or balance | The calibration suite and the touched suites; never one favourite match. A seeded, paired audit (same seeds before/after, distributions) only when the director asks, before a release, or for a change meant to move the numbers (director, 2026-10-19) |
 | UI flow | Real taps through `tests/tap.gd`, layout at 320/360/430 wide, Android Back |
 | Visual or art | A capture at game scale and phone width; then the director's approval (§9.5) - green CI isn't enough |
 | Animation or vignette | The `assets` suite (frames vs layout, moves played through) plus a short capture for the director |
