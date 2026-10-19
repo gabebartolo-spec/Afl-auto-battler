@@ -157,6 +157,8 @@ func _training(club: String, sz: Vector2i) -> void:
 	_check(news is RichTextLabel and (news as RichTextLabel).get_theme_font("normal_font") == load("res://assets/fonts/ARDSignwriter-Regular.ttf")
 			and (news as RichTextLabel).get_theme_font("bold_font") == load("res://assets/fonts/ARDSignwriter-Bold.ttf"),
 			"%s: the news names are set in the game's faces" % tag)
+	_check(news is RichTextLabel and not (news as RichTextLabel).meta_underlined and (news as RichTextLabel).text.contains("[b][url="),
+			"%s: the news names are bold, not underlined (director, 2026-10-19)" % tag)
 	_check(news is RichTextLabel, "%s: the news line carries tappable names" % tag)
 	if news is RichTextLabel:
 		var opened := await _tap_scan(news, scene)

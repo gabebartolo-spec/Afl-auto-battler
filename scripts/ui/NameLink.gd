@@ -70,9 +70,10 @@ static func line(text: String, ids: Dictionary, size: int, colour: Color) -> Ric
 	r.add_theme_font_size_override("normal_font_size", size)
 	r.add_theme_font_size_override("bold_font_size", size)
 	r.add_theme_color_override("default_color", colour)
-	r.text = markup(text, ids)
-	# One colour for the whole line, so its names are underlined to read as taps.
-	wire(r, true)
+	# One colour for the whole line, so its names are bold to read as taps
+	# (director, 2026-10-19: no underline).
+	r.text = markup(text, ids).replace("[url=", "[b][url=").replace("[/url]", "[/url][/b]")
+	wire(r)
 	return r
 
 
