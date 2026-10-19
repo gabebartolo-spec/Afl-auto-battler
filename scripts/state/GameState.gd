@@ -5313,7 +5313,7 @@ func training_summary_line() -> String:
 	var bits: PackedStringArray = []
 	if not rises.is_empty():
 		bits.append("%d %s in OVR." % [rises.size(), "player rose" if rises.size() == 1 else "players rose"])
-	for t in traits.slice(0, 2):
+	for t in traits:
 		bits.append("%s unlocked %s." % [_short_name(str(t[0])), Traits.label(str(t[1]))])
 	if at_pot.size() == 1:
 		bits.append("%s reached his potential." % _short_name(str(at_pot[0])))
