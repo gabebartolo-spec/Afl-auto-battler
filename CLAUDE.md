@@ -1,14 +1,23 @@
 # AFL Auto-Battler: working rules
 
-Read in full at session start: `docs/roadmap/open-requirements.md` (open director requirements, owner,
-status); the roadmap index is `docs/ROADMAP.md`. Must-read files stay under 60 KB (CI: `tools/check_doc_sizes.py`).
+The design bible, the roadmap index and the open director requirements (owner, status) load in
+full at session start ("Always loaded" below). Must-read files stay under 60 KB (CI: `tools/check_doc_sizes.py`).
 
 Godot 4 / GDScript. Run `tools/run_tests.sh` (or `tools/run_tests.sh draft_ui`
 for one suite) before pushing.
 
+## Always loaded
+
+Claude Code imports these core documents in full at every session start (the `@` lines below),
+so they are part of this file: read them as rules, never skim or skip them.
+
+@docs/DESIGN_BIBLE.md
+@docs/ROADMAP.md
+@docs/roadmap/open-requirements.md
+
 ## The design bible comes first (director, 2026-10-09)
 
-Read [docs/DESIGN_BIBLE.md](docs/DESIGN_BIBLE.md) before design or feature work.
+[docs/DESIGN_BIBLE.md](docs/DESIGN_BIBLE.md) is loaded in full at session start (above).
 It is the ultimate truth for what this game is. Both Claude accounts and every
 role work from it.
 
