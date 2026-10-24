@@ -2,7 +2,8 @@
 	"_note": "Why a rival club said no, passed or outbid you (P-18). One sentence per reason code; the code is chosen where the club's decision is made (Contracts.evaluate_trade, GameState._wont_go and _trade_assets, Contracts.prefers_why, Draft._best_ai_pick), never worked out afterwards. Placeholders: {club} the rival, {player} the player, {other} the player it took instead, {pos} a position in words, {age} his age, {to} the clubs he asked for, {n} a list size, {gap} how far ahead of your pick (\"two picks before yours\"). No percentages, values or hidden ratings.",
 	"reasons": {
 		"trade_empty": "Put a player or a pick on each side.",
-		"trade_closed": "Trades are only open in the off-season.",
+		"trade_closed": "Trades are open in the off-season and on draft night.",
+		"trade_night_picks_only": "On draft night only picks change hands: the lists are closed.",
 		"trade_twice": "Each player or pick can only go in once.",
 		"trade_not_their_pick": "That pick isn't theirs to trade.",
 		"trade_not_your_pick": "That pick isn't yours to trade.",

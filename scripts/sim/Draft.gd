@@ -38,6 +38,14 @@ var pick_origin: Array = []       # the club each pick came from (differs from i
 ## Traded picks: "round:origin club" -> owner. A pick not listed is its own
 ## club's. See set_pick_owners.
 var pick_owners := {}
+## Pick trades struck on draft night, in order: {"at": the pick about to be
+## made when it was struck, "buyer", "seller", "in": [ids the buyer got],
+## "out": [ids it gave], "text": the line the board reads}. GameState fills
+## it; the screen shows it with the picks.
+var night_trades: Array = []
+## Draft night: a rival is on the clock (its club code, the pick's index),
+## before it picks. GameState listens, and may let it sell the pick.
+signal rival_on_clock(code: String, index: int)
 ## Free-agency compensation picks in this draft: [{"index" (0-based pick),
 ## "club", "after", "player", "name", "to", ...}]. See add_compensation.
 var comp_picks: Array = []
@@ -221,6 +229,44 @@ func _build_sequence(comps: Array) -> void:
 		pick_origin.append(slot[3])
 
 
+## The index of `origin`'s own regular pick in `rnd` if it has not been made
+## yet, or -1 (made, passed over, or never in the order). Compensation picks
+## are not it.
+func pick_slot(rnd: int, origin: String) -> int:
+	var comp := {}
+	for c in comp_picks:
+		comp[int(c["index"])] = true
+	for i in range(pick_index, mini(pick_sequence.size(), pick_origin.size())):
+		if comp.has(i):
+			continue
+		if int(pick_rounds[i]) == rnd and str(pick_origin[i]) == origin:
+			return i
+	return -1
+
+
+## A pick not yet made changes owner on the night: the club at that spot in
+## the order, and the owners table (pick_limit reads it). A pick back with its
+## own club needs no entry.
+func reassign_pick(index: int, to: String) -> void:
+	if index < pick_index or index >= pick_sequence.size():
+		return
+	pick_sequence[index] = to
+	var key := "%d:%s" % [int(pick_rounds[index]), str(pick_origin[index])]
+	if to == str(pick_origin[index]):
+		pick_owners.erase(key)
+	else:
+		pick_owners[key] = to
+
+
+## The rounds the draft was planned with (not the extra rounds added when
+## prospects are left over).
+func planned_rounds() -> int:
+	var n := 0
+	for i in range(mini(_planned_len, pick_rounds.size())):
+		n = maxi(n, int(pick_rounds[i]))
+	return n
+
+
 ## Who owns this year's traded picks: {"round:origin club": owner}. Set
 ## before the first pick (the order is rebuilt by add_compensation).
 func set_pick_owners(owners: Dictionary) -> void:
@@ -369,6 +415,10 @@ func auto_until_user_turn() -> void:
 			continue
 		if code == user_club:
 			return
+		if intake_mode:
+			rival_on_clock.emit(code, pick_index)
+			if str(current_club()) != code:
+				continue   # the pick changed hands: whoever holds it now is on the clock
 		if not _ai_pick_current():
 			# A rival with no legal pick passes rather than freezing the whole
 			# draft (the cap guard makes this rare; an older save can hold it).
