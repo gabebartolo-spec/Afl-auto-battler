@@ -39,8 +39,8 @@ window/size/viewport_height=720
 window/dpi/allow_hidpi=true
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-; SCREEN_SENSOR: portrait and landscape, including reverse orientations.
-window/handheld/orientation=6
+; SCREEN_PORTRAIT: a phone opens in portrait (director, 2026-10-25); the Screen setting can change it.
+window/handheld/orientation=1
 
 [input_devices]
 

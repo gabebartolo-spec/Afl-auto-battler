@@ -486,8 +486,8 @@ func set_screen_size(key: String) -> void:
 
 
 func screen_orientation() -> String:
-	var key := str(get_setting("screen_orientation", "auto"))
-	return key if ["auto", "portrait", "landscape"].has(key) else "auto"
+	var key := str(get_setting("screen_orientation", ScreenLayout.DEFAULT_ORIENTATION))
+	return key if ["auto", "portrait", "landscape"].has(key) else ScreenLayout.DEFAULT_ORIENTATION
 
 
 func set_screen_orientation(key: String, from_tap := false) -> void:
