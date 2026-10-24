@@ -7583,6 +7583,7 @@ func make_night_offers() -> int:
 	var made := 0
 	var tried := 0
 	_freeze_league(true)
+	var consensus := trade_prospects()
 	for club in _club_order("night offers:%d" % index):
 		if made >= MAX_OFFERS or tried >= NIGHT_OFFER_TRIES:
 			break
@@ -7591,8 +7592,13 @@ func make_night_offers() -> int:
 			continue
 		tried += 1
 		var read := _night_prospects(club)
-		var pkg := _bid(club, pick, _worth_to_read(club, pick, read), UNASKED_BID, read)
-		if pkg.is_empty():
+		# No haggling on the clock: a rival bids the most it would pay by its own
+		# read, and only tables it if, by the consensus read of the class, you
+		# would come out even or ahead (director 2026-10-25: a late pick and a
+		# future second for pick 6 is "absurd"). A club that rates a prospect
+		# above the field finds the room; one that does not stays quiet.
+		var pkg := _bid(club, pick, _worth_to_read(club, pick, read), 1.0, read)
+		if pkg.is_empty() or not bool(_club_verdict(my_club, club, [pick], pkg, 0.0, consensus)["ok"]):
 			continue
 		trade_offers.append({"club": club, "give": pkg.map(func(a): return str(a["id"])),
 				"take": [str(pick["id"])], "status": "open", "night": true})
