@@ -4096,10 +4096,12 @@ func opponent_fact_options(code: String, facts: Array, every := false) -> Array:
 	var out := []
 	if season == null or code == "" or not season.lists.has(code):
 		return out
-	var theirs: Array = Squad.new(code, season.lists[code], false, code, season.selections.get(code, {})).ground
-	var mine: Array = my_squad().ground
+	var their_sq := Squad.new(code, season.lists[code], false, code, season.selections.get(code, {}))
+	var my_sq: Squad = my_squad()
+	var theirs: Array = their_sq.ground
+	var mine: Array = my_sq.ground
 	for f in facts:
-		var all := FactOptions.options(f, theirs, mine, season.lists[code])
+		var all := FactOptions.options(f, theirs, mine, season.lists[code], [float(their_sq.fwd_mark), float(my_sq.def_intercept)])
 		out.append(all if every else FactOptions.takeable(all))
 	return out
 

@@ -835,10 +835,9 @@ func _test_fact_options() -> void:
 	_check(words_ok and enabled_seen > 0, "Every other one carries its cost, and none says best, recommended or should (%d seen)" % enabled_seen)
 	_check(kinds.has("danger") and kinds.has("interceptor") and (kinds.has("midfield") or kinds.has("ruck")),
 			"The league covers the danger man, the roaming defender and a line (%s)" % ", ".join(kinds.keys()))
-	# The costs are the pane's own words.
-	_check(str(load("res://scripts/ui/match/MatchNotes.gd").minder_cost_line()).contains(str(FO.minder_cost()).trim_prefix("Your forward is"))
-			and str(FO.plan_cost("contest")) == "The ball moves a little slower",
-			"The costs are the words the pre-bounce pane already uses")
+	# Every match-day gate's gain and cost carry the sim's own constants
+	# (bible §4, director 2026-10-18); the templates hold no figure.
+	_gate_odds()
 	# A forward who is only a forward cannot be tagged: the response says why.
 	var fwd := {"id": "x", "role": "FWD", "overall": 80, "attr": {}}
 	var tagged: Array = FO.options({"key": "danger", "player_id": "x"}, [], [], [fwd])
@@ -852,6 +851,25 @@ func _test_fact_options() -> void:
 	var rm: Array = FO.options({"key": "danger", "player_id": "z"}, [ruck_mid], [], [ruck_mid])
 	_check(not rm.is_empty() and str(rm[0]["call"]) == "tag" and not bool(rm[0]["enabled"]),
 			"A ruckman is never offered a tag, even one who also lists midfield (lead ruling, 2026-10-18)")
+
+	# No one tags ruckmen (director, 2026-10-18): across every club's list, a
+	# ruck-first player is never a tag target, whatever else he lists.
+	var RT = load("res://scripts/sim/Ratings.gd")
+	var MSX = load("res://scripts/sim/MatchSim.gd")
+	var ruck_seen := 0
+	var ruck_ok := true
+	var clubs_seen := 0
+	for code in _state.season.lists:
+		clubs_seen += 1
+		for p in _state.season.lists[code]:
+			if str(RT.positions(p)[0]) == "RUCK":
+				ruck_seen += 1
+				var in_mid: Dictionary = (p as Dictionary).duplicate(true)
+				in_mid["own_role"] = "RUCK"
+				in_mid["role"] = "MID"
+				ruck_ok = ruck_ok and not MSX.can_be_tagged(p) and not MSX.taggable(in_mid)
+	_check(ruck_ok and clubs_seen >= 18 and ruck_seen > 18,
+			"No ruck-first player on any club's list can be tagged, even picked in the midfield (%d clubs, %d rucks)" % [clubs_seen, ruck_seen])
 
 	# The hub, phone and PC: the rows are under their facts, thumb-sized, whole.
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
@@ -883,6 +901,9 @@ func _test_fact_options() -> void:
 				var sub := b.get_parent().find_child("OptionSub", true, false) as Label
 				rows_ok = rows_ok and b.disabled == (not bool(o["enabled"])) \
 						and sub != null and sub.text == (str(o["cost"]) if bool(o["enabled"]) else str(o["reason"]))
+				var up := b.get_parent().find_child("OptionGain", true, false) as Label
+				rows_ok = rows_ok and (not bool(o["enabled"]) or (up != null and up.text == str(o["gain"])
+						and up.text.begins_with("Gain: ") and sub.text.begins_with("Cost: ")))
 				all_text += " " + sub.text + " " + (b.get_parent().find_child("OptionName", true, false) as Label).text
 		_check(rows_n > 0 and rows_ok, "%s: each stated fact has its options row beside it, with a cost or a reason on every one (%d rows)" % [tag, rows_n])
 		_check(fits, "%s: every option is a thumb tall and on the screen" % tag)
@@ -1332,3 +1353,69 @@ func _names(opts: Array) -> Array:
 	for o in opts:
 		r.append(str(o["call"]))
 	return r
+
+
+## Each gate's lines name the constant they describe, worked out the way the
+## sim uses it, and no template carries a digit of its own.
+func _gate_odds() -> void:
+	var GO = load("res://scripts/sim/GateOdds.gd")
+	var Ms = load("res://scripts/sim/MatchSim.gd")
+	var RL = load("res://scripts/sim/Roles.gd")
+	var RT = load("res://scripts/sim/Ratings.gd")
+	var MU = load("res://scripts/sim/Matchups.gd")
+	var digits := RegEx.create_from_string("[0-9]")
+	var templates := [GO.GAIN, GO.COST, GO.TAG_GAIN, GO.TAG_COST, GO.MATCHUP_GAIN, GO.MATCHUP_COST_NEXT,
+			GO.MATCHUP_COST_LOOSE, GO.MINDER_GAIN, GO.MINDER_COST, GO.RUCK_GAIN, GO.RUCK_COST, GO.LOOSE_GAIN,
+			GO.LOOSE_COST, GO.TAG_GIVES, GO.TAG_NOTE, GO.SKIP_FIRST, GO.SKIP_LATER, GO.BACK_STATS, GO.BACK_CM,
+			GO.DUEL_GAIN, GO.DUEL_COST_SWAP, GO.DUEL_COST_LOOSE, GO.DUEL_COST_FREE, GO.DUEL_COST_KEEP,
+			GO.FOR_MINUTES, GO.TO_SIREN, GO.TO_BREAK, GO.NONE_GAIN, GO.NONE_COST_RUN, GO.NONE_COST_BOUNCE]
+	for d in [GO.PLAN_GAIN, GO.PLAN_COST, GO.BURST_GAIN, GO.BURST_COST]:
+		templates.append_array((d as Dictionary).values())
+	var literal := templates.filter(func(t): return digits.search(str(t)) != null)
+	_check(literal.is_empty(), "No match-day gate template carries a number of its own (%s)" % str(literal))
+	var pct := func(x: float) -> String: return GO.pct(x)
+	var tag: Array = GO.tag_lines()
+	_check(str(tag[0]).contains(pct.call(RL.TAG_WITH_TAGGER)) and str(tag[0]).contains(pct.call(RL.TAG_PLAIN))
+			and str(tag[1]).contains(pct.call(Ms.TAGGER_COST)) and GO.tag_gives().contains(pct.call(1.0 - Ms.TAGGER_BALL)),
+			"Tag: the hold a Tagger and anyone else leave, and the share of his own game given up (%s / %s)" % tag)
+	var md: Array = GO.minder_lines()
+	_check(str(md[0]).contains(pct.call(float(Ms.MINDER_ROAM["other"]))) and str(md[0]).contains(pct.call(float(Ms.MINDER_ROAM["specialist"])))
+			and str(md[1]).contains(pct.call(1.0 - Ms.MINDER_INVOLVE)), "Defensive forward: his reach both ways and your forward's cost (%s / %s)" % md)
+	var rk: Array = GO.ruck_lines()
+	_check(str(rk[1]).contains(pct.call(float(Ms.ROLE_DRAIN["RUCK"]) / float(Ms.ROLE_DRAIN["FWD"]) - 1.0)), "Main ruck: how much faster he tires (%s)" % rk[1])
+	var att: Array = GO.plan_lines("attacking")
+	_check(str(att[0]).contains(pct.call(float(Ms.PLANS["attacking"]["goal"]) - 1.0)) and str(att[1]).contains(pct.call(float(Ms.PLANS["attacking"]["clangers"]) - 1.0))
+			and str(att[1]).contains(pct.call(float(Ms.PLANS["attacking"]["exposed"]) - 1.0)), "Attack corridor: both sides from PLANS (%s / %s)" % att)
+	var ctl: Array = GO.plan_lines("controlled")
+	_check(str(ctl[0]).contains(pct.call(1.0 - float(Ms.PLANS["controlled"]["clangers"]))) and str(ctl[1]).contains(pct.call(1.0 - float(Ms.PLANS["controlled"]["gain"]))),
+			"Controlled tempo: both sides from PLANS (%s / %s)" % ctl)
+	var dfn: Array = GO.plan_lines("defensive")
+	_check(str(dfn[0]).contains(pct.call(float(Ms.PRESS_PLAN_ZONE[0]) - 1.0)) and str(dfn[1]).contains(pct.call(1.0 - float(Ms.PLANS["defensive"]["goal"]))),
+			"Defensive press: both sides from PLANS and the press zones (%s / %s)" % dfn)
+	_check(str(GO.plan_lines("contest")[0]).contains(pct.call(float(Ms.PLANS["contest"]["contest"]))), "Win contest: its stoppage edge")
+	_check(GO.skip_line(1).contains("plan you took in") and GO.skip_line(3).contains("last quarter's calls")
+			and GO.skip_line(3).contains("no change") and GO.skip_line(1).contains("Only a match-up changed here is kept"),
+			"Skip says what it plays with and that the sheet's other changes are not kept")
+	var mins := func(k: String) -> String: return str(roundi(float(Ms.BURSTS[k]["chains"]) * float(Ms.GAME_MINUTES) / float(RT.T["chains_per_game"])))
+	var surge: Array = GO.burst_lines("surge", 60)
+	_check(str(surge[0]).contains(pct.call(Ms.SURGE_CONTEST)) and str(surge[0]).contains(pct.call(Ms.SURGE_GOAL - 1.0)) and str(surge[0]).contains(mins.call("surge") + " minutes")
+			and str(surge[1]).contains(pct.call(Ms.SURGE_OPP_GOAL - 1.0)) and str(surge[1]).contains(pct.call(Ms.SURGE_PACE - 1.0)),
+			"Throw numbers: up, down and how long, from its constants (%s / %s)" % surge)
+	var hold: Array = GO.burst_lines("hold", 60)
+	_check(str(hold[0]).contains(pct.call(1.0 - Ms.HOLD_CLANGERS)) and str(hold[0]).contains(pct.call(1.0 - Ms.HOLD_OPP_GOAL))
+			and str(hold[1]).contains(pct.call(1.0 - Ms.HOLD_GOAL)) and str(hold[1]).contains(pct.call(1.0 - Ms.BACK_GAIN)),
+			"Slow it down: up and down from its constants (%s / %s)" % hold)
+	var stack: Array = GO.burst_lines("stack", 15)
+	_check(str(stack[0]).contains(pct.call(Ms.STACK_CONTEST)) and str(stack[0]).contains(pct.call(float(RT.T["contest_clamp"])))
+			and str(stack[1]).contains(pct.call(Ms.STACK_OPP_GOAL - 1.0)), "Stack the stoppage: the edge, its cap and its cost (%s / %s)" % stack)
+	_check(str(GO.burst_lines("flood", 20, false)[0]).ends_with(GO.TO_BREAK), "Before the last quarter a call that outlasts it runs to the break")
+	var flood: Array = GO.burst_lines("flood", 15)
+	_check(str(flood[0]).contains(pct.call(1.0 - Ms.FLOOD_OPP_GOAL)) and str(flood[0]).ends_with(GO.TO_SIREN)
+			and str(flood[1]).contains(pct.call(1.0 - Ms.FLOOD_GOAL)), "Flood: to the siren, both sides from its constants (%s / %s)" % flood)
+	var fwd := {"id": "f", "role": "FWD", "height_cm": 196, "attr": {"marking": 80}}
+	var back := {"id": "d", "role": "DEF", "height_cm": 192, "attr": {"intercept": 74, "marking": 68}}
+	var edge: float = MU.AERIAL_EDGE if load("res://scripts/sim/Traits.gd").has(fwd, "aerial") else 0.0
+	var want := clampf(MU.MARK_BASE + edge + (MU.forward_air(fwd) - MU.defender_air(back) - MU.DUEL_CENTRE) / MU.DUEL_SCALE,
+			MU.MARK_FLOOR, MU.DUEL_CAP)
+	_check(is_equal_approx(MU.mark_chance(fwd, back), want) and GO.back_stats(back) == "Intercept 74 · Marking 68 · 192 cm",
+			"A back's card: Intercept, Marking and height, and the mark chance the duel rule gives (%.3f, %s)" % [want, GO.back_stats(back)])

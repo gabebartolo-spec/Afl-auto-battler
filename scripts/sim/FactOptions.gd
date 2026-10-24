@@ -54,8 +54,10 @@ const WHERE := {"RUCK": "ruck", "DEF": "in defence", "FWD": "forward", "MID": "m
 ## are the two sides' players on the ground; `opp_list` is their whole list
 ## (the fact's player is looked up there). Each: {"call", "plan", "label",
 ## "cost", "enabled", "reason", "player_id"}; `cost` is "" for a disabled one
-## (its reason stands in its place).
-static func options(fact: Dictionary, theirs: Array, mine: Array, opp_list: Array) -> Array:
+## (its reason stands in its place). `gain` is what it does for you: both are
+## sized from the sim's constants (GateOdds, bible §4). `lines` is [their
+## fwd_mark, your def_intercept] when the Squads are known.
+static func options(fact: Dictionary, theirs: Array, mine: Array, opp_list: Array, lines := [0.0, 0.0]) -> Array:
 	var rows: Array = TABLE.get(str(fact.get("key", "")), [])
 	var who := {}
 	for p in opp_list:
@@ -67,7 +69,7 @@ static func options(fact: Dictionary, theirs: Array, mine: Array, opp_list: Arra
 		for row in rows:
 			if str(row[0]) != call:
 				continue
-			var o := _option(str(fact.get("key", "")), row, who, theirs, mine)
+			var o := _option(str(fact.get("key", "")), row, who, theirs, mine, lines)
 			o["player_id"] = str(fact.get("player_id", ""))
 			out.append(o)
 	return out
@@ -78,9 +80,9 @@ static func takeable(options_for_fact: Array) -> Array:
 	return options_for_fact.filter(func(o): return bool(o["enabled"]))
 
 
-static func _option(key: String, row: Array, who: Dictionary, theirs: Array, mine: Array) -> Dictionary:
+static func _option(key: String, row: Array, who: Dictionary, theirs: Array, mine: Array, lines := [0.0, 0.0]) -> Dictionary:
 	var call := str(row[0])
-	var o := {"call": call, "plan": "", "label": str(NAMES.get(call, "")), "cost": "",
+	var o := {"call": call, "plan": "", "label": str(NAMES.get(call, "")), "cost": "", "gain": "",
 			"enabled": true, "reason": ""}
 	var reason := ""
 	match call:
@@ -117,12 +119,46 @@ static func _option(key: String, row: Array, who: Dictionary, theirs: Array, min
 			var plan := str(row[1])
 			o["plan"] = plan
 			o["label"] = "%s plan" % CoachReport.plan_label(plan)
-	o["cost"] = plan_cost(str(o["plan"])) if call == "plan" else (minder_cost() if call == "minder" else str(COST.get(call, "")))
+	var two := _sides(call, str(o["plan"]), who, theirs, mine, lines)
+	o["gain"] = GateOdds.gain(str(two[0]))
+	o["cost"] = GateOdds.cost(str(two[1]))
 	if reason != "":
 		o["enabled"] = false
 		o["reason"] = reason
 		o["cost"] = ""
+		o["gain"] = ""
 	return o
+
+
+## [gain, cost] of a response, sized from the sim's constants (GateOdds).
+static func _sides(call: String, plan: String, who: Dictionary, theirs: Array, mine: Array, lines: Array) -> Array:
+	match call:
+		"tag":
+			return GateOdds.tag_lines()
+		"minder":
+			return GateOdds.minder_lines()
+		"ruck":
+			return GateOdds.ruck_lines()
+		"loose":
+			return GateOdds.loose_lines()
+		"plan":
+			return GateOdds.plan_lines(plan)
+		"matchup":
+			var keys := Matchups.key_forwards(theirs)
+			var fwd: Dictionary = who if not who.is_empty() else (keys[0] if not keys.is_empty() else {})
+			var best := {}
+			var best_p := 2.0
+			for d in Matchups.defenders(mine):
+				var pr := Matchups.mark_chance(fwd, d, float(lines[0]), float(lines[1]))
+				if pr < best_p:
+					best_p = pr
+					best = d
+			if best.is_empty() or fwd.is_empty():
+				return ["", ""]
+			var nm := GameDB.player_display_name(best)
+			return [GateOdds.MATCHUP_GAIN % [nm, GateOdds.pct(best_p)],
+					(GateOdds.MATCHUP_COST_NEXT if keys.size() > 1 else GateOdds.MATCHUP_COST_LOOSE) % nm]
+	return ["", ""]
 
 
 ## The defensive forward's cost: the last sentence of the pane's own cost line

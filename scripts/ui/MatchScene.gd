@@ -958,10 +958,8 @@ func _show_coach_box() -> void:
 		elif str(calls["tagger_id"]) != "" and not my_mids.has(str(calls["tagger_id"])):
 			NameInk.set_line(tag_note, "%s, your tagger, is on the bench. %s tags %s until he is back." % [
 					GameDB.player_display_name_by_id(str(calls["tagger_id"]), "Your tagger"), GameDB.player_display_name(who), target], _names())
-		elif Roles.is_tagger(who):
-			NameInk.set_line(tag_note, "%s, your tagger, tags %s." % [GameDB.player_display_name(who), target], _names())
 		else:
-			NameInk.set_line(tag_note, "%s tags %s. He gives up his own game." % [GameDB.player_display_name(who), target], _names())
+			NameInk.set_line(tag_note, GateOdds.tag_note(GameDB.player_display_name(who), target), _names())
 	# The tag is offered on their listed midfielders only (director, 2026-10-14:
 	# "Only listed midfielders"): the names, and "Other midfielder..." for the
 	# listed midfielders not already shown, which is not drawn when none is
@@ -1282,6 +1280,7 @@ Your assistant's pick"
 		# A PC sheet's actions sit together at the right, not as full-width bars.
 		var acts := UiKit.hbox(12)
 		acts.alignment = BoxContainer.ALIGNMENT_END
+		acts.add_child(_skip_note(sim.current_quarter, true))
 		skip.custom_minimum_size = Vector2(220, 48)
 		start.custom_minimum_size = Vector2(300, 48)
 		if stats_pc != null:
@@ -1312,6 +1311,7 @@ Your assistant's pick"
 	else:
 		box["footer"].add_child(start)
 		box["footer"].add_child(skip)
+		v.add_child(_skip_note(q, false))
 	# A call the quarter broke brightens twice (Feel; never a nag).
 	for picker in MatchNotes.broken_calls(_res, sim.injuries, _my_side, q, _last_tactics):
 		var found := overlay.find_child(str(picker) + "*", true, false)
@@ -1618,6 +1618,7 @@ func _mount_one_line(c: Dictionary) -> void:
 		one.add_child(skip)
 		one.add_child(start)
 		box["footer"].add_child(one)
+		v.add_child(_skip_note(sim.current_quarter, false))
 	else:
 		# A PC: the quarter and Best so far, the rows, and the chosen call beside
 		# them. The pane keeps the room of its tallest call, so choosing another
@@ -1670,6 +1671,7 @@ func _mount_one_line(c: Dictionary) -> void:
 			(row_of[key] as Button).pressed.connect(func(): select.call(k))
 		var acts := UiKit.hbox(12)
 		acts.alignment = BoxContainer.ALIGNMENT_END
+		acts.add_child(_skip_note(sim.current_quarter, true))
 		skip.custom_minimum_size = Vector2(220, 48)
 		start.custom_minimum_size = Vector2(300, 48)
 		var stats_pc: Button = c["stats_pc"]
@@ -1894,6 +1896,18 @@ func _tag_fact_line(sim: MatchSim) -> String:
 ## Its parts are the break's own blocks, lent to the sheet and handed back to
 ## `home` when it closes, so a pick made here is the pick the quarter starts
 ## with. Back closes the top sheet (handle_back).
+## What Skip to full time keeps and drops (G11; GateOdds.skip_line): beside
+## the actions on a PC, at the foot of the calls on a phone.
+func _skip_note(q: int, wide: bool) -> Label:
+	var l := UiKit.lbl(GateOdds.skip_line(q), UiKit.SMALL, UiKit.TEXT)
+	l.name = "SkipNote"
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if wide:
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	return l
+
+
 func _open_break_sheet(node_name: String, title: String, parts: Array, home: Node) -> void:
 	var box := UiKit.modal_box(self, 640.0, 0.0, _wash())
 	var ov: Control = box["overlay"]
@@ -2628,9 +2642,7 @@ func _show_moment() -> void:
 		b.custom_minimum_size = Vector2(0, 46)
 		b.pressed.connect(_on_moment_choice.bind(i))
 		v.add_child(b)
-		var d := UiKit.lbl(str(o.get("detail", "")), 12, UiKit.MUTED)
-		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(d)
+		_moment_lines(v, o)
 
 
 ## The late centre-bounce call as a scene (ARD-M8-007 prototype): the match
@@ -2686,9 +2698,7 @@ func _show_bounce_moment(m: Dictionary) -> void:
 		b.pressed.connect(_on_moment_choice.bind(i))
 		call.add_child(b)
 		buttons.append(b)
-		var d := UiKit.lbl(str(o.get("detail", "")), 12, UiKit.MUTED)
-		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		call.add_child(d)
+		_moment_lines(call, o)
 	panel.modulate.a = 0.0
 	margin.add_theme_constant_override("margin_bottom", -600)
 	vignette.ready_for_call.connect(func() -> void:
@@ -2701,6 +2711,17 @@ func _show_bounce_moment(m: Dictionary) -> void:
 		var tw := margin.create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		tw.tween_method(func(v: float) -> void: margin.add_theme_constant_override("margin_bottom", int(v)),
 				-600.0, 0.0, 0.3))
+
+
+## Under a call's choice: what it does for you and what it costs, sized
+## (GateOdds; "gain" and "cost" on the option), or its one line of words.
+func _moment_lines(to: Container, o: Dictionary) -> void:
+	var lines: Array = [str(o["gain"]), str(o["cost"])] if o.has("gain") else [str(o.get("detail", ""))]
+	for i in range(lines.size()):
+		var d := UiKit.lbl(str(lines[i]), UiKit.SMALL, UiKit.TEXT if o.has("gain") else UiKit.MUTED)
+		d.name = ("MomentGain" if i == 0 else "MomentCost") if o.has("gain") else "MomentDetail"
+		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		to.add_child(d)
 
 
 func _on_moment_choice(i: int) -> void:
@@ -2863,7 +2884,10 @@ func _card_text(r: Dictionary, detail: Callable) -> String:
 ## "card_text" meta for the tests.
 func _dress_tagger_card(b: Button, who_name: String, c: Dictionary, is_pick: bool) -> void:
 	var gives_value := str(c["gives"]).left(1).to_upper() + str(c["gives"]).substr(1)
-	var plain := "%s\n%s\nPressure %s\nLegs %s\n%s %s" % [who_name, c["where"], c["pressure"], c["legs"],
+	# The hold sits beside his Pressure (it is his Pressure and legs that set
+	# it), so the card keeps its three rows and the PC break still fits.
+	var press_value := "%s · their man keeps %s" % [c["pressure"], c["holds"]]
+	var plain := "%s\n%s\nPressure %s\nLegs %s\n%s %s" % [who_name, c["where"], press_value, c["legs"],
 			c["gives_label"], gives_value]
 	if is_pick:
 		plain += "\nYour assistant's pick"
@@ -2907,7 +2931,7 @@ func _dress_tagger_card(b: Button, who_name: String, c: Dictionary, is_pick: boo
 	where.name = "CardWhere"
 	head.add_child(where)
 	col.add_child(head)
-	var rows := [["Pressure", str(c["pressure"]), false], ["Legs", str(c["legs"]), bool(c["legs_bad"])],
+	var rows := [["Pressure", press_value, false], ["Legs", str(c["legs"]), bool(c["legs_bad"])],
 			[str(c["gives_label"]), gives_value, false]]
 	# A phone card is wide: label and value in two columns. A PC's card is a
 	# narrow half of a column: the label above the long value instead.
@@ -4377,7 +4401,10 @@ func _show_break_matchup(sim: MatchSim, fid: String, line: RichTextLabel, q: int
 		v.add_child(UiKit.lbl(Matchups.describe(fwd), UiKit.SMALL, UiKit.MUTED))
 	var cur := str((sim.duels[_my_side] as Dictionary).get(fid, ""))
 	for p in Matchups.defenders((sim.squads[_my_side] as Squad).ground):
-		var b := UiKit.btn("%s\n%s" % [GameDB.player_display_name(p), Matchups.describe(p)], 15)
+		# His card: the ratings the duel runs on, then what putting him there
+		# does and costs, sized from the duel rule (GateOdds.duel_lines; G6).
+		var dl := GateOdds.duel_lines(sim, _my_side, fid, p)
+		var b := UiKit.btn("%s\n%s" % [GameDB.player_display_name(p), str(dl[0])], 15)
 		b.name = "Defender_" + str(p["id"])
 		b.custom_minimum_size = Vector2(0, 56)
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -4394,6 +4421,11 @@ func _show_break_matchup(sim: MatchSim, fid: String, line: RichTextLabel, q: int
 			_matchup_overlay.queue_free()
 			_matchup_overlay = null)
 		v.add_child(b)
+		for i in [1, 2]:
+			var dline := UiKit.lbl(str(dl[i]), UiKit.SMALL, UiKit.TEXT)
+			dline.name = "DuelGain" if i == 1 else "DuelCost"
+			dline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(dline)
 	var close := UiKit.btn("Close", UiKit.NAME)
 	close.custom_minimum_size = Vector2(0, 48)
 	close.pressed.connect(func():

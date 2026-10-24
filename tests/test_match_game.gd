@@ -2361,12 +2361,12 @@ func _test_tag_hold() -> void:
 	_check(str(MatchSim.tagger_for(sq.ground)["id"]) == str(MatchSim.tag_order(sq.ground)[0]["id"]),
 			"Your assistant sends the first man on that list")
 	var card := MatchNotes.tagger_card_detail(order[0], 60.0, false)
-	_check(card.contains("Pressure") and card.contains("Gives up his own game (yet to play this season)") and card.contains("Tiring")
+	_check(card.contains("Pressure") and card.contains("Gives up " + GateOdds.tag_gives() + " (yet to play this season)") and card.contains(GateOdds.pct(MatchSim.TAGGER_COST)) and card.contains("Tiring")
 			and card.contains("Tagger") == Roles.is_tagger(order[0]) and not card.contains("disposals"),
 			"A card shows his Pressure, his legs in words, Tagger only with the trait, and before a season says he is yet to play (%s)" % card.replace("
 ", " / "))
 	var played := MatchNotes.tagger_card_detail(order[0], 60.0, false, 71.38)
-	_check(played.contains("Gives up his own game (season rating 71.4)") and not played.contains("disposals"),
+	_check(played.contains("Gives up " + GateOdds.tag_gives() + " (season rating 71.4)") and played.contains("Their man keeps " + GateOdds.pct(GateOdds.tag_kept(order[0], 60.0))) and not played.contains("disposals"),
 			"Once he has a season, the card says what tagging costs: his season rating, the figure the Ratings screen shows (%s)" % played.replace("
 ", " / "))
 	var parts := MatchNotes.tagger_card(order[0], 40.0, 71.38)

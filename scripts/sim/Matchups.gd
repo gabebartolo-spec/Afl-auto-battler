@@ -34,6 +34,14 @@ const DUEL_SCALE := 110.0
 ## The typical gap between a key forward and the key defender a coach puts on
 ## him by default: a default match-up leaves the lines to decide on average.
 const DUEL_CENTRE := 8.0
+## An entry's marking contest before the match-up (MatchSim.resolve_forward50):
+## an even chance, moved by the two lines (their forwards' marking against
+## your backs' intercepting, over MARK_LINES points), and a little more for
+## an aerial specialist. The floor is the engine's own.
+const MARK_BASE := 0.5
+const MARK_LINES := 240.0
+const AERIAL_EDGE := 0.06
+const MARK_FLOOR := 0.10
 
 
 static func _height_score(p: Dictionary) -> float:
@@ -60,6 +68,15 @@ static func defender_air(p: Dictionary) -> float:
 ## The shift in the forward's chance of marking when these two contest it.
 static func mark_shift(fwd: Dictionary, dfn: Dictionary) -> float:
 	return (forward_air(fwd) - defender_air(dfn) - DUEL_CENTRE) / DUEL_SCALE
+
+
+## His chance of marking a contested entry with `dfn` on him: the engine's own
+## sum, without a loose man arriving as a third body. `fwd_lines` and
+## `def_lines` are the two Squads' fwd_mark and def_intercept (equal lines
+## when unknown).
+static func mark_chance(fwd: Dictionary, dfn: Dictionary, fwd_lines := 0.0, def_lines := 0.0) -> float:
+	var edge := AERIAL_EDGE if Traits.has(fwd, "aerial") else 0.0
+	return clampf(MARK_BASE + (fwd_lines - def_lines) / MARK_LINES + edge + mark_shift(fwd, dfn), MARK_FLOOR, DUEL_CAP)
 
 
 static func _is_key_forward(p: Dictionary) -> bool:
