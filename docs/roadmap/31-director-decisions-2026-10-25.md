@@ -11,3 +11,5 @@ decision of his differs, the later one wins. Nothing here edits the bible.
 | 4 | What can change hands on the night? | "Picks, this and next 2 drafts (Recommended)" | tonight's picks and the next two years' picks, the real AFL rule; players stay out, the lists are closed on draft night. The same three drafts are tradeable in the trade period (the code held two) |
 | 5 | When can a deal be struck? | "Any time, no clock" | the night pauses while you deal; no timer |
 | 6 | How do rival clubs decide whether to say yes? | "Same values as the trade period (Recommended)" | the existing pick-value and club-cycle rules; no night premium, no new balance knob |
+| 7 | His look on the captures A-F (sheet, offers, deal, board strip, PC) | "it LOOKS fine, but the trades being offered are absurd?" (pick 45 + a 2029 second for pick 6) | look passed; offers fixed: a rival bids up to its own full value and only within a tenth of fair value by the consensus read (NIGHT_OFFER_FLOOR 0.9); sample after: pick 9 + a 2029 third for pick 6 |
+| 8 | Merge #848 and #847 when CI is green? | "Yes, merge #848 and #847 when CI is green." | #847 merged bec3a4ed; #848 merges on green |
