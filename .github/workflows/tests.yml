@@ -15,7 +15,10 @@ name: Tests
 # re-plan joins the lightest shard on its own (tools/ci_shards.py). The test job prints each shard's
 # observed time and warns when one runs long, but never fails on it. The
 # league_balance suite (a developer tool) runs on pushes to main, not on pull
-# requests. One more job runs the
+# requests. A pull request runs only the suites that cover its changed files, plus a
+# smoke set (tools/select_suites.py); anything it cannot trace (data/, project.godot,
+# the harness, this workflow) runs everything, and a push to main always runs the full wall.
+# One more job runs the
 # dataset, export-data and harness checks once. tools/run_tests.sh is the same
 # script you run locally, on every suite or on some of them.
 #
@@ -32,6 +35,11 @@ on:
       - "docs/**"
       - "**/*.md"
   workflow_dispatch:
+    inputs:
+      changed_files:
+        description: "Pretend a pull request changed these files (space-separated) and run just the suites they select"
+        required: false
+        default: ""
   # Nightly on main: the balance suites that pull requests skip
   # (balance, league_balance, calibration). 16:00 UTC is 03:00 in Melbourne (AEDT).
   schedule:
@@ -61,6 +69,7 @@ jobs:
       reason: ${{ steps.changes.outputs.reason }}
       sim: ${{ steps.changes.outputs.sim }}
       shards: ${{ steps.shards.outputs.matrix }}
+      partial: ${{ steps.shards.outputs.partial }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -109,8 +118,36 @@ jobs:
       # lightest shard, a removed one is dropped (tools/ci_shards.py).
       - name: Lay out the shards
         id: shards
+        env:
+          PRETEND: ${{ inputs.changed_files }}
         run: |
           matrix=$(python3 tools/ci_shards.py --matrix)
+          # A pull request runs the suites that cover its changed files plus the smoke set
+          # (tools/select_suites.py); pushes to main and the nightly run the full wall.
+          partial=false
+          files=""
+          if [ "${{ github.event_name }}" = pull_request ]; then files=$(git diff --name-only --no-renames HEAD^1 HEAD); fi
+          if [ "${{ github.event_name }}" = workflow_dispatch ]; then files="$PRETEND"; fi
+          if [ -n "$files" ]; then
+            pick=$(python3 tools/select_suites.py --json --files $files)
+            echo "Selection: $pick"
+            note=$(printf '%s' "$pick" | python3 -c 'import json,sys; print(json.load(sys.stdin)["note"])')
+            suites=$(printf '%s' "$pick" | python3 -c 'import json,sys; print(json.load(sys.stdin)["suites"])')
+            if [ "$(printf '%s' "$pick" | python3 -c 'import json,sys; print(json.load(sys.stdin)["partial"])')" = True ]; then
+              partial=true
+              # Calibration runs on every pull request that touches the sim, whatever its suites cover.
+              if [ "${{ steps.changes.outputs.sim }}" = true ]; then suites="$suites calibration"; fi
+              skip="balance league_balance"; [ "${{ steps.changes.outputs.sim }}" = true ] || skip="$skip calibration"
+              if [ "${{ github.event_name }}" != pull_request ]; then skip=""; fi
+              matrix=$(python3 tools/ci_shards.py --matrix --only "$suites" --skip "$skip")
+            fi
+            {
+              echo "### Suites this run needs"
+              echo "$note. Changed: $(printf '%s' "$files" | wc -w) files."
+              if [ "$partial" = true ]; then echo "Suites: $suites (balance suites follow the usual pull-request rule). A push to main runs the full wall."; fi
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "partial=$partial" >> "$GITHUB_OUTPUT"
           # Balance suites (director 2026-10-19): pull requests skip balance and
           # league_balance, and run calibration only when scripts/sim/ or data/
           # changed; the nightly schedule runs just those three; main pushes and
@@ -121,6 +158,7 @@ jobs:
             schedule) mode=keep; picked="balance league_balance calibration" ;;
             *) mode=drop; picked="" ;;
           esac
+          if [ "$partial" = true ]; then mode=drop; picked=""; fi
           matrix=$(printf '%s' "$matrix" | MODE="$mode" PICKED="$picked" python3 -c 'import json,os,sys; m=json.load(sys.stdin); p=set(os.environ["PICKED"].split()); keep=os.environ["MODE"]=="keep"; [g.update(suites=" ".join(s for s in g["suites"].split() if (s in p)==keep)) for g in m["include"]]; m["include"]=[g for g in m["include"] if g["suites"]]; print(json.dumps(m))')
           echo "Shards: $matrix"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
@@ -141,6 +179,7 @@ jobs:
       - name: Check the shard layout
         run: |
           python3 tools/test_ci_shards.py
+          python3 tools/test_select_suites.py
           python3 tools/check_ci_balance.py
 
   # A test runner that does not compile (or hangs on load) fails here in seconds,
@@ -309,7 +348,7 @@ jobs:
       # squashes this PR unchanged can skip its shards (tools/ci_same_tree.sh).
       - name: Record the tested tree
         id: tree
-        if: github.event_name == 'pull_request' && needs.plan.outputs.code == 'true' && needs.shard.result == 'success' && needs.extras.result == 'success' && needs.preflight.result == 'success'
+        if: github.event_name == 'pull_request' && needs.plan.outputs.code == 'true' && needs.plan.outputs.partial != 'true' && needs.shard.result == 'success' && needs.extras.result == 'success' && needs.preflight.result == 'success'
         run: |
           tree=$(git rev-parse HEAD^{tree})
           echo "$tree" > "$RUNNER_TEMP/tree.txt"

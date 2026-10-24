@@ -25,6 +25,15 @@ named `test` is the last job and passes only when every shard and that job did.
 
 Run only the suites your change touches while you work; CI runs the rest.
 
+**Pull requests run the suites that cover their files.** `tools/select_suites.py` finds, for each suite, the
+scripts and scenes its runner and test file name (by `res://` path, scene reference or `class_name`), and a PR runs
+the suites whose own files name a changed file, plus a smoke set (`chronology`, `career_ui`, `ratings`). It does not
+follow what a named script calls in turn: that wider net is the full wall, which every push to main runs.
+`data/`, `project.godot`, the harness (`tests/functions_ran.gd`, `tests/tap.gd`, `tools/run_tests.sh`), the workflow,
+an autoload, a deleted file or any file type it does not follow runs every suite. The plan job prints the selection in
+the run summary, and `tools/test_select_suites.py` guards the rules. To try a selection without a PR, start the Tests
+workflow by hand with `changed_files` set.
+
 **Every test function runs.** A suite calls each test through `_t("_test_x")`
 (`tests/functions_ran.gd`) and ends with a line such as "Draft tests: 20 of 20
 functions, 7901 checks, 0 failures". A `_test_*` function that is never called,

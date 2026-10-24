@@ -72,10 +72,37 @@ def layout(root=ROOT):
     return shards, notes, errors
 
 
+SELECTED_TARGET_SECONDS = 240  # a pull request that runs only some suites aims for shards this long
+
+
+def selected_layout(only, skip=(), root=ROOT, target=SELECTED_TARGET_SECONDS, most=12):
+    """Packs just the `only` suites (minus `skip`) into as many shards as they need, longest first
+    onto the lightest, by their measured seconds (DEFAULT_SECONDS when untimed). A pull request
+    that touches few suites then does not pay for a shard layout planned for all of them."""
+    times = timings(root)
+    names = [s for s in discover(root) if s in set(only) and s not in set(skip)]
+    if not names:
+        return []
+    total = sum(times.get(s, DEFAULT_SECONDS) for s in names)
+    count = max(1, min(most, len(names), -(-total // target)))
+    bins = [[0, []] for _ in range(count)]
+    for s in sorted(names, key=lambda s: (-times.get(s, DEFAULT_SECONDS), s)):
+        lightest = min(bins, key=lambda b: b[0])
+        lightest[0] += times.get(s, DEFAULT_SECONDS)
+        lightest[1].append(s)
+    return [(str(i), b[1]) for i, b in enumerate(bins, 1)]
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--matrix", action="store_true")
+    parser.add_argument("--only", help="space-separated suites: pack just these (a pull request's selection)")
+    parser.add_argument("--skip", default="", help="space-separated suites to leave out of --only")
     args = parser.parse_args()
+    if args.only is not None:
+        shards = selected_layout(args.only.split(), args.skip.split())
+        print(json.dumps({"include": [{"shard": key, "suites": " ".join(names)} for key, names in shards]}))
+        return 0
     shards, notes, errors = layout()
     for note in notes:
         print(f"note: {note}", file=sys.stderr)
