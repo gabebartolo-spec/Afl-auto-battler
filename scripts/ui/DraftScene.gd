@@ -1877,18 +1877,30 @@ func _build_activity() -> PanelContainer:
 func _refresh_history() -> void:
 	UiKit.clear(_history_box)
 	var entries := []
+	var picks_n := 0
 	# During draft night's replay the log holds back the picks the board has not shown.
-	for i in range(_shown_picks() - 1, -1, -1):
-		var entry: Dictionary = _draft.pick_history[i]
-		if _history_club.is_empty() or str(entry["club"]) == _history_club:
-			entries.append(entry)
-	_history_info.text = "%d %s" % [entries.size(), "pick" if entries.size() == 1 else "picks"]
+	var shown := _shown_picks()
+	for i in range(shown, -1, -1):
+		if i < shown:
+			var entry: Dictionary = _draft.pick_history[i]
+			if _history_club.is_empty() or str(entry["club"]) == _history_club:
+				entries.append(entry)
+				picks_n += 1
+		# A pick trade struck before pick i + 1 sits above that pick (newest first).
+		if _draft.intake_mode:
+			for t in _draft.night_trades:
+				if int(t["at"]) == i + 1 and (_history_club.is_empty() or str(t["buyer"]) == _history_club
+						or str(t["seller"]) == _history_club):
+					entries.insert(entries.size() - (1 if i < shown and (_history_club.is_empty()
+							or str(_draft.pick_history[i]["club"]) == _history_club) else 0), t)
+	_history_info.text = "%d %s" % [picks_n, "pick" if picks_n == 1 else "picks"]
 	if entries.is_empty():
 		_history_box.add_child(UiKit.lbl("No picks yet" if _history_club.is_empty() else "No picks for this club yet", UiKit.HEADING, UiKit.TEXT, true))
 		_history_box.add_child(UiKit.lbl(
 				"Every selection appears here, including all %d rival clubs. The most recent picks are first." % maxi(1, _draft.clubs.size() - 1), 15, UiKit.MUTED))
 	for i in range(mini(_history_shown, entries.size())):
-		_history_box.add_child(_history_row(entries[i]))
+		var e: Dictionary = entries[i]
+		_history_box.add_child(_history_trade_row(e) if e.has("buyer") else _history_row(e))
 	if _history_shown < entries.size():
 		var more := UiKit.btn("Earlier picks  ·  %d more" % (entries.size() - _history_shown), 14)
 		more.name = "EarlierPicks"
@@ -2387,11 +2399,42 @@ func _recent_trade_row(t: Dictionary) -> Control:
 	var marker := UiKit.club_marker(buyer, 20.0)
 	marker.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(marker)
-	var what := UiKit.ellipsis(str(t["text"]).trim_suffix("."), UiKit.SECONDARY, UiKit.TEXT, involved)
+	var what := UiKit.ellipsis(_trade_short(t), UiKit.SECONDARY, UiKit.TEXT, involved)
 	what.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(what)
 	_ignore_mouse(row)
 	return row
+
+
+## The deal in the strip's room: "FRE get pick 18 from GCS for pick 6".
+func _trade_short(t: Dictionary) -> String:
+	var text := str(t["text"]).trim_suffix(".")
+	for code in [str(t["buyer"]), str(t["seller"])]:
+		text = text.replace(GameDB.club_name(code), GameDB.club_short(code))
+	return text.replace(" tonight", "")
+
+
+## A pick trade in the pick log: "Trade", the buyer's guernsey and the deal in full.
+func _history_trade_row(t: Dictionary) -> Control:
+	var involved := str(t["buyer"]) == _club or str(t["seller"]) == _club
+	var p := _row_panel(involved)
+	p.name = "HistoryTrade_%d" % int(t["at"])
+	var h := UiKit.hbox(7)
+	p.add_child(h)
+	var tag := UiKit.line("Trade", UiKit.FINE, UiKit.EMPH, true)
+	tag.custom_minimum_size.x = 32
+	h.add_child(tag)
+	var info := UiKit.vbox(3)
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(info)
+	var said := UiKit.lbl(str(t["text"]), UiKit.SECONDARY, UiKit.TEXT, involved)
+	said.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.add_child(said)
+	var who := UiKit.hbox(6)
+	who.add_child(UiKit.club_badge(str(t["buyer"]), UiKit.SMALL, true))
+	who.add_child(UiKit.line("before pick %d" % int(t["at"]), UiKit.FINE, UiKit.MUTED))
+	info.add_child(who)
+	return p
 
 
 ## After the board's layout: each older row starts one row higher (where it

@@ -7096,6 +7096,8 @@ func _draft_order() -> Array:
 
 
 func _pick_name(year: int, rnd: int, origin: String, at: int) -> String:
+	if year == season_year and at > 0 and draft_night_open():
+		return "pick %d tonight" % at   # the night's own words: the number on the board
 	var nth: String = ["first", "second", "third", "fourth"][clampi(rnd - 1, 0, 3)]
 	var name := "%s %d %s-round pick" % [GameDB.club_name(origin) + ("'" if GameDB.club_name(origin).ends_with("s") else "'s"),
 			year, nth]
@@ -7658,6 +7660,10 @@ func _with_code(counter: Dictionary, verdict: Dictionary) -> Dictionary:
 func _ask_name(id: String, whose := "your") -> String:
 	if id.begins_with("pick:"):
 		var pk := pick_asset(id)
+		if pk.is_empty():
+			return "a pick already made"
+		if int(pk["year"]) == season_year and int(pk.get("spot", 0)) > 0 and draft_night_open():
+			return "%s pick %d tonight" % [whose, int(pk["spot"])]   # the night's own words
 		var nth: String = ["first", "second", "third", "fourth"][clampi(int(pk["round"]) - 1, 0, 3)]
 		var from := "" if str(pk["origin"]) == str(pk["owner"]) else " (from %s)" % GameDB.club_name(str(pk["origin"]))
 		return "%s %d %s-round pick%s" % [whose, int(pk["year"]), nth, from]
