@@ -91,6 +91,8 @@ var _next_picks: Label
 var _finish_btn: Button
 var _pass_btn: Button
 var _pick_me_btn: Button
+var _trade_btn: Button        # draft night: the pick-trade sheet (director 2026-10-25)
+var _trade_sheet: Control = null
 ## The player being inspected ("" when none) and his detail overlay.
 var _name_index := {}       # player name -> club, for the ink in a pick's story
 var _detail_id := ""
@@ -610,7 +612,35 @@ func _footer() -> Control:
 		_pass_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_pass_btn.pressed.connect(_on_pass)
 		acts.add_child(_pass_btn)
+		# Picks trade live on the night (director 2026-10-25), at any time: the
+		# sheet pauses the board; players never move on draft night.
+		_trade_btn = UiKit.btn("Trade picks", UiKit.SECONDARY)
+		_trade_btn.name = "TradePicks"
+		_trade_btn.custom_minimum_size = Vector2(0, 44)
+		_trade_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_trade_btn.pressed.connect(_on_trade_picks)
+		acts.add_child(_trade_btn)
 	return p
+
+
+## The trade sheet over the board. After a deal the pick on the clock may have
+## moved: the model runs on to your next turn and the board replays the picks.
+func _on_trade_picks() -> void:
+	_finish_night()
+	_finish_replay()
+	if is_instance_valid(_trade_sheet):
+		_trade_sheet.queue_free()
+	_trade_sheet = DraftTradeSheet.open(self, _draft, _after_trade)
+
+
+func _after_trade() -> void:
+	var before := _draft.pick_history.size()
+	_draft.auto_until_user_turn()
+	GameState.mark_dirty()
+	_last_batch_start = before
+	_refresh()
+	if _draft.pick_history.size() > before:
+		_start_replay(before)
 
 
 func _on_pick_for_me() -> void:
@@ -2157,6 +2187,14 @@ func _refresh_status() -> void:
 	else:
 		_next_picks.text = "%d left to sign\nYour picks: %s" % [_draft.target_size - _draft.count(), ", ".join(pick_labels)]
 	var my_turn := _draft.is_user_turn()
+	if my_turn and _draft.intake_mode:
+		GameState.make_night_offers()
+	if is_instance_valid(_trade_btn):
+		var offers := GameState.open_trade_offers().size()
+		_trade_btn.text = "Trade picks" if offers == 0 else ("Trade picks (%d offer%s)" % [offers, "" if offers == 1 else "s"])
+		_trade_btn.disabled = done or _draft.passed_clubs.has(_club)
+		_trade_btn.tooltip_text = "Offer or accept pick trades; the night waits while you deal." if not _trade_btn.disabled \
+				else "No picks of yours left to trade tonight."
 	_pick_me_btn.disabled = not my_turn
 	_pick_me_btn.tooltip_text = "The assistant takes the best available player for this one pick." if my_turn else "Waiting for your turn."
 	if _pass_btn != null:
@@ -2287,8 +2325,21 @@ func _recent_rows(hist: Array, upto: int, settle: bool) -> void:
 		# Phone: the rival's reason takes the strip's place on the board (it is about
 		# those picks), so the pool keeps its room.
 		shown = 0
-	for i in range(upto - 1, maxi(-1, upto - 1 - shown), -1):
-		var entry: Dictionary = hist[i]
+	# The night in order: a trade struck before pick N sits just before pick N.
+	var events: Array = []
+	var trades: Array = _draft.night_trades if _draft.intake_mode else []
+	for i in range(upto + 1):
+		for t in trades:
+			if int(t["at"]) == i + 1:
+				events.append(t)
+		if i < upto:
+			events.append(hist[i])
+	for k in range(events.size() - 1, maxi(-1, events.size() - 1 - shown), -1):
+		var entry: Dictionary = events[k]
+		var i := hist.find(entry)
+		if entry.has("buyer"):
+			_recent_box.add_child(_recent_trade_row(entry))
+			continue
 		var code := str(entry["club"])
 		var mine := code == _club
 		var row := UiKit.hbox(8)
@@ -2310,7 +2361,7 @@ func _recent_rows(hist: Array, upto: int, settle: bool) -> void:
 		row.add_child(UiKit.line(GameDB.club_short(code), UiKit.SECONDARY, UiKit.club_name_colour(UiKit.club_ink(code)), mine))
 		_ignore_mouse(row)
 		_recent_box.add_child(row)
-		if settle and i == upto - 1 and UiKit.motion_on():
+		if settle and i == upto - 1 and k == events.size() - 1 and UiKit.motion_on():
 			# The newest pick fades in while the older rows slide down a row.
 			row.modulate.a = 0.0
 			row.create_tween().tween_property(row, "modulate:a", 1.0, RECENT_SETTLE) \
@@ -2321,6 +2372,26 @@ func _recent_rows(hist: Array, upto: int, settle: bool) -> void:
 
 ## Seconds the newest pick takes to fade in, and the older ones to slide down.
 const RECENT_SETTLE := 0.12
+
+
+## A pick trade on the board's strip: "Trade", the buyer's guernsey, and the deal
+## in words ("Melbourne get pick 7 from Carlton for pick 11 and ...").
+func _recent_trade_row(t: Dictionary) -> Control:
+	var buyer := str(t["buyer"])
+	var involved := buyer == _club or str(t["seller"]) == _club
+	var row := UiKit.hbox(8)
+	row.name = "RecentTrade_%d" % int(t["at"])
+	var tag := UiKit.line("Trade", UiKit.FINE, UiKit.EMPH, true)
+	tag.custom_minimum_size.x = 26
+	row.add_child(tag)
+	var marker := UiKit.club_marker(buyer, 20.0)
+	marker.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(marker)
+	var what := UiKit.ellipsis(str(t["text"]).trim_suffix("."), UiKit.SECONDARY, UiKit.TEXT, involved)
+	what.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(what)
+	_ignore_mouse(row)
+	return row
 
 
 ## After the board's layout: each older row starts one row higher (where it

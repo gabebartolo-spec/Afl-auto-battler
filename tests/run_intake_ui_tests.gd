@@ -43,6 +43,8 @@ func _run() -> void:
 	await _t("_test_draft_night_words")
 	await _t("_test_draft_night_screen", [Vector2i(390, 844)])
 	await _t("_test_draft_night_screen", [Vector2i(1280, 720)])
+	await _t("_test_trade_picks_sheet", [Vector2i(390, 844)])
+	await _t("_test_trade_picks_sheet", [Vector2i(1280, 720)])
 	print(Ran.line("Intake UI", self))
 	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
@@ -351,6 +353,95 @@ func _test_pass_and_pick_for_me(size: Vector2i) -> void:
 		_check(draft.count() == taken and draft.passed_clubs.has(draft.user_club),
 				"A tap on Pass signs nobody and leaves the draft (%s)" % tag)
 		_check(draft.is_finished() or not draft.is_user_turn(), "A passed coach is not asked again (%s)" % tag)
+	ui.queue_free()
+	await _settle()
+
+
+## Draft night's Trade picks (director 2026-10-25), by real taps: the button on
+## the board, the sheet with the club and its picks, a pick on each side, the
+## club's answer in words, and the way back to the draft.
+func _test_trade_picks_sheet(size: Vector2i) -> void:
+	var tag := "%dx%d" % [size.x, size.y]
+	_state.reset()
+	_state.replay_seed = SUITE_SEED
+	_state.start_season("FRE", _db.club_list("FRE"))
+	_state.season.round_index = _state.season.fixture.size()
+	_state.open_offseason()
+	if not _state.begin_intake_draft():
+		_check(false, "The draft opens for the trade sheet test (%s)" % tag)
+		return
+	var draft = _state.draft
+	root.size = size
+	var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
+	root.add_child(ui)
+	await _settle()
+	var skip: Button = ui.find_child("MeetingDone", true, false)
+	if skip != null:
+		await _press(skip, "the recruiting panel (%s)" % tag)
+	var guard := 0
+	while not draft.is_user_turn() and not draft.is_finished() and guard < 200:
+		guard += 1
+		draft.auto_until_user_turn()
+	ui.call("_refresh")
+	await _settle()
+	var trade: Button = ui.find_child("TradePicks", true, false)
+	_check(trade != null and not trade.disabled and trade.text.begins_with("Trade picks"),
+			"Trade picks sits with Pick for me and Pass (%s: %s)" % [tag, trade.text if trade else "-"])
+	if trade == null:
+		ui.queue_free()
+		return
+	var viewport := Rect2(Vector2.ZERO, Vector2(size))
+	_check(viewport.grow(1).encloses(trade.get_global_rect()) and trade.size.y >= 44.0,
+			"The button is on screen and thumb-sized (%s)" % tag)
+	await _press(trade, "Trade picks (%s)" % tag)
+	await _settle()
+	var sheet: Control = ui.find_child("TradeSheet", true, false)
+	var with_l: Label = ui.find_child("TradingWith", true, false)
+	_check(sheet != null and with_l != null and with_l.text.begins_with("Trading with "),
+			"The sheet opens on a club (%s: %s)" % [tag, with_l.text if with_l else "-"])
+	var rule: Label = ui.find_child("TradeSheetRule", true, false)
+	_check(rule != null and rule.text.begins_with("Only picks change hands tonight"),
+			"The sheet says only picks trade tonight (%s)" % tag)
+	if sheet == null:
+		ui.queue_free()
+		return
+	# Their first pick, then yours, by taps; the club answers in words.
+	var their_btn: Button = null
+	for b in ui.find_children("Their_pick_*", "Button", true, false):
+		their_btn = b
+		break
+	_check(their_btn != null, "Their picks are listed to add (%s)" % tag)
+	if their_btn != null:
+		await _press(their_btn, "one of their picks (%s)" % tag)
+		await _settle()
+	var mine_tab: Button = ui.find_child("TradeSide_mine", true, false)
+	if mine_tab != null:
+		await _press(mine_tab, "Your picks (%s)" % tag)
+		await _settle()
+	var my_btn: Button = null
+	for b in ui.find_children("Mine_pick_*", "Button", true, false):
+		my_btn = b
+		break
+	_check(my_btn != null and my_btn.text.begins_with("Pick %d tonight" % (draft.pick_index + 1)),
+			"Your pick on the clock heads your picks, by its number tonight (%s: %s)" % [tag, my_btn.text if my_btn else "-"])
+	if my_btn != null:
+		await _press(my_btn, "your pick (%s)" % tag)
+		await _settle()
+	var verdict: Label = ui.find_child("TradeVerdict", true, false)
+	_check(verdict != null and verdict.text != "Put a pick on each side." and verdict.text != "",
+			"The club answers in words (%s: %s)" % [tag, verdict.text if verdict else "-"])
+	var digits := verdict != null and RegEx.create_from_string("\\d").search(verdict.text) != null
+	_check(not digits, "The answer carries no value (%s)" % tag)
+	var give := ui.find_children("GiveRow_*", "Control", true, false)
+	var get := ui.find_children("GetRow_*", "Control", true, false)
+	_check(give.size() == 1 and get.size() == 1, "A pick on each side (%s: %d/%d)" % [tag, give.size(), get.size()])
+	var close: Button = ui.find_child("TradeSheetClose", true, false)
+	_check(close != null and viewport.grow(1).encloses(close.get_global_rect()), "Back to the draft is on screen (%s)" % tag)
+	if close != null:
+		await _press(close, "Back to the draft (%s)" % tag)
+		await _settle()
+	_check(ui.find_child("TradeSheet", true, false) == null and draft.is_user_turn(),
+			"The sheet closes and you are still on the clock (%s)" % tag)
 	ui.queue_free()
 	await _settle()
 

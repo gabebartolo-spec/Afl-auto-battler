@@ -30,6 +30,7 @@ func run() -> void:
 	_t("_test_phase_cache")
 	_t("_test_trade_picks")
 	_t("_test_future_picks")
+	_t("_test_draft_night_trades")
 	_t("_test_mixed_packages")
 	_t("_test_trade_market")
 	_t("_test_rival_recruiting_dial")
@@ -1170,7 +1171,7 @@ func _test_trade_picks() -> void:
 	var year := GameState.season_year
 	var rounds := GameState.trade_pick_rounds(year)
 	var mine := GameState.club_picks(me)
-	_check(rounds >= 1 and mine.size() == 2 * rounds, "Each club has one pick a round to trade, this year and next (%d rounds)" % rounds)
+	_check(rounds >= 1 and mine.size() == 3 * rounds, "Each club has one pick a round to trade, this draft and the next two (%d rounds; director 2026-10-25)" % rounds)
 	var all_own := true
 	for pk in mine:
 		all_own = all_own and str(pk["owner"]) == me and str(pk["origin"]) == me
@@ -1288,6 +1289,125 @@ func _run_draft() -> void:
 			d._skip_current_pick()
 
 
+## Draft night (director 2026-10-25): picks still to be made trade live, this
+## draft's and the next two drafts'; players never; a rival judges by its own
+## read; a pick you sell moves you off the clock; the deal survives a save.
+func _test_draft_night_trades() -> void:
+	_new_season()
+	_to_offseason()
+	var me := GameState.my_club
+	var year := GameState.season_year
+	_check(GameState.trade_pick_years() == [year, year + 1, year + 2],
+			"The trade period deals in this draft and the next two (%s)" % str(GameState.trade_pick_years()))
+	_check(not GameState.pick_asset(GameState.pick_id(year + 2, 1, me)).is_empty()
+			and GameState.pick_asset(GameState.pick_id(year + 3, 1, me)).is_empty(),
+			"A pick two drafts out is an asset; three out is not")
+	_check(GameState.begin_intake_draft(), "The national draft opens")
+	var d: Draft = GameState.draft
+	_check(GameState.draft_night_open() and GameState.trade_pick_years() == [year, year + 1, year + 2],
+			"Draft night is open for pick trades, three drafts deep")
+	_check(not GameState.offseason_open(), "The trade period itself has closed")
+	var guard := 0
+	while not d.is_user_turn() and not d.is_finished() and guard < 400:
+		guard += 1
+		d.auto_until_user_turn()
+	if not d.is_user_turn():
+		_check(false, "The draft reaches your pick")
+		return
+	var index: int = d.pick_index
+	var rnd := int(d.pick_rounds[index])
+	var my_pick := GameState.pick_id(year, rnd, str(d.pick_origin[index]))
+	var mine := GameState.pick_asset(my_pick)
+	_check(not mine.is_empty() and int(mine["spot"]) == index + 1 and int(mine["positions"][0][0]) == 1
+			and str(mine["owner"]) == me,
+			"Your pick on the clock is tonight's pick %d, the first still to be made (%s)" % [index + 1, str(mine)])
+	# Picks already made are spent.
+	var spent := ""
+	for i in range(index):
+		var pk := GameState.pick_asset(GameState.pick_id(year, int(d.pick_rounds[i]), str(d.pick_origin[i])))
+		if not pk.is_empty():
+			spent = str(pk["id"])
+	_check(spent == "", "A pick already made is no longer an asset (%s)" % spent)
+	# A rival with the next pick after yours in this round.
+	var rival := ""
+	var their_index := -1
+	for i in range(index + 1, d.pick_sequence.size()):
+		if int(d.pick_rounds[i]) == rnd and str(d.pick_sequence[i]) != me:
+			rival = str(d.pick_sequence[i])
+			their_index = i
+			break
+	if rival == "":
+		_check(false, "A rival picks after you in the round")
+		return
+	var their_pick := GameState.pick_id(year, rnd, str(d.pick_origin[their_index]))
+	var their_player := str((GameState.season.lists[rival] as Array)[0]["id"])
+	var v := GameState.evaluate_trade(rival, [my_pick], [their_player])
+	_check(not bool(v["ok"]) and str(v["code"]) == "trade_night_picks_only",
+			"Players do not move on draft night (%s)" % str(v["code"]))
+	_check(not bool(GameState.evaluate_trade(rival, [their_pick], [my_pick])["ok"]),
+			"You can only trade a pick you hold")
+	# Your pick for theirs: an earlier pick for a later one, so they say yes
+	# straight, or with a later sweetener of theirs.
+	var t := GameState.make_trade(rival, [my_pick], [their_pick])
+	var sweet := ""
+	if not bool(t["ok"]):
+		for pk in GameState.club_picks(rival):
+			if str(pk["id"]) == their_pick:
+				continue
+			t = GameState.make_trade(rival, [my_pick], [their_pick, str(pk["id"])])
+			if bool(t["ok"]):
+				sweet = str(pk["id"])
+				break
+	_check(bool(t["ok"]), "Your pick on the clock sells for the rival's later pick (%s)" % str(t["reason"]))
+	if not bool(t["ok"]):
+		return
+	_check(str(d.pick_sequence[index]) == rival and str(d.pick_sequence[their_index]) == me
+			and GameState.pick_owner_of(year, rnd, str(d.pick_origin[index])) == rival,
+			"The order shows the swap: they are on the clock, you pick later")
+	_check(not d.is_user_turn() and d.current_club() == rival, "You are off the clock; the buyer is on it")
+	_check(d.night_trades.size() == 1 and int(d.night_trades[0]["at"]) == index + 1
+			and str(d.night_trades[0]["buyer"]) == me,
+			"The night's board remembers the deal (%s)" % str(d.night_trades))
+	_check(GameState.save_career() and GameState.load_career()
+			and str(GameState.draft.pick_sequence[index]) == rival and GameState.draft.night_trades.size() == 1,
+			"The deal survives a save and load")
+	d = GameState.draft
+	d.auto_until_user_turn()
+	_check(d.is_user_turn() and d.pick_index == their_index or d.pick_index > their_index or d.is_finished(),
+			"The draft runs on to your later pick (%d, now at %d)" % [their_index, d.pick_index])
+	# An offer may come in for the pick you are now on the clock with; any
+	# that does is for a pick, priced in picks, and accepting it moves the pick.
+	if d.is_user_turn():
+		GameState.night_offers_at = -1
+		var n := GameState.make_night_offers()
+		var open := GameState.open_trade_offers()
+		var all_picks := true
+		for i in open:
+			for id in (GameState.trade_offers[i]["give"] as Array) + (GameState.trade_offers[i]["take"] as Array):
+				all_picks = all_picks and str(id).begins_with("pick:")
+		_check(n == open.size() and all_picks, "Night offers to you are picks for your pick (%d)" % n)
+		_check(GameState.make_night_offers() == 0, "Offers for one pick of yours come once")
+	# The rivals' own deals: run the night out and check every one is picks for
+	# picks, never players, and that the lists are untouched.
+	var sizes := {}
+	for code in GameState.season.lists:
+		sizes[code] = (GameState.season.lists[code] as Array).size()
+	while not d.is_finished():
+		if d.is_user_turn():
+			if not d.pick_for_me():
+				d.user_pass()
+		else:
+			d.auto_until_user_turn()
+	var only_picks := true
+	for tr in d.night_trades:
+		for id in (tr["in"] as Array) + (tr["out"] as Array):
+			only_picks = only_picks and str(id).begins_with("pick:")
+	var same := true
+	for code in sizes:
+		same = same and (GameState.season.lists[code] as Array).size() == int(sizes[code])
+	_check(only_picks and same, "Every night deal is picks for picks and no list changes (%d deals)" % d.night_trades.size())
+
+
 ## Next year's picks: valued with honest uncertainty about where a club will
 ## finish, owned once, and honoured a year later at the draft.
 func _test_future_picks() -> void:
@@ -1355,9 +1475,9 @@ func _test_future_picks() -> void:
 	var now := GameState.pick_asset(GameState.pick_id(next, 1, me))
 	_check(not now.is_empty() and str(now["owner"]) == rival and (now["positions"] as Array).size() == 1
 			and str(now["name"]).contains("(No. "), "A year on it is this year's pick, at its exact spot, still theirs")
-	_check(not GameState.pick_asset(GameState.pick_id(next + 1, 1, me)).is_empty()
-			and GameState.pick_asset(GameState.pick_id(next + 2, 1, me)).is_empty(),
-			"The next year opens for trading; the one after doesn't")
+	_check(not GameState.pick_asset(GameState.pick_id(next + 2, 1, me)).is_empty()
+			and GameState.pick_asset(GameState.pick_id(next + 3, 1, me)).is_empty(),
+			"The next two years open for trading; the one after doesn't")
 	_check(GameState.begin_intake_draft(), "Next year's draft opens")
 	d = GameState.draft
 	var at := -1

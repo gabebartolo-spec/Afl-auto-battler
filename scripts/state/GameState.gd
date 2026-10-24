@@ -791,6 +791,7 @@ func load_career() -> bool:
 	if state.get("draft") is Dictionary:
 		draft = Draft.new([], [], 0)
 		CareerSave.apply_vars(draft, state["draft"])
+		_watch_draft_night()
 		draft._pick_by_player = {}
 		for entry in draft.pick_history:
 			if bool(entry.get("released", false)):
@@ -1645,6 +1646,7 @@ func begin_intake_draft() -> bool:
 			comps.append(c)
 	draft.set_pick_owners(draft_pick_owners(season_year))
 	draft.add_compensation(comps)
+	_watch_draft_night()
 	draft.start_for_user(my_club)
 	autosave()
 	return true
@@ -6905,9 +6907,18 @@ const TRADE_PICK_ROUNDS := 3
 
 
 ## The draft years whose picks can be traded now, while the off-season is
-## open: this year's national draft and next year's.
+## open or the national draft is on: this year's draft and the next two (the
+## AFL's rule; director 2026-10-25, "this and next 2 drafts").
 func trade_pick_years() -> Array:
-	return [season_year, season_year + 1] if offseason_open() else []
+	if offseason_open() or draft_night_open():
+		return [season_year, season_year + 1, season_year + 2]
+	return []
+
+
+## True while the national draft is on: picks still to be made trade live
+## (director 2026-10-25); players do not, the lists are closed.
+func draft_night_open() -> bool:
+	return draft != null and draft.intake_mode and draft.league_mode and not draft.is_finished()
 
 
 func pick_id(year: int, rnd: int, origin: String) -> String:
@@ -7018,10 +7029,26 @@ func pick_asset(id: String) -> Dictionary:
 	if not trade_pick_years().has(year) or rnd < 1 or rnd > trade_pick_rounds(year) \
 			or not GameDB.active_clubs(season_year).has(origin) or not GameDB.active_clubs(year).has(origin):
 		return {}
-	var positions := [[draft_spot(year, rnd, origin), 1.0]] if year == season_year else future_spots(rnd, origin)
+	var owner := pick_owner_of(year, rnd, origin)
+	var positions: Array
+	var spot := 0
+	if year == season_year and draft_night_open():
+		# On the night a pick is where it sits in the order still to run: the
+		# prospects left are what it buys. A pick already made is spent.
+		var slot: int = draft.pick_slot(rnd, origin)
+		if slot < 0:
+			return {}
+		spot = slot + 1
+		owner = str(draft.pick_sequence[slot])
+		positions = [[slot - int(draft.pick_index) + 1, 1.0]]
+	elif year == season_year:
+		spot = draft_spot(year, rnd, origin)
+		positions = [[spot, 1.0]]
+	else:
+		positions = future_spots(rnd, origin)
 	return {"pick": true, "id": id, "year": year, "round": rnd, "origin": origin,
-			"owner": pick_owner_of(year, rnd, origin), "positions": positions,
-			"name": _pick_name(year, rnd, origin, int(positions[0][0]) if year == season_year else 0)}
+			"owner": owner, "positions": positions, "spot": spot,
+			"name": _pick_name(year, rnd, origin, spot)}
 
 
 ## The overall pick a club's pick in `rnd` will be in this year's national
@@ -7082,7 +7109,9 @@ func club_picks(code: String) -> Array:
 		for rnd in range(1, trade_pick_rounds(int(year)) + 1):
 			for origin in GameDB.active_clubs(season_year):
 				if pick_owner_of(int(year), rnd, str(origin)) == code:
-					out.append(pick_asset(pick_id(int(year), rnd, str(origin))))
+					var pk := pick_asset(pick_id(int(year), rnd, str(origin)))
+					if not pk.is_empty():   # a pick already made tonight is spent
+						out.append(pk)
 	out.sort_custom(func(a, b):
 		if int(a["year"]) != int(b["year"]):
 			return int(a["year"]) < int(b["year"])
@@ -7117,6 +7146,8 @@ func _open_class(year: int) -> Array:
 	for p in draftee_pool:
 		if drafted_draftees.has(str(p["id"])) or int(p.get("draft_year", year)) != year:
 			continue
+		if draft_night_open() and draft.picked.has(str(p["id"])):
+			continue   # taken tonight: no pick buys him now
 		if str(p.get("tied_club", "")) != "" and int(p.get("draft_year", 0)) == year:
 			continue
 		pool.append(p)
@@ -7126,6 +7157,10 @@ func _open_class(year: int) -> Array:
 ## Rounds of `year`'s draft that can be traded: the rounds it will run (as
 ## many as the class fills, Draft.build_intake), at most TRADE_PICK_ROUNDS.
 func trade_pick_rounds(year: int) -> int:
+	if draft_night_open():
+		# The night runs the rounds it was planned with; the pool shrinking
+		# pick by pick does not take a round off the table.
+		return mini(TRADE_PICK_ROUNDS, maxi(1, draft.planned_rounds()))
 	if year > season_year:
 		year = season_year  # next year's class isn't known yet: assume one like this year's
 	var clubs := maxi(1, GameDB.active_clubs(season_year).size())
@@ -7163,8 +7198,13 @@ func _trade_assets(ids: Array, owner: String) -> Dictionary:
 
 ## Would `club` accept your `mine` (player and pick ids) for its `theirs`?
 func evaluate_trade(club: String, mine: Array, theirs: Array) -> Dictionary:
-	if not offseason_open():
+	var night := draft_night_open()
+	if not offseason_open() and not night:
 		return {"ok": false, "code": "trade_closed", "reason": AiReasons.line("trade_closed")}
+	if night:
+		for id in mine + theirs:
+			if not str(id).begins_with("pick:"):
+				return {"ok": false, "code": "trade_night_picks_only", "reason": AiReasons.line("trade_night_picks_only")}
 	var g := _trade_assets(theirs, club)
 	var t := _trade_assets(mine, my_club)
 	if str(g["error"]) != "" or str(t["error"]) != "":
@@ -7182,7 +7222,9 @@ func evaluate_trade(club: String, mine: Array, theirs: Array) -> Dictionary:
 	for p in give + take:
 		names[str(p["id"])] = str(p["name"]) if Contracts.is_pick(p) else GameDB.player_display_name(p)
 	ctx["names"] = names
-	ctx["prospects"] = trade_prospects()
+	# On the night a club judges a pick by its own read of the prospects left
+	# (the same read it drafts with), not the consensus.
+	ctx["prospects"] = _night_prospects(club) if night else trade_prospects()
 	return Contracts.evaluate_trade(season.lists.get(club, []), give, take,
 			salary_cap, my_list, salary_cap, float(difficulty_rules()["trade_margin"]), ctx)
 
@@ -7320,10 +7362,18 @@ func make_trade(club: String, mine: Array, theirs: Array) -> Dictionary:
 		return verdict
 	var incoming: Array = _trade_assets(theirs, club)["assets"]
 	var outgoing: Array = _trade_assets(mine, my_club)["assets"]
+	var night := draft_night_open()
+	var at: int = int(draft.pick_index) + 1 if night else 0
 	_execute_trade(my_club, club, outgoing, incoming)
-	offseason_log.append({"kind": "trade", "club": club, "in": theirs.duplicate(), "out": mine.duplicate()})
-	add_news("trade", "Trade: %s get %s from %s for %s." % [GameDB.club_name(my_club),
-			_names(incoming), GameDB.club_name(club), _names(outgoing)])
+	var said := "%s get %s from %s for %s." % [GameDB.club_name(my_club),
+			_names(incoming), GameDB.club_name(club), _names(outgoing)]
+	var row := {"kind": "trade", "club": club, "in": theirs.duplicate(), "out": mine.duplicate()}
+	if night:
+		row["night"] = true
+		draft.night_trades.append({"at": at, "buyer": my_club, "seller": club, "in": theirs.duplicate(),
+				"out": mine.duplicate(), "text": said})
+	offseason_log.append(row)
+	add_news("trade", ("Draft night trade: " if night else "Trade: ") + said)
 	mark_dirty()
 	return {"ok": true, "reason": "Trade done."}
 
@@ -7357,6 +7407,8 @@ func _move_asset(a: Dictionary, from: String, to: String) -> void:
 			pick_owner.erase(key)
 		else:
 			pick_owner[key] = to
+		if int(a["year"]) == season_year and draft_night_open():
+			draft.reassign_pick(draft.pick_slot(int(a["round"]), str(a["origin"])), to)
 		return
 	(season.lists[from] as Array).erase(a)
 	_join(to, a)
@@ -7396,6 +7448,160 @@ func _club_verdict(club: String, other: String, gives: Array, gets: Array, margi
 			season.lists[other], salary_cap, margin, ctx)
 
 
+# ---------------------------------------------------------------------------
+# Draft night (director 2026-10-25): picks trade live. You offer at any time;
+# rivals put offers to you as your pick comes up; rivals deal among themselves
+# and the board shows it. Picks of this draft and the next two, never players;
+# the same values as the trade period, each club by its own read of the class.
+# ---------------------------------------------------------------------------
+## Share of rival picks (rounds 1 to TRADE_PICK_ROUNDS) that a rival tries to
+## buy on the night: about three deals tried in a 54-pick first three rounds.
+const NIGHT_DEAL_RATE := 0.06
+## Rivals asked, by the seeded club order, before a night deal is given up.
+const NIGHT_BUYERS := 5
+## Rivals that may put an offer to you for the pick you are on the clock with.
+const NIGHT_OFFER_TRIES := 6
+## The pick index your last night offers were made for (-1: none yet).
+var night_offers_at := -1
+
+
+## The draft is on: listen for rivals on the clock.
+func _watch_draft_night() -> void:
+	if draft == null or not draft.intake_mode:
+		return
+	if not draft.rival_on_clock.is_connected(_rival_on_clock):
+		draft.rival_on_clock.connect(_rival_on_clock)
+	night_offers_at = -1
+
+
+## The prospects left on the night as `club` reads them, best first (the read
+## it drafts with: Draft._ai_score, its own scouting error included), for every
+## draft year on the table (next years' classes stand in as this one does).
+func _night_prospects(club: String) -> Dictionary:
+	var out := {}
+	if not draft_night_open():
+		return out
+	var left := []
+	for p in draft.pool:
+		if not draft.picked.has(str(p["id"])):
+			left.append(p)
+	var scored := {}
+	for p in left:
+		scored[str(p["id"])] = float(draft._ai_score(club, p))
+	left.sort_custom(func(a, b):
+		var sa := float(scored[str(a["id"])])
+		var sb := float(scored[str(b["id"])])
+		if sa != sb:
+			return sa > sb
+		return str(a["id"]) < str(b["id"]))
+	for year in trade_pick_years():
+		out[str(year)] = left
+	return out
+
+
+## A rival is on the clock with pick `index`: now and then a rival with a later
+## pick in the round buys it, paying with picks priced by its own read of the
+## class; the seller judges by its own. Seeded on the year and the pick, so a
+## reload gets the same night.
+func _rival_on_clock(code: String, index: int) -> void:
+	if not draft_night_open() or code == my_club or index >= draft.pick_rounds.size():
+		return
+	var rnd := int(draft.pick_rounds[index])
+	if rnd > TRADE_PICK_ROUNDS or index >= draft.pick_origin.size():
+		return
+	if Draft._hash01("night:%d:%d:%d" % [season_year, int(draft.seed), index]) >= NIGHT_DEAL_RATE:
+		return
+	var origin := str(draft.pick_origin[index])
+	var pick := pick_asset(pick_id(season_year, rnd, origin))
+	if pick.is_empty() or str(pick["owner"]) != code:
+		return
+	var margin := float(difficulty_rules()["trade_margin"])
+	_freeze_league(true)
+	var sellers_read := trade_prospects()
+	var tried := 0
+	for buyer in _club_order("night:%d" % index):
+		if tried >= NIGHT_BUYERS:
+			break
+		if buyer == code or _deals(buyer) >= DEALS_PER_CLUB:
+			continue
+		# A buyer with a later pick in this round wants to move up.
+		var later := draft.upcoming_picks(buyer, 1)
+		if later.is_empty() or int(later[0]) - 1 <= index or int(draft.pick_rounds[int(later[0]) - 1]) != rnd:
+			continue
+		tried += 1
+		var read := _night_prospects(buyer)
+		var pkg := _bid(buyer, pick, _worth_to_read(buyer, pick, read), UNASKED_BID, read, code)
+		if pkg.is_empty():
+			continue
+		if not bool(_club_verdict(code, buyer, [pick], pkg, margin, sellers_read)["ok"]):
+			continue
+		_log_night_trade(buyer, code, pick, pkg, index + 1)
+		break
+	_freeze_league(false)
+
+
+## What a pick is worth to `club` by a given read of the class.
+func _worth_to_read(club: String, pick: Dictionary, read: Dictionary) -> float:
+	return TradeValue.pick_value(pick["positions"], read.get(str(pick["year"]), []), club_phase(club))
+
+
+## A night deal between rivals: done, on the board, in the news.
+func _log_night_trade(buyer: String, seller: String, pick: Dictionary, pkg: Array, at: int) -> void:
+	var phases := [club_phase(buyer), club_phase(seller)]
+	_execute_trade(buyer, seller, pkg, [pick])
+	var said := "%s get %s from %s for %s." % [GameDB.club_name(buyer),
+			_names([pick]), GameDB.club_name(seller), _names(pkg)]
+	var ids := pkg.map(func(a): return str(a["id"]))
+	offseason_log.append({"kind": "ai_trade", "club": buyer, "with": seller, "in": [str(pick["id"])],
+			"out": ids, "text": said, "phases": phases, "night": true})
+	draft.night_trades.append({"at": at, "buyer": buyer, "seller": seller, "in": [str(pick["id"])],
+			"out": ids, "text": said})
+	add_news("trade", "Draft night trade: " + said)
+	mark_dirty()
+
+
+## You are on the clock: a few rivals with a later pick in the round may put an
+## offer to you for it, each priced by its own read of the class (so an offer
+## can be well under what you think the pick is worth). Once per pick of yours;
+## the offers go off the table when the pick is made. Returns how many came in.
+func make_night_offers() -> int:
+	if not draft_night_open() or not draft.is_user_turn() or night_offers_at == int(draft.pick_index):
+		return 0
+	night_offers_at = int(draft.pick_index)
+	var index := int(draft.pick_index)
+	var rnd := int(draft.pick_rounds[index])
+	if rnd > TRADE_PICK_ROUNDS:
+		return 0
+	var pick := pick_asset(pick_id(season_year, rnd, str(draft.pick_origin[index])))
+	if pick.is_empty() or str(pick["owner"]) != my_club:
+		return 0
+	for o in trade_offers:
+		if str(o["status"]) == "open" and (o["take"] as Array).has(str(pick["id"])):
+			return 0   # a reload: the offers for this pick are already on the table
+	var made := 0
+	var tried := 0
+	_freeze_league(true)
+	for club in _club_order("night offers:%d" % index):
+		if made >= MAX_OFFERS or tried >= NIGHT_OFFER_TRIES:
+			break
+		var later := draft.upcoming_picks(club, 1)
+		if later.is_empty() or int(later[0]) - 1 <= index or int(draft.pick_rounds[int(later[0]) - 1]) != rnd:
+			continue
+		tried += 1
+		var read := _night_prospects(club)
+		var pkg := _bid(club, pick, _worth_to_read(club, pick, read), UNASKED_BID, read)
+		if pkg.is_empty():
+			continue
+		trade_offers.append({"club": club, "give": pkg.map(func(a): return str(a["id"])),
+				"take": [str(pick["id"])], "status": "open", "night": true})
+		made += 1
+		add_news("trade", "%s have made an offer for your pick %d." % [GameDB.club_name(club), int(pick["spot"])])
+	_freeze_league(false)
+	if made > 0:
+		mark_dirty()
+	return made
+
+
 ## When `club` turns your offer down on value, the one change that would get
 ## it done, in its own words: one more of yours (the least it would settle
 ## for), or else one of theirs left out. {"say", "mine", "theirs", "code" (the
@@ -7418,8 +7624,9 @@ func _counter(club: String, mine: Array, theirs: Array) -> Dictionary:
 		var extra := []
 		for pk in club_picks(my_club):
 			extra.append(str(pk["id"]))
-		for p in my_list:
-			extra.append(str(p["id"]))
+		if not draft_night_open():   # players never move on draft night
+			for p in my_list:
+				extra.append(str(p["id"]))
 		for id in extra:
 			if mine.has(id):
 				continue
@@ -7523,7 +7730,7 @@ func _bids(buyer: String, most: float, prospects: Dictionary) -> Array:
 	var pool := []
 	for pk in club_picks(buyer):
 		pool.append([pk, TradeValue.pick_value(pk["positions"], prospects.get(str(pk["year"]), []), phase)])
-	var list: Array = (season.lists[buyer] as Array).duplicate()
+	var list: Array = (season.lists[buyer] as Array).duplicate() if not draft_night_open() else []
 	list.sort_custom(func(a, b):
 		if int(a["overall"]) != int(b["overall"]):
 			return int(a["overall"]) > int(b["overall"])
@@ -7555,7 +7762,9 @@ func _bids(buyer: String, most: float, prospects: Dictionary) -> Array:
 ## A club's opening bid for something it values at `worth`: the package
 ## nearest `shade` of the most it would pay (worth less its trading margin),
 ## that it would stand by. [] if it has nothing that fits.
-func _bid(club: String, asset: Dictionary, worth: float, shade: float, prospects: Dictionary) -> Array:
+func _bid(club: String, asset: Dictionary, worth: float, shade: float, prospects: Dictionary, other := "") -> Array:
+	if other == "":
+		other = my_club
 	var margin := float(difficulty_rules()["trade_margin"])
 	var most := worth / (1.0 + margin)
 	var options := _bids(club, most, prospects)
@@ -7566,7 +7775,7 @@ func _bid(club: String, asset: Dictionary, worth: float, shade: float, prospects
 			return dx < dy
 		return float(x[1]) < float(y[1]))
 	for o in options.slice(0, 6):
-		if bool(_club_verdict(club, my_club, o[0], [asset], margin, prospects)["ok"]):
+		if bool(_club_verdict(club, other, o[0], [asset], margin, prospects)["ok"]):
 			return o[0]
 	return []
 
@@ -7911,7 +8120,7 @@ func _worth_to(club: String, asset: Dictionary, prospects: Dictionary) -> float:
 ## {"ok", "reason", "offers": how many came in}.
 func put_on_trade_table(id: String) -> Dictionary:
 	if not offseason_open():
-		return {"ok": false, "reason": "Trades are only open in the off-season.", "offers": 0}
+		return {"ok": false, "reason": "The trade table is open in the off-season, not on draft night.", "offers": 0}
 	if trade_table.has(id):
 		return {"ok": false, "reason": "That's already on the trade table.", "offers": 0}
 	if untouchable.has(id):
