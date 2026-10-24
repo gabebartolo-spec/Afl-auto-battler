@@ -64,7 +64,7 @@ func _build() -> void:
 		return
 	UiKit.clear(_body)
 	_body.add_child(UiKit.lbl("Trade picks", 20, UiKit.TEXT, true))
-	var rule := _para("Only picks change hands tonight: this draft's and the next two drafts'. The night waits while you deal.",
+	var rule := _para("Only picks change hands tonight, from this draft and the next two. The night waits while you deal.",
 			13, UiKit.MUTED)
 	rule.name = "TradeSheetRule"
 	_body.add_child(rule)
@@ -192,7 +192,7 @@ func _package(title: String, ids: Array, prefix: String, none: String) -> void:
 		var row := UiKit.hbox(8)
 		row.name = prefix + str(id).replace(":", "_")
 		var pk := GameState.pick_asset(str(id))
-		var what := UiKit.ellipsis(pick_label(pk) if not pk.is_empty() else "-", 14, UiKit.TEXT)
+		var what := _para(pick_label(pk) if not pk.is_empty() else "-", 14, UiKit.TEXT)
 		what.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(what)
 		var rm := UiKit.btn("Remove", UiKit.SECONDARY)
@@ -244,7 +244,7 @@ func _picks(code: String, chosen: Array, prefix: String) -> void:
 				chosen.append(id)
 			_build())
 		_body.add_child(b)
-		var story := _para(GameState.pick_story(int(pk["year"]), int(pk["round"]), str(pk["origin"])), 12, UiKit.TEXT)
+		var story := _para(GameState.pick_story(int(pk["year"]), int(pk["round"]), str(pk["origin"])), UiKit.FINE, UiKit.MUTED)
 		story.name = "PickStory_" + id.replace(":", "_")
 		_body.add_child(story)
 
