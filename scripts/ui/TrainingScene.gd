@@ -210,6 +210,9 @@ func _summary() -> Control:
 			what.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		what.name = "TrainingNews"
 		v.add_child(what)
+		var rises := GameState.training_rise_lines()
+		if not rises.is_empty():
+			v.add_child(_rise_list(rises))
 		var month := TrainingReportSheet.link(self, _open_player)
 		if month != null:
 			v.add_child(month)
@@ -590,6 +593,25 @@ func _news_line(line: String) -> Control:
 	for q in GameState.my_list:
 		ids[GameDB.player_display_name(q)] = str(q["id"])
 	return NameLink.line(line, ids, UiKit.SECONDARY, UiKit.GOOD)
+
+
+## Everyone who rose, one "Name 76 to 77" each, as many to a row as fit, so
+## a long list stays short; each name a tap to his profile.
+func _rise_list(lines: PackedStringArray) -> Control:
+	var ids := {}
+	for q in GameState.my_list:
+		ids[GameDB.player_display_name(q)] = str(q["id"])
+	# A flow of equal cells: as many to a row as the width holds (one on a
+	# phone, so "74 to 76" never breaks; three on a PC), the columns aligned.
+	var grid := HFlowContainer.new()
+	grid.name = "TrainingRises"
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 2)
+	for l in lines:
+		var r := NameLink.line(l, ids, UiKit.SECONDARY, UiKit.GOOD)
+		r.custom_minimum_size = Vector2(220, 0)
+		grid.add_child(r)
+	return grid
 
 
 ## The plan under his name, said as a plan: "Training as a key defender",

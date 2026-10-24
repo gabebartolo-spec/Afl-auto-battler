@@ -5372,8 +5372,9 @@ func reserves_summary_line() -> String:
 
 
 ## What the last game's training changed, in one line: "Training: 3 players
-## rose in OVR (Smith 71 to 72, ...). Jones unlocked Sharpshooter." - or ""
-## when nothing visible changed. Stat points alone are not news.
+## rose in OVR. Jones unlocked Sharpshooter." - or "" when nothing visible
+## changed. Stat points alone are not news. Who rose, and from what to what, is
+## `training_rise_lines` (director, 2026-10-19: name every one, no "N more").
 func training_summary_line() -> String:
 	var auto: Dictionary = last_training_report.get("auto", {})
 	var rises: Array = auto.get("rises", [])
@@ -5383,20 +5384,31 @@ func training_summary_line() -> String:
 		return ""
 	var bits: PackedStringArray = []
 	if not rises.is_empty():
-		var names: PackedStringArray = []
-		for r in rises.slice(0, 2):
-			names.append("%s %d to %d" % [_short_name(str(r[0])), int(r[1]), int(r[2])])
-		if rises.size() > 2:
-			names.append("%d more" % (rises.size() - 2))
-		bits.append("%d %s in OVR (%s)." % [rises.size(),
-				"player rose" if rises.size() == 1 else "players rose", ", ".join(names)])
-	for t in traits.slice(0, 2):
+		bits.append("%d %s in OVR." % [rises.size(), "player rose" if rises.size() == 1 else "players rose"])
+	for t in traits:
 		bits.append("%s unlocked %s." % [_short_name(str(t[0])), Traits.label(str(t[1]))])
 	if at_pot.size() == 1:
 		bits.append("%s reached his potential." % _short_name(str(at_pot[0])))
 	elif at_pot.size() > 1:
 		bits.append("%d players reached their potential." % at_pot.size())
 	return "Training: " + " ".join(bits)
+
+
+## Every player the last game's training lifted, one entry each, "Jack Steele
+## 76 to 77", biggest rise first then by name.
+func training_rise_lines() -> PackedStringArray:
+	var rises: Array = (last_training_report.get("auto", {}) as Dictionary).get("rises", [])
+	var rows: Array = []
+	for r in rises:
+		rows.append([_short_name(str(r[0])), int(r[1]), int(r[2])])
+	rows.sort_custom(func(x, y):
+		var dx: int = int(x[2]) - int(x[1])
+		var dy: int = int(y[2]) - int(y[1])
+		return dx > dy if dx != dy else str(x[0]) < str(y[0]))
+	var out: PackedStringArray = []
+	for row in rows:
+		out.append("%s %d to %d" % [row[0], row[1], row[2]])
+	return out
 
 
 func _short_name(id: String) -> String:
