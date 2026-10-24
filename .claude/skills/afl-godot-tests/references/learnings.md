@@ -36,3 +36,14 @@ uncalled `_test_x` and one with a check-less test both fail by name.
 **Lesson:** guard "did every test run" with something that lives in the test's own file (a function
 that never ran or made no check fails by name), never with a shared number every PR must edit. A guard
 that every PR touches will conflict, and a guard that has never caught anything costs more than it saves.
+
+## 2026-10-25, AFL: a stale `.godot` in a worktree reads as a parse error, then a hang
+**Evidence:** lead session 30cedf, branch claude/draft-night-trades. The worktree's `.godot` dated from before
+PreSeason, Features, DifficultyDials and FamilyTies were merged; `tools/run_tests.sh --quick contracts` failed in 7 s with
+`Parse Error: Identifier "PreSeason" not declared` in GameState.gd (no change of mine), and the parallel intake_ui run
+hung at 132 MB until `timeout` ended it (the permission classifier refuses `taskkill` of a Godot PID). A full
+`godot --headless --path . --editor --import` (10 min) fixed both; a new `class_name` script also needs it before any
+suite can see it.
+**Lesson:** "Identifier X not declared" for a class you did not touch is the global class cache, not the code: stop,
+run the import (drop `--quick` once), then iterate with `--quick`. Run it before the first suite whenever the branch
+moved past the cache or you added a `class_name` file; never read the parse error as a defect in the merged code.
