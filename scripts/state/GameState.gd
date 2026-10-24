@@ -7463,6 +7463,9 @@ const NIGHT_DEAL_RATE := 0.06
 const NIGHT_BUYERS := 5
 ## Rivals that may put an offer to you for the pick you are on the clock with.
 const NIGHT_OFFER_TRIES := 6
+## How far under fair value (the consensus read) a night offer may sit: a real
+## haggle, never a lowball (director 2026-10-25).
+const NIGHT_OFFER_FLOOR := 0.9
 ## The pick index your last night offers were made for (-1: none yet).
 var night_offers_at := -1
 
@@ -7597,8 +7600,8 @@ func make_night_offers() -> int:
 		# would come out even or ahead (director 2026-10-25: a late pick and a
 		# future second for pick 6 is "absurd"). A club that rates a prospect
 		# above the field finds the room; one that does not stays quiet.
-		var pkg := _bid(club, pick, _worth_to_read(club, pick, read), 1.0, read)
-		if pkg.is_empty() or not bool(_club_verdict(my_club, club, [pick], pkg, 0.0, consensus)["ok"]):
+		var pkg := _bid(club, pick, _worth_to_read(club, pick, read), 1.0, read, my_club, 0.0)
+		if pkg.is_empty() or not bool(_club_verdict(my_club, club, [pick], pkg, NIGHT_OFFER_FLOOR - 1.0, consensus)["ok"]):
 			continue
 		trade_offers.append({"club": club, "give": pkg.map(func(a): return str(a["id"])),
 				"take": [str(pick["id"])], "status": "open", "night": true})
@@ -7774,10 +7777,12 @@ func _bids(buyer: String, most: float, prospects: Dictionary) -> Array:
 ## A club's opening bid for something it values at `worth`: the package
 ## nearest `shade` of the most it would pay (worth less its trading margin),
 ## that it would stand by. [] if it has nothing that fits.
-func _bid(club: String, asset: Dictionary, worth: float, shade: float, prospects: Dictionary, other := "") -> Array:
+func _bid(club: String, asset: Dictionary, worth: float, shade: float, prospects: Dictionary, other := "",
+		margin := -1.0) -> Array:
 	if other == "":
 		other = my_club
-	var margin := float(difficulty_rules()["trade_margin"])
+	if margin < 0.0:
+		margin = float(difficulty_rules()["trade_margin"])
 	var most := worth / (1.0 + margin)
 	var options := _bids(club, most, prospects)
 	options.sort_custom(func(x, y):
