@@ -2626,8 +2626,8 @@ func _test_vignettes_setting() -> void:
 		await _settle()
 		var land: Button = sheet.find_child("SettingsOrientation_landscape", true, false)
 		_check(land != null and sheet.find_child("SettingsOrientation_auto", true, false) != null
-				and _state.screen_orientation() == "auto",
-				"A phone's Settings has Screen: follow the phone, portrait, landscape (%s)" % tag)
+				and _state.screen_orientation() == "portrait",
+				"A phone's Settings has Screen: portrait by default, landscape, follow the phone (%s)" % tag)
 		if land != null:
 			_check((await Tap.tap(land)) == "", "Landscape takes a real tap (%s)" % tag)
 			await _settle()
@@ -2635,12 +2635,13 @@ func _test_vignettes_setting() -> void:
 			var cfg2 := ConfigFile.new()
 			_check(cfg2.load(_state.settings_path) == OK and cfg2.get_value("ui", "screen_orientation") == "landscape",
 					"Landscape is saved with the settings (%s)" % tag)
-			_state.set_screen_orientation("auto")
+			_state.set_screen_orientation("portrait")
 		load("res://scripts/core/ScreenLayout.gd").force_web_phone = false
 		_check(root.get_node("ScreenLayout").orientation_for("portrait") == DisplayServer.SCREEN_PORTRAIT
 				and root.get_node("ScreenLayout").orientation_for("landscape") == DisplayServer.SCREEN_LANDSCAPE
-				and root.get_node("ScreenLayout").orientation_for("junk") == DisplayServer.SCREEN_SENSOR,
-				"Each choice maps to the engine's orientation; unknown follows the phone (%s)" % tag)
+				and root.get_node("ScreenLayout").orientation_for("auto") == DisplayServer.SCREEN_SENSOR
+				and root.get_node("ScreenLayout").orientation_for("junk") == DisplayServer.SCREEN_PORTRAIT,
+				"Each choice maps to the engine's orientation; unknown is portrait (%s)" % tag)
 		host.queue_free()
 		await _settle()
 

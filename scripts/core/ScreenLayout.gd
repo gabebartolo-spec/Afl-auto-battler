@@ -154,19 +154,23 @@ static func web_density(pixels: Vector2, ratio: float) -> float:
 	return maxf(own, pixels.x / PHONE_REF_W)
 
 
-## The Screen setting on a phone or in its browser: follow the phone's own
-## rotation (the default), or hold portrait or landscape.
-const ORIENTATIONS := [["auto", "Follow the phone"], ["portrait", "Portrait"], ["landscape", "Landscape"]]
+## The Screen setting on a phone or in its browser: portrait (the default;
+## director, 2026-10-25: the game opens in portrait on a phone), landscape, or
+## follow the phone's own rotation.
+const ORIENTATIONS := [["portrait", "Portrait"], ["landscape", "Landscape"], ["auto", "Follow the phone"]]
+const DEFAULT_ORIENTATION := "portrait"
 
 
-## The engine's orientation for a saved choice. Anything unknown follows the phone.
+## The engine's orientation for a saved choice. Anything unknown is portrait.
 static func orientation_for(key: String) -> int:
 	match key:
 		"portrait":
 			return DisplayServer.SCREEN_PORTRAIT
 		"landscape":
 			return DisplayServer.SCREEN_LANDSCAPE
-	return DisplayServer.SCREEN_SENSOR
+		"auto":
+			return DisplayServer.SCREEN_SENSOR
+	return DisplayServer.SCREEN_PORTRAIT
 
 
 ## Hold the chosen orientation by the engine's own means. Android honours it.
