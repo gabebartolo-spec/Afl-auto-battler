@@ -6918,7 +6918,7 @@ func trade_pick_years() -> Array:
 ## True while the national draft is on: picks still to be made trade live
 ## (director 2026-10-25); players do not, the lists are closed.
 func draft_night_open() -> bool:
-	return draft != null and draft.intake_mode and draft.league_mode and not draft.is_finished()
+	return draft != null and draft.intake_mode and draft.league_mode and not draft.is_finished() 			and season != null and my_club != "" and season.lists.has(my_club)
 
 
 func pick_id(year: int, rnd: int, origin: String) -> String:
