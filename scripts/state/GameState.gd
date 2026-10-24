@@ -8179,6 +8179,8 @@ func open_trade_offers() -> Array:
 		var o: Dictionary = trade_offers[i]
 		if str(o["status"]) != "open":
 			continue
+		if draft_night_open() and not bool(o.get("night", false)):
+			continue   # the off-season's offers for players wait: lists are closed tonight
 		if str(_trade_assets(o["give"], str(o["club"]))["error"]) != "" or str(_trade_assets(o["take"], my_club)["error"]) != "":
 			o["status"] = "off"
 			continue

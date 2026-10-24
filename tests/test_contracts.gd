@@ -1328,37 +1328,50 @@ func _test_draft_night_trades() -> void:
 		if not pk.is_empty():
 			spent = str(pk["id"])
 	_check(spent == "", "A pick already made is no longer an asset (%s)" % spent)
-	# A rival with the next pick after yours in this round.
-	var rival := ""
-	var their_index := -1
+	# The rivals picking after you in this round, latest first: the further
+	# down, the clearer the gap (adjacent picks read near equal, so a swap
+	# of neighbours is refused on the margin, as it should be).
+	var later_rivals := []   # [index, club]
 	for i in range(index + 1, d.pick_sequence.size()):
 		if int(d.pick_rounds[i]) == rnd and str(d.pick_sequence[i]) != me:
-			rival = str(d.pick_sequence[i])
-			their_index = i
-			break
-	if rival == "":
+			later_rivals.push_front([i, str(d.pick_sequence[i])])
+	if later_rivals.is_empty():
 		_check(false, "A rival picks after you in the round")
 		return
-	var their_pick := GameState.pick_id(year, rnd, str(d.pick_origin[their_index]))
-	var their_player := str((GameState.season.lists[rival] as Array)[0]["id"])
-	var v := GameState.evaluate_trade(rival, [my_pick], [their_player])
+	var first_rival := str(later_rivals[0][1])
+	var their_player := str((GameState.season.lists[first_rival] as Array)[0]["id"])
+	var v := GameState.evaluate_trade(first_rival, [my_pick], [their_player])
 	_check(not bool(v["ok"]) and str(v["code"]) == "trade_night_picks_only",
 			"Players do not move on draft night (%s)" % str(v["code"]))
-	_check(not bool(GameState.evaluate_trade(rival, [their_pick], [my_pick])["ok"]),
+	var first_pick := GameState.pick_id(year, rnd, str(d.pick_origin[int(later_rivals[0][0])]))
+	_check(not bool(GameState.evaluate_trade(first_rival, [first_pick], [my_pick])["ok"]),
 			"You can only trade a pick you hold")
-	# Your pick for theirs: an earlier pick for a later one, so they say yes
-	# straight, or with a later sweetener of theirs.
-	var t := GameState.make_trade(rival, [my_pick], [their_pick])
-	var sweet := ""
-	if not bool(t["ok"]):
-		for pk in GameState.club_picks(rival):
-			if str(pk["id"]) == their_pick:
-				continue
-			t = GameState.make_trade(rival, [my_pick], [their_pick, str(pk["id"])])
-			if bool(t["ok"]):
-				sweet = str(pk["id"])
-				break
-	_check(bool(t["ok"]), "Your pick on the clock sells for the rival's later pick (%s)" % str(t["reason"]))
+	# Your pick for a later one: straight, or with a sweetener of theirs, or
+	# with one of your own later picks thrown in; the first deal any club takes.
+	var t := {"ok": false, "reason": "no rival asked"}
+	var rival := ""
+	var their_index := -1
+	var their_pick := ""
+	for lr in later_rivals:
+		rival = str(lr[1])
+		their_index = int(lr[0])
+		their_pick = GameState.pick_id(year, rnd, str(d.pick_origin[their_index]))
+		t = GameState.make_trade(rival, [my_pick], [their_pick])
+		if not bool(t["ok"]):
+			for pk in GameState.club_picks(rival):
+				if str(pk["id"]) != their_pick:
+					t = GameState.make_trade(rival, [my_pick], [their_pick, str(pk["id"])])
+					if bool(t["ok"]):
+						break
+		if not bool(t["ok"]):
+			for pk in GameState.club_picks(me):
+				if str(pk["id"]) != my_pick:
+					t = GameState.make_trade(rival, [my_pick, str(pk["id"])], [their_pick])
+					if bool(t["ok"]):
+						break
+		if bool(t["ok"]):
+			break
+	_check(bool(t["ok"]), "Your pick on the clock sells for a rival's later pick (%s)" % str(t["reason"]))
 	if not bool(t["ok"]):
 		return
 	_check(str(d.pick_sequence[index]) == rival and str(d.pick_sequence[their_index]) == me
