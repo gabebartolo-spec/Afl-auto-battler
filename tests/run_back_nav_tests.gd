@@ -288,7 +288,7 @@ func _closer(roots: Array) -> Button:
 			continue
 		for b in r.find_children("*", "Button", true, false):
 			var t := str((b as Button).text).strip_edges()
-			if (b as Button).is_visible_in_tree() and ["Close", "Done", "Back", "Cancel", "Not now", "Back to your calls", "Back to hub", "OK", "Skip", "Got it", "Continue", "Start", "To the draft"].has(t):
+			if (b as Button).is_visible_in_tree() and ["Close", "Done", "Back", "Cancel", "Not now", "Back to your calls", "Back to hub", "OK", "Skip", "Got it", "Continue", "Start", "To the draft", "Skip to season review"].has(t):
 				return b
 	return null
 
@@ -404,6 +404,12 @@ func _test_overlays() -> void:
 	await _overlay_case("offseason: talks", "offseason", func(s): s.call("_open_talks", pid))
 	await _overlay_case("season review: awards program", "season_review", func(s): s.call("_open_awards_program"),
 			func(): _state.season_awards = {"year": 2026, "brownlow": []})
+	# Awards night's count (T5.Q23b), part way through the Brownlow.
+	await _overlay_case("season review: awards night count", "season_review", func(s):
+		s.set("_awards_overlay", load("res://scripts/ui/SeasonAwards.gd").open(s))
+		await _settle(3)
+		await _click_named(s, "AwardsNext"),
+			func(): load("res://tests/award_count_fixture.gd").build(_state, "COL"))
 
 
 # ---------------------------------------------------------------------------

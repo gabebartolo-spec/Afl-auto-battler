@@ -26,7 +26,9 @@ func run() -> void:
 	_t("_test_career_record")
 	_t("_test_golden_fist_rule")
 	_t("_test_golden_fist_trophy_room")
+	_t("_test_award_count_rounds")
 	_t("_test_full_season")
+	_t("_test_award_count_late_start")
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	print(Ran.line("Awards", self))
@@ -413,9 +415,13 @@ func _test_full_season() -> void:
 	_check((GameState.season_awards.get("golden_fist", []) as Array).size() == fist.size()
 			and str(((GameState.honour_roll[0] as Dictionary).get("golden_fist", [{}]) as Array)[0].get("id", "")) == fist_id,
 			"The Golden Fist survives a save")
+	# Awards night's count, from the finished season (T5.Q23b).
+	_award_count_season_checks()
 	GameState.start_next_season()
 	_check(GameState.season_tally.is_empty() and GameState.honour_roll.size() == 1,
 			"A new season starts a fresh tally and keeps the honour roll")
+	_check((GameState.award_counts.get("rounds", []) as Array).is_empty(),
+			"A new season starts the awards-night record empty")
 
 
 ## A season book row: games and {stat: total}.
@@ -566,3 +572,139 @@ func _test_comeback_records() -> void:
 	_check(text.contains("Biggest lead lost: Carlton led Collingwood by 48 points at quarter time and lost (2029)"),
 			"The lead lost reads as football (%s)" % text)
 	GameState.records = old_records
+
+
+## Awards night's count (T5.Q23b): a round's record is the change in the
+## season tally across it, so a home-and-away match reads 3-2-1 and your side
+## 5-4-3-2-1; a final records only your club's points, and a round is never
+## recorded twice. Recording never touches the tally.
+func _test_award_count_rounds() -> void:
+	var res := _one_match()
+	res["round"] = 3
+	res["label"] = "Round 3"
+	var tally := {}
+	var rec := AwardsCount.fresh(2026, "GEE")
+	var before := AwardsCount.snapshot(tally, [res])
+	Awards.tally_match(tally, res, true)
+	var kept := tally.duplicate(true)
+	AwardsCount.record_round(rec, before, tally, [res], "GEE")
+	_check(tally == kept, "Recording a round leaves the season tally exactly as it was")
+	var rounds: Array = rec["rounds"]
+	var votes := []
+	var sides := {}
+	if rounds.size() == 1 and (rounds[0]["matches"] as Array).size() == 1:
+		for v in rounds[0]["matches"][0]["votes"]:
+			votes.append(int(v[1]))
+			sides[str(v[2])] = true
+	_check(votes == [3, 2, 1] and sides.keys().all(func(c): return c == "GEE" or c == "HAW"),
+			"A home-and-away match records its 3-2-1, most first, with each player's club (%s)" % str(votes))
+	var bf := []
+	for b in rounds[0].get("bf", []) if rounds.size() == 1 else []:
+		bf.append(int(b[1]))
+	_check(bf == [5, 4, 3, 2, 1] and str(rounds[0].get("vs", "")) == "HAW",
+			"Your side's 5-4-3-2-1 is recorded with the opponent (%s)" % str(bf))
+	var again := AwardsCount.snapshot(tally, [res])
+	Awards.tally_match(tally, res, true)
+	AwardsCount.record_round(rec, again, tally, [res], "GEE")
+	_check((rec["rounds"] as Array).size() == 1, "A round is never recorded twice")
+	var gf := _one_match()
+	gf["round"] = Season.REGULAR_ROUNDS + 1
+	gf["label"] = "Qualifying Final 2"
+	gf["tag"] = "QF"
+	var other := AwardsCount.fresh(2026, "ESS")
+	var fb := AwardsCount.snapshot(tally, [gf])
+	Awards.tally_match(tally, gf, false)
+	AwardsCount.record_round(rec, fb, tally, [gf], "GEE")
+	AwardsCount.record_round(other, fb, tally, [gf], "ESS")
+	var fin: Dictionary = (rec["rounds"] as Array).back()
+	_check(bool(fin.get("final", false)) and (fin["matches"] as Array).is_empty()
+			and (fin["bf"] as Array).size() == 5 and str(fin["label"]) == "Qualifying Final",
+			"A final records your club's points only, by the week's name (%s)" % str(fin.get("label", "")))
+	_check((other["rounds"] as Array).is_empty(), "A finals week without your club records nothing")
+	var steps := AwardsCount.brownlow_steps(rec)
+	_check(steps.size() == 1 and AwardsCount.club_steps(rec).size() == 2,
+			"The Brownlow count leaves the finals out; your club's count keeps them")
+	var board := AwardsCount.board(steps, 0, 1)
+	_check(board.size() == 3 and int(board[0]["total"]) == 3 and int(board[0]["rank"]) == 1
+			and AwardsCount.board(steps, 0, 0).is_empty(),
+			"The board holds only the votes read so far")
+	var level := [{"round": 1, "label": "Round 1", "matches": [{"home": "A", "away": "B",
+			"votes": [["x", 3, "A"], ["y", 2, "B"], ["z", 1, "A"]]}]},
+			{"round": 2, "label": "Round 2", "matches": [{"home": "A", "away": "B",
+			"votes": [["y", 3, "B"], ["x", 2, "A"], ["z", 1, "A"]]}]}]
+	var tied := AwardsCount.board(level, 2, 0, ["y", "x"])
+	_check(str(tied[0]["id"]) == "y" and int(tied[0]["rank"]) == 1 and int(tied[1]["rank"]) == 1
+			and bool(tied[0]["shared"]) and int(tied[2]["rank"]) == 3 and int(tied[0]["last"]) == 3,
+			"Level totals share a rank, listed in the stored order; the last round's gain is kept")
+
+
+## A season played from Round 1: every round recorded, the rounds add up to
+## the season tally's votes and points, the count ends on the stored winner,
+## and the record and a count left part way survive a save.
+func _award_count_season_checks() -> void:
+	var rec: Dictionary = GameState.award_counts
+	var season: Season = GameState.season
+	var year := int(GameState.season_awards.get("year", 0))
+	_check(AwardsCount.complete(rec, year, "GEE", season.fixture.size()),
+			"A season played from Round 1 is recorded whole (%d rounds)" % (rec.get("rounds", []) as Array).size())
+	var steps := AwardsCount.brownlow_steps(rec)
+	var totals := AwardsCount.totals(steps, steps.size(), 0)
+	var off := []
+	for id in GameState.season_tally:
+		var want := int(GameState.season_tally[id].get("votes", 0))
+		var got := int((totals.get(str(id), {}) as Dictionary).get("total", 0))
+		if want != got:
+			off.append("%s %d/%d" % [id, got, want])
+	_check(off.is_empty() and steps.size() == season.fixture.size(),
+			"The rounds' votes add up to every player's season tally (%s)" % str(off.slice(0, 3)))
+	var club := AwardsCount.club_steps(rec)
+	var pts := AwardsCount.totals(club, club.size(), 0)
+	var bf_off := []
+	for id in GameState.season_tally:
+		var t: Dictionary = GameState.season_tally[id]
+		if str(t.get("club", "")) != "GEE":
+			continue
+		if int(t.get("bf", 0)) != int((pts.get(str(id), {}) as Dictionary).get("total", 0)):
+			bf_off.append(str(id))
+	var finals := 0
+	for st in club:
+		finals += 1 if bool(st["final"]) else 0
+	var played := 0
+	for week in season.finals.get("weeks", []):
+		for r in week:
+			if str(r.get("home", "")) == "GEE" or str(r.get("away", "")) == "GEE":
+				played += 1
+	_check(bf_off.is_empty() and finals == played,
+			"Your club's count adds up to its best and fairest, its %d finals included (%s)" % [played, str(bf_off.slice(0, 3))])
+	var order := []
+	for r in GameState.season_awards.get("brownlow", []):
+		order.append(str(r["id"]))
+	var board := AwardsCount.board(steps, steps.size(), 0, order)
+	var top: Dictionary = (GameState.season_awards.get("brownlow", []) as Array)[0]
+	_check(str(board[0]["id"]) == str(top["id"]) and int(board[0]["total"]) == int(top["votes"]),
+			"The count ends on the stored leader (%s, %d votes)" % [GameState.award_name(top), int(top["votes"])])
+	GameState.season_awards["count_at"] = {"stage": 0, "round": 7, "match": 2}
+	var kept := rec.duplicate(true)
+	GameState.save_career()
+	GameState.load_career()
+	_check(GameState.award_counts == kept and int((GameState.season_awards.get("count_at", {}) as Dictionary).get("round", 0)) == 7,
+			"The record and the count's place survive a save")
+	GameState.season_awards.erase("count_at")
+
+
+## A save from before the record existed, or a record of another season, is
+## started afresh from the next round played and is never counted.
+func _test_award_count_late_start() -> void:
+	GameState.reset()
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	for i in 3:
+		GameState.advance()
+	GameState.award_counts = AwardsCount.fresh(0, "")
+	var next := GameState.season.round_index + 1
+	GameState.advance()
+	var rec: Dictionary = GameState.award_counts
+	_check(int(rec.get("from", 0)) == next and int(rec.get("year", 0)) == GameState.season_year
+			and (rec["rounds"] as Array).size() == 1 and int(rec["rounds"][0]["round"]) == next,
+			"A record from another season starts again at the next round (Round %d)" % next)
+	_check(not AwardsCount.complete(rec, GameState.season_year, "GEE", GameState.season.fixture.size()),
+			"A season recorded part way is not counted round by round")

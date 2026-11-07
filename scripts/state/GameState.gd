@@ -89,6 +89,11 @@ var season_awards := {}          # the finished season's awards
 ## {"from": the first round recorded, "rounds": [{round, id, club}]}. A save
 ## from before nominations were recorded starts "from" its next round.
 var rising_star_noms := {"from": 1, "rounds": []}
+## This season's votes round by round, for the awards-night count
+## (AwardsCount.gd): the Brownlow's match by match and your club's best and
+## fairest. A save from before they were kept starts "from" its next round,
+## and its count falls back to naming the winners.
+var award_counts := AwardsCount.fresh(0, "")
 var honour_roll: Array = []      # one entry per completed season
 var almanac: Array = []          # the club almanac, one page per season (Almanac.gd)
 ## The club honour board (HonourBoard.gd, row 122): player id -> his row.
@@ -743,6 +748,7 @@ func save_career() -> bool:
 		"season_team": season_team,
 		"season_awards": season_awards,
 		"rising_star_noms": rising_star_noms,
+		"award_counts": award_counts,
 		"honour_roll": honour_roll,
 		"almanac": almanac,
 		"honour_board": honour_board,
@@ -945,6 +951,9 @@ func load_career() -> bool:
 	# unrecorded (never back-filled), and recording starts with the next one.
 	rising_star_noms = state.get("rising_star_noms",
 			{"from": season.round_index + 1 if season != null else 1, "rounds": []})
+	# The same for the count's votes: never back-filled from the totals.
+	award_counts = state.get("award_counts", AwardsCount.fresh(season_year, my_club,
+			season.round_index + 1 if season != null else 1))
 	honour_roll = state.get("honour_roll", [])
 	almanac = state.get("almanac", [])  # older saves: none; the page falls back to the honour roll
 	records = state.get("records", {})
@@ -1496,6 +1505,7 @@ func reset() -> void:
 	season_team = {}
 	season_awards = {}
 	rising_star_noms = {"from": 1, "rounds": []}
+	award_counts = AwardsCount.fresh(season_year, my_club)
 	honour_roll = []
 	almanac = []
 	honour_board = {}
@@ -2110,6 +2120,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	season_team = {}
 	season_awards = {}
 	rising_star_noms = {"from": 1, "rounds": []}
+	award_counts = AwardsCount.fresh(season_year, my_club)
 	# Everyone listed before ageing: a retiree leaves the lists inside
 	# age_league, and his playing career must be captured from him first.
 	var listed := {}
@@ -5695,10 +5706,12 @@ func _after_round(results: Array) -> void:
 	_process_injuries(results)
 	_process_discipline(results)
 	_count_finals(results)
+	var counted := AwardsCount.snapshot(season_tally, results)
 	for res in results:
 		Awards.tally_match(season_tally, res, not res.has("tag"))
 		StatBook.add_match(season_stats, res)
 		_note_form_and_team(res)
+	_record_award_counts(counted, results)
 	Milestones.record_round(self, results)
 	_nominate_rising_star(results)
 	_round_news(results)
@@ -5764,6 +5777,22 @@ func save_saw_every_game(p: Dictionary) -> bool:
 func story_flag_set(holder: String, flag: String) -> bool:
 	var at := int(((story.get("flags", {}) as Dictionary).get(holder, {}) as Dictionary).get(flag, StoryEngine.NEVER))
 	return at >= StoryEngine.week_abs(season_year, 1)
+
+
+## The round's votes for the awards-night count (AwardsCount.gd): the change
+## in the season tally across this round's matches, `before` its snapshot.
+func _record_award_counts(before: Dictionary, results: Array) -> void:
+	if season == null or results.is_empty():
+		return
+	if int(award_counts.get("year", 0)) != season_year or str(award_counts.get("club", "")) != my_club:
+		# Kept for another season or club (an older save): start again from here.
+		award_counts = AwardsCount.fresh(season_year, my_club,
+				int((results[0] as Dictionary).get("round", 1)) if results[0] is Dictionary else 1)
+	var order: Array = []
+	var rnd := int((results[0] as Dictionary).get("round", 0)) - 1 if results[0] is Dictionary else -1
+	if not (results[0] as Dictionary).has("tag") and rnd >= 0 and rnd < season.fixture.size():
+		order = season.fixture[rnd]
+	AwardsCount.record_round(award_counts, before, season_tally, results, my_club, order)
 
 
 ## A home-and-away round's Rising Star nomination (Awards.rising_star_nominee).
