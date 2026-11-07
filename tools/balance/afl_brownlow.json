@@ -1,0 +1,2603 @@
+{
+ "source": "AFL Tables season and match pages (afltables.com), Champion Data via Wheelo (docs/research/wheelo). Built by tools/balance/build_brownlow_rates.py.",
+ "ruck_gate_hitouts_pg": 7.0,
+ "min_games": 12,
+ "pooled": {
+  "seasons": [
+   "2015",
+   "2016",
+   "2017",
+   "2018",
+   "2019",
+   "2021",
+   "2022",
+   "2023",
+   "2024",
+   "2025",
+   "2026"
+  ],
+  "winner": {
+   "n": 11,
+   "max": 47.0,
+   "p99": 46.8,
+   "p90": 45.0,
+   "p50": 35.0,
+   "min": 28.0,
+   "mean": 35.45,
+   "sd": 5.88
+  },
+  "2nd": {
+   "n": 11,
+   "max": 38.0,
+   "p99": 37.8,
+   "p90": 36.0,
+   "p50": 29.0,
+   "min": 24.0,
+   "mean": 30.36,
+   "sd": 4.16
+  },
+  "5th": {
+   "n": 11,
+   "max": 28.0,
+   "p99": 27.9,
+   "p90": 27.0,
+   "p50": 25.0,
+   "min": 20.0,
+   "mean": 24.55,
+   "sd": 2.5
+  },
+  "10th": {
+   "n": 11,
+   "max": 25.0,
+   "p99": 24.9,
+   "p90": 24.0,
+   "p50": 19.0,
+   "min": 17.0,
+   "mean": 20.36,
+   "sd": 2.93
+  },
+  "polled": {
+   "n": 11,
+   "max": 210,
+   "p99": 209.7,
+   "p90": 207.0,
+   "p50": 199.0,
+   "min": 183,
+   "mean": 198.55,
+   "sd": 7.39
+  },
+  "polled_10": {
+   "n": 11,
+   "max": 44,
+   "p99": 43.9,
+   "p90": 43.0,
+   "p50": 41.0,
+   "min": 34,
+   "mean": 40.45,
+   "sd": 3.29
+  },
+  "polled_20": {
+   "n": 11,
+   "max": 17,
+   "p99": 17.0,
+   "p90": 17.0,
+   "p50": 9.0,
+   "min": 5,
+   "mean": 10.73,
+   "sd": 4.09
+  },
+  "ruck_share": {
+   "n": 11,
+   "max": 0.0733,
+   "p99": 0.0733,
+   "p90": 0.0732,
+   "p50": 0.0606,
+   "min": 0.0378,
+   "mean": 0.0568,
+   "sd": 0.0126
+  },
+  "tackles_pg_max": {
+   "n": 11,
+   "max": 10.71,
+   "p99": 10.59,
+   "p90": 9.5,
+   "p50": 8.45,
+   "min": 7.0,
+   "mean": 8.57,
+   "sd": 0.9
+  },
+  "tackles_pg_p99": {
+   "n": 11,
+   "max": 7.73,
+   "p99": 7.72,
+   "p90": 7.66,
+   "p50": 6.91,
+   "min": 6.46,
+   "mean": 6.98,
+   "sd": 0.4
+  },
+  "tackles_pg_p90": {
+   "n": 11,
+   "max": 5.41,
+   "p99": 5.39,
+   "p90": 5.22,
+   "p50": 4.62,
+   "min": 4.25,
+   "mean": 4.78,
+   "sd": 0.37
+  },
+  "tackles_pg_p50": {
+   "n": 11,
+   "max": 2.86,
+   "p99": 2.86,
+   "p90": 2.85,
+   "p50": 2.35,
+   "min": 2.22,
+   "mean": 2.49,
+   "sd": 0.23
+  },
+  "role_share": {
+   "MID": {
+    "n": 2,
+    "max": 0.6151,
+    "p99": 0.6143,
+    "p90": 0.6074,
+    "p50": 0.5764,
+    "min": 0.5378,
+    "mean": 0.5764,
+    "sd": 0.0387
+   },
+   "FWD": {
+    "n": 2,
+    "max": 0.2432,
+    "p99": 0.243,
+    "p90": 0.2415,
+    "p50": 0.2347,
+    "min": 0.2262,
+    "mean": 0.2347,
+    "sd": 0.0085
+   },
+   "DEF": {
+    "n": 2,
+    "max": 0.1626,
+    "p99": 0.1618,
+    "p90": 0.1542,
+    "p50": 0.1207,
+    "min": 0.0789,
+    "mean": 0.1207,
+    "sd": 0.0418
+   },
+   "RUCK": {
+    "n": 2,
+    "max": 0.0733,
+    "p99": 0.0732,
+    "p90": 0.0723,
+    "p50": 0.068,
+    "min": 0.0628,
+    "mean": 0.068,
+    "sd": 0.0053
+   }
+  },
+  "coaches_role_share": {
+   "MID": {
+    "n": 2,
+    "max": 0.461,
+    "p99": 0.4606,
+    "p90": 0.4569,
+    "p50": 0.4406,
+    "min": 0.4203,
+    "mean": 0.4406,
+    "sd": 0.0204
+   },
+   "FWD": {
+    "n": 2,
+    "max": 0.2587,
+    "p99": 0.2587,
+    "p90": 0.2583,
+    "p50": 0.2569,
+    "min": 0.255,
+    "mean": 0.2569,
+    "sd": 0.0018
+   },
+   "DEF": {
+    "n": 2,
+    "max": 0.2388,
+    "p99": 0.2384,
+    "p90": 0.2347,
+    "p50": 0.2185,
+    "min": 0.1981,
+    "mean": 0.2185,
+    "sd": 0.0204
+   },
+   "RUCK": {
+    "n": 2,
+    "max": 0.0859,
+    "p99": 0.0859,
+    "p90": 0.0855,
+    "p50": 0.084,
+    "min": 0.0822,
+    "mean": 0.084,
+    "sd": 0.0019
+   }
+  },
+  "tackles_pg_by_role": {
+   "ALL": {
+    "max": {
+     "n": 2,
+     "max": 8.92,
+     "p99": 8.9,
+     "p90": 8.73,
+     "p50": 7.96,
+     "min": 7.0,
+     "mean": 7.96,
+     "sd": 0.96
+    },
+    "p99": {
+     "n": 2,
+     "max": 7.73,
+     "p99": 7.72,
+     "p90": 7.6,
+     "p50": 7.1,
+     "min": 6.46,
+     "mean": 7.1,
+     "sd": 0.64
+    },
+    "p90": {
+     "n": 2,
+     "max": 4.39,
+     "p99": 4.39,
+     "p90": 4.38,
+     "p50": 4.32,
+     "min": 4.25,
+     "mean": 4.32,
+     "sd": 0.07
+    },
+    "p50": {
+     "n": 2,
+     "max": 2.31,
+     "p99": 2.31,
+     "p90": 2.3,
+     "p50": 2.27,
+     "min": 2.22,
+     "mean": 2.27,
+     "sd": 0.04
+    }
+   },
+   "MID": {
+    "max": {
+     "n": 2,
+     "max": 8.92,
+     "p99": 8.9,
+     "p90": 8.73,
+     "p50": 7.96,
+     "min": 7.0,
+     "mean": 7.96,
+     "sd": 0.96
+    },
+    "p99": {
+     "n": 2,
+     "max": 8.69,
+     "p99": 8.67,
+     "p90": 8.52,
+     "p50": 7.82,
+     "min": 6.96,
+     "mean": 7.82,
+     "sd": 0.86
+    },
+    "p90": {
+     "n": 2,
+     "max": 5.73,
+     "p99": 5.72,
+     "p90": 5.68,
+     "p50": 5.47,
+     "min": 5.21,
+     "mean": 5.47,
+     "sd": 0.26
+    },
+    "p50": {
+     "n": 2,
+     "max": 3.61,
+     "p99": 3.61,
+     "p90": 3.59,
+     "p50": 3.5,
+     "min": 3.38,
+     "mean": 3.5,
+     "sd": 0.11
+    }
+   },
+   "FWD": {
+    "max": {
+     "n": 2,
+     "max": 7.83,
+     "p99": 7.82,
+     "p90": 7.7,
+     "p50": 7.17,
+     "min": 6.52,
+     "mean": 7.17,
+     "sd": 0.66
+    },
+    "p99": {
+     "n": 2,
+     "max": 6.4,
+     "p99": 6.39,
+     "p90": 6.26,
+     "p50": 5.71,
+     "min": 5.02,
+     "mean": 5.71,
+     "sd": 0.69
+    },
+    "p90": {
+     "n": 2,
+     "max": 3.69,
+     "p99": 3.69,
+     "p90": 3.69,
+     "p50": 3.69,
+     "min": 3.68,
+     "mean": 3.69,
+     "sd": 0.0
+    },
+    "p50": {
+     "n": 2,
+     "max": 2.27,
+     "p99": 2.27,
+     "p90": 2.27,
+     "p50": 2.25,
+     "min": 2.23,
+     "mean": 2.25,
+     "sd": 0.02
+    }
+   },
+   "DEF": {
+    "max": {
+     "n": 2,
+     "max": 4.0,
+     "p99": 4.0,
+     "p90": 3.98,
+     "p50": 3.88,
+     "min": 3.76,
+     "mean": 3.88,
+     "sd": 0.12
+    },
+    "p99": {
+     "n": 2,
+     "max": 3.78,
+     "p99": 3.78,
+     "p90": 3.77,
+     "p50": 3.71,
+     "min": 3.64,
+     "mean": 3.71,
+     "sd": 0.07
+    },
+    "p90": {
+     "n": 2,
+     "max": 2.64,
+     "p99": 2.64,
+     "p90": 2.64,
+     "p50": 2.64,
+     "min": 2.64,
+     "mean": 2.64,
+     "sd": 0.0
+    },
+    "p50": {
+     "n": 2,
+     "max": 1.83,
+     "p99": 1.83,
+     "p90": 1.83,
+     "p50": 1.83,
+     "min": 1.82,
+     "mean": 1.83,
+     "sd": 0.01
+    }
+   },
+   "RUCK": {
+    "max": {
+     "n": 2,
+     "max": 6.6,
+     "p99": 6.59,
+     "p90": 6.54,
+     "p50": 6.28,
+     "min": 5.95,
+     "mean": 6.28,
+     "sd": 0.32
+    },
+    "p99": {
+     "n": 2,
+     "max": 6.13,
+     "p99": 6.13,
+     "p90": 6.09,
+     "p50": 5.91,
+     "min": 5.69,
+     "mean": 5.91,
+     "sd": 0.22
+    },
+    "p90": {
+     "n": 2,
+     "max": 4.15,
+     "p99": 4.15,
+     "p90": 4.11,
+     "p50": 3.96,
+     "min": 3.78,
+     "mean": 3.96,
+     "sd": 0.19
+    },
+    "p50": {
+     "n": 2,
+     "max": 3.14,
+     "p99": 3.13,
+     "p90": 3.06,
+     "p50": 2.74,
+     "min": 2.33,
+     "mean": 2.74,
+     "sd": 0.41
+    }
+   }
+  },
+  "pressure_acts_pg_by_role": {
+   "ALL": {
+    "max": {
+     "n": 2,
+     "max": 29.0,
+     "p99": 28.97,
+     "p90": 28.73,
+     "p50": 27.66,
+     "min": 26.33,
+     "mean": 27.66,
+     "sd": 1.34
+    },
+    "p99": {
+     "n": 2,
+     "max": 24.24,
+     "p99": 24.23,
+     "p90": 24.14,
+     "p50": 23.72,
+     "min": 23.2,
+     "mean": 23.72,
+     "sd": 0.52
+    },
+    "p90": {
+     "n": 2,
+     "max": 18.38,
+     "p99": 18.38,
+     "p90": 18.35,
+     "p50": 18.23,
+     "min": 18.08,
+     "mean": 18.23,
+     "sd": 0.15
+    },
+    "p50": {
+     "n": 2,
+     "max": 11.21,
+     "p99": 11.21,
+     "p90": 11.17,
+     "p50": 11.01,
+     "min": 10.8,
+     "mean": 11.01,
+     "sd": 0.21
+    }
+   },
+   "MID": {
+    "max": {
+     "n": 2,
+     "max": 29.0,
+     "p99": 28.97,
+     "p90": 28.73,
+     "p50": 27.66,
+     "min": 26.33,
+     "mean": 27.66,
+     "sd": 1.34
+    },
+    "p99": {
+     "n": 2,
+     "max": 28.06,
+     "p99": 28.01,
+     "p90": 27.61,
+     "p50": 25.79,
+     "min": 23.52,
+     "mean": 25.79,
+     "sd": 2.27
+    },
+    "p90": {
+     "n": 2,
+     "max": 21.29,
+     "p99": 21.28,
+     "p90": 21.15,
+     "p50": 20.59,
+     "min": 19.89,
+     "mean": 20.59,
+     "sd": 0.7
+    },
+    "p50": {
+     "n": 2,
+     "max": 15.74,
+     "p99": 15.74,
+     "p90": 15.7,
+     "p50": 15.55,
+     "min": 15.37,
+     "mean": 15.55,
+     "sd": 0.19
+    }
+   },
+   "FWD": {
+    "max": {
+     "n": 2,
+     "max": 26.0,
+     "p99": 25.97,
+     "p90": 25.74,
+     "p50": 24.7,
+     "min": 23.39,
+     "mean": 24.7,
+     "sd": 1.3
+    },
+    "p99": {
+     "n": 2,
+     "max": 22.71,
+     "p99": 22.68,
+     "p90": 22.41,
+     "p50": 21.23,
+     "min": 19.74,
+     "mean": 21.23,
+     "sd": 1.49
+    },
+    "p90": {
+     "n": 2,
+     "max": 16.87,
+     "p99": 16.87,
+     "p90": 16.87,
+     "p50": 16.85,
+     "min": 16.83,
+     "mean": 16.85,
+     "sd": 0.02
+    },
+    "p50": {
+     "n": 2,
+     "max": 11.69,
+     "p99": 11.69,
+     "p90": 11.68,
+     "p50": 11.65,
+     "min": 11.61,
+     "mean": 11.65,
+     "sd": 0.04
+    }
+   },
+   "DEF": {
+    "max": {
+     "n": 2,
+     "max": 19.7,
+     "p99": 19.66,
+     "p90": 19.33,
+     "p50": 17.83,
+     "min": 15.96,
+     "mean": 17.83,
+     "sd": 1.87
+    },
+    "p99": {
+     "n": 2,
+     "max": 17.64,
+     "p99": 17.61,
+     "p90": 17.36,
+     "p50": 16.23,
+     "min": 14.83,
+     "mean": 16.23,
+     "sd": 1.41
+    },
+    "p90": {
+     "n": 2,
+     "max": 12.09,
+     "p99": 12.08,
+     "p90": 12.03,
+     "p50": 11.79,
+     "min": 11.5,
+     "mean": 11.79,
+     "sd": 0.29
+    },
+    "p50": {
+     "n": 2,
+     "max": 8.35,
+     "p99": 8.35,
+     "p90": 8.35,
+     "p50": 8.34,
+     "min": 8.33,
+     "mean": 8.34,
+     "sd": 0.01
+    }
+   },
+   "RUCK": {
+    "max": {
+     "n": 2,
+     "max": 15.68,
+     "p99": 15.66,
+     "p90": 15.49,
+     "p50": 14.75,
+     "min": 13.83,
+     "mean": 14.75,
+     "sd": 0.92
+    },
+    "p99": {
+     "n": 2,
+     "max": 15.62,
+     "p99": 15.6,
+     "p90": 15.44,
+     "p50": 14.72,
+     "min": 13.83,
+     "mean": 14.72,
+     "sd": 0.89
+    },
+    "p90": {
+     "n": 2,
+     "max": 14.98,
+     "p99": 14.96,
+     "p90": 14.82,
+     "p50": 14.2,
+     "min": 13.42,
+     "mean": 14.2,
+     "sd": 0.78
+    },
+    "p50": {
+     "n": 2,
+     "max": 10.44,
+     "p99": 10.43,
+     "p90": 10.31,
+     "p50": 9.79,
+     "min": 9.13,
+     "mean": 9.79,
+     "sd": 0.65
+    }
+   }
+  }
+ },
+ "matches": {
+  "seasons": [
+   2023,
+   2024,
+   2025
+  ],
+  "by_season": {
+   "2023": {
+    "top_tackler_mean": 8.14,
+    "top_tackler_p90": 11.0,
+    "top_tackler_max": 17.0,
+    "player_game_p99": 10.0,
+    "player_game_p90": 6.0,
+    "player_game_max": 17.0
+   },
+   "2024": {
+    "top_tackler_mean": 8.02,
+    "top_tackler_p90": 11.0,
+    "top_tackler_max": 16.0,
+    "player_game_p99": 10.0,
+    "player_game_p90": 6.0,
+    "player_game_max": 16.0
+   },
+   "2025": {
+    "top_tackler_mean": 8.34,
+    "top_tackler_p90": 12.0,
+    "top_tackler_max": 18.0,
+    "player_game_p99": 10.0,
+    "player_game_p90": 6.0,
+    "player_game_max": 18.0
+   }
+  },
+  "matches": 621,
+  "voted_matches": 621,
+  "tackles_player_game": {
+   "n": 26830,
+   "max": 18.0,
+   "p99": 10.0,
+   "p90": 6.0,
+   "p50": 2.0,
+   "min": 0.0,
+   "mean": 2.73,
+   "sd": 2.25
+  },
+  "top_tackler_match": {
+   "n": 1242,
+   "max": 18.0,
+   "p99": 15.0,
+   "p90": 11.0,
+   "p50": 8.0,
+   "min": 3.0,
+   "mean": 8.17,
+   "sd": 2.41
+  },
+  "winners_vote_share": 0.8409,
+  "winners_3vote_share": 0.9057,
+  "vote_fit": {
+   "model": "Plackett-Luce on the umpires' 3-2-1 order, every voted home-and-away match 2023-2025; weights per unit of the stat, a disposal = 1.0",
+   "matches": 621,
+   "per_disposal_logit": 0.1921,
+   "weights": {
+    "disposals": 1.0,
+    "goals": 5.412,
+    "marks": 0.378,
+    "inside50": 0.401,
+    "tackles": 0.306,
+    "hitouts": 0.079,
+    "clearances": 0.864,
+    "one_percenters": 0.631,
+    "clangers": 0.104
+   },
+   "with_result": {
+    "weights": {
+     "disposals": 1.0,
+     "goals": 4.966,
+     "marks": 0.272,
+     "inside50": 0.294,
+     "tackles": 0.275,
+     "hitouts": 0.087,
+     "clearances": 0.808,
+     "one_percenters": 0.582,
+     "clangers": 0.188
+    },
+    "won_in_disposals": 7.45
+   },
+   "wide": {
+    "disposals": 1.0,
+    "goals": 4.956,
+    "marks": 0.168,
+    "inside50": 0.359,
+    "tackles": 0.278,
+    "hitouts": 0.028,
+    "clearances": 0.796,
+    "one_percenters": 0.49,
+    "clangers": -0.065,
+    "contested_possessions": 0.015,
+    "behinds": 0.377,
+    "goal_assists": 0.535,
+    "rebounds": 0.182,
+    "frees_for": 0.307,
+    "frees_against": 0.475,
+    "contested_marks": 1.427
+   },
+   "pressure_acts": "no match-level source; not fitted",
+   "replay": {
+    "top_pick_is_real_3vote": 0.4638,
+    "winner_by_season": {
+     "2023": {
+      "winner": 35,
+      "10th": 23,
+      "polled": 182
+     },
+     "2024": {
+      "winner": 41,
+      "10th": 25,
+      "polled": 177
+     },
+     "2025": {
+      "winner": 33,
+      "10th": 21,
+      "polled": 187
+     }
+    }
+   }
+  }
+ },
+ "seasons": {
+  "2015": {
+   "games_each": 26,
+   "total_votes": 1182,
+   "tallies": {
+    "winner": 31.0,
+    "2nd": 28.0,
+    "3rd": 26.0,
+    "5th": 24.0,
+    "10th": 18.0
+   },
+   "top10": [
+    {
+     "name": "Nat Fyfe",
+     "club": "FRE",
+     "votes": 31,
+     "games": 20,
+     "hitouts_pg": 2.1
+    },
+    {
+     "name": "Matt Priddis",
+     "club": "WCE",
+     "votes": 28,
+     "games": 24,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Sam Mitchell",
+     "club": "HAW",
+     "votes": 26,
+     "games": 24,
+     "hitouts_pg": 0.1
+    },
+    {
+     "name": "Josh Kennedy",
+     "club": "SYD",
+     "votes": 25,
+     "games": 24,
+     "hitouts_pg": 0.2
+    },
+    {
+     "name": "Dan Hannebery",
+     "club": "SYD",
+     "votes": 24,
+     "games": 24,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Patrick Dangerfield",
+     "club": "ADE",
+     "votes": 22,
+     "games": 23,
+     "hitouts_pg": 1.4
+    },
+    {
+     "name": "Dustin Martin",
+     "club": "RIC",
+     "votes": 21,
+     "games": 23,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "David Mundy",
+     "club": "FRE",
+     "votes": 19,
+     "games": 23,
+     "hitouts_pg": 2.0
+    },
+    {
+     "name": "Callan Ward",
+     "club": "GWS",
+     "votes": 19,
+     "games": 22,
+     "hitouts_pg": 2.2
+    },
+    {
+     "name": "Todd Goldstein",
+     "club": "NTH",
+     "votes": 18,
+     "games": 24,
+     "hitouts_pg": 44.1
+    }
+   ],
+   "polled": 199,
+   "polled_10": 34,
+   "polled_20": 7,
+   "ruck_share": 0.0601,
+   "tackles_pg": {
+    "ALL": {
+     "n": 391,
+     "max": 8.06,
+     "p99": 6.91,
+     "p90": 5.22,
+     "p50": 2.67,
+     "min": 0.6,
+     "mean": 3.03,
+     "sd": 1.43
+    },
+    "RUCK": {
+     "n": 24,
+     "max": 6.0,
+     "p99": 5.95,
+     "p90": 4.41,
+     "p50": 2.72,
+     "min": 1.48,
+     "mean": 3.04,
+     "sd": 1.21
+    }
+   },
+   "top_tacklers": [
+    {
+     "name": "Tom Rockliff",
+     "club": "BRL",
+     "tackles_pg": 8.06
+    },
+    {
+     "name": "Andrew Swallow",
+     "club": "NTH",
+     "tackles_pg": 7.45
+    },
+    {
+     "name": "Liam Shiels",
+     "club": "HAW",
+     "tackles_pg": 7.36
+    },
+    {
+     "name": "Matt Priddis",
+     "club": "WCE",
+     "tackles_pg": 7.33
+    },
+    {
+     "name": "Jack Steven",
+     "club": "STK",
+     "tackles_pg": 6.86
+    }
+   ]
+  },
+  "2016": {
+   "games_each": 26,
+   "total_votes": 1188,
+   "tallies": {
+    "winner": 35.0,
+    "2nd": 26.0,
+    "3rd": 25.0,
+    "5th": 21.0,
+    "10th": 19.0
+   },
+   "top10": [
+    {
+     "name": "Patrick Dangerfield",
+     "club": "GEE",
+     "votes": 35,
+     "games": 24,
+     "hitouts_pg": 0.4
+    },
+    {
+     "name": "Luke Parker",
+     "club": "SYD",
+     "votes": 26,
+     "games": 26,
+     "hitouts_pg": 1.4
+    },
+    {
+     "name": "Dustin Martin",
+     "club": "RIC",
+     "votes": 25,
+     "games": 22,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Rory Sloane",
+     "club": "ADE",
+     "votes": 24,
+     "games": 23,
+     "hitouts_pg": 1.5
+    },
+    {
+     "name": "Adam Treloar",
+     "club": "COL",
+     "votes": 21,
+     "games": 22,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Dan Hannebery",
+     "club": "SYD",
+     "votes": 21,
+     "games": 26,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Andrew Gaff",
+     "club": "WCE",
+     "votes": 21,
+     "games": 22,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Lachie Neale",
+     "club": "FRE",
+     "votes": 20,
+     "games": 22,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Marcus Bontempelli",
+     "club": "WBD",
+     "votes": 20,
+     "games": 26,
+     "hitouts_pg": 2.5
+    },
+    {
+     "name": "Zach Merrett",
+     "club": "ESS",
+     "votes": 19,
+     "games": 22,
+     "hitouts_pg": 0.0
+    }
+   ],
+   "polled": 204,
+   "polled_10": 41,
+   "polled_20": 9,
+   "ruck_share": 0.0446,
+   "tackles_pg": {
+    "ALL": {
+     "n": 402,
+     "max": 8.55,
+     "p99": 7.09,
+     "p90": 5.41,
+     "p50": 2.86,
+     "min": 0.94,
+     "mean": 3.23,
+     "sd": 1.44
+    },
+    "RUCK": {
+     "n": 28,
+     "max": 5.79,
+     "p99": 5.79,
+     "p90": 4.67,
+     "p50": 2.9,
+     "min": 1.8,
+     "mean": 3.24,
+     "sd": 1.05
+    }
+   },
+   "top_tacklers": [
+    {
+     "name": "Matt Priddis",
+     "club": "WCE",
+     "tackles_pg": 8.55
+    },
+    {
+     "name": "Liam Shiels",
+     "club": "HAW",
+     "tackles_pg": 8.5
+    },
+    {
+     "name": "Andrew Swallow",
+     "club": "NTH",
+     "tackles_pg": 7.5
+    },
+    {
+     "name": "Scott Thompson",
+     "club": "ADE",
+     "tackles_pg": 7.18
+    },
+    {
+     "name": "Rory Sloane",
+     "club": "ADE",
+     "tackles_pg": 7.09
+    }
+   ]
+  },
+  "2017": {
+   "games_each": 25,
+   "total_votes": 1188,
+   "tallies": {
+    "winner": 36.0,
+    "2nd": 33.0,
+    "3rd": 25.0,
+    "5th": 22.0,
+    "10th": 17.0
+   },
+   "top10": [
+    {
+     "name": "Dustin Martin",
+     "club": "RIC",
+     "votes": 36,
+     "games": 25,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Patrick Dangerfield",
+     "club": "GEE",
+     "votes": 33,
+     "games": 24,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Tom Mitchell",
+     "club": "HAW",
+     "votes": 25,
+     "games": 22,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Josh Kennedy",
+     "club": "SYD",
+     "votes": 23,
+     "games": 21,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Lance Franklin",
+     "club": "SYD",
+     "votes": 22,
+     "games": 24,
+     "hitouts_pg": 0.1
+    },
+    {
+     "name": "Josh Kelly",
+     "club": "GWS",
+     "votes": 21,
+     "games": 24,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Rory Sloane",
+     "club": "ADE",
+     "votes": 20,
+     "games": 24,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Marcus Bontempelli",
+     "club": "WBD",
+     "votes": 19,
+     "games": 22,
+     "hitouts_pg": 0.1
+    },
+    {
+     "name": "Ollie Wines",
+     "club": "PAD",
+     "votes": 18,
+     "games": 23,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Dayne Beams",
+     "club": "BRL",
+     "votes": 17,
+     "games": 19,
+     "hitouts_pg": 0.0
+    }
+   ],
+   "polled": 198,
+   "polled_10": 43,
+   "polled_20": 7,
+   "ruck_share": 0.0446,
+   "tackles_pg": {
+    "ALL": {
+     "n": 395,
+     "max": 10.71,
+     "p99": 7.66,
+     "p90": 5.18,
+     "p50": 2.85,
+     "min": 1.0,
+     "mean": 3.18,
+     "sd": 1.45
+    },
+    "RUCK": {
+     "n": 24,
+     "max": 5.57,
+     "p99": 5.46,
+     "p90": 4.03,
+     "p50": 2.95,
+     "min": 1.77,
+     "mean": 3.24,
+     "sd": 0.83
+    }
+   },
+   "top_tacklers": [
+    {
+     "name": "Scott Selwood",
+     "club": "GEE",
+     "tackles_pg": 10.71
+    },
+    {
+     "name": "Jack Steele",
+     "club": "STK",
+     "tackles_pg": 7.9
+    },
+    {
+     "name": "Matt Priddis",
+     "club": "WCE",
+     "tackles_pg": 7.76
+    },
+    {
+     "name": "Rory Sloane",
+     "club": "ADE",
+     "tackles_pg": 7.75
+    },
+    {
+     "name": "Brad Ebert",
+     "club": "PAD",
+     "tackles_pg": 7.65
+    }
+   ]
+  },
+  "2018": {
+   "games_each": 26,
+   "total_votes": 1188,
+   "tallies": {
+    "winner": 28.0,
+    "2nd": 24.0,
+    "3rd": 21.0,
+    "5th": 20.0,
+    "10th": 17.0
+   },
+   "top10": [
+    {
+     "name": "Tom Mitchell",
+     "club": "HAW",
+     "votes": 28,
+     "games": 24,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Steele Sidebottom",
+     "club": "COL",
+     "votes": 24,
+     "games": 26,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Angus Brayshaw",
+     "club": "MEL",
+     "votes": 21,
+     "games": 22,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Patrick Cripps",
+     "club": "CAR",
+     "votes": 20,
+     "games": 22,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Max Gawn",
+     "club": "MEL",
+     "votes": 20,
+     "games": 25,
+     "hitouts_pg": 44.8
+    },
+    {
+     "name": "Rory Laird",
+     "club": "ADE",
+     "votes": 19,
+     "games": 20,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Dustin Martin",
+     "club": "RIC",
+     "votes": 19,
+     "games": 23,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Dayne Beams",
+     "club": "BRL",
+     "votes": 18,
+     "games": 21,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Jack Steven",
+     "club": "STK",
+     "votes": 18,
+     "games": 22,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Brodie Grundy",
+     "club": "COL",
+     "votes": 17,
+     "games": 26,
+     "hitouts_pg": 40.0
+    }
+   ],
+   "polled": 210,
+   "polled_10": 42,
+   "polled_20": 5,
+   "ruck_share": 0.0732,
+   "tackles_pg": {
+    "ALL": {
+     "n": 396,
+     "max": 8.45,
+     "p99": 6.68,
+     "p90": 5.04,
+     "p50": 2.67,
+     "min": 0.75,
+     "mean": 2.99,
+     "sd": 1.35
+    },
+    "RUCK": {
+     "n": 24,
+     "max": 5.15,
+     "p99": 5.09,
+     "p90": 4.16,
+     "p50": 2.84,
+     "min": 1.45,
+     "mean": 2.99,
+     "sd": 0.85
+    }
+   },
+   "top_tacklers": [
+    {
+     "name": "Devon Smith",
+     "club": "ESS",
+     "tackles_pg": 8.45
+    },
+    {
+     "name": "Dayne Zorko",
+     "club": "BRL",
+     "tackles_pg": 7.23
+    },
+    {
+     "name": "Ben Jacobs",
+     "club": "NTH",
+     "tackles_pg": 6.77
+    },
+    {
+     "name": "Clayton Oliver",
+     "club": "MEL",
+     "tackles_pg": 6.72
+    },
+    {
+     "name": "Elliot Yeo",
+     "club": "WCE",
+     "tackles_pg": 6.68
+    }
+   ]
+  },
+  "2019": {
+   "games_each": 26,
+   "total_votes": 1188,
+   "tallies": {
+    "winner": 33.0,
+    "2nd": 27.0,
+    "3rd": 26.0,
+    "5th": 24.0,
+    "10th": 19.0
+   },
+   "top10": [
+    {
+     "name": "Nat Fyfe",
+     "club": "FRE",
+     "votes": 33,
+     "games": 20,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Patrick Dangerfield",
+     "club": "GEE",
+     "votes": 27,
+     "games": 24,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Lachie Neale",
+     "club": "BRL",
+     "votes": 26,
+     "games": 24,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Patrick Cripps",
+     "club": "CAR",
+     "votes": 26,
+     "games": 20,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Tim Kelly",
+     "club": "GEE",
+     "votes": 24,
+     "games": 25,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Brodie Grundy",
+     "club": "COL",
+     "votes": 23,
+     "games": 24,
+     "hitouts_pg": 42.6
+    },
+    {
+     "name": "Dustin Martin",
+     "club": "RIC",
+     "votes": 23,
+     "games": 23,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Jack Macrae",
+     "club": "WBD",
+     "votes": 22,
+     "games": 23,
+     "hitouts_pg": 0.1
+    },
+    {
+     "name": "Marcus Bontempelli",
+     "club": "WBD",
+     "votes": 22,
+     "games": 23,
+     "hitouts_pg": 0.3
+    },
+    {
+     "name": "Dayne Zorko",
+     "club": "BRL",
+     "votes": 19,
+     "games": 24,
+     "hitouts_pg": 0.0
+    }
+   ],
+   "polled": 198,
+   "polled_10": 43,
+   "polled_20": 9,
+   "ruck_share": 0.064,
+   "tackles_pg": {
+    "ALL": {
+     "n": 402,
+     "max": 8.2,
+     "p99": 6.63,
+     "p90": 4.87,
+     "p50": 2.59,
+     "min": 0.47,
+     "mean": 2.88,
+     "sd": 1.31
+    },
+    "RUCK": {
+     "n": 25,
+     "max": 4.33,
+     "p99": 4.32,
+     "p90": 4.09,
+     "p50": 2.55,
+     "min": 1.6,
+     "mean": 2.79,
+     "sd": 0.79
+    }
+   },
+   "top_tacklers": [
+    {
+     "name": "Jack Steele",
+     "club": "STK",
+     "tackles_pg": 8.2
+    },
+    {
+     "name": "Elliot Yeo",
+     "club": "WCE",
+     "tackles_pg": 7.3
+    },
+    {
+     "name": "Jack Graham",
+     "club": "RIC",
+     "tackles_pg": 7.06
+    },
+    {
+     "name": "Dayne Zorko",
+     "club": "BRL",
+     "tackles_pg": 6.67
+    },
+    {
+     "name": "Liam Shiels",
+     "club": "HAW",
+     "tackles_pg": 6.63
+    }
+   ]
+  },
+  "2020": {
+   "games_each": 21,
+   "total_votes": 918,
+   "tallies": {
+    "winner": 31.0,
+    "2nd": 21.0,
+    "3rd": 20.0,
+    "5th": 15.0,
+    "10th": 14.0
+   },
+   "top10": [
+    {
+     "name": "Lachie Neale",
+     "club": "BRL",
+     "votes": 31,
+     "games": 19,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Travis Boak",
+     "club": "PAD",
+     "votes": 21,
+     "games": 19,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Christian Petracca",
+     "club": "MEL",
+     "votes": 20,
+     "games": 17,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Jack Steele",
+     "club": "STK",
+     "votes": 20,
+     "games": 19,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Patrick Dangerfield",
+     "club": "GEE",
+     "votes": 15,
+     "games": 21,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Dustin Martin",
+     "club": "RIC",
+     "votes": 15,
+     "games": 20,
+     "hitouts_pg": 0.1
+    },
+    {
+     "name": "Luke Parker",
+     "club": "SYD",
+     "votes": 15,
+     "games": 17,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Jack Macrae",
+     "club": "WBD",
+     "votes": 15,
+     "games": 18,
+     "hitouts_pg": 0.3
+    },
+    {
+     "name": "Cameron Guthrie",
+     "club": "GEE",
+     "votes": 14,
+     "games": 21,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Clayton Oliver",
+     "club": "MEL",
+     "votes": 14,
+     "games": 17,
+     "hitouts_pg": 0.0
+    }
+   ],
+   "polled": 207,
+   "polled_10": 25,
+   "polled_20": 4,
+   "ruck_share": 0.0599,
+   "tackles_pg": {
+    "ALL": {
+     "n": 333,
+     "max": 6.71,
+     "p99": 5.76,
+     "p90": 4.08,
+     "p50": 2.24,
+     "min": 0.22,
+     "mean": 2.41,
+     "sd": 1.18
+    },
+    "RUCK": {
+     "n": 19,
+     "max": 4.0,
+     "p99": 3.93,
+     "p90": 3.13,
+     "p50": 2.46,
+     "min": 1.41,
+     "mean": 2.42,
+     "sd": 0.63
+    }
+   },
+   "top_tacklers": [
+    {
+     "name": "Hugh Greenwood",
+     "club": "GCS",
+     "tackles_pg": 6.71
+    },
+    {
+     "name": "Tom Rockliff",
+     "club": "PAD",
+     "tackles_pg": 6.25
+    },
+    {
+     "name": "Josh Dunkley",
+     "club": "WBD",
+     "tackles_pg": 5.92
+    },
+    {
+     "name": "Brandan Parfitt",
+     "club": "GEE",
+     "tackles_pg": 5.89
+    },
+    {
+     "name": "Taylor Adams",
+     "club": "COL",
+     "tackles_pg": 5.47
+    }
+   ],
+   "flag": "17 rounds of 16-minute quarters (COVID)"
+  },
+  "2021": {
+   "games_each": 26,
+   "total_votes": 1188,
+   "tallies": {
+    "winner": 36.0,
+    "2nd": 33.0,
+    "3rd": 31.0,
+    "5th": 26.0,
+    "10th": 23.0
+   },
+   "top10": [
+    {
+     "name": "Ollie Wines",
+     "club": "PAD",
+     "votes": 36,
+     "games": 24,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Marcus Bontempelli",
+     "club": "WBD",
+     "votes": 33,
+     "games": 26,
+     "hitouts_pg": 0.3
+    },
+    {
+     "name": "Clayton Oliver",
+     "club": "MEL",
+     "votes": 31,
+     "games": 25,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Sam Walsh",
+     "club": "CAR",
+     "votes": 30,
+     "games": 22,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Darcy Parish",
+     "club": "ESS",
+     "votes": 26,
+     "games": 23,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Jack Steele",
+     "club": "STK",
+     "votes": 26,
+     "games": 22,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Tom Mitchell",
+     "club": "HAW",
+     "votes": 25,
+     "games": 22,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Travis Boak",
+     "club": "PAD",
+     "votes": 25,
+     "games": 23,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Jarryd Lyons",
+     "club": "BRL",
+     "votes": 23,
+     "games": 24,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Christian Petracca",
+     "club": "MEL",
+     "votes": 23,
+     "games": 25,
+     "hitouts_pg": 0.0
+    }
+   ],
+   "polled": 200,
+   "polled_10": 34,
+   "polled_20": 12,
+   "ruck_share": 0.0657,
+   "tackles_pg": {
+    "ALL": {
+     "n": 431,
+     "max": 8.67,
+     "p99": 6.71,
+     "p90": 4.38,
+     "p50": 2.24,
+     "min": 0.62,
+     "mean": 2.56,
+     "sd": 1.29
+    },
+    "RUCK": {
+     "n": 26,
+     "max": 4.86,
+     "p99": 4.69,
+     "p90": 3.71,
+     "p50": 2.5,
+     "min": 1.74,
+     "mean": 2.68,
+     "sd": 0.78
+    }
+   },
+   "top_tacklers": [
+    {
+     "name": "Hugh Greenwood",
+     "club": "GCS",
+     "tackles_pg": 8.67
+    },
+    {
+     "name": "Jack Steele",
+     "club": "STK",
+     "tackles_pg": 8.45
+    },
+    {
+     "name": "Touk Miller",
+     "club": "GCS",
+     "tackles_pg": 7.1
+    },
+    {
+     "name": "Jack Viney",
+     "club": "MEL",
+     "tackles_pg": 7.07
+    },
+    {
+     "name": "Willem Drew",
+     "club": "PAD",
+     "tackles_pg": 6.83
+    }
+   ]
+  },
+  "2022": {
+   "games_each": 25,
+   "total_votes": 1188,
+   "tallies": {
+    "winner": 29.0,
+    "2nd": 28.0,
+    "3rd": 27.0,
+    "5th": 25.0,
+    "10th": 17.0
+   },
+   "top10": [
+    {
+     "name": "Patrick Cripps",
+     "club": "CAR",
+     "votes": 29,
+     "games": 21,
+     "hitouts_pg": 0.5
+    },
+    {
+     "name": "Lachie Neale",
+     "club": "BRL",
+     "votes": 28,
+     "games": 25,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Touk Miller",
+     "club": "GCS",
+     "votes": 27,
+     "games": 22,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Andrew Brayshaw",
+     "club": "FRE",
+     "votes": 25,
+     "games": 24,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Clayton Oliver",
+     "club": "MEL",
+     "votes": 25,
+     "games": 23,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Christian Petracca",
+     "club": "MEL",
+     "votes": 24,
+     "games": 24,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Callum Mills",
+     "club": "SYD",
+     "votes": 21,
+     "games": 25,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Jeremy Cameron",
+     "club": "GEE",
+     "votes": 19,
+     "games": 24,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Dion Prestia",
+     "club": "RIC",
+     "votes": 19,
+     "games": 19,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Zach Merrett",
+     "club": "ESS",
+     "votes": 17,
+     "games": 19,
+     "hitouts_pg": 0.0
+    }
+   ],
+   "polled": 207,
+   "polled_10": 40,
+   "polled_20": 7,
+   "ruck_share": 0.0606,
+   "tackles_pg": {
+    "ALL": {
+     "n": 415,
+     "max": 9.5,
+     "p99": 7.05,
+     "p90": 4.61,
+     "p50": 2.25,
+     "min": 0.26,
+     "mean": 2.6,
+     "sd": 1.37
+    },
+    "RUCK": {
+     "n": 27,
+     "max": 5.04,
+     "p99": 4.79,
+     "p90": 3.82,
+     "p50": 2.42,
+     "min": 1.5,
+     "mean": 2.63,
+     "sd": 0.88
+    }
+   },
+   "top_tacklers": [
+    {
+     "name": "Sam Berry",
+     "club": "ADE",
+     "tackles_pg": 9.5
+    },
+    {
+     "name": "Rory Laird",
+     "club": "ADE",
+     "tackles_pg": 8.1
+    },
+    {
+     "name": "Matt Rowell",
+     "club": "GCS",
+     "tackles_pg": 7.18
+    },
+    {
+     "name": "Jack Steele",
+     "club": "STK",
+     "tackles_pg": 7.17
+    },
+    {
+     "name": "Brad Crouch",
+     "club": "STK",
+     "tackles_pg": 7.1
+    }
+   ]
+  },
+  "2023": {
+   "games_each": 26,
+   "total_votes": 1242,
+   "tallies": {
+    "winner": 31.0,
+    "2nd": 29.0,
+    "3rd": 28.0,
+    "5th": 27.0,
+    "10th": 22.0
+   },
+   "top10": [
+    {
+     "name": "Lachie Neale",
+     "club": "BRL",
+     "votes": 31,
+     "games": 26,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Marcus Bontempelli",
+     "club": "WBD",
+     "votes": 29,
+     "games": 23,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Nick Daicos",
+     "club": "COL",
+     "votes": 28,
+     "games": 22,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Zak Butters",
+     "club": "PAD",
+     "votes": 27,
+     "games": 25,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Errol Gulden",
+     "club": "SYD",
+     "votes": 27,
+     "games": 24,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Christian Petracca",
+     "club": "MEL",
+     "votes": 26,
+     "games": 25,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Caleb Serong",
+     "club": "FRE",
+     "votes": 24,
+     "games": 22,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Jack Viney",
+     "club": "MEL",
+     "votes": 24,
+     "games": 24,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Patrick Cripps",
+     "club": "CAR",
+     "votes": 22,
+     "games": 24,
+     "hitouts_pg": 0.1
+    },
+    {
+     "name": "Noah Anderson",
+     "club": "GCS",
+     "votes": 22,
+     "games": 23,
+     "hitouts_pg": 0.0
+    }
+   ],
+   "polled": 201,
+   "polled_10": 43,
+   "polled_20": 15,
+   "ruck_share": 0.0378,
+   "tackles_pg": {
+    "ALL": {
+     "n": 445,
+     "max": 8.26,
+     "p99": 7.25,
+     "p90": 4.58,
+     "p50": 2.35,
+     "min": 0.43,
+     "mean": 2.68,
+     "sd": 1.37
+    },
+    "RUCK": {
+     "n": 31,
+     "max": 5.47,
+     "p99": 5.26,
+     "p90": 4.53,
+     "p50": 2.62,
+     "min": 0.79,
+     "mean": 2.84,
+     "sd": 1.09
+    }
+   },
+   "top_tacklers": [
+    {
+     "name": "Matt Rowell",
+     "club": "GCS",
+     "tackles_pg": 8.26
+    },
+    {
+     "name": "Rory Laird",
+     "club": "ADE",
+     "tackles_pg": 7.95
+    },
+    {
+     "name": "Tom Atkins",
+     "club": "GEE",
+     "tackles_pg": 7.61
+    },
+    {
+     "name": "Marcus Bontempelli",
+     "club": "WBD",
+     "tackles_pg": 7.48
+    },
+    {
+     "name": "James Rowbottom",
+     "club": "SYD",
+     "tackles_pg": 7.33
+    }
+   ]
+  },
+  "2024": {
+   "games_each": 27,
+   "total_votes": 1242,
+   "tallies": {
+    "winner": 45.0,
+    "2nd": 38.0,
+    "3rd": 29.0,
+    "5th": 28.0,
+    "10th": 24.0
+   },
+   "top10": [
+    {
+     "name": "Patrick Cripps",
+     "club": "CAR",
+     "votes": 45,
+     "games": 24,
+     "hitouts_pg": 0.8
+    },
+    {
+     "name": "Nick Daicos",
+     "club": "COL",
+     "votes": 38,
+     "games": 23,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Zak Butters",
+     "club": "PAD",
+     "votes": 29,
+     "games": 26,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Caleb Serong",
+     "club": "FRE",
+     "votes": 28,
+     "games": 23,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Isaac Heeney",
+     "club": "SYD",
+     "votes": 28,
+     "games": 24,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Tom Green",
+     "club": "GWS",
+     "votes": 27,
+     "games": 25,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Adam Treloar",
+     "club": "WBD",
+     "votes": 26,
+     "games": 23,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Matt Rowell",
+     "club": "GCS",
+     "votes": 25,
+     "games": 23,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Errol Gulden",
+     "club": "SYD",
+     "votes": 25,
+     "games": 26,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Jai Newcombe",
+     "club": "HAW",
+     "votes": 24,
+     "games": 25,
+     "hitouts_pg": 0.0
+    }
+   ],
+   "polled": 196,
+   "polled_10": 40,
+   "polled_20": 13,
+   "ruck_share": 0.0378,
+   "tackles_pg": {
+    "ALL": {
+     "n": 442,
+     "max": 8.0,
+     "p99": 6.64,
+     "p90": 4.62,
+     "p50": 2.35,
+     "min": 0.48,
+     "mean": 2.63,
+     "sd": 1.34
+    },
+    "RUCK": {
+     "n": 24,
+     "max": 7.52,
+     "p99": 7.01,
+     "p90": 4.92,
+     "p50": 3.27,
+     "min": 1.36,
+     "mean": 3.4,
+     "sd": 1.38
+    }
+   },
+   "top_tacklers": [
+    {
+     "name": "Matt Rowell",
+     "club": "GCS",
+     "tackles_pg": 8.0
+    },
+    {
+     "name": "James Rowbottom",
+     "club": "SYD",
+     "tackles_pg": 7.75
+    },
+    {
+     "name": "Tristan Xerri",
+     "club": "NTH",
+     "tackles_pg": 7.52
+    },
+    {
+     "name": "Jack Steele",
+     "club": "STK",
+     "tackles_pg": 7.35
+    },
+    {
+     "name": "Sam Walsh",
+     "club": "CAR",
+     "tackles_pg": 6.75
+    }
+   ]
+  },
+  "2025": {
+   "games_each": 27,
+   "total_votes": 1242,
+   "tallies": {
+    "winner": 39.0,
+    "2nd": 32.0,
+    "3rd": 29.0,
+    "5th": 26.0,
+    "10th": 23.0
+   },
+   "top10": [
+    {
+     "name": "Matt Rowell",
+     "club": "GCS",
+     "votes": 39,
+     "games": 25,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Nick Daicos",
+     "club": "COL",
+     "votes": 32,
+     "games": 25,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Bailey Smith",
+     "club": "GEE",
+     "votes": 29,
+     "games": 23,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Jordan Dawson",
+     "club": "ADE",
+     "votes": 27,
+     "games": 25,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Andrew Brayshaw",
+     "club": "FRE",
+     "votes": 26,
+     "games": 24,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Caleb Serong",
+     "club": "FRE",
+     "votes": 25,
+     "games": 24,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Noah Anderson",
+     "club": "GCS",
+     "votes": 25,
+     "games": 25,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Marcus Bontempelli",
+     "club": "WBD",
+     "votes": 25,
+     "games": 18,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Max Gawn",
+     "club": "MEL",
+     "votes": 23,
+     "games": 23,
+     "hitouts_pg": 35.9
+    },
+    {
+     "name": "Nasiah Wanganeen-Milera",
+     "club": "STK",
+     "votes": 23,
+     "games": 23,
+     "hitouts_pg": 0.0
+    }
+   ],
+   "polled": 188,
+   "polled_10": 41,
+   "polled_20": 17,
+   "ruck_share": 0.0733,
+   "tackles_pg": {
+    "ALL": {
+     "n": 425,
+     "max": 8.92,
+     "p99": 7.73,
+     "p90": 4.39,
+     "p50": 2.31,
+     "min": 0.64,
+     "mean": 2.67,
+     "sd": 1.39
+    },
+    "RUCK": {
+     "n": 25,
+     "max": 6.6,
+     "p99": 6.13,
+     "p90": 4.15,
+     "p50": 3.14,
+     "min": 1.19,
+     "mean": 3.14,
+     "sd": 1.09
+    },
+    "MID": {
+     "n": 114,
+     "max": 8.92,
+     "p99": 8.69,
+     "p90": 5.73,
+     "p50": 3.61,
+     "min": 0.69,
+     "mean": 3.84,
+     "sd": 1.71
+    },
+    "FWD": {
+     "n": 144,
+     "max": 7.83,
+     "p99": 5.02,
+     "p90": 3.68,
+     "p50": 2.27,
+     "min": 0.64,
+     "mean": 2.45,
+     "sd": 1.01
+    },
+    "DEF": {
+     "n": 141,
+     "max": 3.76,
+     "p99": 3.64,
+     "p90": 2.64,
+     "p50": 1.82,
+     "min": 0.7,
+     "mean": 1.88,
+     "sd": 0.62
+    }
+   },
+   "top_tacklers": [
+    {
+     "name": "Tom Atkins",
+     "club": "GEE",
+     "tackles_pg": 8.92
+    },
+    {
+     "name": "Jack Steele",
+     "club": "STK",
+     "tackles_pg": 8.71
+    },
+    {
+     "name": "Matt Rowell",
+     "club": "GCS",
+     "tackles_pg": 8.56
+    },
+    {
+     "name": "Josh Dunkley",
+     "club": "BRL",
+     "tackles_pg": 8.07
+    },
+    {
+     "name": "Jack Graham",
+     "club": "WCE",
+     "tackles_pg": 7.83
+    }
+   ],
+   "role_share": {
+    "MID": 0.5378,
+    "FWD": 0.2262,
+    "DEF": 0.1626,
+    "RUCK": 0.0733
+   },
+   "role_share_votes_matched": 1242,
+   "coaches_role_share": {
+    "MID": 0.4203,
+    "FWD": 0.255,
+    "DEF": 0.2388,
+    "RUCK": 0.0859
+   },
+   "cd_matched": 667,
+   "cd_unmatched": 1,
+   "pressure_acts_pg": {
+    "ALL": {
+     "n": 424,
+     "max": 29.0,
+     "p99": 24.24,
+     "p90": 18.38,
+     "p50": 11.21,
+     "min": 4.3,
+     "mean": 11.85,
+     "sd": 4.61
+    },
+    "RUCK": {
+     "n": 25,
+     "max": 15.68,
+     "p99": 15.62,
+     "p90": 14.98,
+     "p50": 10.44,
+     "min": 7.43,
+     "mean": 10.96,
+     "sd": 2.51
+    },
+    "MID": {
+     "n": 114,
+     "max": 29.0,
+     "p99": 28.06,
+     "p90": 21.29,
+     "p50": 15.74,
+     "min": 6.38,
+     "mean": 15.98,
+     "sd": 4.46
+    },
+    "FWD": {
+     "n": 144,
+     "max": 26.0,
+     "p99": 19.74,
+     "p90": 16.87,
+     "p50": 11.69,
+     "min": 4.44,
+     "mean": 11.82,
+     "sd": 3.84
+    },
+    "DEF": {
+     "n": 141,
+     "max": 19.7,
+     "p99": 17.64,
+     "p90": 12.09,
+     "p50": 8.35,
+     "min": 4.3,
+     "mean": 8.71,
+     "sd": 2.81
+    }
+   }
+  },
+  "2026": {
+   "games_each": 27,
+   "total_votes": 1242,
+   "tallies": {
+    "winner": 47.0,
+    "2nd": 36.0,
+    "3rd": 34.0,
+    "5th": 27.0,
+    "10th": 25.0
+   },
+   "top10": [
+    {
+     "name": "Nick Daicos",
+     "club": "COL",
+     "votes": 47,
+     "games": 23,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Bailey Smith",
+     "club": "GEE",
+     "votes": 36,
+     "games": 24,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Marcus Bontempelli",
+     "club": "WBD",
+     "votes": 34,
+     "games": 24,
+     "hitouts_pg": 0.2
+    },
+    {
+     "name": "Max Gawn",
+     "club": "MEL",
+     "votes": 28,
+     "games": 24,
+     "hitouts_pg": 32.9
+    },
+    {
+     "name": "Will Ashcroft",
+     "club": "BRL",
+     "votes": 27,
+     "games": 27,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Patrick Cripps",
+     "club": "CAR",
+     "votes": 27,
+     "games": 25,
+     "hitouts_pg": 0.1
+    },
+    {
+     "name": "Harry Sheezel",
+     "club": "NTH",
+     "votes": 27,
+     "games": 22,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Zak Butters",
+     "club": "PAD",
+     "votes": 26,
+     "games": 17,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Isaac Heeney",
+     "club": "SYD",
+     "votes": 26,
+     "games": 20,
+     "hitouts_pg": 0.0
+    },
+    {
+     "name": "Izak Rankine",
+     "club": "ADE",
+     "votes": 25,
+     "games": 22,
+     "hitouts_pg": 0.0
+    }
+   ],
+   "polled": 183,
+   "polled_10": 44,
+   "polled_20": 17,
+   "ruck_share": 0.0628,
+   "tackles_pg": {
+    "ALL": {
+     "n": 424,
+     "max": 7.0,
+     "p99": 6.46,
+     "p90": 4.25,
+     "p50": 2.22,
+     "min": 0.6,
+     "mean": 2.52,
+     "sd": 1.23
+    },
+    "RUCK": {
+     "n": 31,
+     "max": 5.95,
+     "p99": 5.69,
+     "p90": 3.78,
+     "p50": 2.33,
+     "min": 1.0,
+     "mean": 2.55,
+     "sd": 1.15
+    },
+    "MID": {
+     "n": 113,
+     "max": 7.0,
+     "p99": 6.96,
+     "p90": 5.21,
+     "p50": 3.38,
+     "min": 1.28,
+     "mean": 3.53,
+     "sd": 1.32
+    },
+    "FWD": {
+     "n": 139,
+     "max": 6.52,
+     "p99": 6.4,
+     "p90": 3.69,
+     "p50": 2.23,
+     "min": 0.6,
+     "mean": 2.38,
+     "sd": 1.09
+    },
+    "DEF": {
+     "n": 141,
+     "max": 4.0,
+     "p99": 3.78,
+     "p90": 2.64,
+     "p50": 1.83,
+     "min": 0.71,
+     "mean": 1.86,
+     "sd": 0.62
+    }
+   },
+   "top_tacklers": [
+    {
+     "name": "Josh Dunkley",
+     "club": "BRL",
+     "tackles_pg": 7.0
+    },
+    {
+     "name": "Sam Berry",
+     "club": "ADE",
+     "tackles_pg": 6.96
+    },
+    {
+     "name": "Matt Rowell",
+     "club": "GCS",
+     "tackles_pg": 6.94
+    },
+    {
+     "name": "James Rowbottom",
+     "club": "SYD",
+     "tackles_pg": 6.52
+    },
+    {
+     "name": "Ned Long",
+     "club": "COL",
+     "tackles_pg": 6.5
+    }
+   ],
+   "role_share": {
+    "MID": 0.6151,
+    "FWD": 0.2432,
+    "DEF": 0.0789,
+    "RUCK": 0.0628
+   },
+   "role_share_votes_matched": 1242,
+   "coaches_role_share": {
+    "MID": 0.461,
+    "FWD": 0.2587,
+    "DEF": 0.1981,
+    "RUCK": 0.0822
+   },
+   "cd_matched": 669,
+   "cd_unmatched": 0,
+   "pressure_acts_pg": {
+    "ALL": {
+     "n": 424,
+     "max": 26.33,
+     "p99": 23.2,
+     "p90": 18.08,
+     "p50": 10.8,
+     "min": 3.64,
+     "mean": 11.55,
+     "sd": 4.32
+    },
+    "RUCK": {
+     "n": 31,
+     "max": 13.83,
+     "p99": 13.83,
+     "p90": 13.42,
+     "p50": 9.13,
+     "min": 5.35,
+     "mean": 9.35,
+     "sd": 2.53
+    },
+    "MID": {
+     "n": 113,
+     "max": 26.33,
+     "p99": 23.52,
+     "p90": 19.89,
+     "p50": 15.37,
+     "min": 8.89,
+     "mean": 15.47,
+     "sd": 3.69
+    },
+    "FWD": {
+     "n": 139,
+     "max": 23.39,
+     "p99": 22.71,
+     "p90": 16.83,
+     "p50": 11.61,
+     "min": 4.32,
+     "mean": 11.94,
+     "sd": 3.92
+    },
+    "DEF": {
+     "n": 141,
+     "max": 15.96,
+     "p99": 14.83,
+     "p90": 11.5,
+     "p50": 8.33,
+     "min": 3.64,
+     "mean": 8.51,
+     "sd": 2.44
+    }
+   }
+  }
+ }
+}

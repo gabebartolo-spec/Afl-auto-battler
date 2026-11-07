@@ -2227,16 +2227,23 @@ func _zone_pressure(side: int, zone: int) -> float:
 	return total / weight if weight > 0.0 else 45.0
 
 
-## Who applies the pressure: zone opportunity x Pressure squared, so the
-## best pressers do most of it without doing all of it.
+## Who applies the pressure: zone opportunity x Pressure to this power, so the
+## best pressers do more of it without doing all of it. Fitted on the real
+## spread of tackles a game among each line's players (2025-26, 12+ games) and
+## each side's top tackler a match (2023-25), with team tackles unchanged:
+## tools/balance.sh match, "Tackles and pressure acts per player".
+const PRESS_PICK_POW := 1.25
+
+
 func _pick_presser(side: int, zone: int):
 	var w: Dictionary = PRESS_ZONES[zone]
 	var group: Array = (squads[side] as Squad).ground
 	var weights := []
 	var ctx := _pick_ctx(side)
+	var pw := _tv("press_pick_pow", PRESS_PICK_POW)
 	for p in group:
 		weights.append(float(w.get(str(p["role"]), 0.0))
-				* pow(maxf(1.0, _a(p, "pressure")), 2.0)
+				* pow(maxf(1.0, _a(p, "pressure")), pw)
 				* _tactic_player_mult(side, p, "tackler", ctx))
 	return _pick(group, weights)
 

@@ -171,6 +171,11 @@ func play(from: int, count: int, out: String, weather: String,
 				t["ic_" + role] = float(t.get("ic_" + role, 0.0)) + float(st.get("intercepts", 0.0))
 				t["pg_" + role] = int(t.get("pg_" + role, 0)) + 1
 				t["sp_" + role] = float(t.get("sp_" + role, 0.0)) + float(st.get("spoils", 0.0))
+				# Each man's tackles and pressure acts, for the per-player spread
+				# (balance_report.py tackle_section): [tackles, pressure acts, list_role].
+				var tp: Dictionary = t.get("tp", {})
+				tp[str(pl["id"])] = [int(st.get("tackles", 0)), int(st.get("pressure_acts", 0)), role]
+				t["tp"] = tp
 			t["club"] = h if side == 0 else a
 			t["ruck1"] = ruck1(r["roster"][side], stats, sq_h if side == 0 else sq_a)
 			teams.append(t)
@@ -381,4 +386,5 @@ static func role_lines(roster: Array, players: Dictionary) -> Dictionary:
 	return out
 
 
-const ROLE_STATS := ["disposals", "kicks", "handballs", "marks", "rebounds", "inside50", "clearances", "goals"]
+const ROLE_STATS := ["disposals", "kicks", "handballs", "marks", "rebounds", "inside50", "clearances", "goals",
+		"tackles", "pressure_acts"]

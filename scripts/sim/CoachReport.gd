@@ -163,29 +163,40 @@ static func pep_effect(key: String) -> String:
 	return str(PEP_EFFECTS.get(key, str(PEP_EFFECTS["steady"])))
 
 
-## Same best-on-ground weighting the full-time screen uses, so half-time form
-## and the final votes tell one consistent story.
+## Best on ground: how much a man did, the measure behind the Brownlow votes,
+## the best-and-fairest and the coach's read of his game. Weights per unit of
+## each stat (a disposal = 1) are the umpires' own: a Plackett-Luce fit of
+## every 3-2-1 in the 2023-25 home-and-away seasons on these stats
+## (tools/balance/afl_brownlow.json, matches.vote_fit). Pressure acts have no
+## match-level record to fit, and the fit gives a clanger +0.10 of a disposal
+## (the clanger rides on the disposal it spoiled), so neither counts.
+## INFLUENCE_SCALE only sets the size of the number, never the order: 1.4 keeps
+## the coach's full-time read (verdict_for, _form_word, the quiet star and the
+## danger man) as spread as it was on the old weights, the share of men read
+## Dominant, Influential, Busy, Par, Down, Quiet and Very quiet within a point
+## or two (tools/audit/brownlow_report.py, "The coach's full-time read").
+const INFLUENCE_SCALE := 1.4
+
+
 static func influence(st: Dictionary) -> float:
-	return float(st.get("disposals", 0.0)) \
-		+ float(st.get("goals", 0.0)) * 5.0 \
-		+ float(st.get("marks", 0.0)) * 0.8 \
-		+ float(st.get("inside50", 0.0)) * 2.0 \
-		+ float(st.get("tackles", 0.0)) * 0.5 \
-		+ float(st.get("pressure_acts", 0.0)) * 0.3 \
-		+ float(st.get("hitouts", 0.0)) * 0.7 \
-		+ float(st.get("clearances", 0.0)) * 1.2 \
-		+ float(st.get("one_percenters", 0.0)) * 0.6 \
-		- float(st.get("clangers", 0.0)) * 2.0
+	return INFLUENCE_SCALE * (float(st.get("disposals", 0.0))
+		+ float(st.get("goals", 0.0)) * 5.412
+		+ float(st.get("marks", 0.0)) * 0.378
+		+ float(st.get("inside50", 0.0)) * 0.401
+		+ float(st.get("tackles", 0.0)) * 0.306
+		+ float(st.get("hitouts", 0.0)) * 0.079
+		+ float(st.get("clearances", 0.0)) * 0.864
+		+ float(st.get("one_percenters", 0.0)) * 0.631)
 
 
 ## What a player of this rating would normally produce by this stage. Stars are
 ## expected to carry more ball, so a quiet star reads as down while a quiet
-## depth defender reads as par. Calibrated so overall 50 ≈ 9 influence at
-## half-time and overall 90 ≈ 22.
+## depth defender reads as par. Fitted on the sim's own players (12+ games a
+## season, real and drafted lists, tools/audit/brownlow_impl.gd).
 static func expected_influence(overall: int, quarters := 2) -> float:
-	var per_q := 4.5 + (float(overall) - 50.0) * 0.16
-	per_q = maxf(1.5, per_q)
-	return per_q * float(maxi(1, quarters))
+	var per_q := 3.45 + (float(overall) - 50.0) * 0.153
+	per_q = maxf(1.15, per_q)
+	return INFLUENCE_SCALE * per_q * float(maxi(1, quarters))
 
 
 static func stat_line(st: Dictionary) -> String:
