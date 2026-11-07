@@ -677,10 +677,17 @@ func saved_career_meta() -> Dictionary:
 ## so the last save (from before the match) is the consistent one to keep.
 ## Full saves written this run: tests count them to keep a tap to one save.
 var saves_written := 0
+## Set while the season skip plays the season out: each round leaves the save
+## alone and the skip saves once at the end (a save every round was a quarter of
+## the skip's time). Killed mid-skip, the career is where the skip began.
+var _batching := false
+## The coach's answers to the survey before the season skip (SkipOrders),
+## held only while the skip runs; {} the rest of the time.
+var _skip_orders := {}
 
 
 func autosave() -> bool:
-	if not autosave_enabled or not has_career() or not pending_match.is_empty():
+	if _batching or not autosave_enabled or not has_career() or not pending_match.is_empty():
 		return false
 	return save_career()
 
@@ -11256,6 +11263,70 @@ func _next_week_event() -> void:
 	ClubArcs.week(self)
 
 
+## Skip to the end of the season (director, 2026-11-07: "We need to bring back
+## the ability to skip full seasons"; 2026-11-08: "It's just skipping games, no
+## off season skipping"). Every week left, the finals included, is played out
+## without you, exactly as Sim the week plays it, following the survey's
+## answers (SkipOrders). It stops once the season is over, where the last Sim
+## the week stops (the last match opens the off-season, so rivals settle their
+## contracts as always): re-signings, trades, free agency and the draft stay yours.
+## The last week's card is left for you, as after Sim the week. Sacked on the
+## way, it stops there. Saved once, at the end.
+## Returns {"ok", "year", "weeks", "reason": "done" | "sacked" | "none"}.
+func skip_season(orders := {}) -> Dictionary:
+	if season == null or is_sacked() or season.is_season_over():
+		return {"ok": false, "year": season_year, "weeks": 0, "reason": "none"}
+	var year := season_year
+	var weeks := 0
+	_batching = true
+	_skip_orders = SkipOrders.defaults(club_plan)
+	_skip_orders.merge(orders, true)
+	# The survey's answers (SkipOrders): the game plan stands as your plan; a
+	# run for the kids needs auto-pick, which names a promised player.
+	set_club_plan(str(_skip_orders["game_plan"]))
+	if str(_skip_orders["youth"]) == "kids" and not my_selection().is_empty():
+		set_selection({})
+	while season != null and not season.is_season_over() and weeks < 80:
+		if str(_skip_orders["youth"]) == "kids":
+			_skip_back_kids()
+		advance()
+		weeks += 1
+		if is_sacked():
+			break
+	if is_sacked() or season == null or not season.is_season_over():
+		_batching = false
+		_skip_orders = {}
+		autosave()
+		return {"ok": false, "year": year, "weeks": weeks, "reason": "sacked"}
+	_batching = false
+	_skip_orders = {}
+	mark_dirty()
+	autosave()
+	return {"ok": true, "year": year, "weeks": weeks, "reason": "done"}
+
+
+## "Give the kids a run" (SkipOrders): before each week of the skip, your
+## best players with few senior games are promised runs (Backing) until
+## SkipOrders.YOUTH_RUNS are on at once; auto-pick names them.
+func _skip_back_kids() -> void:
+	var on := 0
+	var kids := []
+	for p in my_list:
+		if Backing.is_active(p):
+			on += 1
+		elif can_back(p):
+			kids.append(p)
+	kids.sort_custom(func(a, b):
+		if int(a["overall"]) != int(b["overall"]):
+			return int(a["overall"]) > int(b["overall"])
+		return str(a["id"]) < str(b["id"]))
+	for p in kids:
+		if on >= SkipOrders.YOUTH_RUNS:
+			break
+		_start_backing(p)
+		on += 1
+
+
 func week_event_pending() -> bool:
 	for c in week_events:
 		if not bool((c as Dictionary).get("resolved", false)):
@@ -11271,6 +11342,11 @@ func _settle_week_event() -> void:
 	for i in range(week_events.size()):
 		var card: Dictionary = week_events[i]
 		if bool(card.get("resolved", false)):
+			continue
+		# Away on a skip, the survey's answer to the week's questions (SkipOrders).
+		var pick := SkipOrders.card_choice(card, str(_skip_orders.get("questions", "usual")))
+		if pick >= 0:
+			resolve_card(i, pick)
 			continue
 		var d := int(card.get("default", -1))
 		if d >= 0:
