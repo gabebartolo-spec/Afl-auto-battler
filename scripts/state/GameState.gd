@@ -11006,8 +11006,8 @@ func _set_press_standing(journalist: String, v: int) -> void:
 	media_memory["standing_year"] = season_year
 
 
-## Press morale fades a point a round (every second round after the
-## Philosopher), before this week's question forms (ruling 5.54: effects decay).
+## Press morale fades a point every second round, whoever asked, before this
+## week's question forms (ruling 5.54: effects decay).
 func _fade_press_lifts() -> void:
 	if season == null:
 		return
@@ -11151,8 +11151,8 @@ func press_question_text() -> String:
 	return q if lead == "" else "%s %s" % [lead, q]
 
 
-## Under the byline: "Gary is warm to you: every answer is 5% more likely to
-## land well."; "" when he takes you as he finds you.
+## Under the byline: "Gary's opinion of you is Warm: every answer is 5% more
+## likely to land well."; "" when Neutral.
 func press_standing_line() -> String:
 	var j := str(media_conference.get("journalist", ""))
 	if not MediaConference.JOURNALISTS.has(j):
@@ -11195,16 +11195,15 @@ func resolve_media_conference(option: int) -> Dictionary:
 		# Added to the board's match reason, never in place of it (director 2026-11-06).
 		board["why"] = (str(board.get("why", "")).strip_edges() + " "
 				+ MediaConference.board_sentence(j, board_moved)).strip_edges()
-	var slow := bool((MediaConference.PERSONA.get(j, {}) as Dictionary).get("slow", false))
 	var morale_delta := int(out["morale"])
 	# After a loss a lift stops just below what a win gave (director 2026-11-07).
 	var up := MediaConference.LOSS_LIFT_CAP if bool(ctx.get("lost", false)) else -1
 	if morale_delta != 0:
 		for p in my_list:
-			MediaConference.apply_lift(p, morale_delta, MediaConference.LIST_CAP, slow, up)
+			MediaConference.apply_lift(p, morale_delta, MediaConference.LIST_CAP, up)
 	var his := list_player(str(picked.get("player", "")))
 	if int(out["his"]) != 0 and not his.is_empty():
-		MediaConference.apply_lift(his, int(out["his"]), MediaConference.NAMED_CAP, slow, up)
+		MediaConference.apply_lift(his, int(out["his"]), MediaConference.NAMED_CAP, up)
 	var before := press_standing(j)
 	var after := MediaConference.standing_after(before, MediaConference.standing_move(j, kind, str(ctx.get("verdict", ""))))
 	if MediaConference.JOURNALISTS.has(j) and after != before:
@@ -11221,7 +11220,8 @@ func resolve_media_conference(option: int) -> Dictionary:
 	var size := maxi(absi(int(out["morale"])), absi(int(out["his"])))
 	return {"kind": kind, "landed": landed, "chance": odds, "line": line, "journalist": j,
 			"standing": [before, after], "verdict": str(ctx.get("verdict", "")), "effects": out,
-			"fade_rounds": maxi(MediaConference.fade_rounds(size, slow), MediaConference.fade_rounds(board_moved, false))}
+			"fade_rounds": maxi(MediaConference.fade_rounds(size), MediaConference.board_fade_rounds(board_moved)),
+			"fade_morale": MediaConference.fade_rounds(size), "fade_board": MediaConference.board_fade_rounds(board_moved)}
 
 
 

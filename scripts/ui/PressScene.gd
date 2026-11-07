@@ -12,10 +12,15 @@ extends Control
 
 signal closed
 
-## Your standing with a journalist in a few words, for the gate and the
-## result ("Kev Pollard: Even with you → Warm to you").
-const STANDING_SHORT := {-2: "Has it in for you", -1: "Cool on you", 0: "Even with you", 1: "Warm to you",
-		2: "In your corner"}
+## His opinion of you on the gate ("Opinion of you: Neutral") and after the
+## answer ("Kev Pollard's opinion of you: Neutral → Warm"); the words are
+## MediaConference.STANDING_WORDS.
+const OPINION := "Opinion of you: %s"
+const OPINION_MOVED := "%s's opinion of you: %s → %s"
+## How long it lasts, after the answer. Morale and the board fade at different
+## paces, so when both moved and differ, both are said.
+const FADE_ONE := "It wears off over %d round%s."
+const FADE_BOTH := "Morale wears off over %d round%s, the board over %d."
 
 var _embedded := false
 var _root: VBoxContainer
@@ -177,7 +182,7 @@ func _question(wide: bool) -> Array:
 		# How he stands with you, and what it does to every answer (director
 		# 2026-11-06): the word in bold, its effect under it. No good/bad colour.
 		var v := GameState.press_standing(j)
-		var sw := UiKit.lbl(str(STANDING_SHORT.get(v, "Even")), UiKit.BODY, UiKit.TEXT, true)
+		var sw := UiKit.lbl(OPINION % MediaConference.standing_word(v), UiKit.BODY, UiKit.TEXT, true)
 		sw.name = "MediaStandingWord"
 		prompt.add_child(sw)
 		var effect := standing_effect_line(j, v)
@@ -197,6 +202,12 @@ func _question(wide: bool) -> Array:
 		rl.name = "MediaRecord"
 		rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		prompt.add_child(rl)
+	# How long the moves last and what his personality does to their size,
+	# said once here rather than under every answer (director 2026-11-07).
+	var rules := UiKit.lbl(MediaConference.rules_line(j), UiKit.SMALL, UiKit.TEXT)
+	rules.name = "MediaRules"
+	rules.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	prompt.add_child(rules)
 	var shown: Array = [prompt]
 	var opts: Array = GameState.media_conference.get("options", [])
 	for i in range(opts.size()):
@@ -309,14 +320,18 @@ static func press_outcome_rows(landed: Dictionary, sizes: String) -> Array:
 	var j := str(landed.get("journalist", ""))
 	var st: Array = landed.get("standing", [])
 	if st.size() == 2 and int(st[0]) != int(st[1]) and MediaConference.JOURNALISTS.has(j):
-		rows.append(["MediaOutcomeStanding", "%s: %s → %s" % [str(MediaConference.JOURNALISTS[j]["name"]),
-				str(STANDING_SHORT.get(int(st[0]), "Even")), str(STANDING_SHORT.get(int(st[1]), "Even"))]])
+		rows.append(["MediaOutcomeStanding", OPINION_MOVED % [str(MediaConference.JOURNALISTS[j]["name"]),
+				MediaConference.standing_word(int(st[0])), MediaConference.standing_word(int(st[1]))]])
 	var verdict := str(landed.get("verdict", ""))
 	if MediaConference.RECORD_CLAUSE.has(verdict):
 		rows.append(["MediaOutcomeRecord", str(MediaConference.RECORD_CLAUSE[verdict])])
 	var rounds := int(landed.get("fade_rounds", 0))
-	if rounds > 0:
-		rows.append(["MediaOutcomeFade", "It wears off over %d round%s." % [rounds, "" if rounds == 1 else "s"]])
+	var m := int(landed.get("fade_morale", 0))
+	var b := int(landed.get("fade_board", 0))
+	if m > 0 and b > 0 and m != b:
+		rows.append(["MediaOutcomeFade", FADE_BOTH % [m, "" if m == 1 else "s", b]])
+	elif rounds > 0:
+		rows.append(["MediaOutcomeFade", FADE_ONE % [rounds, "" if rounds == 1 else "s"]])
 	return rows
 
 

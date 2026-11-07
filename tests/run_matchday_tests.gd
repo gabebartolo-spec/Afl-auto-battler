@@ -2482,7 +2482,6 @@ func _test_press_effects_shown(db) -> void:
 	var who: Dictionary = _state.my_list[0]
 	who["morale"] = 50
 	who.erase("press_lift")
-	who.erase("press_slow")
 	var hub = load("res://scenes/HubScene.tscn").instantiate()
 	root.add_child(hub)
 	await _settle()
@@ -2498,8 +2497,11 @@ func _test_press_effects_shown(db) -> void:
 		shown = shown and line != null and line.is_visible_in_tree() and text == _state.press_odds_line(i) 				and text.contains("%d%% " % c) and text.contains("%d%% " % (100 - c))
 		# The Muckraker's twist is on the gate (director 2026-11-06).
 		if kind == "criticise":
-			shown = shown and text.contains("The players read his headline: 10% less likely to land well.") 					and not text.contains("The Siren gets read upstairs") and text.contains(MC.FADE_NOTE)
+			shown = shown and text.contains("His headline: 10% less likely") 					and not text.contains("The Siren gets read upstairs") and not text.contains(MC.FADE_NOTE)
 	_check(shown, "Every press answer shows both ways it can land, with the odds and the sizes")
+	var rules: Label = hub.find_child("MediaRules", true, false)
+	_check(rules != null and rules.is_visible_in_tree() and rules.text == MC.rules_line(str(_state.media_conference.get("journalist", ""))),
+			"How long the moves last is said once on the gate, above the answers (%s)" % ("missing" if rules == null else rules.text))
 	var c0: int = _state.press_chance(0)
 	var landed := "a" if MC.roll(_state.career_seed, _state.season_year, int(_state.media_conference.get("round", 0)),
 			str(_state.media_conference.get("key", "")), 0) <= c0 else "b"
@@ -2585,7 +2587,6 @@ func _test_press_scene_taps() -> void:
 	for i in range(4):
 		for p in _state.my_list:
 			p.erase("press_lift")
-			p.erase("press_slow")
 			p.erase("press_wait")
 		var press: Node = await open.call(muck.call())
 		var label := str((_state.media_conference.get("options", [])[i] as Dictionary).get("label", ""))
