@@ -62,6 +62,9 @@ func _run() -> void:
 	_t("_test_club_ink_all")
 	for club in ["COL", "GWS", "STK"]:
 		await _t("_test_pc_break_worst_case", [club])
+	for pair in [["COL", "CAR"], ["HAW", "STK"], ["FRE", "MEL"]]:
+		for sz in [Vector2i(1280, 720), Vector2i(390, 844)]:
+			await _t("_test_every_break_fits", [pair[0], pair[1], sz])
 	await _t("_test_tag_not_saved")
 	await _t("_test_bounce_close_up")
 	await _t("_test_ballup_two_scene")
@@ -1351,6 +1354,84 @@ func _test_one_line_break(sz: Vector2i) -> void:
 		_check(false, "(setup) a tag and a choice of tagger are on offer (%s)" % tag)
 	m.queue_free()
 	await _settle()
+
+
+## Quarter, half and three-quarter time all fit their sheet, with all three
+## Play through players named (the longest row) and real names on: on a PC
+## whichever call is open, a tag on included; on a phone, the break and every
+## call row's answer. COL v CAR at half time once needed 615 of 608.
+func _test_every_break_fits(club: String, vs: String, sz: Vector2i) -> void:
+	var db = root.get_node("GameDB")
+	var real: bool = _state.show_real_names
+	_state.show_real_names = true
+	root.size = sz
+	for q in [2, 3, 4]:
+		var found := false
+		for tries in range(80):
+			_state.reset()
+			_state.career_seed = 2050 + tries
+			_state.replay_seed = 2050 + tries
+			_state.set_setting("seen_training_intro", true)
+			_state.start_season(club, db.club_list(club))
+			_state.prepare_interactive_match()
+			var sq = _state.pending_sim.squads
+			if str(sq[0].code) == vs or str(sq[1].code) == vs:
+				found = true
+				break
+		_check(found, "(setup) %s draw %s" % [club, vs])
+		var sim = _state.pending_sim
+		var me := int(sim.moment_side)
+		var t: Dictionary = (sim.tactics[me] as Dictionary).duplicate()
+		var used := {}
+		for slot in load("res://scripts/ui/match/MatchNotes.gd").FOCUS_ORDER:
+			for p in sim.squads[me].ground:
+				if not used.has(str(p["id"])):
+					t[slot] = str(p["id"])
+					used[str(p["id"])] = true
+					break
+		sim.set_tactics(me, t)
+		for i in range(q - 1):
+			sim.run_quarter()
+		var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+		root.add_child(m)
+		await _settle()
+		await _settle()
+		var box: Node = m.find_child("CoachBox", true, false)
+		var tag := "%s v %s, %dx%d, break before quarter %d" % [club, vs, sz.x, sz.y, q]
+		_check(box != null and box.has_meta("one_line"), "(setup) the one-line break is up (%s)" % tag)
+		if box == null:
+			m.queue_free()
+			await _settle()
+			continue
+		var tall := []
+		var f := _break_fit(box)
+		if f[0] > f[1] + 1.0:
+			tall.append("break %.0f of %.0f" % [f[0], f[1]])
+		var rows: Array = box.find_children("CallRow_*", "Button", true, false)
+		for r in rows:
+			var inside := (r as Control).get_child(0) as Control
+			if inside.get_combined_minimum_size().x > (r as Control).size.x + 1.0:
+				tall.append("%s needs %.0f of %.0f wide" % [r.name, inside.get_combined_minimum_size().x, (r as Control).size.x])
+		if box.find_child("BreakColumns", true, false) != null:
+			for r in rows:
+				var w_row: String = await Tap.tap(r)
+				await _settle()
+				f = _break_fit(box)
+				if w_row != "" or f[0] > f[1] + 1.0:
+					tall.append("%s %.0f of %.0f %s" % [r.name, f[0], f[1], w_row])
+				if str(r.name) == "CallRow_tag":
+					for b in box.find_children("TagPickerGrid_*", "Button", true, false):
+						if str(b.name) != "TagPickerGrid_":
+							(b as Button).emit_signal("pressed")
+							break
+					await _settle()
+					f = _break_fit(box)
+					if f[0] > f[1] + 1.0:
+						tall.append("tag on %.0f of %.0f" % [f[0], f[1]])
+		_check(tall.is_empty(), "The break fits its sheet, nothing scrolls or overruns its row (%s: %s)" % [tag, str(tall)])
+		m.queue_free()
+		await _settle()
+	_state.show_real_names = real
 
 
 ## What the break's list holds against the room it has (a break that fits does not scroll).

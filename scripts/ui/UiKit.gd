@@ -1783,6 +1783,27 @@ static func modal_box(parent: Control, max_w: float, prefer_h := 0.0, wash := AU
 	var refit := func() -> void:
 		fit.call_deferred()
 	fit.call()
+	# A body of wrapped lines can be kept scrolling by its own bar: the bar
+	# takes a strip of the width, a line wraps, and the body is then too tall
+	# for the room it would fit at full width (the phone's half-time break:
+	# 647 with the bar, 612 without, in 628). When the bar shows, the body is
+	# laid out once without it; if it fits at full width, the bar stays away.
+	# Tried once per body height and at most four times a sheet, so a body that
+	# truly overflows keeps its bar and two heights never take turns.
+	var unstick := func() -> void:
+		if not is_instance_valid(sc) or not is_instance_valid(body) or not sc.is_inside_tree() \
+				or not sc.get_v_scroll_bar().visible or sc.vertical_scroll_mode != ScrollContainer.SCROLL_MODE_AUTO:
+			return
+		var tried: Dictionary = sc.get_meta("bar_tried", {})
+		var h := int(body.get_combined_minimum_size().y)
+		if tried.has(h) or tried.size() >= 4:
+			return
+		tried[h] = true
+		sc.set_meta("bar_tried", tried)
+		sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		sc.set_deferred("vertical_scroll_mode", ScrollContainer.SCROLL_MODE_AUTO)
+	sc.get_v_scroll_bar().visibility_changed.connect(unstick, CONNECT_DEFERRED)
+	body.minimum_size_changed.connect(unstick, CONNECT_DEFERRED)
 	overlay.resized.connect(fit)
 	body.minimum_size_changed.connect(refit)
 	footer.minimum_size_changed.connect(refit)
