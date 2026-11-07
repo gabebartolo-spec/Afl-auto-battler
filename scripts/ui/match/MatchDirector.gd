@@ -531,6 +531,8 @@ func _possession_phases(k: int) -> Array:
 	var shape := _flight_shape("handball" if hb else "kick", d)
 	var flight := {"t": "flight", "to": loc, "dur": shape.x, "apex": shape.y, "recv": a,
 			"adapt": true, "h1": 2.4 if kind == "mark" else 1.0}
+	if hb:
+		flight["hang"] = HANDBALL_HANG_MAX
 	if not prev.is_empty() and int(prev.get("side", -1)) != int(ev.get("side", -1)):
 		# Possession changed hands without an event (the chain broke down):
 		# show the ball won in a contest.
@@ -1160,6 +1162,15 @@ func _scrap(p: Dictionary, who: int) -> void:
 
 ## The longest a player is left collecting before the ball is his.
 const COLLECT_LIMIT := 6.0
+## How much longer than its flat flight a kick may hang so its receiver gets
+## under it: a 50 m kick up to about 2.9 s, a 20 m one 1.5 s, a real long
+## kick's hang time. Defenders clearing their 50 (MatchSim D50_*) kick long to
+## a team-mate up the ground; at 1.8 the ball beat him there and play waited
+## (12 trace_collect matches: 214 collects of 1.5 s or more, 166 at 3.0, 162 on
+## main before the clearing kicks).
+const KICK_HANG_MAX := 3.0
+## A handball stays flat: it never hangs more than this much longer.
+const HANDBALL_HANG_MAX := 1.8
 ## A receiver still short of a ball this close gets one bobble toward him.
 const ROLL_REACH := 8.0
 ## The share of the gap that bobble covers: it is aimed once, at release, and
@@ -1390,8 +1401,9 @@ func _enter(p: Dictionary) -> void:
 				_busy[recv] = true
 				if p.get("adapt", false):
 					# Hang the ball long enough for the receiver to get there,
-					# within what a kick of that length can plausibly take.
-					dur = clampf(MatchMotion.eta(r, to) * 0.9, dur, dur * 1.8)
+					# within what a kick of that length can plausibly take
+					# (KICK_HANG_MAX).
+					dur = clampf(MatchMotion.eta(r, to) * 0.9, dur, dur * float(p.get("hang", KICK_HANG_MAX)))
 				if p.get("contest", false):
 					_contest(to, recv, 1.0)
 			var h0 := float(p.get("h0", 1.0 if int(ball["holder"]) >= 0 else float(ball["h"])))

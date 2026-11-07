@@ -74,5 +74,247 @@
    "players": 38
   }
  },
- "source": "data/players_2026.csv (AFL Tables 2026 season totals), players with at least 5 games, grouped by the game's primary role (Ratings.derive_all). Each rate is the pooled total divided by pooled games for that role. Regenerate with tools/balance/build_role_rates.gd."
+ "source": "data/players_2026.csv (AFL Tables 2026 season totals), players with at least 5 games, grouped by the game's primary role (Ratings.derive_all). Each rate is the pooled total divided by pooled games for that role. Regenerate with tools/balance/build_role_rates.gd.",
+ "types": {
+  "Defender": {
+   "disposals_clubs": {
+    "max": 20.58,
+    "min": 12.26,
+    "n": 18,
+    "sd": 2.46
+   },
+   "per_game": {
+    "clearances": 0.54,
+    "disposals": 16.52,
+    "frees_against": 0.72,
+    "frees_for": 0.65,
+    "goals": 0.12,
+    "handballs": 5.94,
+    "hitouts": 0.01,
+    "inside_50s": 1.64,
+    "kicks": 10.58,
+    "marks": 4.9,
+    "rebound_50s": 3.24,
+    "tackles": 2.13
+   },
+   "player_games": 1130,
+   "players": 70
+  },
+  "Forward": {
+   "disposals_clubs": {
+    "max": 19.76,
+    "min": 9.79,
+    "n": 18,
+    "sd": 2.19
+   },
+   "per_game": {
+    "clearances": 0.87,
+    "disposals": 13.27,
+    "frees_against": 0.78,
+    "frees_for": 0.76,
+    "goals": 1.08,
+    "handballs": 5.33,
+    "hitouts": 0.14,
+    "inside_50s": 2.63,
+    "kicks": 7.94,
+    "marks": 3.53,
+    "rebound_50s": 0.52,
+    "tackles": 2.45
+   },
+   "player_games": 1058,
+   "players": 63
+  },
+  "Inside midfielder": {
+   "disposals_clubs": {
+    "max": 29.48,
+    "min": 20.4,
+    "n": 18,
+    "sd": 2.25
+   },
+   "per_game": {
+    "clearances": 4.49,
+    "disposals": 22.93,
+    "frees_against": 1.02,
+    "frees_for": 1.1,
+    "goals": 0.49,
+    "handballs": 11.32,
+    "hitouts": 0.03,
+    "inside_50s": 3.97,
+    "kicks": 11.62,
+    "marks": 3.5,
+    "rebound_50s": 1.5,
+    "tackles": 4.19
+   },
+   "player_games": 1644,
+   "players": 87
+  },
+  "Key defender": {
+   "disposals_clubs": {
+    "max": 15.95,
+    "min": 10.22,
+    "n": 18,
+    "sd": 1.33
+   },
+   "per_game": {
+    "clearances": 0.25,
+    "disposals": 13.36,
+    "frees_against": 0.85,
+    "frees_for": 0.65,
+    "goals": 0.06,
+    "handballs": 5.09,
+    "hitouts": 0.22,
+    "inside_50s": 0.83,
+    "kicks": 8.27,
+    "marks": 5.18,
+    "rebound_50s": 2.71,
+    "tackles": 1.44
+   },
+   "player_games": 1212,
+   "players": 73
+  },
+  "Key forward": {
+   "disposals_clubs": {
+    "max": 12.11,
+    "min": 7.75,
+    "n": 18,
+    "sd": 1.14
+   },
+   "per_game": {
+    "clearances": 0.37,
+    "disposals": 10.21,
+    "frees_against": 0.78,
+    "frees_for": 0.92,
+    "goals": 1.75,
+    "handballs": 3.37,
+    "hitouts": 1.17,
+    "inside_50s": 1.68,
+    "kicks": 6.85,
+    "marks": 4.38,
+    "rebound_50s": 0.2,
+    "tackles": 1.62
+   },
+   "player_games": 1000,
+   "players": 57
+  },
+  "Ruck": {
+   "disposals_clubs": {
+    "max": 19.74,
+    "min": 9.7,
+    "n": 18,
+    "sd": 2.85
+   },
+   "per_game": {
+    "clearances": 3.56,
+    "disposals": 12.49,
+    "frees_against": 1.36,
+    "frees_for": 1.46,
+    "goals": 0.38,
+    "handballs": 6.33,
+    "hitouts": 21.09,
+    "inside_50s": 1.91,
+    "kicks": 6.16,
+    "marks": 2.53,
+    "rebound_50s": 0.98,
+    "tackles": 2.63
+   },
+   "player_games": 631,
+   "players": 38
+  },
+  "Small defender": {
+   "disposals_clubs": {
+    "max": 27.29,
+    "min": 17.44,
+    "n": 18,
+    "sd": 2.64
+   },
+   "per_game": {
+    "clearances": 0.84,
+    "disposals": 20.44,
+    "frees_against": 0.63,
+    "frees_for": 0.58,
+    "goals": 0.12,
+    "handballs": 7.19,
+    "hitouts": 0.0,
+    "inside_50s": 2.28,
+    "kicks": 13.25,
+    "marks": 5.1,
+    "rebound_50s": 3.76,
+    "tackles": 1.99
+   },
+   "player_games": 1052,
+   "players": 59
+  },
+  "Small forward": {
+   "disposals_clubs": {
+    "max": 15.58,
+    "min": 8.85,
+    "n": 18,
+    "sd": 2.07
+   },
+   "per_game": {
+    "clearances": 0.92,
+    "disposals": 12.56,
+    "frees_against": 0.67,
+    "frees_for": 0.7,
+    "goals": 0.9,
+    "handballs": 5.62,
+    "hitouts": 0.0,
+    "inside_50s": 2.44,
+    "kicks": 6.94,
+    "marks": 2.6,
+    "rebound_50s": 0.4,
+    "tackles": 2.5
+   },
+   "player_games": 818,
+   "players": 59
+  },
+  "Tagger": {
+   "disposals_clubs": {
+    "max": 18.15,
+    "min": 13.76,
+    "n": 7,
+    "sd": 2.04
+   },
+   "per_game": {
+    "clearances": 2.56,
+    "disposals": 16.36,
+    "frees_against": 0.91,
+    "frees_for": 0.89,
+    "goals": 0.33,
+    "handballs": 8.83,
+    "hitouts": 0.01,
+    "inside_50s": 2.54,
+    "kicks": 7.54,
+    "marks": 2.62,
+    "rebound_50s": 1.08,
+    "tackles": 5.29
+   },
+   "player_games": 170,
+   "players": 9
+  },
+  "Wing": {
+   "disposals_clubs": {
+    "max": 22.85,
+    "min": 12.46,
+    "n": 18,
+    "sd": 2.61
+   },
+   "per_game": {
+    "clearances": 1.51,
+    "disposals": 17.32,
+    "frees_against": 0.63,
+    "frees_for": 0.65,
+    "goals": 0.46,
+    "handballs": 7.84,
+    "hitouts": 0.0,
+    "inside_50s": 2.73,
+    "kicks": 9.48,
+    "marks": 3.84,
+    "rebound_50s": 1.54,
+    "tackles": 2.39
+   },
+   "player_games": 1041,
+   "players": 63
+  }
+ }
 }

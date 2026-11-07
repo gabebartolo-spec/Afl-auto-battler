@@ -20,18 +20,16 @@ const T := {
 	"pressure_base": 0.160,          # chance a touch is tackled
 	"clanger_per_chain": 0.625,     # chance the chain ends in an error
 	"clanger_is_free": 0.43,         # ...of which are free kicks against
-	"mark_share_of_kicks": 0.327,
+	"mark_share_of_kicks": 0.280,    # 0.327 before the D50 clearing kick (2026-11-07): marks per kick back to real (0.43)
 	"handball_share": 0.44,
 	"inside50_goal": 0.262,          # of inside-50 entries (0.279 before frees in 50 became set shots, backlog item 24; 0.269 before forward archetypes, ARD-M3-002)
 	"inside50_behind": 0.180,
 	"stoppage_share": 0.42,          # chains that begin at a genuine stoppage
 	"hitouts_per_stoppage": 0.78,    # split between the two rucks
 	"clearance_per_stoppage": 0.76,  # to the team that wins the stoppage (0.815 before every feature was on: 38.9 a team, real 36.1)
-	"one_percenter_share": 0.83,     # of inside-50 entries that yield a 1%
+	"one_percenter_share": 0.78,     # of inside-50 entries that yield a 1% (0.83 before the D50 clearing kick raised entries, 2026-11-07)
 	"rebound_on_exit": 0.55,         # defensive-half chains that yield a reb50
 	"shooter_power": 0.5,            # how strongly shots go to the best kicks
-	"rebound_from": -18.0,           # a carry from behind this line...
-	"rebound_to": -12.0,             # ...to beyond this one is a rebound 50
 	"shrink_games": 5.0,             # sample-size shrink for per-game rates
 	"shrink_accuracy": 14.0,         # sample-size shrink for goal conversion
 	"home_ground_bonus": 0.030,
@@ -51,7 +49,7 @@ const FLOW := {
 	"max_touches_per_chain": 10,
 	"metres_gain_mean": 11.3,
 	"tackle_retention": 0.25,
-	"inside50_goal": 0.235,
+	"inside50_goal": 0.255,         # 0.235 before the D50 clearing kick (2026-11-07): goals per entry back to real (0.24)
 	"inside50_behind": 0.175,
 }
 

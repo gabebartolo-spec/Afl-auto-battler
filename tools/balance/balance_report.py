@@ -6,7 +6,7 @@ IN when inside the 18 clubs' lowest..highest, NEAR when within mean +-2 sd,
 else OUT. Paired runs also show B - A with its standard error over seeds, so a
 change is real when |delta| > 2 se.
 """
-import argparse, glob, json, math, os, statistics as st
+import argparse, csv, glob, json, math, os, statistics as st
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 # sim stat -> afl_team_rates key (score is computed from goals/behinds there)
@@ -377,6 +377,98 @@ def role_report(A, B):
         print(f"| {z} | " + " | ".join(cells) + " |")
 
 
+TYPE_STATS = ["disposals", "kicks", "handballs", "marks", "rebounds", "kick_ins"]
+TOP_TYPES = ["Key defender"]
+SEASON_GAMES = 23
+
+
+def type_report(A, B):
+    """Disposals a player-game by each man's type as the game names it (Roles.label), against
+    real 2026 (afl_role_rates.json "types": IN = inside the 18 clubs' lowest..highest pooled rate
+    for that type, NEAR = within the mean +-2 sd, else OUT); then the top key defenders by
+    disposals a game over the run, as a SEASON_GAMES-game season."""
+    if not any("types" in t for r in A.values() for t in r["teams"]):
+        return
+    ref = json.load(open(os.path.join(HERE, "afl_role_rates.json"))).get("types", {})
+    names = sorted({k for r in A.values() for t in r["teams"] for k in t.get("types", {}) if k != "pl"},
+                   key=lambda k: -ref.get(k, {}).get("player_games", 0))
+
+    def rate(r, ty, k):
+        pg = sum(t.get("types", {}).get(ty, {}).get("pg", 0) for t in r["teams"])
+        return None if pg == 0 else sum(t.get("types", {}).get(ty, {}).get(k, 0.0) for t in r["teams"]) / pg
+    print("\n## By type, per player-game (real 2026: afl_role_rates.json types; Roles.label)\n")
+    head = "| type | real di | clubs range | A di | mark | A kicks | A hb | A marks | A reb50 | A kick-ins |" \
+        + (" B di | B-A | se | sig |" if B else "")
+    print(head)
+    print("|" + "---|" * (head.count("|") - 1))
+    for ty in names:
+        rr = ref.get(ty)
+        ma, mb, dm, se = paired(A, B, lambda r, ty=ty: rate(r, ty, "disposals"))
+        if rr:
+            c = rr["disposals_clubs"]
+            real = rr["per_game"]["disposals"]
+            mk = "IN" if c["min"] <= ma <= c["max"] else ("NEAR" if abs(ma - real) <= 2 * c["sd"] else "OUT")
+            line = f"| {ty} | {real:.2f} | {c['min']:.1f}-{c['max']:.1f} | {ma:.2f} | {mk} |"
+        else:
+            line = f"| {ty} | - | - | {ma:.2f} | - |"
+        for k in TYPE_STATS[1:]:
+            v = [x for x in (rate(r, ty, k) for r in A.values()) if x is not None]
+            line += f" {st.mean(v):.2f} |"
+        if B:
+            sig = "yes" if se and abs(dm) > 2 * se else ""
+            line += f" {mb:.2f} | {dm:+.2f} | {se:.2f} | {sig} |"
+        print(line)
+    if any("type_src" in t for r in A.values() for t in r["teams"]):
+        print("\n## Where each type's disposals happen (run A, event log: share by zone from his side's view,"
+              " and share that were his first touch after his own rebound 50; no real reference)\n")
+        print("| type | per game (events) | back | middle | attack | inside | after own reb50 |")
+        print("|---|---|---|---|---|---|---|")
+        for ty in names:
+            tot = {}
+            pg = 0
+            for r in A.values():
+                for t in r["teams"]:
+                    pg += t.get("types", {}).get(ty, {}).get("pg", 0)
+                    for k, v in t.get("type_src", {}).get(ty, {}).items():
+                        tot[k] = tot.get(k, 0) + v
+            ev = tot.get("ev", 0)
+            if not ev or not pg:
+                continue
+            cells = " | ".join(f"{100*tot.get(z, 0)/ev:.0f}%" for z in ["back", "middle", "attack", "inside", "reb"])
+            print(f"| {ty} | {ev/pg:.2f} | {cells} |")
+    for ty in TOP_TYPES:
+        acc = {}
+        for r in A.values():
+            for t in r["teams"]:
+                for row in t.get("types", {}).get("pl", []):
+                    if row[1] != ty:
+                        continue
+                    a = acc.setdefault(row[0], [0] * 7)
+                    a[0] += 1
+                    for j in range(6):
+                        a[j + 1] += row[2 + j]
+        real = {}
+        try:
+            with open(os.path.join(HERE, "..", "..", "data", "players_2026.csv"), encoding="utf-8") as fh:
+                for row in csv.DictReader(fh):
+                    real[f"{row['club']}_{row['num']}"] = row
+        except OSError:
+            pass
+        # Men who played at least a quarter of the run's games for their club.
+        need = max(1, len(A) * 2 // 18 // 4)
+        top = sorted(((k, v) for k, v in acc.items() if v[0] >= need), key=lambda kv: -kv[1][1] / kv[1][0])[:10]
+        print(f"\n## Top 10 by disposals a game, {ty} (run A), as a {SEASON_GAMES}-game season\n")
+        print("| # | player | games | di/g | season di | real 2026 di/g | kicks/g | hb/g | marks/g | reb50/g | kick-ins/g |")
+        print("|---|---|---|---|---|---|---|---|---|---|---|")
+        for n, (pid, a) in enumerate(top, 1):
+            g = a[0]
+            rw = real.get(pid)
+            nm = f"{rw['first']} {rw['last']} ({pid})" if rw else pid
+            rdi = f"{int(rw['di'])/int(rw['gm']):.1f} ({rw['gm']} gm)" if rw and int(rw["gm"] or 0) > 0 else "-"
+            print(f"| {n} | {nm} | {g} | {a[1]/g:.1f} | {SEASON_GAMES*a[1]/g:.0f} | {rdi} | {a[2]/g:.1f} | {a[3]/g:.1f} |"
+                  f" {a[4]/g:.1f} | {a[5]/g:.1f} | {a[6]/g:.1f} |")
+
+
 # Champion Data 2025 (Wheelo), intercepts a game per player by position
 # (docs/research/INTERCEPT_EVIDENCE.md; tools/audit/intercept_impl.gd REAL).
 ROLE_REAL = {"DEF": 4.9, "MID": 2.5, "FWD": 1.1, "RUCK": 2.2}
@@ -742,6 +834,7 @@ def main():
     ruck_section(A, B)
     margin_tail(A, B)
     role_report(A, B)
+    type_report(A, B)
     print(f"\nOUT of real range (A): {', '.join(outs) if outs else 'none'}")
 
 

@@ -395,10 +395,14 @@ func _test_factors_never_repeat() -> void:
 			if str(f) == str(st["turning_point"]):
 				bad.append("%s repeats the turning point" % str(r["label"]))
 	# One turning point, from either side's seat: a comeback and the goal that
-	# put a side in front for good are one moment, told once.
+	# put a side in front for good are one moment, told once. Every match of
+	# the twelve rounds, from both seats: one club's dozen games is too thin a
+	# sample to be sure of a comeback built on the match's goal run.
 	var comebacks := 0
 	var run_merged := 0
-	for r in _my_matches():
+	for r in GameState.season_log:
+		if (r.get("events", []) as Array).is_empty():
+			continue
 		for side in [0, 1]:
 			var st2 := MatchStory.build(r, side)
 			if not ["turn", "turn:lead"].has(str(st2.get("turning_fact", ""))):
