@@ -77,7 +77,7 @@ static func new_state() -> Dictionary:
 	return {"coach": {"seasons": 0, "games": 0, "flags": 0, "last_flag": 0, "start": 0, "seen": 0, "coached": {},
 			"club": "", "clubs": [], "sackings": 0, "moved": {}, "reprieves": 1, "retired": 0},
 			"people": {}, "active": {}, "done": {}, "counts": {"year": 0, "refusals": 0, "statements": 0}, "log": [], "move": {},
-			"offers": [], "sack": {}}
+			"offers": [], "sack": {}, "letter": {}}
 
 
 ## An older or partial state: every key present.

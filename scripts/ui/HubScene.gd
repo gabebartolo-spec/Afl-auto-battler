@@ -601,7 +601,7 @@ func _job_offers(v: VBoxContainer, jobs: Array) -> void:
 		if str(o.get("list", "")) != "":
 			row.add_child(_offer_line("The list: " + str(o["list"]), UiKit.TEXT))
 		row.add_child(_offer_line("The board's goal: " + str(o["goal"]), UiKit.TEXT))
-		var take := _nav_button("Take the %s job" % GameDB.club_short(code), func():
+		var take := _nav_button("Take the job", func():
 			if ClubMoves.take_job(GameState, code):
 				_build())
 		take.name = "TakeJob_%s" % code
@@ -702,6 +702,9 @@ func _week_section(season: Season) -> Control:
 	var approaches := _approach_cards()
 	if approaches != null:
 		nv.add_child(approaches)
+	var letter := _letter_card()
+	if letter != null:
+		nv.add_child(letter)
 	if not GameState.pending_mro_challenges().is_empty():
 		nv.add_child(_tribunal_card())
 	var jobs_card := _week_jobs_card()
@@ -1100,10 +1103,13 @@ func _week_actions(season: Season) -> Control:
 	var buttons: Array = []
 	if season.is_season_over():
 		var resume := GameState.draft != null and GameState.draft.intake_mode
-		if not resume:
-			buttons.append(_nav_button("Trades & Contracts", func(): Router.go("offseason")))
-		buttons.append(_nav_button("Resume national draft" if resume
-				else "%d National Draft" % GameState.season_year, _on_intake_draft, true))
+		# A rival's letter is answered before the off-season opens: its two
+		# buttons are the week's move until then.
+		if not ClubMoves.letter_open(GameState):
+			if not resume:
+				buttons.append(_nav_button("Trades & Contracts", func(): Router.go("offseason")))
+			buttons.append(_nav_button("Resume national draft" if resume
+					else "%d National Draft" % GameState.season_year, _on_intake_draft, true))
 	elif _regular_bye(season):
 		# A home-and-away bye: the season goes on, one round at a time.
 		buttons.append(_nav_button("Team", func(): Router.go("selection")))
@@ -1293,6 +1299,66 @@ func _approach_cards() -> Control:
 		row.add_child(_approach_button(i, "go", "Let him go"))
 		card.add_child(row)
 		v.add_child(card)
+	v.add_child(UiKit.rule())
+	return v
+
+
+## A rival board's letter after a strong season (T5.r23): who they are, where
+## they finished, why the job is open, their list, their board's goal and the
+## risk, then his answer. Facts only; neither button is the suggested one.
+## Answered, one line says where he stands until the season rolls on.
+func _letter_card() -> Control:
+	var l := ClubMoves.letter(GameState)
+	if l.is_empty() or not GameState.season.is_season_over():
+		return null
+	var code := str(l["code"])
+	var mine := GameDB.club_name(GameState.my_club)
+	var v := UiKit.vbox(4)
+	v.name = "RivalLetter"
+	var answer := str(l.get("answer", ""))
+	if answer != "":
+		var old := GameDB.club_name(str(l["from"]))
+		var after := ("%s coaches %s now." % [str(l["successor"]), old]) if str(l.get("successor", "")) != "" \
+				else "%s carries on under a new coach." % old
+		var done := "You are %s's senior coach now: their contracts, trades and draft are yours this off-season. %s" % [
+				str(l["name"]), after] if answer == "taken" \
+				else "You turned %s down. You stay at %s." % [str(l["name"]), mine]
+		var dl := UiKit.lbl(done, UiKit.BODY, UiKit.TEXT if answer == "taken" else UiKit.MUTED)
+		dl.name = "RivalLetterAnswered"
+		dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(dl)
+		v.add_child(UiKit.rule())
+		return v
+	var name_row := UiKit.hbox(8)
+	name_row.add_child(UiKit.club_marker(code))
+	var nm := UiKit.lbl("A letter from %s" % str(l["name"]), UiKit.NAME, UiKit.club_vivid(code), true)
+	nm.name = "RivalLetterHead"
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	name_row.add_child(nm)
+	v.add_child(name_row)
+	v.add_child(_offer_line("%s, their president, offers you the senior job. You would start now, with their contracts, trades and draft." % str(l["president"]), UiKit.TEXT))
+	v.add_child(_offer_line("Finished %s of %d. %s" % [GameState.ordinal(int(l["finish"])), int(l["clubs"]), str(l["why_open"])], UiKit.TEXT))
+	if str(l.get("list", "")) != "":
+		v.add_child(_offer_line("Their list: " + str(l["list"]), UiKit.TEXT))
+	v.add_child(_offer_line("Their board's goal: " + str(l["goal"]), UiKit.TEXT))
+	var risk_head := UiKit.lbl("The risk", UiKit.SECONDARY, UiKit.TEXT, true)
+	risk_head.name = "RivalLetterRisk"
+	v.add_child(risk_head)
+	for line in ClubMoves.letter_risk(GameState):
+		v.add_child(_offer_line(line, UiKit.TEXT))
+	var row := UiKit.hbox(8)
+	var stay := _nav_button("Stay put", func():
+		if ClubMoves.decline_letter(GameState):
+			_build())
+	stay.name = "RivalLetterStay"
+	var take := _nav_button("Take the job", func():
+		if ClubMoves.accept_letter(GameState):
+			_build())
+	take.name = "RivalLetterTake"
+	row.add_child(stay)
+	row.add_child(take)
+	v.add_child(row)
 	v.add_child(UiKit.rule())
 	return v
 

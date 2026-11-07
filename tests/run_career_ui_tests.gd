@@ -953,6 +953,7 @@ func _run() -> void:
 	await _t("_test_back_arrow_taps")
 	await _t("_test_finals_card_taps")
 	await _t("_test_sacked_job_choice_taps")
+	await _t("_test_rival_letter_taps")
 	await _t("_test_sim_asks_only_before_your_match")
 	await _t("_test_list_tabs_kept")
 	await _t("_test_remembered")
@@ -3829,4 +3830,75 @@ func _test_sacked_job_choice_taps() -> void:
 	_check_record_only("career over")
 	_state.board["sacked"] = false
 	_state.coach_arcs = {}
+	root.size = size_before
+
+
+## A strong season's real close at Fremantle (row 112): the home-and-away
+## rounds skipped with Fremantle top of the ladder, so they play the finals
+## and meet the board's goal, and the close writes a rival board's letter that
+## holds the off-season until he answers.
+func _season_with_letter() -> void:
+	_state.reset()
+	_state.career_seed = 4411
+	_state.replay_seed = 4411
+	_state.start_season("FRE", _db.club_list("FRE"))
+	var arcs = load("res://scripts/sim/CoachArcs.gd")
+	_state.coach_arcs = arcs.ensure(_state.coach_arcs)
+	var season = _state.season
+	season.round_index = season.fixture.size()
+	season.ladder["FRE"]["w"] = 20
+	season.recalc_ladder()
+	_state.ensure_finals()
+	while not season.is_season_over():
+		_state.advance()
+	# The hub's other first-visit and weekly asks come before the letter; this
+	# test is about the letter.
+	_state.week_events = []
+	_state.media_conference = {}
+	_state.set_setting("seen_weekly_loop_intro", true)
+
+
+func _test_rival_letter_taps() -> void:
+	var size_before := root.size
+	root.size = Vector2i(390, 844)
+	var moves = load("res://scripts/state/ClubMoves.gd")
+	_season_with_letter()
+	_check(moves.letter_open(_state) and not _state.offseason_open(),
+			"A strong season ends with a rival board's letter, and the off-season waits for the answer")
+	_router.stack = ["main"]
+	_router.go("hub")
+	await _settle()
+	var card: Control = current_scene.find_child("RivalLetter", true, false)
+	_check(card != null and current_scene.find_child("RivalLetterRisk", true, false) != null,
+			"The hub shows the letter and its risk")
+	_check(not _screen_text().contains("National Draft") and not _screen_text().contains("Trades & Contracts"),
+			"While the letter is open, trades, contracts and the draft wait for his answer")
+	var stay: Button = current_scene.find_child("RivalLetterStay", true, false)
+	var take: Button = current_scene.find_child("RivalLetterTake", true, false)
+	_check(stay != null and take != null and stay.get_combined_minimum_size().x <= stay.size.x + 0.5
+			and take.get_combined_minimum_size().x <= take.size.x + 0.5,
+			"Stay and Take read whole on a 390 phone")
+	var why: String = await Tap.tap(stay) if stay != null else "missing"
+	await _settle()
+	_check(why == "" and str(moves.letter(_state).get("answer", "")) == "declined" and _state.my_club == "FRE"
+			and (_state.coach_arcs["move"] as Dictionary).is_empty() and _state.offseason_open(),
+			"A finger on Stay turns the job down: he stays and the off-season opens at Fremantle (%s)" % why)
+	_check(current_scene.find_child("RivalLetterAnswered", true, false) != null and _screen_text().contains("National Draft")
+			and _screen_text().contains("Trades & Contracts"),
+			"After the answer the hub says so, and trades, contracts and the draft are back")
+	# The same letter, taken.
+	_season_with_letter()
+	var code := str(moves.letter(_state).get("code", ""))
+	_router.go("hub")
+	await _settle()
+	take = current_scene.find_child("RivalLetterTake", true, false)
+	why = await Tap.tap(take) if take != null else "missing"
+	await _settle()
+	_check(why == "" and code != "" and _state.my_club == code and (_state.coach_arcs["move"] as Dictionary).is_empty()
+			and _state.offseason_open(),
+			"A finger on Take moves him to %s at once and the off-season opens there (%s)" % [code, why])
+	var answered: Label = current_scene.find_child("RivalLetterAnswered", true, false)
+	_check(answered != null and answered.text.contains("senior coach now") and _screen_text().contains("National Draft")
+			and _screen_text().contains("Trades & Contracts"),
+			"After taking it the hub says so, and his new club's trades, contracts and draft are open")
 	root.size = size_before
