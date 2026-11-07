@@ -6597,6 +6597,9 @@ func _resign(p: Dictionary, years: int, salary := -1) -> void:
 func _release(code: String, p: Dictionary, wanted := false, announce := true) -> void:
 	(season.lists[code] as Array).erase(p)
 	p["released_by"] = code
+	# What he remembers of your press is about re-signing with you: on the
+	# market he is priced as anyone else.
+	p.erase("press_memory")
 	# A delisted rookie is a free agent: whoever signs him, his old club
 	# included, puts him on its senior list (row 88).
 	p.erase("rookie_list")
@@ -6820,6 +6823,8 @@ const FILLER_CAP := 3
 
 
 func _open_market(players: Array) -> void:
+	for p in players:
+		p.erase("press_memory")  # his market price is everyone's (see _release)
 	# A player retiring at this rollover is not on the market: his career ends.
 	for p in players.duplicate():
 		if retiring_now(p):
@@ -9038,6 +9043,9 @@ func _close_contracts() -> void:
 			p["contract_years"] = maxi(1, int(p.get("contract_years", 1)) - 1)
 			p.erase("resigned")
 			p.erase("talks")
+			# What you said about him in the press fades a season (half, then gone).
+			if p.has("press_memory"):
+				MediaConference.age_memory(p, my_club)
 
 
 ## Free agency closes when the national draft opens (or at the rollover if
@@ -11006,7 +11014,7 @@ func _set_press_standing(journalist: String, v: int) -> void:
 	media_memory["standing_year"] = season_year
 
 
-## Press morale fades a point a round (every second round after the
+## Press morale fades a point every second round (every third after the
 ## Philosopher), before this week's question forms (ruling 5.54: effects decay).
 func _fade_press_lifts() -> void:
 	if season == null:
@@ -11129,9 +11137,12 @@ func press_context(option: int) -> Dictionary:
 	if not his.is_empty():
 		name = GameDB.player_display_name(his)
 	var j := str(media_conference.get("journalist", ""))
+	# Seasons left on his deal: a named answer's contract weight is said only
+	# when a re-signing falls inside the two seasons it lasts.
 	return {"journalist": j, "verdict": press_verdict(kind), "name": name,
 			"standing": press_standing(j) if MediaConference.JOURNALISTS.has(j) else 0, "facts": press_facts(option),
-			"lost": MediaConference.after_loss(media_conference)}
+			"lost": MediaConference.after_loss(media_conference),
+			"contract_years": int(his.get("contract_years", 1))}
 
 
 ## The line under answer `option` (MediaConference.odds_line).
@@ -11151,8 +11162,8 @@ func press_question_text() -> String:
 	return q if lead == "" else "%s %s" % [lead, q]
 
 
-## Under the byline: "Gary is warm to you: every answer is 5% more likely to
-## land well."; "" when he takes you as he finds you.
+## Under the byline: "Gary's opinion of you is Warm: every answer is 5% more
+## likely to land well."; "" when Neutral.
 func press_standing_line() -> String:
 	var j := str(media_conference.get("journalist", ""))
 	if not MediaConference.JOURNALISTS.has(j):
@@ -11205,6 +11216,8 @@ func resolve_media_conference(option: int) -> Dictionary:
 	var his := list_player(str(picked.get("player", "")))
 	if int(out["his"]) != 0 and not his.is_empty():
 		MediaConference.apply_lift(his, int(out["his"]), MediaConference.NAMED_CAP, slow, up)
+	# He remembers what you said about him when his contract comes up.
+	MediaConference.remember(his, kind, landed, my_club, season_year, round_no)
 	var before := press_standing(j)
 	var after := MediaConference.standing_after(before, MediaConference.standing_move(j, kind, str(ctx.get("verdict", ""))))
 	if MediaConference.JOURNALISTS.has(j) and after != before:
@@ -11221,7 +11234,8 @@ func resolve_media_conference(option: int) -> Dictionary:
 	var size := maxi(absi(int(out["morale"])), absi(int(out["his"])))
 	return {"kind": kind, "landed": landed, "chance": odds, "line": line, "journalist": j,
 			"standing": [before, after], "verdict": str(ctx.get("verdict", "")), "effects": out,
-			"fade_rounds": maxi(MediaConference.fade_rounds(size, slow), MediaConference.fade_rounds(board_moved, false))}
+			"fade_rounds": maxi(MediaConference.fade_rounds(size, slow), MediaConference.board_fade_rounds(board_moved)),
+			"fade_morale": MediaConference.fade_rounds(size, slow), "fade_board": MediaConference.board_fade_rounds(board_moved)}
 
 
 

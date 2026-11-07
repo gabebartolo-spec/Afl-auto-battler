@@ -126,6 +126,11 @@ static func asking_salary(p: Dictionary) -> int:
 	# An unhappy player wants paying to stay.
 	if int(p.get("morale", 70)) < 40:
 		price = ceili(price * 1.25)
+	# What you said about him in the press, while he is with you
+	# (MediaConference.CONTRACT_PCT): dearer once called out, cheaper once backed.
+	var press := MediaConference.contract_pct(p)
+	if press != 0:
+		price = ceili(price * float(100 + press) / 100.0)
 	return price
 
 

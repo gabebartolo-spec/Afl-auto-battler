@@ -423,6 +423,10 @@ static func apply_move(gs) -> void:
 	gs.board = {}
 	# The old club's honour board is put away and the new club's taken up.
 	HonourBoard.change_club(gs, from, to)
+	# What your old players remember of your press was about you: it stays behind.
+	for p in gs.my_list:
+		if p is Dictionary:
+			p.erase("press_memory")
 	gs.my_club = to
 	gs.board = {"confidence": ClubLife.START_CONFIDENCE, "warned": false, "sacked": false, "history": hist}
 	gs.staff_vacancies = []
