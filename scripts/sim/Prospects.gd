@@ -1072,9 +1072,42 @@ static func generate_expansion_list(code: String, year: int, size := 36, salt :=
 		p["weight_kg"] = 0.0
 		p["real_pos"] = Ratings.ROLE_SHORT_TO_POS.get(str(p["role"]), "MID")
 		project(p)
+		_mature_entry(p)
 		out.append(p)
 	GameDB.assign_aliases(out)
 	return out
+
+
+## Senior state-league clubs a mature-age expansion recruit comes from, by
+## state (WA and SA's junior clubs are already their senior clubs).
+const STATE_LEAGUE_CLUBS := {
+	"VICM": [["Box Hill Hawks", "VFL"], ["Williamstown", "VFL"], ["Port Melbourne", "VFL"],
+			["Coburg", "VFL"], ["Werribee", "VFL"], ["Frankston", "VFL"]],
+	"VICC": [["Werribee", "VFL"], ["Frankston", "VFL"], ["Williamstown", "VFL"]],
+	"QLD": [["Southport Sharks", "VFL"], ["Aspley", "VFL"]],
+	"NSW": [["Sydney University", "AFL Sydney"], ["Pennant Hills", "AFL Sydney"]],
+	"TAS": [["Clarence", "TSL"], ["Glenorchy", "TSL"], ["North Launceston", "TSL"],
+			["Launceston", "TSL"], ["Kingborough", "TSL"]],
+}
+
+
+## An expansion player of 20 or more did not come out of the under-18s in the
+## club's first year: his record is a senior state-league season, and past
+## draft age (Potential.MAX_PROSPECT_AGE) no draft-class ranking either. Only
+## the history changes: his ratings and ceiling were already set by project()
+## (a ceiling past 21 is his age's, never his rank's), and the pick of club is
+## seeded by his id so no later player's rolls move.
+static func _mature_entry(p: Dictionary) -> void:
+	var age := float(p.get("age", 18.0))
+	if age < 20.0:
+		return
+	var clubs: Array = STATE_LEAGUE_CLUBS.get(str(p.get("draft_state", "")), [])
+	if not clubs.is_empty():
+		var club: Array = clubs[_rng_for("mature|%s" % str(p["id"])).randi_range(0, clubs.size() - 1)]
+		p["draft_team"] = str(club[0])
+		p["draft_league"] = str(club[1])
+	if age > Potential.MAX_PROSPECT_AGE:
+		p["draft_rank"] = 0
 
 
 static func _generated_secondary(role: String, rng: RandomNumberGenerator) -> String:

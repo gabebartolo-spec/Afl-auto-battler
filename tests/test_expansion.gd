@@ -28,6 +28,7 @@ func run() -> void:
 	_t("_test_rollover_to_2030")
 	_t("_test_save_load_across_expansion")
 	_t("_test_expansion_ceilings")
+	_t("_test_expansion_entry_history")
 	_t("_test_created_club_rules")
 	_t("_test_created_club_career")
 	_t("_test_club_count_defaults")
@@ -448,6 +449,33 @@ func _test_expansion_ceilings() -> void:
 				"%s %d: no seasoned expansion player has a draftee's ceiling (%d over 21)" % [spec[0], spec[1], old_n])
 		_check(young_n > 0 and young_room / young_n >= 10.0,
 				"%s %d: young expansion players keep real upside (mean +%.1f)" % [spec[0], spec[1], young_room / maxf(1, young_n)])
+
+
+## T3.F defect "implausible generated veteran": a seasoned expansion player's
+## history said he came out of the under-18s in the club's first year. Over
+## many careers' foundation lists, nobody of 20 or more has a Talent League
+## season as his record, and nobody past draft age is ranked in that year's
+## draft class; the under-20s still can be.
+func _test_expansion_entry_history() -> void:
+	var n := 0
+	var bad: Array = []
+	var young_talent := 0
+	for spec in [["TAS", 2028], ["CANB", 2030]]:
+		for s in range(60):
+			var salt := "" if s == 0 else "%04d" % s
+			for p in Prospects.generate_expansion_list(str(spec[0]), int(spec[1]), 36, salt):
+				n += 1
+				var age := float(p["age"])
+				var league := str(p.get("draft_league", ""))
+				if age < 20.0 and league == "Talent League":
+					young_talent += 1
+				if (age >= 20.0 and league == "Talent League") \
+						or (age > Potential.MAX_PROSPECT_AGE and int(p.get("draft_rank", 0)) > 0):
+					bad.append("%s age %.1f: %s" % [p["id"], age, PlayerProfile.pedigree(p)])
+	_check(n == 2 * 60 * 36, "Every foundation list is generated (%d players)" % n)
+	_check(bad.is_empty(), "No expansion veteran came out of the under-18s in the club's first year (%d: %s)"
+			% [bad.size(), str(bad.slice(0, 3))])
+	_check(young_talent > 0, "Young expansion players still come from the Talent League (%d)" % young_talent)
 
 
 # ---------------------------------------------------------------------------

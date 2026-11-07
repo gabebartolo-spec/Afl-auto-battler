@@ -49,3 +49,37 @@ func run() -> void:
 			Potential.assign(p)
 		cls.append_array(c)
 	_summ("DRAFT CLASSES 27-29", cls)
+	_plausibility()
+
+
+## Entry history of generated expansion players across many careers (the
+## career seed salts each foundation list): how many read implausibly - a
+## Talent League (under-age) season as the record of a man of 20 or more, or
+## a ranking in the entry year's draft class past draft age (over 21).
+func _plausibility() -> void:
+	var n := 0
+	var talent_old := 0
+	var ranked_old := 0
+	var seasoned := 0
+	var example := ""
+	for spec in [["TAS", 2028], ["CANB", 2030]]:
+		for s in range(200):
+			var salt := "" if s == 0 else "%04d" % s
+			for p in Prospects.generate_expansion_list(str(spec[0]), int(spec[1]), 36, salt):
+				n += 1
+				var age := float(p["age"])
+				if age > Potential.MAX_PROSPECT_AGE:
+					seasoned += 1
+				var bad := false
+				if age >= 20.0 and str(p.get("draft_league", "")) == "Talent League":
+					talent_old += 1
+					bad = true
+				if age > Potential.MAX_PROSPECT_AGE and int(p.get("draft_rank", 0)) > 0:
+					ranked_old += 1
+					bad = true
+				if bad and example == "":
+					example = "%s age %.0f: %s / %s" % [p["id"], age, PlayerProfile.pedigree(p),
+							str(PlayerProfile.production(p)["title"])]
+	print("PLAUSIBILITY players=%d over21=%d talent_league_at_20plus=%d ranked_in_class_over21=%d" % [
+			n, seasoned, talent_old, ranked_old])
+	print("   e.g. ", example)
