@@ -5,9 +5,12 @@ extends RefCounted
 ##
 ## The questions come from five recurring journalists (ROADMAP §9.4 RPG-002,
 ## the director's five types), each asking what suits them: the Muckraker
-## after a heavy loss, the Sycophant after a big win, the Stats Geek on a close
-## one (with a number that was true of the match), the Bogan on a star or an
-## injury, the Philosopher on a young side. They are invented people at invented
+## after a heavy loss, a lead let slip, an upset loss, a losing run or a finals
+## exit; the Sycophant after a big win, a winning run, a final won or a
+## milestone; the Stats Geek on a close one (with a number that was true of
+## the match), a comeback, an upset win or a wayward loss; the Bogan on a star,
+## a debut or an injury; the Philosopher on a young side. A question with two
+## written versions takes turns between them (director 2026-11-07: variety). They are invented people at invented
 ## outlets. What you say can come back: claim your method after a big win, and
 ## the Muckraker quotes it to you after the next heavy loss that season.
 
@@ -43,6 +46,22 @@ static func byline(journalist: String) -> String:
 	return "%s, %s" % [str(j.get("name", "")), str(j.get("outlet", ""))] if not j.is_empty() else "Journalist"
 
 
+## Quarter breaks, for a comeback or a lead let slip.
+const BREAKS := ["quarter time", "half-time", "three-quarter time"]
+## A deficit (or a lead) this big at a break makes a comeback (or a collapse).
+const TURN_GAP := 18
+## Ladder places apart for an upset, asked from this round on.
+const UPSET_GAP := 8
+const UPSET_FROM_ROUND := 6
+## A run asked about at this length, then every second game.
+## The day's other stories, held back the round after any conference.
+const STORY_KEYS := ["comeback", "blown_lead", "milestone", "debut", "upset_loss", "upset_win",
+		"losing_run", "winning_run", "wayward"]
+const STORY_GAP := 2
+const LOSING_RUN_AT := 3
+const WINNING_RUN_AT := 4
+
+
 static func pick(ctx: Dictionary, recent: Dictionary) -> Dictionary:
 	var res: Dictionary = ctx.get("result", {})
 	if res.is_empty():
@@ -59,59 +78,195 @@ static func pick(ctx: Dictionary, recent: Dictionary) -> Dictionary:
 	var candidates := []
 	# Who a fourth answer can name, per question (director 2026-11-06, Q3).
 	var named: Dictionary = ctx.get("named", {})
+	# How often each question has been asked this career: its written versions
+	# take turns, so the same words come round only after the other's have.
+	var asked: Dictionary = recent["asked"] if recent.get("asked") is Dictionary else {}
 
-	var injuries: Array = ctx.get("injuries", [])
-	# Asked after a loss only: its answers say the injury cost the game.
-	if not injuries.is_empty() and margin < 0:
-		candidates.append(_q("injury", "bogan", "Tough blow losing %s. How much did that hurt you out there?" %
-				str(injuries[0].get("name", "a player")), round_no,
-				"The blokes who came in fell short.", "We had to adjust. That's footy.",
-				"That injury cost us the game.",
-				_named(injuries[0], "back_named", "%s will come back better.")))
+	# A final: the season goes on or ends on it, so it comes first.
+	var fin: Dictionary = ctx.get("final", {})
+	if not fin.is_empty():
+		var label := str(fin.get("label", "final"))
+		if margin < 0 and str(fin.get("status", "")) in ["eliminated", "runner_up"]:
+			candidates.append(_q("final_loss", "muckraker", "Your season ends in the %s. Where did it fall short?" % label,
+					round_no, "Too many didn't stand up in September.", "We'll review how we play, top to bottom.",
+					"I'm proud of this group's year.",
+					_named(named.get("heavy_loss", {}), "criticise_named", "%s went missing when it counted.")))
+		elif margin > 0 and str(fin.get("status", "")) == "alive":
+			candidates.append(_q("final_win", "sycophant", "You've won the %s against %s. Is this the year?" % [label, opp],
+					round_no, "Not on that effort. Some were off today.", "We stick to what got us here.",
+					"The players have earned this shot.",
+					_named(named.get("big_win", {}), "back_named", "%s was enormous today.")))
+
 	if margin <= -40:
 		# What you told the Sycophant after a big win this season comes back.
 		var said: Dictionary = recent["said|big_win"] if recent.get("said|big_win") is Dictionary else {}
 		if not said.is_empty() and int(said.get("year", -1)) == year and int(said.get("option", -1)) == 1:
-			candidates.append(_q("heavy_loss", "muckraker",
+			var cb := _q("heavy_loss", "muckraker",
 					"After beating %s you said your method was the standard. Where was it today against %s?" % [
 					str(said.get("opp", "them")), opp], round_no,
 					"The players didn't live up to it.", "One bad day doesn't change it.",
 					"The players still believe in it.",
-					_named(named.get("heavy_loss", {}), "criticise_named", "%s went missing today.")))
+					_named(named.get("heavy_loss", {}), "criticise_named", "%s went missing today."))
+			cb["qid"] = "heavy_loss.said"
+			candidates.append(cb)
 		else:
-			candidates.append(_q("heavy_loss", "muckraker", "%s beat you by %d. Was that acceptable?" % [opp, -margin],
-					round_no, "That was soft from the players.",
-					"Our execution let the system down.", "The players will respond.",
-					_named(named.get("heavy_loss", {}), "criticise_named", "%s went missing today.")))
+			var goals: Array = res.get("goals", [])
+			if goals.size() >= 2 and _turn(asked, "heavy_loss", 2) == 1:
+				candidates.append(_q("heavy_loss", "muckraker", "%s kicked %d goals to your %d. Where do you even start?" % [
+						opp, int(goals[1 - side]), int(goals[side])], round_no,
+						"With the players. Too many dropped their heads.", "With our structure. It let us down.",
+						"With belief. This group will respond.",
+						_named(named.get("heavy_loss", {}), "criticise_named", "%s went missing today."), 1))
+			else:
+				candidates.append(_q("heavy_loss", "muckraker", "%s beat you by %d. Was that acceptable?" % [opp, -margin],
+						round_no, "That was soft from the players.",
+						"Our execution let the system down.", "The players will respond.",
+						_named(named.get("heavy_loss", {}), "criticise_named", "%s went missing today.")))
 	elif margin >= 40:
-		candidates.append(_q("big_win", "sycophant", "That was a clinic against %s. Is this the best side in the competition?" % opp,
-				round_no, "Plenty of it was sloppy.", "Our method's the standard now.",
-				"All credit to the players.",
-				_named(named.get("big_win", {}), "back_named", "%s was enormous today.")))
+		if _turn(asked, "big_win", 2) == 1:
+			candidates.append(_q("big_win", "sycophant", "A %d-point win over %s. Has this side ever looked better?" % [margin, opp],
+					round_no, "Some of them got sloppy. Not good enough.", "That's our system done right.",
+					"That's all the players. They were superb.",
+					_named(named.get("big_win", {}), "back_named", "%s was enormous today."), 1))
+		else:
+			candidates.append(_q("big_win", "sycophant", "That was a clinic against %s. Is this the best side in the competition?" % opp,
+					round_no, "Plenty of it was sloppy.", "Our method's the standard now.",
+					"All credit to the players.",
+					_named(named.get("big_win", {}), "back_named", "%s was enormous today.")))
 	elif absi(margin) <= 6:
-		candidates.append(_q("close_game", "stats", _close_question(res, side, margin, opp), round_no,
+		var cq := _q("close_game", "stats", _close_question(res, side, margin, opp), round_no,
 				"Too many went missing late.", "That's how tight games go.",
-				"The players did everything right."))
+				"The players did everything right.")
+		cq["qid"] = _close_qid(res, side, margin)
+		candidates.append(cq)
+
+	# A big turn at a quarter break: a comeback won, or a lead let slip.
+	var turn := _turnaround(res, side, margin)
+	if not turn.is_empty():
+		if margin > 0:
+			candidates.append(_q("comeback", "stats", "You trailed by %d at %s and won by %d. What changed?" % [
+					int(turn["gap"]), str(turn["at"]), margin], round_no,
+					"Too many were asleep early. Not good enough.", "We changed the setup at the break.",
+					"The players never stopped believing."))
+		else:
+			candidates.append(_q("blown_lead", "muckraker", "You led by %d at %s and lost by %d. How does that happen?" % [
+					int(turn["gap"]), str(turn["at"]), -margin], round_no,
+					"Some of them switched off. Not good enough.", "We stopped playing our way. We'll fix it.",
+					"They're hurting. They'll learn from it.",
+					_named(named.get("heavy_loss", {}), "criticise_named", "%s went missing today.")))
 
 	var star: Dictionary = ctx.get("star", {})
 	if not star.is_empty():
 		var line := str(star.get("line", "had a huge night"))
-		candidates.append(_q("star", "bogan", "%s %s. Is there a better player in the comp right now?" %
-				[str(star.get("name", "One of your players")), line], round_no,
-				"Too many others were passengers.", "Our structure set him up.",
-				"Credit to him and the whole group.",
-				_named(star, "back_named", "%s's the best in the comp.")))
+		var who := str(star.get("name", "One of your players"))
+		if _turn(asked, "star", 2) == 1:
+			candidates.append(_q("star", "bogan", "%s %s. Do you just get it to him and stand back?" % [who, line], round_no,
+					"Some days it looks that way. That's a worry.", "That's the plan. Our setup feeds him.",
+					"No. The blokes around him made it happen.",
+					_named(star, "back_named", "%s's the best in the comp."), 1))
+		else:
+			candidates.append(_q("star", "bogan", "%s %s. Is there a better player in the comp right now?" % [who, line],
+					round_no, "Too many others were passengers.", "Our structure set him up.",
+					"Credit to him and the whole group.",
+					_named(star, "back_named", "%s's the best in the comp.")))
 
+	# The Philosopher's young side comes before the day's other stories (about one
+	# conference in six, director ruling).
 	var young := int(ctx.get("young", 0))
 	if young >= YOUNG_SIDE:
-		candidates.append(_q("young_side", "philosopher",
-				"%s of your side today were %d or younger. Is this the club you're building?" % [
-				MatchNotes.count_word(young).capitalize(), int(YOUNG_AGE)], round_no,
-				"Perform or they'll be dropped.", "We'll wear the bad days for it.",
-				"I'm proud of every one of them.",
-				_named(named.get("young_side", {}), "criticise_named", "%s has to learn quicker.")))
+		if _turn(asked, "young_side", 2) == 1:
+			candidates.append(_q("young_side", "philosopher",
+					"You picked %s players %d or under today. Are you playing for this year or for later?" % [
+					MatchNotes.count_word(young), int(YOUNG_AGE)], round_no,
+					"This year. They earn spots or lose them.", "Both. We're building a way that lasts.",
+					"They're good enough now. That's why they play.",
+					_named(named.get("young_side", {}), "criticise_named", "%s has to learn quicker."), 1))
+		else:
+			candidates.append(_q("young_side", "philosopher",
+					"%s of your side today were %d or younger. Is this the club you're building?" % [
+					MatchNotes.count_word(young).capitalize(), int(YOUNG_AGE)], round_no,
+					"Perform or they'll be dropped.", "We'll wear the bad days for it.",
+					"I'm proud of every one of them.",
+					_named(named.get("young_side", {}), "criticise_named", "%s has to learn quicker.")))
+
+	# A player's milestone or first game, on the day.
+	var ms: Dictionary = ctx.get("milestone", {})
+	if not ms.is_empty():
+		candidates.append(_q("milestone", "sycophant", "%s played his %s game today. What has he meant to this club?" % [
+				str(ms.get("name", "He")), _ordinal(int(ms.get("games", 100)))], round_no,
+				"The rest have to match his standards.", "He sets the standard for how we play.",
+				"The whole group lifted for him.",
+				_named(ms, "back_named", "%s has earned every one of them.")))
+	var debut: Dictionary = ctx.get("debut", {})
+	if not debut.is_empty():
+		candidates.append(_q("debut", "bogan", "%s played his first game today. Do you keep him in the side?" %
+				str(debut.get("name", "The new boy")), round_no,
+				"The senior blokes let him down today.", "He did the job we picked him for.",
+				"The whole group got around him.",
+				_named(debut, "back_named", "%s belongs at this level.")))
+
+	var injuries: Array = ctx.get("injuries", [])
+	# Asked after a loss only: its answers say the injury cost the game.
+	if not injuries.is_empty() and margin < 0:
+		var hurt := str(injuries[0].get("name", "a player"))
+		if _turn(asked, "injury", 2) == 1:
+			candidates.append(_q("injury", "bogan", "Losing %s hurt. Have you got the depth to cover him?" % hurt, round_no,
+					"The depth players fell short today.", "We'll cover it with a change of setup.",
+					"Our depth will stand up. I trust them.",
+					_named(injuries[0], "back_named", "%s will come back better."), 1))
+		else:
+			candidates.append(_q("injury", "bogan", "Tough blow losing %s. How much did that hurt you out there?" % hurt,
+					round_no, "The blokes who came in fell short.", "We had to adjust. That's footy.",
+					"That injury cost us the game.",
+					_named(injuries[0], "back_named", "%s will come back better.")))
+
+	# The ladder says it was an upset (home-and-away only).
+	var my_pos := int(ctx.get("my_pos", 0))
+	var opp_pos := int(ctx.get("opp_pos", 0))
+	if fin.is_empty() and my_pos > 0 and opp_pos > 0 and round_no >= UPSET_FROM_ROUND:
+		if margin < 0 and opp_pos - my_pos >= UPSET_GAP:
+			candidates.append(_q("upset_loss", "muckraker", "%s are %s on the ladder and they beat you. Is that embarrassing?" % [
+					opp, _ordinal(opp_pos)], round_no,
+					"Yes. Some of ours thought it was a gimme.", "Our pressure was off. We'll fix that.",
+					"No. They earned it. We'll bounce back."))
+		elif margin > 0 and my_pos - opp_pos >= UPSET_GAP:
+			candidates.append(_q("upset_win", "stats", "You're %s, %s are %s, and you beat them. Do you read much into it?" % [
+					_ordinal(my_pos), opp, _ordinal(opp_pos)], round_no,
+					"Not much. Too many of ours were off.", "Yes. The plan works against anyone.",
+					"Yes. It shows what this group can do."))
+
+	# A run of results, asked as it reaches a length worth a headline.
+	var lost_run := int(ctx.get("losing_run", 0))
+	var won_run := int(ctx.get("winning_run", 0))
+	if margin < 0 and lost_run >= LOSING_RUN_AT and (lost_run - LOSING_RUN_AT) % 2 == 0:
+		candidates.append(_q("losing_run", "muckraker", "That's %s losses in a row. Is the message still getting through?" %
+				MatchNotes.count_word(lost_run), round_no,
+				"Some aren't doing what's asked of them.", "The plan's right. We're not executing it.",
+				"Yes. This group hasn't stopped working.",
+				_named(named.get("heavy_loss", {}), "criticise_named", "%s has to lift, starting now.")))
+	elif margin > 0 and won_run >= WINNING_RUN_AT and (won_run - WINNING_RUN_AT) % 2 == 0:
+		candidates.append(_q("winning_run", "sycophant", "That's %s wins in a row. Can anyone stop this side?" %
+				MatchNotes.count_word(won_run), round_no,
+				"We've got away with some sloppy footy.", "We're winning because the plan works.",
+				"The players deserve every bit of it.",
+				_named(named.get("big_win", {}), "back_named", "%s has driven this run.")))
+
+	# Lost with as many shots at goal: the kicking.
+	var gl: Array = res.get("goals", [])
+	var bh: Array = res.get("behinds", [])
+	if margin < 0 and gl.size() >= 2 and bh.size() >= 2 and int(bh[side]) > int(gl[side]) \
+			and int(gl[side]) + int(bh[side]) >= int(gl[1 - side]) + int(bh[1 - side]):
+		candidates.append(_q("wayward", "stats", "You kicked %d.%d and lost by %d. Is goal kicking costing you games?" % [
+				int(gl[side]), int(bh[side]), -margin], round_no,
+				"Our forwards have to kick straighter.", "We're creating the shots. They'll come.",
+				"They'll kick them next week. I back them."))
 
 	# Not every ordinary match earns a conference. A notable factual trigger is required.
+	var last_any := -999
+	for k in recent:
+		var v = recent[k]
+		if v is Dictionary and v.has("round") and int(v.get("year", -1)) == year:
+			last_any = maxi(last_any, int(v["round"]))
 	for q in candidates:
 		var key := str(q["key"])
 		var last = recent.get(key, -999)
@@ -120,6 +275,10 @@ static func pick(ctx: Dictionary, recent: Dictionary) -> Dictionary:
 			last = int(last.get("round", -999)) if int(last.get("year", 0)) == int(ctx.get("year", 0)) else -999
 		if typeof(last) != TYPE_INT and typeof(last) != TYPE_FLOAT:
 			last = -999
+		# A story of the day (a milestone, a run, an upset) is not asked the week
+		# after a conference: fewer, weightier pressers.
+		if key in STORY_KEYS and round_no - last_any < STORY_GAP:
+			continue
 		var wait := YOUNG_SIDE_COOLDOWN if key == "young_side" else COOLDOWN_ROUNDS
 		if round_no - int(last) > wait:
 			# A young side moves the odds of every answer (see chance()).
@@ -128,6 +287,47 @@ static func pick(ctx: Dictionary, recent: Dictionary) -> Dictionary:
 			q["margin"] = margin
 			return q
 	return {}
+
+
+## Which written version of a question comes up: they take turns by how often
+## the question has been asked this career.
+static func _turn(asked: Dictionary, key: String, versions: int) -> int:
+	return int(asked.get(key, 0)) % maxi(1, versions)
+
+
+## The biggest turn at a quarter break against the result: {"gap", "at"} when
+## you won from TURN_GAP or more down, or lost from TURN_GAP or more up; else {}.
+static func _turnaround(res: Dictionary, side: int, margin: int) -> Dictionary:
+	var qs: Array = res.get("quarters", [])
+	if margin == 0 or qs.size() < 4:
+		return {}
+	var run := 0
+	var best := {}
+	for i in range(BREAKS.size()):
+		var q: Array = qs[i]
+		run += int(q[side]) - int(q[1 - side])
+		var gap := -run if margin > 0 else run
+		if gap >= TURN_GAP and gap > int(best.get("gap", 0)):
+			best = {"gap": gap, "at": BREAKS[i]}
+	return best
+
+
+## Which of the Stats Geek's close-game questions _close_question wrote.
+static func _close_qid(res: Dictionary, side: int, margin: int) -> String:
+	if margin == 0:
+		return "close_game.draw"
+	var teams: Array = res.get("team", [])
+	if teams.size() >= 2:
+		for k in ["inside50", "clearances"]:
+			var a := int((teams[side] as Dictionary).get(k, 0))
+			var b := int((teams[1 - side] as Dictionary).get(k, 0))
+			if margin < 0 and a - b >= STAT_GAP:
+				return "close_game.won_%s_lost" % k
+			if margin > 0 and b - a >= STAT_GAP:
+				return "close_game.lost_%s_won" % k
+	if (res.get("goals", []) as Array).size() >= 2 and (res.get("behinds", []) as Array).size() >= 2:
+		return "close_game.shots"
+	return "close_game.late"
 
 
 ## A named answer's option, {} when nobody fits (no id).
@@ -714,7 +914,7 @@ static func _ordinal(n: int) -> String:
 
 
 static func _q(key: String, journalist: String, question: String, round_no: int, accountable: String,
-		tactical: String, protective: String, named: Dictionary = {}) -> Dictionary:
+		tactical: String, protective: String, named: Dictionary = {}, version := 0) -> Dictionary:
 	var opts := [
 		{"label": accountable, "kind": "criticise"},
 		{"label": tactical, "kind": "method"},
@@ -724,5 +924,6 @@ static func _q(key: String, journalist: String, question: String, round_no: int,
 	if not named.is_empty() and str(named.get("id", "")) != "":
 		opts.append({"label": str(named["label"]), "kind": str(named["kind"]), "player": str(named["id"]),
 				"name": str(named.get("name", "him"))})
-	return {"key": key, "round": round_no, "question": question, "journalist": journalist,
-		"by": byline(journalist), "options": opts}
+	# "qid": which written question this is, before names and numbers fill it.
+	return {"key": key, "qid": "%s.%d" % [key, version], "round": round_no, "question": question,
+		"journalist": journalist, "by": byline(journalist), "options": opts}

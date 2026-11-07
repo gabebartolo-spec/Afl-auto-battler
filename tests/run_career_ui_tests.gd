@@ -122,6 +122,36 @@ func _test_media_conference_rules() -> void:
 			and str(hurt_loss.get("key", "")) == "injury"
 			and str((hurt_loss["options"] as Array)[2]["label"]).contains("cost us the game"),
 			"The injury question, whose answers blame a loss, is asked after a loss only (%s)" % win_lines)
+	# More questions for variety (director 2026-11-07): written versions take
+	# turns, and the day's other stories each have a journalist of their own.
+	var hl_ctx := {"club": "COL", "opponent_name": "Carlton", "round": 8, "year": 2027,
+			"result": {"home": "COL", "away": "CAR", "score": [55, 101], "goals": [8, 15], "behinds": [7, 11]}}
+	var v0: Dictionary = MCY.pick(hl_ctx, {"asked": {"heavy_loss": 2}})
+	var v1: Dictionary = MCY.pick(hl_ctx, {"asked": {"heavy_loss": 1}})
+	_check(str(v0.get("qid", "")) == "heavy_loss.0" and str(v1.get("qid", "")) == "heavy_loss.1"
+			and str(v1.get("question", "")) == "Carlton kicked 15 goals to your 8. Where do you even start?",
+			"A question's two versions take turns (%s / %s)" % [str(v0.get("question", "")), str(v1.get("question", ""))])
+	var run_ctx := {"club": "COL", "opponent_name": "Carlton", "round": 12, "year": 2027, "losing_run": 3,
+			"result": {"home": "COL", "away": "CAR", "score": [70, 85]}}
+	var run_q: Dictionary = MCY.pick(run_ctx, {})
+	var held: Dictionary = MCY.pick(run_ctx, {"star": {"year": 2027, "round": 11}})
+	_check(str(run_q.get("key", "")) == "losing_run" and str(run_q.get("journalist", "")) == "muckraker"
+			and str(run_q.get("question", "")).begins_with("That's three losses in a row") and held.is_empty(),
+			"A losing run brings the Muckraker, but not the week after a conference")
+	var upset: Dictionary = MCY.pick({"club": "COL", "opponent_name": "Carlton", "round": 10, "year": 2027,
+			"my_pos": 15, "opp_pos": 2, "result": {"home": "COL", "away": "CAR", "score": [85, 70]}}, {})
+	_check(str(upset.get("key", "")) == "upset_win" and str(upset.get("question", "")).contains("You're 15th, Carlton are 2nd"),
+			"An upset win quotes the ladder (%s)" % str(upset.get("question", "")))
+	var back_from: Dictionary = MCY.pick({"club": "COL", "opponent_name": "Carlton", "round": 10, "year": 2027,
+			"result": {"home": "COL", "away": "CAR", "score": [90, 78], "quarters": [[10, 20], [5, 18], [40, 20], [35, 20]]}}, {})
+	_check(str(back_from.get("key", "")) == "comeback"
+			and str(back_from.get("question", "")) == "You trailed by 23 at half-time and won by 12. What changed?",
+			"A comeback from a break is asked with the real deficit (%s)" % str(back_from.get("question", "")))
+	var out_of_it: Dictionary = MCY.pick({"club": "COL", "opponent_name": "Carlton", "round": 25, "year": 2027,
+			"final": {"label": "semi final", "status": "eliminated"},
+			"result": {"home": "COL", "away": "CAR", "score": [70, 75]}}, {})
+	_check(str(out_of_it.get("key", "")) == "final_loss" and str(out_of_it.get("question", "")).contains("semi final"),
+			"A finals exit is asked about first")
 	var stage = VignetteScript.new()
 	stage.size = Vector2(390, 300)
 	stage.club = "COL"

@@ -11,8 +11,13 @@ extends RefCounted
 ##
 ## Prints per season: PRESS_SEASON <year> pressers <n> games <n> keys <k=n,...>
 ## journalists <j=n,...> named <n> distinct_text <n> standing <j=v,...>
-## max_lift <n>; then PRESS_TOTAL lines (with how many games fielded each
-## count of young players, MediaConference.is_young) and SUMMARY.
+## max_lift <n>; then PRESS_QUESTIONS <year> distinct <n> repeats <n>
+## same_text <n> carried <n> per <j=asked/distinct,...> (a question is its
+## "qid", the written question before names and numbers fill it; repeats is
+## pressers minus distinct questions that season, same_text a word-for-word
+## repeat, carried a question already asked in an earlier season); then
+## PRESS_TOTAL lines (with how many games fielded each count of young players,
+## MediaConference.is_young) and SUMMARY.
 ## Measurement only: it never changes a rule.
 
 func run() -> void:
@@ -39,6 +44,8 @@ func run() -> void:
 	var young_hist := {}
 	var per_season: Array = []
 	var played := 0
+	var seen_career := {}
+	var qid_tot := {}
 	for s in range(seasons):
 		var keys := {}
 		var js := {}
@@ -47,6 +54,11 @@ func run() -> void:
 		var press := 0
 		var games := 0
 		var max_lift := 0
+		var qids := {}
+		var full := {}
+		var same_text := 0
+		var carried := 0
+		var per_j := {}
 		while not GameState.season.is_season_over() and not GameState.is_sacked():
 			var ph := ClubStories.phase(GameState)
 			if ph == "regular" or GameState.my_finals_status() == "alive":
@@ -61,7 +73,19 @@ func run() -> void:
 				press += 1
 				keys[k] = int(keys.get(k, 0)) + 1
 				js[j] = int(js.get(j, 0)) + 1
-				texts[str(mc.get("question", ""))] = true
+				var qtext := str(mc.get("question", ""))
+				var qid := _qid(mc)
+				if full.has(qtext):
+					same_text += 1
+				full[qtext] = true
+				if not qids.has(qid) and seen_career.has(qid):
+					carried += 1
+				qids[qid] = int(qids.get(qid, 0)) + 1
+				qid_tot[qid] = int(qid_tot.get(qid, 0)) + 1
+				var pj: Dictionary = per_j.get(j, {})
+				pj[qid] = int(pj.get(qid, 0)) + 1
+				per_j[j] = pj
+				texts[qtext] = true
 				tot_texts[str(mc.get("question", ""))] = true
 				var opts: Array = mc.get("options", [])
 				if opts.size() > 3:
@@ -91,6 +115,17 @@ func run() -> void:
 			st.append("%s=%d" % [j, GameState.press_standing(j)])
 		print("PRESS_SEASON %d pressers %d games %d keys %s journalists %s named %d distinct_text %d standing %s max_lift %d" % [
 				GameState.season_year, press, games, _fmt(keys), _fmt(js), named, texts.size(), ",".join(st), max_lift])
+		var pj_bits := []
+		for j in MediaConference.JOURNALISTS.keys():
+			var pj: Dictionary = per_j.get(j, {})
+			var n := 0
+			for q in pj:
+				n += int(pj[q])
+			pj_bits.append("%s=%d/%d" % [j, n, pj.size()])
+		print("PRESS_QUESTIONS %d distinct %d repeats %d same_text %d carried %d per %s" % [
+				GameState.season_year, qids.size(), press - qids.size(), same_text, carried, ",".join(pj_bits)])
+		for q in qids:
+			seen_career[q] = true
 		per_season.append(press)
 		tot_press += press
 		tot_named += named
@@ -118,6 +153,7 @@ func run() -> void:
 	print("PRESS_TOTAL journalists %s" % _fmt(tot_j))
 	print("PRESS_TOTAL answers %s" % _fmt(tot_kinds))
 	print("PRESS_TOTAL landed %s" % _fmt(tot_landed))
+	print("PRESS_TOTAL qids %d %s" % [qid_tot.size(), _fmt(qid_tot)])
 	print("PRESS_TOTAL young_in_side %s" % _fmt(young_hist))
 	var lo := 999
 	var hi := 0
@@ -129,6 +165,24 @@ func run() -> void:
 			seed, club, played, tot_games, tot_press, float(tot_press) / float(maxi(1, played)), lo, hi,
 			100.0 * float(tot_press) / float(maxi(1, tot_games)), tot_named, tot_texts.size(), max_lift_all,
 			MediaConference.NAMED_CAP, phil, float(tot_press) / float(maxi(1, phil))])
+
+
+## Which written question this is: its "qid" when the question carries one,
+## else (a save or build from before qids) its key plus the text with the
+## opponent, names and numbers taken out.
+func _qid(mc: Dictionary) -> String:
+	if str(mc.get("qid", "")) != "":
+		return str(mc["qid"])
+	var key := str(mc.get("key", "?"))
+	if key in ["injury", "star", "young_side", "big_win"]:
+		return key
+	var t := str(mc.get("question", "")).replace(str(mc.get("opp", "~")), "OPP")
+	if t.begins_with("After beating"):
+		return key + ".said"
+	var re := RegEx.new()
+	re.compile("[0-9]+")
+	t = re.sub(t, "#", true)
+	return "%s|%s" % [key, " ".join(t.split(" ").slice(0, 4))]
 
 
 func _fmt(d: Dictionary) -> String:

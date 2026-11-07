@@ -10931,12 +10931,46 @@ func _prepare_media_conference(results: Array) -> void:
 			var p := _find_player(str(r.get("id", "")))
 			if not p.is_empty() and MediaConference.is_young(float(p.get("age", 30.0))):
 				young += 1
+	# A listed player's first game, or a career milestone, on the day: only for
+	# a career on record in full, so the count is true.
+	var debut := {}
+	var milestone := {}
+	if roster.size() > side:
+		for r in roster[side]:
+			var p := list_player(str(r.get("id", "")))
+			if p.is_empty() or not Career.complete(p):
+				continue
+			var g := games_played(p)
+			var who := {"id": str(p.get("id", "")), "name": GameDB.player_display_name(p), "games": g}
+			if g == 1 and debut.is_empty():
+				debut = who
+			elif BANNER_MILESTONES.has(g) and g >= 100 and g > int(milestone.get("games", 0)):
+				milestone = who
+	var fin := {}
+	if res.has("tag"):
+		var lbl := str(res.get("label", "final"))
+		if lbl.length() > 2 and lbl.right(1).is_valid_int():
+			lbl = lbl.left(lbl.length() - 2)
+		fin = {"label": lbl if lbl == "Grand Final" else lbl.to_lower(), "status": my_finals_status()}
+	var won_run := 0
+	var form: Array = season.club_results(my_club)
+	for i in range(form.size() - 1, -1, -1):
+		if str(form[i]) != "W":
+			break
+		won_run += 1
 	media_conference = MediaConference.pick({
 		"result": res, "club": my_club, "opponent_name": GameDB.club_name(opp),
 		"round": round_no, "injuries": injuries, "star": star, "year": season_year, "young": young,
-		"named": _press_named(res, side, hurt),
+		"named": _press_named(res, side, hurt), "debut": debut, "milestone": milestone, "final": fin,
+		"losing_run": losing_streak, "winning_run": won_run, "my_pos": my_position(), "opp_pos": club_position(opp),
 	}, media_memory)
 	if not media_conference.is_empty():
+		# How often each question has come up this career: its written
+		# versions take turns (MediaConference._turn).
+		var asked: Dictionary = media_memory["asked"] if media_memory.get("asked") is Dictionary else {}
+		var key := str(media_conference.get("key", ""))
+		asked[key] = int(asked.get(key, 0)) + 1
+		media_memory["asked"] = asked
 		media_conference["opp"] = GameDB.club_name(opp)
 		# How he asks follows your standing with him (director 2026-11-06, Q1);
 		# the question itself stays as it was.
