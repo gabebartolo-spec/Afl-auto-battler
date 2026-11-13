@@ -11,6 +11,8 @@ save
 match_game
 career
 contracts
+# A Legacy campaign rolled 1990 -> 2026 (row 142): timed out at 900 s on PR shards.
+legacy_rollover
 coach_arcs
 match_visual
 matchday

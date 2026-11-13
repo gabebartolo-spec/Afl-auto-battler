@@ -237,6 +237,8 @@ func reload(dataset := Datasets.DEFAULT) -> void:
 	_use_dataset(dataset, row)
 	clubs = _load_clubs()
 	club_order = CLUB_ORDER.duplicate()
+	era_pins = {}
+	colour_shades = {}
 	_load_club_years()
 	apply_era(START_YEAR)
 	_alias_candidates = []
@@ -734,6 +736,8 @@ func _load_list_additions() -> Array:
 		p["list_type"] = list_type
 		if _cell_str(cells, idx, "peak") != "":
 			p["real_peak"] = _cell_int(cells, idx, "peak")
+		if _cell_str(cells, idx, "last_season") != "":
+			p["real_last"] = _cell_int(cells, idx, "last_season")
 		var pos := _cell_str(cells, idx, "position")
 		p["role"] = pos if pos in ["RUCK", "MID", "DEF", "FWD"] else listed_role(p)
 		p["role2"] = ""
@@ -1138,6 +1142,41 @@ func set_enter_year(code: String, year: int) -> void:
 		(clubs[code] as Dictionary)["enter"] = year
 
 
+## A club the data has leave keeps playing, for this career only (Fitzroy,
+## when they fight off the merger). reload() puts the data's year back.
+func keep_club(code: String) -> void:
+	pristine = false
+	if clubs.has(code):
+		(clubs[code] as Dictionary)["leave"] = 0
+
+
+## Keep `code` looking as it did in `year` from then on, for this career only.
+func pin_era(code: String, year: int) -> void:
+	pristine = false
+	era_pins[code] = year
+	if era_year > 0:
+		apply_era(era_year)
+
+
+## Let `code` follow its own looks by year again (a pin_era undone).
+func unpin_era(code: String) -> void:
+	pristine = false
+	era_pins.erase(code)
+	if era_year > 0:
+		apply_era(era_year)
+
+
+## Reshade `code`'s colours for this career ({} puts its own back).
+func shade_colours(code: String, shades: Dictionary) -> void:
+	pristine = false
+	if shades.is_empty():
+		colour_shades.erase(code)
+	else:
+		colour_shades[code] = shades
+	if era_year > 0:
+		apply_era(era_year)
+
+
 ## The clubs active in a given season year, in club order. Fixtures, ladders,
 ## drafts and selections all iterate this - never CLUB_ORDER - so expansion
 ## clubs (and a created one) join the competition on schedule without any
@@ -1201,6 +1240,13 @@ var _ground_names := {}   # ground key -> Array of {from, to, name}, oldest firs
 var _ground_keys := {}    # any id or name a ground has had -> its key
 ## The year the clubs' names and colours are shown for (apply_era).
 var era_year := 0
+## code -> the last year whose look a club keeps, for this career only (the
+## Bears stay the Bears when Fitzroy fight off the merger; LegacyRollover).
+## reload() clears it.
+var era_pins := {}
+## A club's colours reshaded for this career only (Legacy: Fitzroy beside the
+## Bears or Lions, director 2026-11-13): code -> {primary/secondary/accent: Color}.
+var colour_shades := {}
 
 
 ## The one code a club has in every era (BRB is BRL, FOO is WBD).
@@ -1310,12 +1356,16 @@ func _era_look(code: String, year: int) -> Dictionary:
 	var out: Dictionary = (_club_base.get(code, {}) as Dictionary).duplicate()
 	if out.is_empty():
 		return out
+	if era_pins.has(code):
+		year = mini(year, int(era_pins[code]))
 	for r in _club_years.get(code, []):
 		if int(r["from"]) <= year and (int(r["to"]) == 0 or year <= int(r["to"])):
 			for k in ERA_FIELDS:
 				if r.has(k):
 					out[k] = _hex(r[k]) if COLOUR_FIELDS.has(k) else r[k]
 			break
+	for k in (colour_shades.get(code, {}) as Dictionary):
+		out[k] = colour_shades[code][k]
 	return out
 
 
@@ -1863,6 +1913,10 @@ func _apply_history_rows(list: Array) -> void:
 						p["drafted_club"] = code
 		if idx.has("peak") and str(cells[idx["peak"]]) != "":
 			p["real_peak"] = int(str(cells[idx["peak"]]))
+		# A Legacy start's real player: his last real AFL season, when his
+		# retirement comes due (Prospects.should_retire, director 2026-11-13).
+		if idx.has("last_season") and str(cells[idx["last_season"]]) != "":
+			p["real_last"] = int(str(cells[idx["last_season"]]))
 		var hist := []
 		for chunk in str(cells[idx["seasons"]]).split(";", false):
 			var parts := chunk.split(":")

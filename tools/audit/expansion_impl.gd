@@ -214,7 +214,7 @@ func _move(id: String, to: String, why: String, seed: int) -> bool:
 		for i in range(arr.size()):
 			if str(arr[i]["id"]) != id:
 				continue
-			if arr.size() <= Contracts.MIN_LIST:
+			if arr.size() <= Contracts.min_list():
 				return false
 			var p: Dictionary = arr[i]
 			arr.remove_at(i)

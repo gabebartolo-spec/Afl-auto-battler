@@ -322,7 +322,7 @@ func _test_rollover_to_2028() -> void:
 	# The debut list: a full squad, in the right size band, with contracts
 	# ready when the season opens.
 	var tas: Array = season.lists["TAS"]
-	_check(tas.size() >= Prospects.MIN_LIST and tas.size() <= Ratings.LIST_SIZE,
+	_check(tas.size() >= Contracts.min_list() and tas.size() <= Ratings.LIST_SIZE,
 			"Tasmania debuts with a full list (%d)" % tas.size())
 	var ages := 0.0
 	var id_seen := {}
@@ -385,7 +385,7 @@ func _test_2028_season_runs() -> void:
 	_rollover()
 	_check(GameState.season_year == 2029, "The career advances to 2029")
 	var again: Array = GameState.season.lists["TAS"]
-	_check(again.size() >= Prospects.MIN_LIST, "Tasmania keeps a full list into 2029")
+	_check(again.size() >= Contracts.min_list(), "Tasmania keeps a full list into 2029")
 
 
 ## True when the achievement is not unlocked, or is stamped `year`.
@@ -401,7 +401,7 @@ func _test_rollover_to_2030() -> void:
 	_check(season.ladder.has("CANB") and season.ladder.has("TAS"),
 			"Both expansion clubs are on the 2030 ladder")
 	var canb: Array = season.lists["CANB"]
-	_check(canb.size() >= Prospects.MIN_LIST and canb.size() <= Ratings.LIST_SIZE,
+	_check(canb.size() >= Contracts.min_list() and canb.size() <= Ratings.LIST_SIZE,
 			"Canberra debuts with a full list (%d)" % canb.size())
 	_check(season.fixture.size() == Season.REGULAR_ROUNDS, "24 rounds in 2030")
 	for r in season.fixture:
@@ -414,7 +414,7 @@ func _test_rollover_to_2030() -> void:
 	var twice := ""
 	for code in season.ladder:
 		var arr: Array = season.lists[code]
-		_check(arr.size() >= Prospects.MIN_LIST and arr.size() <= Ratings.LIST_SIZE,
+		_check(arr.size() >= Contracts.min_list() and arr.size() <= Ratings.LIST_SIZE,
 				"%s stays in the list band in 2030 (%d)" % [code, arr.size()])
 		for p in arr:
 			if seen.has(str(p["id"])):
@@ -649,7 +649,7 @@ func _test_created_club_career() -> void:
 			seen[n] = true
 	_check(clashes == 0, "Every club's list has one player per number after the League Draft (%d clashes)" % clashes)
 	var mine: Array = season.lists["PMB"]
-	_check(mine.size() >= Prospects.MIN_LIST and mine.size() <= Ratings.LIST_SIZE,
+	_check(mine.size() >= Contracts.min_list() and mine.size() <= Ratings.LIST_SIZE,
 			"The created club drafts a full list (%d)" % mine.size())
 	var played := 0
 	var home_ground_ok := true
@@ -764,7 +764,7 @@ func _test_redraft_equal_entry() -> void:
 			"Every club has the same picks: no priority picks or new-club build (%s)" % str(picks))
 	_check(not ExpansionBuild.has_package(GameState, "TAS") and not ExpansionBuild.has_package(GameState, "CANB"),
 			"No new-club package (cap room) for Tasmania or Canberra in a redraft")
-	_check(draft.target_size >= Prospects.MIN_LIST,
+	_check(draft.target_size >= Contracts.min_list(),
 			"21 clubs still draft a playable list each (%d players)" % draft.target_size)
 	draft.start_for_user("CANB")
 	_ai_finish(draft)
@@ -905,7 +905,7 @@ func _test_real_lists_tasmania_2028() -> void:
 	_check(GameState.season_year == 2028 and GameState.season != null and GameState.season.ladder.size() == 19
 			and GameState.season.ladder.has("TAS") and GameState.my_club == "TAS",
 			"Your first season is 2028, on a 19-club ladder (%d)" % GameState.season_year)
-	_check(GameState.my_list.size() >= Prospects.MIN_LIST, "Tasmania have a full list (%d)" % GameState.my_list.size())
+	_check(GameState.my_list.size() >= Contracts.min_list(), "Tasmania have a full list (%d)" % GameState.my_list.size())
 	_check(not GameState.club_yet_to_play(), "Tasmania play 2028, so the Hub is home")
 	_check(GameState.cap_room() == GameState.salary_cap + ExpansionBuild.relief(GameState, "TAS") - GameState.my_payroll()
 			and ExpansionBuild.relief(GameState, "TAS") > 0, "The sign-on money counts on your own cap room")
@@ -989,7 +989,7 @@ func _test_real_lists_play_to_2030() -> void:
 	_check(not old.is_empty() and still * 4 <= old.size() and aged,
 			"The players 34 or older at the 2027 start have mostly retired by 2029; any left aged two years (%d of %d)" % [still, old.size()])
 	var tas: Array = GameState.league_lists.get("TAS", [])
-	_check(tas.size() >= Prospects.MIN_LIST, "Tasmania exists with a list (%d players)" % tas.size())
+	_check(tas.size() >= Contracts.min_list(), "Tasmania exists with a list (%d players)" % tas.size())
 	_check(GameState.honour_roll.size() >= 3 and GameState.almanac.is_empty(),
 			"2027 to 2029 are on the honour roll; your club annual is empty (%d, %d)" % [
 				GameState.honour_roll.size(), GameState.almanac.size()])
@@ -1029,7 +1029,7 @@ func _test_real_lists_play_to_2030() -> void:
 		_rollover()
 		_check(GameState.season_year == year and GameState.season != null
 				and GameState.season.ladder.size() == 20 and GameState.season.ladder.has("CANB")
-				and GameState.my_club == "CANB" and GameState.my_list.size() >= Prospects.MIN_LIST,
+				and GameState.my_club == "CANB" and GameState.my_list.size() >= Contracts.min_list(),
 				"The 2030 start rolls into %d: 20 clubs, Canberra yours on a full list (%d, %d clubs, list %d)" % [
 					year, GameState.season_year, GameState.season.ladder.size() if GameState.season != null else 0,
 					GameState.my_list.size()])

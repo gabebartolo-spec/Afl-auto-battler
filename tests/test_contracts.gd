@@ -208,7 +208,7 @@ func _test_list_costs() -> void:
 			_check(not ok or not p.has("haggle_sting"), "At his ask, no sting")
 			break
 	# Release with seasons to run: half of what is left stays on the cap. Two
-	# spare men keep the list above its floor (Contracts.MIN_LIST).
+	# spare men keep the list above its floor (Contracts.min_list()).
 	var base: Dictionary = GameState.my_list[GameState.my_list.size() - 1]
 	for i in range(2):
 		var extra: Dictionary = base.duplicate(true)
@@ -404,7 +404,25 @@ func _test_offseason_flow() -> void:
 	_check(GameState.offseason_open() and GameState.salary_cap > 0,
 			"The off-season, cap and free agents survive a save")
 
-	GameState.start_next_season()
+	# The rollover goes through the National Draft, as the game's does
+	# (Hub, SeasonReview): a list's retirees leave at the rollover whatever
+	# its size, and the draft is where it fills their places.
+	if GameState.begin_intake_draft():
+		var draft: Draft = GameState.draft
+		var guard := 0
+		draft.auto_until_user_turn()
+		while not draft.is_finished() and guard < 4000:
+			guard += 1
+			if draft.is_user_turn() and draft.pass_block_reason() == "":
+				draft.user_pass()
+				continue
+			var cand := draft._best_ai_pick(draft.current_club())
+			if cand.is_empty() or not draft._draft_pick(draft.current_club(), cand):
+				draft._skip_current_pick()
+			draft.auto_until_user_turn()
+		GameState.finish_intake_draft()
+	else:
+		GameState.start_next_season()
 	var ticked := true
 	var sizes_ok := true
 	var off_sizes := []
@@ -416,16 +434,16 @@ func _test_offseason_flow() -> void:
 		# A club in its first season fills its list in the national draft, which
 		# this flow skips (its 30 state-league signings fall short of 32 until
 		# then); expansion_package checks the full debut list after the draft.
-		if GameDB.enter_year(code) == GameState.season_year and list.size() < Contracts.MIN_LIST:
+		if GameDB.enter_year(code) == GameState.season_year and list.size() < Contracts.min_list():
 			continue
-		if list.size() < Contracts.MIN_LIST or list.size() > Contracts.MAX_LIST:
+		if list.size() < Contracts.min_list() or list.size() > Contracts.MAX_LIST:
 			sizes_ok = false
 			off_sizes.append("%s %d" % [code, list.size()])
 		for p in list:
 			if int(p.get("contract_years", 0)) < 1 or p.has("resigned"):
 				ticked = false
 	_check(ticked, "Every contract ticks down at the rollover")
-	_check(sizes_ok, "Every list stays between %d and %d (%s)" % [Contracts.MIN_LIST, Contracts.MAX_LIST, ", ".join(off_sizes)])
+	_check(sizes_ok, "Every list stays between %d and %d (%s)" % [Contracts.min_list(), Contracts.MAX_LIST, ", ".join(off_sizes)])
 	_check(GameState.free_agents.is_empty(), "Unsigned free agents leave at the rollover")
 	_check(is_same(GameState.my_list, GameState.season.lists[GameState.my_club]),
 			"Your list is the season's list after the rollover")
@@ -441,7 +459,7 @@ func _test_market_test() -> void:
 	_new_season()
 	_to_offseason()
 	GameState.salary_cap += 5000000
-	_check(GameState.my_list.size() == Contracts.MIN_LIST,
+	_check(GameState.my_list.size() == Contracts.min_list(),
 			"The Geelong list starts at the minimum (%d players)" % GameState.my_list.size())
 	var floor_id := str(Ratings.select_22(GameState.my_list)["ground"][0]["id"])
 	var floor_star: Dictionary = GameState.my_list.filter(func(q): return str(q["id"]) == floor_id)[0]
@@ -625,7 +643,7 @@ func _test_negotiation() -> void:
 	_check(not bool(GameState.offer_contract(bid, Contracts.asking_salary(b), 3)["ok"]), "No more offers once talks break down")
 	var size_before := GameState.my_list.size()
 	GameState._close_contracts()
-	if size_before > Contracts.MIN_LIST:
+	if size_before > Contracts.min_list():
 		_check(GameState.list_player(bid).is_empty(), "A player whose talks broke down leaves at the rollover")
 	else:
 		_check(int(b["contract_years"]) >= 1 and GameState.my_list.has(b),
@@ -757,7 +775,7 @@ func _test_refuse_to_resign() -> void:
 	_seed_where(c, true)
 	var size_before := GameState.my_list.size()
 	GameState._close_free_agency()
-	if size_before > Contracts.MIN_LIST + 3:
+	if size_before > Contracts.min_list() + 3:
 		var na := _refusal_news(a)
 		var nc := _refusal_news(c)
 		_check(GameState.list_player(aid).is_empty() and GameState.list_player(cid).is_empty()
@@ -2375,7 +2393,7 @@ func _test_trade_market() -> void:
 	var lists_ok := true
 	for code in GameState.season.lists:
 		var l: Array = GameState.season.lists[code]
-		lists_ok = lists_ok and l.size() >= Contracts.MIN_LIST and l.size() <= Contracts.MAX_LIST \
+		lists_ok = lists_ok and l.size() >= Contracts.min_list() and l.size() <= Contracts.MAX_LIST \
 				and Contracts.payroll(l) <= GameState.salary_cap
 	_check(lists_ok, "After the rivals' trades every list is within its size limits and under the cap")
 	var owners_ok := true

@@ -15,6 +15,10 @@ extends RefCounted
 ## list-management rule.
 var intake_mode := false
 var existing_sizes := {}              # code -> kept list length (intake only)
+## Intake: code -> players on that list retiring at the coming rollover. They
+## still count toward a full list tonight, but not toward the minimum a club
+## must reach before it may pass: it drafts their replacements first.
+var leaving := {}
 ## Where the intake calls a list full: 0 is the whole list (Ratings.LIST_SIZE);
 ## a career's intake sets the senior list (RookieList), and existing_sizes
 ## counts senior players only.
@@ -487,9 +491,12 @@ func _extend_if_needed() -> void:
 func pass_block_reason() -> String:
 	if not intake_mode or not is_user_turn():
 		return "You can only pass on your own pick."
-	var have := int(existing_sizes.get(user_club, 0)) + count_for(user_club)
-	if have < Prospects.MIN_LIST:
-		return "Your list has %d players and needs at least %d, so you cannot pass yet." % [have, Prospects.MIN_LIST]
+	var gone := int(leaving.get(user_club, 0))
+	var have := int(existing_sizes.get(user_club, 0)) + count_for(user_club) - gone
+	if have < Contracts.min_list():
+		if gone > 0:
+			return "With %d retiring, your list has %d players for next season and needs at least %d, so you cannot pass yet." % [gone, have, Contracts.min_list()]
+		return "Your list has %d players and needs at least %d, so you cannot pass yet." % [have, Contracts.min_list()]
 	return ""
 
 

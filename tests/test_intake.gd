@@ -420,9 +420,9 @@ func _test_draft_rules() -> void:
 	_check(g.user_pass(), "The coach passes")
 	_check(g.is_finished() and g.count_for("A") == 0 and g.remaining_pool() == 0,
 			"A passed coach is skipped for the rest of the draft; the others take the class")
-	var low := _blank(["A", "B"], {"A": Prospects.MIN_LIST - 2, "B": 40}, 4)
+	var low := _blank(["A", "B"], {"A": Contracts.min_list() - 2, "B": 40}, 4)
 	low.start_for_user("A")
-	_check(low.pass_block_reason().contains("needs at least %d" % Prospects.MIN_LIST), "Passing under the minimum list says why: %s" % low.pass_block_reason())
+	_check(low.pass_block_reason().contains("needs at least %d" % Contracts.min_list()), "Passing under the minimum list says why: %s" % low.pass_block_reason())
 	_check(not low.user_pass() and low.is_user_turn(), "Passing is refused under the minimum list")
 	# Pick for me: one pick, the assistant's choice.
 	var h := _blank(["A", "B", "C"], {"A": 40, "B": 40, "C": 40}, 9)
@@ -688,7 +688,7 @@ func _test_career_rollover() -> void:
 			continue
 		# Retirements leave at the same rollover, so count the draftees themselves.
 		total_signed += arr.filter(func(q): return int(q.get("drafted_year", 0)) == 2027).size()
-		_check(arr.size() >= Prospects.MIN_LIST, "No club drops below the minimum list")
+		_check(arr.size() >= Contracts.min_list(), "No club drops below the minimum list")
 		_check(arr.size() <= Ratings.LIST_SIZE, "No club exceeds the 44-man list cap")
 		for p in arr:
 			var pid := str(p["id"])

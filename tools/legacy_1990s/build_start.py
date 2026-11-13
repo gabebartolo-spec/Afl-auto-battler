@@ -441,6 +441,9 @@ def main():
           ["first", "last", "dob", "club", "position", "height_cm", "list", "peak", "source_url", "checked"], additions)
     write(os.path.join(OUT_DIR, "list_addition_stats_1990.csv"), ADD_STATS, add_stats)
     print("players %d, additions %d (%d with an earlier season)" % (len(players), len(additions), len(add_stats)))
+    # Each real player's last season, read by his retirement (last_seasons.py).
+    import last_seasons
+    last_seasons.main(1990)
     if a.report:
         path = os.path.join(ROOT, "docs", "research", "LEGACY_ERA_REPORT.md")
         with open(path, "w", newline="\n", encoding="utf-8") as fh:

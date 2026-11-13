@@ -234,7 +234,7 @@ func _manage(gs, user: String) -> Dictionary:
 				if kid:
 					tracked[id] = true
 					kid_terms.append("%s:%d@%d/%d" % [id, years, int(p.get("salary", 0)), int(p["overall"])])
-		elif (gs.my_list as Array).size() > Contracts.MIN_LIST:
+		elif (gs.my_list as Array).size() > Contracts.min_list():
 			if bool(gs.release_player(id).get("ok", false)):
 				mgmt["released"] += 1
 	mgmt["kid_terms"] = kid_terms
