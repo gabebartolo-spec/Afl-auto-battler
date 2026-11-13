@@ -21,14 +21,24 @@ extends RefCounted
 ##   "status": "asked" | "kept" | "joining" | "joined" | "stayed", "carded"}],
 ##   "lost": [clubs that have lost a player to it], "signings": [player ids],
 ##   "relief": {year: sign-on money off the payroll}, "traded": bool}
+## The package is the modern one (expansion_concessions in era_rules.csv, from
+## Gold Coast's 2011 entry). A club entering before it (Adelaide 1991,
+## Fremantle 1995, Port Adelaide 1997) approaches nobody, gets no extra or
+## traded picks and no sign-on money: it enters on a full list from its home
+## state league (ensure_foundation), as those clubs were built.
 ## A coach running the new club himself comes later: the choices the club
 ## makes for itself here (who to approach, who to draft, which pick to trade)
 ## are the seams.
 
 
 ## Clubs whose first season is next year and that build their list this way
-## (every such club).
+## (every such club that enters with the expansion concessions).
 static func building(gs) -> Array:
+	return entering(gs).filter(func(code): return concessions(str(code)))
+
+
+## Every club whose first season is next year, however it builds its list.
+static func entering(gs) -> Array:
 	var out := []
 	if gs.season == null:
 		return out
@@ -36,6 +46,14 @@ static func building(gs) -> Array:
 		if GameDB.enter_year(str(code)) == int(gs.season_year) + 1:
 			out.append(str(code))
 	return out
+
+
+## Whether a club entering in its entry year gets the expansion concessions:
+## approaches to rivals' out-of-contract players, the compensation that pays
+## for them, extra and traded picks, sign-on money. The rule of the entry
+## season (EraRules: from Gold Coast, 2011; always in the game's own seasons).
+static func concessions(code: String) -> bool:
+	return Expansion.concessions(code)
 
 
 ## Clubs in their first season that built their list this way.
@@ -72,12 +90,12 @@ static func academy_club(gs, p: Dictionary) -> String:
 
 
 static func has_package(gs, code: String) -> bool:
-	return bool((gs.expansion.get(code, {}) as Dictionary).get("package", false))
+	return bool((gs.expansion.get(code, {}) as Dictionary).get("package", false)) and concessions(code)
 
 
 static func state(gs, code: String) -> Dictionary:
 	if not gs.expansion.has(code):
-		gs.expansion[code] = {"package": true, "list": [], "approached": [], "targets": [],
+		gs.expansion[code] = {"package": concessions(code), "list": [], "approached": [], "targets": [],
 				"lost": [], "signings": [], "relief": {}, "traded": false}
 	return gs.expansion[code]
 
@@ -96,7 +114,15 @@ static func ensure_foundation(gs, code: String) -> void:
 	var st := state(gs, code)
 	if not (st["list"] as Array).is_empty():
 		return
-	st["list"] = Expansion.foundation_list(code, int(gs.season_year), int(gs.career_seed))
+	# A Legacy club's foundation is its real state-league players; those past
+	# Expansion.foundation_size go into the draft before it plays (LegacyRollover).
+	var first := GameDB.enter_year(code)
+	if LegacyRollover.has_foundation(code, first):
+		var got := LegacyRollover.foundation(gs, code, first)
+		st["list"] = got["list"]
+		gs.draftee_pool.append_array(got["pool"])
+	else:
+		st["list"] = Expansion.foundation_list(code, int(gs.season_year), int(gs.career_seed))
 	for p in st["list"]:
 		p["club"] = code
 		# State-league signings, no AFL games: a draftee's familiarity (row 125).
@@ -180,7 +206,7 @@ static func _better(a: Dictionary, b: Dictionary) -> bool:
 ## The player a new club would ask `club` about, or {}.
 static func _candidate(gs, club: String, bars: Dictionary) -> Dictionary:
 	var list: Array = gs.season.lists[club]
-	if list.size() <= Contracts.MIN_LIST:
+	if list.size() <= Contracts.min_list():
 		return {}
 	var best := {}
 	for p in Contracts.expiring(list):
@@ -370,7 +396,7 @@ static func _settle(gs, code: String, st: Dictionary, t: Dictionary) -> void:
 	for q in list:
 		if str(q["id"]) == str(t["id"]):
 			p = q
-	if p.is_empty() or not _available(gs, p) or list.size() <= Contracts.MIN_LIST \
+	if p.is_empty() or not _available(gs, p) or list.size() <= Contracts.min_list() \
 			or (st["signings"] as Array).size() >= Expansion.SIGNINGS \
 			or not RookieList.senior_spot_free(list_of(gs, code)):
 		t["status"] = "stayed"
@@ -453,7 +479,7 @@ static func draft_picks(gs, n_clubs: int, pool_size: int) -> Array:
 
 ## The club's lowest-rated state-league signings make way, so every pick it
 ## still holds fits in the senior spots the draft fills.
-static func _make_room(gs, code: String, picks: Array) -> void:
+static func _make_room(gs, code: String, picks: Array, draft_ahead := true) -> void:
 	var list: Array = list_of(gs, code)
 	var held := 0
 	for e in picks:
@@ -463,9 +489,44 @@ static func _make_room(gs, code: String, picks: Array) -> void:
 	if over <= 0:
 		return
 	var state_league := list.filter(func(p): return str(p["id"]).begins_with("FND_"))
-	state_league.sort_custom(func(a, b): return int(a["overall"]) < int(b["overall"]))
+	# A real player (a Legacy foundation) makes way last.
+	state_league.sort_custom(func(a, b):
+		var ra := str(a.get("real_name", "")) != ""
+		var rb := str(b.get("real_name", "")) != ""
+		if ra != rb:
+			return rb
+		return int(a["overall"]) < int(b["overall"]))
+	# A club already playing (its first off-season) delists them as any club
+	# does: free agents any club may sign, an unsigned one's career ending on
+	# the record.
+	var playing: bool = gs.season != null and gs.season.lists.has(code)
 	for p in state_league.slice(0, over):
+		if playing:
+			gs._release(code, p, false, false)
+			continue
 		list.erase(p)
+		if str(p.get("real_name", "")) == "":
+			continue
+		# A real one young enough goes into this draft, and next year's if
+		# passed over. One the pool would age out (Prospects.age_pool) before
+		# anyone saw him, or one cut with no draft still to come, is a free
+		# agent instead, so his career goes on or ends on the record.
+		if draft_ahead and float(p.get("age", 30.0)) + 1.0 < 22.0:
+			p["club"] = ""
+			p["draft_year"] = int(gs.season_year)
+			gs.draftee_pool.append(p)
+		else:
+			p["released_by"] = code
+			p["comp_eligible"] = false
+			p["contract_years"] = 0
+			gs.free_agents.append(p)
+
+
+## A club still to play takes a player at the rollover, after its draft (a
+## Legacy canon move, Ablett to Gold Coast): it lets its lowest state-league
+## signing go so the list it enters with fits its senior spots.
+static func fit_spots(gs, code: String) -> void:
+	_make_room(gs, code, [], false)
 
 
 ## How many of the new clubs' extra picks come before the `regular`-th
@@ -536,7 +597,7 @@ static func forced_trade(gs, code: String, picks: Array, pick_no: int) -> void:
 		if str(club) == str(gs.my_club) or str(club) == code:
 			continue
 		var list: Array = gs.season.lists[club]
-		if list.size() <= Contracts.MIN_LIST:
+		if list.size() <= Contracts.min_list():
 			continue
 		var phase: String = gs.club_phase(str(club))
 		var most := TradeValue.pick_value([[pick_no, 1.0]], prospects, phase) \
@@ -577,7 +638,9 @@ static func forced_trade(gs, code: String, picks: Array, pick_no: int) -> void:
 ## list, before the league ages a year. False when it built none (the career
 ## was saved past its build): the caller generates the old list.
 static func enter(gs, code: String) -> bool:
-	if not has_package(gs, code):
+	# A club with the concessions that built nothing was saved past its build;
+	# one entering before them builds its state-league list now.
+	if concessions(code) and not has_package(gs, code):
 		return false
 	var st := state(gs, code)
 	ensure_foundation(gs, code)
@@ -603,6 +666,8 @@ static func entry_line(gs, code: String) -> String:
 			signed += 1
 		else:
 			drafted += 1
+	if signed == 0 and drafted == 0:
+		return "Their list: %d players from the state leagues." % state_league
 	return "Their list: %d from the state leagues, %d from rival clubs and %d from the draft." % [
 			state_league, signed, drafted]
 

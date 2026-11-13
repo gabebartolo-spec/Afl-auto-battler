@@ -165,6 +165,45 @@ static func rate_on_record(p: Dictionary, season := 2026) -> void:
 	p["rated_on_record"] = true
 
 
+## Honours (director 2026-11-13, "Add honours", TODO row 142): a past start's
+## stats miss what made some players great - Paul Roos, Fitzroy's captain and
+## a two-time All-Australian, rated 71 on his 1989 numbers. The data's honours
+## score (tools/legacy_1990s/build_start.py: a club best-and-fairest, an All-
+## Australian or Team of the Year pick, a Brownlow top 3, each a point, 4th to
+## 10th half, over the three seasons before the start, the last in full, then
+## 0.75 and 0.5) sets a floor under his rating: HONOURS_FLOOR plus
+## HONOURS_PER_POINT a point, at most HONOURS_CAP. Only ever a lift; his
+## attributes are refitted to it, so he plays to it. Today's data carries no
+## honours, so a 2026 start is untouched. Real players only, once, when the
+## data loads (GameDB), after rate_on_record.
+const HONOURS_FLOOR := 72.0
+const HONOURS_PER_POINT := 5.0
+const HONOURS_CAP := 86.0
+
+
+static func honours_floor(score: float) -> int:
+	return int(round(minf(HONOURS_CAP, HONOURS_FLOOR + HONOURS_PER_POINT * score)))
+
+
+static func rate_on_honours(p: Dictionary) -> void:
+	var score := float(p.get("honours", 0.0))
+	if score <= 0.0 or bool(p.get("generated", false)) or bool(p.get("projected", false)) 			or not p.has("attr"):
+		return
+	var floor_ovr := honours_floor(score)
+	if int(p.get("overall", 0)) >= floor_ovr:
+		return
+	var role := str(p.get("role", "MID"))
+	if not p.has("season_overall"):
+		p["season_overall"] = int(p.get("overall", 0))   # what the data season alone said
+	# Honours speak for a full season, as the record does (rate_on_record).
+	var games := maxf(RECORD_SHORT, effective_games(p))
+	p["attr"] = Prospects.fit_attributes(p["attr"], role, float(floor_ovr), games)
+	p["sample"] = games
+	p["overall"] = maxi(floor_ovr, rate_overall(p["attr"], role, games))
+	p["value"] = salary_value(p["overall"])
+	p["rated_on_honours"] = true
+
+
 static func effective_games(p: Dictionary) -> float:
 	if p.has("sample"):
 		return maxf(1.0, float(p["sample"]))

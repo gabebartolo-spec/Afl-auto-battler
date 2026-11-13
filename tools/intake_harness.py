@@ -37,7 +37,7 @@ ATTRS = ["disposal", "contested", "marking", "pressure", "intercept", "carry",
          "goalkicking", "accuracy", "creating", "ruck", "discipline",
          "durability", "star"]
 LIST_SIZE = 44
-MIN_LIST = 32
+MIN_LIST = 37  # Contracts.MIN_LIST (the game's league, 2026 on)
 MAX_RETIRE_PER_CLUB = 8
 
 

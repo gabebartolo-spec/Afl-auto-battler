@@ -193,7 +193,7 @@ static func _open_draft(gs) -> void:
 ## A list under the minimum: only a medical retirement puts one there, and the
 ## club stays a player short until an intake fills the spot.
 static func _short(list: Array) -> bool:
-	return list.size() < Contracts.MIN_LIST
+	return list.size() < Contracts.min_list()
 
 
 ## True while the draft waits on your pick.

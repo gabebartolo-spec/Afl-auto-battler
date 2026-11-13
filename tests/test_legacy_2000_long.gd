@@ -58,6 +58,27 @@ func _to_offseason() -> void:
 		GameState.advance()
 
 
+## The rollover goes through the National Draft, as the game's does (Hub,
+## SeasonReview): retirees leave every list each year, and the draft is where
+## each club, yours included, fills their places.
+func _roll_through_draft() -> bool:
+	if not GameState.begin_intake_draft():
+		return GameState.start_next_season()
+	var draft: Draft = GameState.draft
+	var guard := 0
+	draft.auto_until_user_turn()
+	while not draft.is_finished() and guard < 4000:
+		guard += 1
+		if draft.is_user_turn() and draft.pass_block_reason() == "":
+			draft.user_pass()
+			continue
+		var cand := draft._best_ai_pick(draft.current_club())
+		if cand.is_empty() or not draft._draft_pick(draft.current_club(), cand):
+			draft._skip_current_pick()
+		draft.auto_until_user_turn()
+	return GameState.finish_intake_draft()
+
+
 func _test_rolls_past_2027() -> void:
 	_start()
 	_check(GameState.season_year == 2000 and GameDB.dataset_id == "2000",
@@ -76,14 +97,14 @@ func _test_rolls_past_2027() -> void:
 			sackings.append(from)
 			GameState.board["sacked"] = false
 			GameState.board["warned"] = false
-		if not GameState.start_next_season():
+		if not _roll_through_draft():
 			_check(false, "%d rolls into %d" % [from, from + 1])
 			return
 		var y := GameState.season_year
 		var want_clubs := 16 if y < 2011 else (17 if y == 2011 else (18 if y < 2028 else 19))  # Tasmania enters in 2028 (data/clubs.csv)
 		var short := []
 		for code in GameState.season.clubs:
-			if GameState.season.lists.get(code, []).size() < 30:
+			if GameState.season.lists.get(code, []).size() < Contracts.min_list():
 				short.append("%s %d" % [code, GameState.season.lists.get(code, []).size()])
 		_check(y == from + 1 and GameDB.dataset_id == "2000" and GameState.my_club == CLUB,
 				"%d rolls into %d at Essendon, still the 2000 career (%d, %s, set %s)" % [

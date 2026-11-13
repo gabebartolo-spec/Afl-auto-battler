@@ -197,12 +197,17 @@ func _test_campaign_rolls_through_the_eras() -> void:
 	var sackings := []
 	while GameState.season_year < last:
 		var from := GameState.season_year
-		# Everyone on a list signed beyond this season, and what he is paid.
+		# Everyone on a list signed beyond this season, what he is paid and by
+		# whom. A contract runs on at the club that signed it; a player a
+		# merger releases, a story moves or a club delists and signs again starts a
+		# new one (Legacy L8): same club and same join year, or it is a new deal.
 		var signed := {}
+		var signed_by := {}
 		for code in GameState.season.lists:
 			for p in GameState.season.lists[code]:
 				if p.has("salary") and int(p.get("contract_years", 0)) >= 2:
 					signed[str(p["id"])] = int(p["salary"])
+					signed_by[str(p["id"])] = "%s|%s" % [code, p.get("joined", "")]
 		_to_offseason()
 		# Nobody coaches this side, and a board may sack him with no job to go
 		# to (that ends a career). The money is under test, not the coach: keep
@@ -237,7 +242,7 @@ func _test_campaign_rolls_through_the_eras() -> void:
 		for code in GameState.season.lists:
 			for p in GameState.season.lists[code]:
 				var id := str(p["id"])
-				if signed.has(id) and p.has("salary"):
+				if signed.has(id) and p.has("salary") and str(signed_by[id]) == "%s|%s" % [code, p.get("joined", "")]:
 					kept += 1
 					if int(p["salary"]) != int(signed[id]):
 						moved.append("%s %d->%d" % [id, int(signed[id]), int(p["salary"])])

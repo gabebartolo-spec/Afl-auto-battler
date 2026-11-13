@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://bfahgshlfih36"
+
+[deps]
+
+files=["res://data/legacy/honours/team_of_the_year.first.translation", "res://data/legacy/honours/team_of_the_year.last.translation", "res://data/legacy/honours/team_of_the_year.club.translation", "res://data/legacy/honours/team_of_the_year.source.translation"]
+
+source_file="res://data/legacy/honours/team_of_the_year.csv"
+dest_files=["res://data/legacy/honours/team_of_the_year.first.translation", "res://data/legacy/honours/team_of_the_year.last.translation", "res://data/legacy/honours/team_of_the_year.club.translation", "res://data/legacy/honours/team_of_the_year.source.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

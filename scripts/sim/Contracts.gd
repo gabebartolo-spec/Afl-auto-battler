@@ -16,7 +16,9 @@ extends RefCounted
 ## whose talks broke down goes to free agency. Contracts tick down at the
 ## rollover.
 
-const MIN_LIST := 32
+## The game's list minimum (2026 on: 36 senior and one rookie). A Legacy
+## season reads its own year's minimum: min_list().
+const MIN_LIST := 37
 ## The game's list limit (senior and Category A rookies). A Legacy season
 ## reads its own year's limit: max_list().
 const MAX_LIST := 44
@@ -53,6 +55,12 @@ static var money_year := 0
 ## (EraRules: 52 senior in 1993, no rookie list before 1997, ...).
 static func max_list() -> int:
 	return EraRules.list_max()
+
+
+## The season's list minimum: MIN_LIST in the game's league, the year's own
+## in a Legacy season (EraRules.list_min: 48 in 1993, 38 in 1994, ...).
+static func min_list() -> int:
+	return EraRules.list_min()
 
 
 ## The real cap for an era season, or 0 when the record has none (2026 on).
@@ -733,8 +741,8 @@ static func evaluate_trade(ai_list: Array, give: Array, take: Array, cap: int,
 	# able to deal as long as the trade leaves its list no smaller: only a
 	# medical retirement (GameState._medical_retire) puts a club there, and it
 	# stays a player short until its next intake (director, 2026-11-11).
-	if (ai_after < MIN_LIST and ai_after < ai_list.size()) or (my_after < MIN_LIST and my_after < my_list.size()):
-		return _verdict(false, "trade_list_under", ctx, {"n": MIN_LIST})
+	if (ai_after < min_list() and ai_after < ai_list.size()) or (my_after < min_list() and my_after < my_list.size()):
+		return _verdict(false, "trade_list_under", ctx, {"n": min_list()})
 	var ai_pay := payroll(ai_list) - payroll(give) + payroll(take)
 	if ai_pay > cap:
 		return _verdict(false, "trade_their_cap", ctx)

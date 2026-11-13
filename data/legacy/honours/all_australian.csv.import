@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://cvx10podnpm8g"
+
+[deps]
+
+files=["res://data/legacy/honours/all_australian.first.translation", "res://data/legacy/honours/all_australian.last.translation", "res://data/legacy/honours/all_australian.club.translation", "res://data/legacy/honours/all_australian.source.translation"]
+
+source_file="res://data/legacy/honours/all_australian.csv"
+dest_files=["res://data/legacy/honours/all_australian.first.translation", "res://data/legacy/honours/all_australian.last.translation", "res://data/legacy/honours/all_australian.club.translation", "res://data/legacy/honours/all_australian.source.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

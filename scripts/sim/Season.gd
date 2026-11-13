@@ -53,6 +53,7 @@ func _init(club_codes: Array, club_lists: Dictionary, p_seed: int = 0, p_year: i
 	for c in clubs:
 		lists[c] = club_lists.get(c, [])
 	seed = p_seed
+	rules["rounds"] = rounds_to_fit(int(rules.get("rounds", REGULAR_ROUNDS)), int(rules.get("games", 0)), clubs.size())
 	ladder = {}
 	for c in clubs:
 		ladder[c] = {"code": c, "p": 0, "w": 0, "l": 0, "d": 0,
@@ -110,6 +111,27 @@ func games_per_club() -> int:
 	if g > 0:
 		return g
 	return regular_rounds() - 1 if clubs.size() % 2 == 0 else regular_rounds() - 2
+
+
+## A year's real games count with more clubs than it really had (a Legacy
+## career whose Fitzroy fought off the merger: 17 clubs in 1997) adds rounds
+## until every club plays that count (director, 2026-11-13: "Add rounds").
+## Every real season already fits its count, so it keeps its rounds.
+static func rounds_to_fit(rounds: int, games: int, n: int) -> int:
+	if games <= 0 or n < 2:
+		return rounds
+	while _fit(rounds, n) < games:
+		rounds += 1
+	return rounds
+
+
+## The most games each of `n` clubs can play in `rounds` rounds, with an even
+## total of games (each match is two clubs' games).
+static func _fit(rounds: int, n: int) -> int:
+	var fit := 2 * rounds * (n / 2) / n
+	while fit > 0 and (fit * n) % 2 == 1:
+		fit -= 1
+	return fit
 
 
 # ---------------------------------------------------------------------------

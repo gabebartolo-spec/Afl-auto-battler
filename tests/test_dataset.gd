@@ -618,6 +618,13 @@ func _test_real_1990() -> void:
 		if int(listed[c]) < 42:
 			thin += 1
 	_check(thin == 0 and listed.size() == 14, "Every 1990 club has a full list (%s)" % str(listed))
+	# A height no source records is his position's average (director 2026-11-13), so none is blank.
+	var no_height := []
+	for q in GameDB.list_additions:
+		if float(q.get("height_cm", 0.0)) < 150.0:
+			no_height.append(str(q.get("real_name", "")))
+	_check(no_height.is_empty() and not GameDB.list_additions.is_empty(),
+			"Every 1990 list addition has a height (missing: %s)" % str(no_height))
 	ovr.sort()
 	var median := int(ovr[ovr.size() / 2])
 	_check(median >= 57 and median <= 65, "The 1990 median sits where 2026's does (%d)" % median)
@@ -626,7 +633,29 @@ func _test_real_1990() -> void:
 			"About 7%% of the 1990 lists rate 80 or more and nobody tops out (%d of %d, best %d)" % [stars, ovr.size(), top])
 	_check(peaked > 200 and peak_ok, "A real peak sets each ceiling, give or take luck (%d players)" % peaked)
 	_check(Potential.peak_from_year == 1986, "Recent seasons count from the 1990 set's own data season")
+	# Honours lift the decorated to a floor (director 2026-11-13, "Add honours").
+	var by_id := {}
+	var honoured := 0
+	var floor_ok := true
+	for p in GameDB.players:
+		by_id[str(p.get("id", ""))] = p
+		if float(p.get("honours", 0.0)) > 0.0:
+			honoured += 1
+			if int(p["overall"]) < Ratings.honours_floor(float(p["honours"])):
+				floor_ok = false
+	_check(honoured >= 60 and floor_ok, "Every honoured 1990 player rates at least his honours floor (%d honoured)" % honoured)
+	var roos: Dictionary = by_id.get("FIT_1", {})   # Paul Roos
+	_check(not roos.is_empty() and int(roos["overall"]) >= 78 and bool(roos.get("rated_on_honours", false)),
+			"Paul Roos, twice All-Australian, rates on his honours (%d)" % int(roos.get("overall", 0)))
+	var platten: Dictionary = by_id.get("HAW_44", {})   # John Platten
+	_check(not platten.is_empty() and not bool(platten.get("rated_on_honours", false)),
+			"A star already above his floor keeps his own rating (Platten %d)" % int(platten.get("overall", 0)))
 	GameDB.reload()
+	var none := true
+	for p in GameDB.players:
+		if p.has("honours") or bool(p.get("rated_on_honours", false)):
+			none = false
+	_check(none, "Today's set carries no honours: a 2026 start is untouched")
 	_check(Ratings.era_anchors.is_empty() and Potential.peak_from_year == 2023,
 			"Back on 2026, positions scale on 2026's anchors again")
 	_golden("load after the 1990 set", _load_print(), GOLDEN_LOAD)
@@ -651,12 +680,12 @@ func _test_legacy_start_1990() -> void:
 	_check(not want.is_empty() and missing <= 3,
 			"Melbourne start on their real 1990 list (%d of %d on it)" % [want.size() - missing, want.size()])
 	_check(GameState.season.clubs.size() == 14, "Fourteen clubs play 1990 (%d)" % GameState.season.clubs.size())
-	var by_name := {}
+	var by_id := {}
 	for cid in GameState.coaches:
 		var c: Dictionary = GameState.coaches[cid]
 		if str(c.get("real_name", "")) != "":
-			by_name[str(c["real_name"])] = c
-	var northey: Dictionary = by_name.get("John Northey", {})
+			by_id[str(c["real_name"])] = c
+	var northey: Dictionary = by_id.get("John Northey", {})
 	_check(not northey.is_empty() and str(northey.get("status", "")) == "free" and str(northey.get("club", "")) == ""
 			and bool(northey.get("former_sc", false)),
 			"You replace John Northey, and he is in the coach pool (%s)" % str(northey.get("status", "missing")))
@@ -793,12 +822,12 @@ func _test_legacy_redraft_1990() -> void:
 	for p in mine:
 		from_1990 += 1 if real_ids.has(str(p.get("id", ""))) else 0
 	GameState.start_season("MEL", mine)
-	var by_name := {}
+	var by_id := {}
 	for cid in GameState.coaches:
 		var c: Dictionary = GameState.coaches[cid]
 		if str(c.get("real_name", "")) != "":
-			by_name[str(c["real_name"])] = c
-	var northey: Dictionary = by_name.get("John Northey", {})
+			by_id[str(c["real_name"])] = c
+	var northey: Dictionary = by_id.get("John Northey", {})
 	_check(GameState.season_year == 1990 and GameState.my_club == "MEL" and GameState.season.ladder.size() == 14,
 			"You coach Melbourne in 1990 on a 14-club ladder (%d, %s, %d clubs)" % [
 				GameState.season_year, GameState.my_club, GameState.season.ladder.size()])

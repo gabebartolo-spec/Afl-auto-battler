@@ -509,7 +509,7 @@ func _fill_pool(skip: Array) -> void:
 	for code in GameState.season.lists:
 		if skip.has(str(code)):
 			continue
-		for q in _trim(str(code), Contracts.MIN_LIST, {}):
+		for q in _trim(str(code), Contracts.min_list(), {}):
 			q["released_by"] = str(code)
 			GameState.free_agents.append(q)
 	_check(MidseasonDraft.pool(GameState).size() > GameState.season.lists.size(),
@@ -824,12 +824,12 @@ func _test_a_player_short_still_trades() -> void:
 	_check(not p.is_empty(), "A Fremantle player the panel does not clear exists in this seed")
 	if p.is_empty():
 		return
-	_trim("FRE", Contracts.MIN_LIST, p)
-	_check(GameState.my_list.size() == Contracts.MIN_LIST, "Fremantle is on the minimum list (%d)" % GameState.my_list.size())
+	_trim("FRE", Contracts.min_list(), p)
+	_check(GameState.my_list.size() == Contracts.min_list(), "Fremantle is on the minimum list (%d)" % GameState.my_list.size())
 	_past(p, 4)
 	_concuss(p, "FRE")
 	var mine: Array = GameState.my_list
-	_check(mine.size() == Contracts.MIN_LIST - 1 and (GameState.season.lists["FRE"] as Array).size() == Contracts.MIN_LIST - 1,
+	_check(mine.size() == Contracts.min_list() - 1 and (GameState.season.lists["FRE"] as Array).size() == Contracts.min_list() - 1,
 			"The retirement leaves it one short (%d)" % mine.size())
 	var theirs: Array = GameState.season.lists["MEL"]
 	var cap := 999999999
@@ -841,14 +841,14 @@ func _test_a_player_short_still_trades() -> void:
 	_check(str(shrinks["code"]) == "trade_list_under" and not bool(shrinks["ok"]),
 			"A trade that makes the short list smaller is refused (%s)" % shrinks["code"])
 	# The same for a rival that is a player short.
-	var short_rival: Array = theirs.slice(0, Contracts.MIN_LIST - 1)
+	var short_rival: Array = theirs.slice(0, Contracts.min_list() - 1)
 	var full: Array = GameDB.club_list("GEE")
 	var theirs_one := Contracts.evaluate_trade(short_rival, [short_rival[0]], [full[0]], cap, full, cap)
 	_check(str(theirs_one["code"]) != "trade_list_under", "A rival a player short can deal one for one (%s)" % theirs_one["code"])
 	var theirs_less := Contracts.evaluate_trade(short_rival, [short_rival[0], short_rival[1]], [full[0]], cap, full, cap)
 	_check(str(theirs_less["code"]) == "trade_list_under", "...and not make its list smaller (%s)" % theirs_less["code"])
 	# A club on the minimum is treated as before: it cannot go under it.
-	var on_min: Array = full.slice(0, Contracts.MIN_LIST)
+	var on_min: Array = full.slice(0, Contracts.min_list())
 	var under := Contracts.evaluate_trade(theirs, [theirs[0]], [on_min[0], on_min[1]], cap, on_min, cap)
 	_check(str(under["code"]) == "trade_list_under", "A club on the minimum still cannot trade under it (%s)" % under["code"])
 
@@ -862,13 +862,13 @@ func _test_midseason_draft_fills_the_spot() -> void:
 	_check(not p.is_empty() and not rv.is_empty(), "A player the panel does not clear exists at each club")
 	if p.is_empty() or rv.is_empty():
 		return
-	var cut := _trim("FRE", Contracts.MIN_LIST, p) + _trim("MEL", Contracts.MIN_LIST, rv)
+	var cut := _trim("FRE", Contracts.min_list(), p) + _trim("MEL", Contracts.min_list(), rv)
 	_past(p, 4)
 	_concuss(p, "FRE")
 	_past(rv, 4)
 	_concuss(rv, "MEL")
-	_check(GameState.my_list.size() == Contracts.MIN_LIST - 1
-			and (GameState.season.lists["MEL"] as Array).size() == Contracts.MIN_LIST - 1,
+	_check(GameState.my_list.size() == Contracts.min_list() - 1
+			and (GameState.season.lists["MEL"] as Array).size() == Contracts.min_list() - 1,
 			"Both clubs are a player short")
 	# The players cut above are the free agents the draft can take.
 	for q in cut:
@@ -885,9 +885,9 @@ func _test_midseason_draft_fills_the_spot() -> void:
 		var left := MidseasonDraft.pool(GameState)
 		_check(not left.is_empty() and MidseasonDraft.choose(GameState, str(left[0]["id"])), "Your pick is made")
 	_check(bool(GameState.midseason.get("done", false)), "The draft runs to its end")
-	_check(GameState.my_list.size() == Contracts.MIN_LIST,
+	_check(GameState.my_list.size() == Contracts.min_list(),
 			"Your pick brings the list back to the minimum (%d)" % GameState.my_list.size())
-	_check((GameState.season.lists["MEL"] as Array).size() == Contracts.MIN_LIST,
+	_check((GameState.season.lists["MEL"] as Array).size() == Contracts.min_list(),
 			"The rival's pick brings its list back to the minimum (%d)" % (GameState.season.lists["MEL"] as Array).size())
 
 
@@ -899,7 +899,7 @@ func _test_short_with_rookie_spots_full() -> void:
 	_check(not rv.is_empty(), "A Melbourne player the panel does not clear exists in this seed")
 	if rv.is_empty():
 		return
-	var cut := _trim("MEL", Contracts.MIN_LIST, rv)
+	var cut := _trim("MEL", Contracts.min_list(), rv)
 	var list: Array = GameState.season.lists["MEL"]
 	for q in list:
 		if RookieList.rookie_count(list) >= RookieList.CAT_A_SPOTS:
@@ -909,7 +909,7 @@ func _test_short_with_rookie_spots_full() -> void:
 	_check(not RookieList.rookie_spot_free(list), "Melbourne's rookie spots are all taken")
 	_past(rv, 4)
 	_concuss(rv, "MEL")
-	_check(list.size() == Contracts.MIN_LIST - 1, "Melbourne is a player short (%d)" % list.size())
+	_check(list.size() == Contracts.min_list() - 1, "Melbourne is a player short (%d)" % list.size())
 	for q in cut:
 		q["released_by"] = "MEL"
 		GameState.free_agents.append(q)
@@ -922,5 +922,5 @@ func _test_short_with_rookie_spots_full() -> void:
 			break
 	var order: Array = GameState.midseason.get("order", [])
 	_check(order.has("MEL"), "Melbourne has a pick: %s" % [order])
-	_check(list.size() == Contracts.MIN_LIST and RookieList.rookie_count(list) == RookieList.CAT_A_SPOTS,
+	_check(list.size() == Contracts.min_list() and RookieList.rookie_count(list) == RookieList.CAT_A_SPOTS,
 			"Its pick fills the senior spot (%d players, %d rookies)" % [list.size(), RookieList.rookie_count(list)])

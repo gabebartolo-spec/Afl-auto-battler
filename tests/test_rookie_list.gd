@@ -1201,7 +1201,7 @@ func _test_the_44_real_lists() -> void:
 		for p in list:
 			if roles.has(str(p["role"])):
 				roles[str(p["role"])] = int(roles[str(p["role"])]) + 1
-		if list.size() < Contracts.MIN_LIST or int(roles["RUCK"]) < 1 or int(roles["MID"]) < 6 \
+		if list.size() < Contracts.min_list() or int(roles["RUCK"]) < 1 or int(roles["MID"]) < 6 \
 				or int(roles["DEF"]) < 6 or int(roles["FWD"]) < 6:
 			short.append("%s %d %s" % [code, list.size(), str(roles)])
 	_check(bad.is_empty(), "No club grew past the 44 through the opening drafts (%s)" % ", ".join(bad))
