@@ -618,6 +618,13 @@ func _test_real_1990() -> void:
 		if int(listed[c]) < 42:
 			thin += 1
 	_check(thin == 0 and listed.size() == 14, "Every 1990 club has a full list (%s)" % str(listed))
+	# A height no source records is his position's average (director 2026-11-13), so none is blank.
+	var no_height := []
+	for q in GameDB.list_additions:
+		if float(q.get("height_cm", 0.0)) < 150.0:
+			no_height.append(str(q.get("real_name", "")))
+	_check(no_height.is_empty() and not GameDB.list_additions.is_empty(),
+			"Every 1990 list addition has a height (missing: %s)" % str(no_height))
 	ovr.sort()
 	var median := int(ovr[ovr.size() / 2])
 	_check(median >= 57 and median <= 65, "The 1990 median sits where 2026's does (%d)" % median)
