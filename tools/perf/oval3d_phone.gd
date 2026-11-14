@@ -4,7 +4,10 @@ extends Node
 ## camera, through five set-ups, 2 s to settle then 8 s measured each. At the end the table
 ## stays on screen (screenshot it) and is saved to user://oval3d_phone.txt.
 ## Columns: frame = wall time a frame (vsync caps it); sync = CPU for the animation and
-## placement; cpu / gpu = the renderer's own measured time (skinning runs on the GPU).
+## placement; proc = the whole frame's process time (Performance.TIME_PROCESS: includes the
+## skeletons' own modifier pass, e.g. the head look-at, which sync does not see); cpu / gpu =
+## the renderer's own measured time (skinning runs on the GPU). The header gives the 3D size
+## (the window); the 2D canvas is stretched and smaller.
 
 const WARM := 2.0
 const MEASURE := 8.0
@@ -65,7 +68,7 @@ func _run() -> void:
 	for st in STAGES:
 		_setup(st)
 		await _play(WARM, null)
-		var acc := {"frames": [], "sync": 0.0, "cpu": 0.0, "gpu": 0.0, "n": 0}
+		var acc := {"frames": [], "sync": 0.0, "proc": 0.0, "cpu": 0.0, "gpu": 0.0, "n": 0}
 		await _play(MEASURE, acc)
 		var fr: Array = acc["frames"]
 		fr.sort()
@@ -74,12 +77,13 @@ func _run() -> void:
 		for f in fr:
 			avg += f
 		avg /= maxf(1.0, fr.size())
-		rows.append("%-12s %5.1f %5.1f %5.2f %5.1f %5.1f" % [st[0], avg,
+		rows.append("%-12s %5.1f %5.1f %5.2f %5.2f %5.1f %5.1f" % [st[0], avg,
 				fr[int(fr.size() * 0.95)] if fr.size() > 0 else 0.0,
-				acc["sync"] / n, acc["cpu"] / n, acc["gpu"] / n])
-	var head := "%s | %s | %dx%d\n" % [OS.get_model_name(), RenderingServer.get_video_adapter_name(),
-			get_viewport().get_visible_rect().size.x, get_viewport().get_visible_rect().size.y]
-	var table := "set-up        frame  p95  sync   cpu   gpu  (ms)\n" + "\n".join(rows)
+				acc["sync"] / n, acc["proc"] / n, acc["cpu"] / n, acc["gpu"] / n])
+	var win := DisplayServer.window_get_size()
+	var head := "%s | %s | 3D %dx%d\n" % [OS.get_model_name(), RenderingServer.get_video_adapter_name(),
+			win.x, win.y]
+	var table := "set-up        frame  p95  sync  proc   cpu   gpu  (ms)\n" + "\n".join(rows)
 	head += "look-at modifiers: %d\n" % looks.size()
 	label.text = head + table + "\nDone: screenshot this."
 	var f := FileAccess.open("user://oval3d_phone.txt", FileAccess.WRITE)
@@ -144,6 +148,7 @@ func _play(secs: float, acc) -> void:
 		oval.aim_end(34.0, 52.0)
 		if acc != null:
 			acc["sync"] += (Time.get_ticks_usec() - t0) / 1000.0
+			acc["proc"] += Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
 			acc["frames"].append(dt * 1000.0)
 			acc["cpu"] += RenderingServer.viewport_get_measured_render_time_cpu(vp)
 			acc["gpu"] += RenderingServer.viewport_get_measured_render_time_gpu(vp)
