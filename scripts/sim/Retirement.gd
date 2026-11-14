@@ -25,10 +25,11 @@ const LOW_MORALE := 40
 
 
 ## Whether the ageing rules retire him at the coming rollover (`year` is the
-## new season): he is aged on a copy by the same seeded rules.
+## new season): he is aged on a copy by the same seeded rules. A drafted
+## player keeps his "projected" mark for life, and the rollover retires him by
+## the same rules, so he is asked the same question: skipping him let every
+## draftee retire unannounced, uncounted by the draft (Draft.leaving).
 static func intends(p: Dictionary, year: int) -> bool:
-	if bool(p.get("projected", false)):
-		return false
 	var dup := p.duplicate(true)
 	Prospects.age_player(dup, year)
 	return Prospects.should_retire(dup, year)

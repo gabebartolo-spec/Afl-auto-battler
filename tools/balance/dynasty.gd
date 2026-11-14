@@ -205,7 +205,7 @@ func _contracts(gs, mgmt: Dictionary) -> void:
 				r = gs.offer_contract(id, int(r.get("salary", 0)), years)
 			if bool(r.get("ok", false)):
 				mgmt["resigned"] += 1
-		elif gs.my_list.size() > Contracts.MIN_LIST:
+		elif gs.my_list.size() > Contracts.min_list():
 			if bool(gs.release_player(id).get("ok", false)):
 				mgmt["released"] += 1
 
@@ -238,7 +238,7 @@ func _trade_up(gs, user: String, mgmt: Dictionary) -> void:
 			continue
 		var pkg := [str(picks[0]["id"])]
 		# A rival at the list minimum needs a body back.
-		if (gs.season.lists.get(club, []) as Array).size() <= Contracts.MIN_LIST:
+		if (gs.season.lists.get(club, []) as Array).size() <= Contracts.min_list():
 			var spares: Array = gs.my_list.filter(func(q): return _spare(q, line26))
 			if spares.is_empty():
 				continue

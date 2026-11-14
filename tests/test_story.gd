@@ -1309,7 +1309,7 @@ func _test_trial_result() -> void:
 		GameState.start_role_trial(p, 3)
 		GameState.advance()
 		GameState.advance()
-		GameState.pos_ratings[role2] = [0, 1] if pass_it else [9999, 1]
+		GameState.pos_ratings[role2] = [0, 1000000] if pass_it else [9999, 1]
 		GameState.advance()
 		_check(not GameState.week_events.is_empty()
 				and str(GameState.week_events[0]["tid"]) == ("media_trial_worked" if pass_it else "media_trial_not_yet"),

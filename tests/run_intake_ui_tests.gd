@@ -331,6 +331,16 @@ func _test_intake_by_taps() -> void:
 func _test_pass_and_pick_for_me(size: Vector2i) -> void:
 	var tag := "%dx%d" % [size.x, size.y]
 	_offseason_open("COL")
+	# Spare men put the list above the minimum after retirements, so Pass is
+	# allowed on the coach's turn (Draft.pass_block_reason).
+	var min_list := int(load("res://scripts/sim/Contracts.gd").min_list())
+	var staying: int = _state.my_list.filter(func(q): return not _state.retiring_now(q)).size()
+	var base: Dictionary = _state.my_list[_state.my_list.size() - 1]
+	for i in range(maxi(0, min_list + 1 - staying)):
+		var extra: Dictionary = base.duplicate(true)
+		extra["id"] = "pass_extra_%d" % i
+		extra.erase("retiring")
+		_state.my_list.append(extra)
 	if not _state.begin_intake_draft():
 		_check(false, "The draft opens for the pick buttons test (%s)" % tag)
 		return
@@ -358,7 +368,10 @@ func _test_pass_and_pick_for_me(size: Vector2i) -> void:
 		ui.queue_free()
 		return
 	_check(pick_me.text == "Pick for me" and pass_b.text == "Pass", "The buttons read Pick for me and Pass (%s)" % tag)
-	_check(not pick_me.disabled and not pass_b.disabled, "Both buttons are live on your turn (%s)" % tag)
+	_check(not pick_me.disabled, "Pick for me is live on your turn (%s)" % tag)
+	# Pass is live only once the list reaches the minimum (Draft.pass_block_reason).
+	_check(pass_b.disabled == (draft.pass_block_reason() != ""),
+			"Pass is live exactly when the list allows it (%s: %s)" % [tag, draft.pass_block_reason()])
 	var expect: String = str(draft._best_ai_pick(draft.user_club)["id"])
 	var before: int = draft.count()
 	await _press(pick_me, "Pick for me (%s)" % tag)
@@ -369,9 +382,16 @@ func _test_pass_and_pick_for_me(size: Vector2i) -> void:
 	while not draft.is_user_turn() and not draft.is_finished() and guard < 200:
 		guard += 1
 		draft.auto_until_user_turn()
+	# Fill the list to the minimum so passing is allowed.
+	guard = 0
+	while draft.is_user_turn() and draft.pass_block_reason() != "" and guard < 60:
+		guard += 1
+		draft.pick_for_me()
+		draft.auto_until_user_turn()
 	ui.call("_refresh")
 	await _settle()
 	if draft.is_user_turn():
+		_check(not pass_b.disabled, "Pass is live once the list reaches the minimum (%s)" % tag)
 		var taken: int = draft.count()
 		_state.set("_dirty", false)
 		await _press(pass_b, "Pass (%s)" % tag)
@@ -587,13 +607,6 @@ func _test_full_list_before_and_during_draft() -> void:
 	s.finals = {"done": true, "premier": "CAR", "runner_up": "ESS"}
 	var cap: int = load("res://scripts/state/RookieList.gd").SENIOR_SPOTS
 	var rl = load("res://scripts/state/RookieList.gd")
-	var n := 0
-	while rl.senior_count(_state.my_list) < cap - 1 and n < 40:
-		var copy: Dictionary = (_state.my_list[n % _state.my_list.size()] as Dictionary).duplicate(true)
-		copy["id"] = "pad_%d" % n
-		copy["rookie_list"] = ""
-		_state.my_list.append(copy)
-		n += 1
 	for p in _state.my_list:
 		p["contract_years"] = 3
 	# Three cheap players out of contract: the ones Delist lands on.
@@ -601,6 +614,18 @@ func _test_full_list_before_and_during_draft() -> void:
 	cheap.sort_custom(func(x, y): return int(x.get("salary", 0)) < int(y.get("salary", 0)))
 	for q in cheap.slice(0, 3):
 		q["contract_years"] = 1
+	# Pad the list until one senior spot is open for next season, counted as the
+	# draft counts it (after retirements and the free-agency close), whatever
+	# size the club's list starts at (the year's minimum, Contracts.min_list()).
+	var n := 0
+	while int(_state.draft_list_spots()["held"]) < cap - 1 and n < 40:
+		var copy: Dictionary = (_state.my_list[n % _state.my_list.size()] as Dictionary).duplicate(true)
+		copy["id"] = "pad_%d" % n
+		copy["rookie_list"] = ""
+		copy["contract_years"] = 3
+		copy.erase("retiring")
+		_state.my_list.append(copy)
+		n += 1
 	var spots: Dictionary = _state.draft_list_spots()
 	_check((spots["passing"] as Array).size() >= 1, "Some picks have no spot (%s)" % str(spots))
 	# The reference phone (director, 2026-11-12 check: no scrolling to reach a Release button).
@@ -882,6 +907,17 @@ func _test_draft_night_screen(size: Vector2i) -> void:
 	var dn = load("res://scripts/ui/DraftNight.gd")
 	var feel = load("res://scripts/ui/Feel.gd")
 	_offseason_open("FRE")
+	# Room on the list for every pick Fremantle holds, so the coach is on the
+	# clock again after Pick for me (Back below): delist the cheapest players
+	# staying on until the picks all have a spot.
+	var staying: Array = _state.my_list.filter(func(q): return not _state.retiring_now(q))
+	staying.sort_custom(func(x, y): return int(x.get("salary", 0)) < int(y.get("salary", 0)))
+	for q in staying:
+		if (_state.draft_list_spots()["passing"] as Array).is_empty():
+			break
+		_state.release_player(str(q["id"]))
+	_check((_state.draft_list_spots()["passing"] as Array).is_empty(),
+			"Every Fremantle pick has a spot for the draft night test (%s: %s)" % [tag, str(_state.draft_list_spots())])
 	if not _state.begin_intake_draft() or dn == null:
 		_check(false, "The draft opens for the draft night test (%s)" % tag)
 		return

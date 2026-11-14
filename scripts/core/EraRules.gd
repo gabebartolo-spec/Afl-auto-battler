@@ -23,7 +23,7 @@ const PATH := "res://data/legacy/era_rules.csv"
 ## (Contracts.MAX_LIST 44 = 38 senior + 6 Category A, RookieList.CAT_B_SPOTS,
 ## Ratings.INTERCHANGE); the switches are all on, the substitute off.
 const GAME := {
-	"senior_list_max": 38, "rookie_list_max": 6, "cat_b_rookie": 2,
+	"senior_list_max": 38, "rookie_list_max": 6, "cat_b_rookie": 2, "list_min": 37,
 	"interchange": 5, "substitutes": 0, "medical_sub": 0,
 	"rookie_list": 1, "free_agency": 1, "midseason_draft": 1, "coaches_votes": 1,
 }
@@ -86,6 +86,14 @@ static func list_year(y := -1) -> int:
 ## Senior and Category A spots together (the game's "44").
 static func list_max(y := -1) -> int:
 	return senior_spots(y) + cat_a_spots(y)
+
+
+## The fewest players a list may hold, senior and rookies together (director
+## 2026-11-13: lists by era). On record from 2004 (37, then 38; 37 from 2021,
+## 36 senior and one rookie); before 2004 no minimum is recorded and the year's
+## senior maximum less four stands in (director 2026-11-13).
+static func list_min(y := -1) -> int:
+	return rule("list_min", list_year(y))
 
 
 static func senior_spots(y := -1) -> int:

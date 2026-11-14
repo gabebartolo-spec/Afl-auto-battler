@@ -58,6 +58,12 @@ note_error() {  # message
 fail() {  # what failed, reason
 	note_error "$1: $2"
 	grep -E -A3 "SCRIPT ERROR|Parse Error|Compile Error|^ERROR" "$LOG" | head -20
+	# A crash (signal, abort) names no script: show the end of the log, where
+	# Godot prints its backtrace, so the failure says where it died.
+	if ! grep -qE "SCRIPT ERROR|Parse Error|Compile Error|^ERROR" "$LOG"; then
+		echo "--- last 60 lines of the Godot log ---"
+		tail -60 "$LOG"
+	fi
 	exit 1
 }
 

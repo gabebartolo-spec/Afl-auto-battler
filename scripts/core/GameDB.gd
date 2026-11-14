@@ -737,6 +737,8 @@ func _load_list_additions() -> Array:
 		p["list_type"] = list_type
 		if _cell_str(cells, idx, "peak") != "":
 			p["real_peak"] = _cell_int(cells, idx, "peak")
+		if _cell_str(cells, idx, "last_season") != "":
+			p["real_last"] = _cell_int(cells, idx, "last_season")
 		var pos := _cell_str(cells, idx, "position")
 		p["role"] = pos if pos in ["RUCK", "MID", "DEF", "FWD"] else listed_role(p)
 		p["role2"] = ""
@@ -1915,6 +1917,10 @@ func _apply_history_rows(list: Array) -> void:
 						p["drafted_club"] = code
 		if idx.has("peak") and str(cells[idx["peak"]]) != "":
 			p["real_peak"] = int(str(cells[idx["peak"]]))
+		# A Legacy start's real player: his last real AFL season, when his
+		# retirement comes due (Prospects.should_retire, director 2026-11-13).
+		if idx.has("last_season") and str(cells[idx["last_season"]]) != "":
+			p["real_last"] = int(str(cells[idx["last_season"]]))
 		var hist := []
 		for chunk in str(cells[idx["seasons"]]).split(";", false):
 			var parts := chunk.split(":")

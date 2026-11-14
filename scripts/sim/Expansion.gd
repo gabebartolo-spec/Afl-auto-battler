@@ -71,12 +71,49 @@ const SENIOR_AGE := 23.0
 const NEVER := 9999
 
 
-## The club's first players: FOUNDATION_SIZE of them from the state leagues,
+## The home state league of a club that entered before the expansion
+## concessions (Legacy mode): Adelaide and Port Adelaide from the SANFL,
+## Fremantle from the WAFL.
+const EARLY_HOME := {"ADE": "SA", "PAD": "SA", "FRE": "WA"}
+
+
+## Whether a club gets the expansion concessions (out-of-contract approaches,
+## compensation, extra and traded picks, sign-on money): the rule of the
+## season it enters (era_rules.csv expansion_concessions, from Gold Coast's
+## 2011 entry; always on in the game's own seasons). Every club entering in
+## the same season is treated the same.
+static func concessions(code: String) -> bool:
+	var y := GameDB.enter_year(code)
+	return not EraRules.is_era(y) or EraRules.value("expansion_concessions", y) > 0.0
+
+
+## How many players the club signs from the state leagues before anything
+## else: FOUNDATION_SIZE with the concessions; without them its whole senior
+## list for its first season (the era's senior maximum), since nothing else
+## fills it.
+static func foundation_size(code: String) -> int:
+	if concessions(code):
+		return FOUNDATION_SIZE
+	return EraRules.senior_spots(GameDB.enter_year(code))
+
+
+## The club's first players: foundation_size of them from the state leagues,
 ## seeded by the career so no two careers get the same list, each held to the
-## room his age leaves him. `year` is the season they are that old in.
+## room his age leaves him. `year` is the season they are that old in. A club
+## entering before the concessions signs them from its home state league.
 static func foundation_list(code: String, year: int, career_seed: int) -> Array:
 	var salt := "%04d" % posmod(career_seed, 10000)
-	var out: Array = Prospects.generate_expansion_list(code, year, FOUNDATION_SIZE, salt)
+	var out: Array = Prospects.generate_expansion_list(code, year, foundation_size(code), salt)
+	var home := "" if concessions(code) else str(EARLY_HOME.get(code, ""))
+	var sides: Array = Prospects.JUNIOR_TEAMS.filter(func(t): return str(t[2]) == home)
+	for i in out.size():
+		var p: Dictionary = out[i]
+		if not sides.is_empty():
+			var side: Array = sides[i % sides.size()]
+			p["draft_team"] = str(side[0])
+			p["draft_league"] = str(side[1])
+			p["draft_state"] = home
+			p["state"] = home
 	for p in out:
 		var ovr := int(p.get("overall", 50))
 		var room := 1

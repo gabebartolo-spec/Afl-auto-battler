@@ -18,6 +18,8 @@ match_visual
 matchday
 match_motion
 legacy_2000_long
+# A Legacy career traced 1990 -> 2026 (row 142): about 30-55 s per off-season.
+legacy_players
 back_nav
 preseason
 legacy_2010_long
