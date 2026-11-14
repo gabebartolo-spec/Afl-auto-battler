@@ -160,10 +160,29 @@ It passes when:
 - no foot slides, no ball hovers, and no limb clips through a body or a jumper, checked frame by frame;
 - the director watches it at game speed and says it reads as footy.
 
-If the phone cannot hold it, the plan changes before any more art is made.
+The phone frame time is measured first, with the mock's 36 bodies on jog, idle and carry, before any
+action clip is made: it sets the budget for IK and layers. If the phone cannot hold it, the plan changes before any more art is made.
 
-## 3. Decisions for the director
+### 2.11 Engine notes from the 3D oval mock
 
-1. Reverse ARD-M8-007 and move the match view to 3D players?
-2. If yes, build the proof in §2.10 before anything else in the overhaul?
-3. Capture: a mocap suit, a markerless video tool, or a capture studio day? All three are spend.
+Found while building the mock in the 3d view 1 session (2026-11-14):
+
+- **Blender export.** Bake each action with NLA off (`use_nla = False`): an earlier strip corrupts key 0.
+  Turn NLA back on for the GLB export, and check that a cycle's first key equals its last.
+- **AnimationPlayer in manual mode** needs `advance(1e-4)`, not `advance(0)`, to apply the first pose.
+- **Kit colours.** The guernsey regions go in vertex COLOR and the hair in UV2.x, thresholded at 0.5 with
+  `fwidth`; one material per side.
+- **Shadows.** Soft shadows at default quality stipple the limbs; SOFT_HIGH with a 4096 atlas fixes it on
+  PC. Its phone cost is part of the frame-time measurement.
+
+The contract between the two sessions: the MPFB game_engine rig from `player_average.glb` with its bone names
+unchanged; one GLB action per clip; `Oval3D.anim_for(token_index, event)` is the hook the animation
+controller replaces. The 3d view 1 session decides when it is called and where each player stands.
+
+## 3. The director's decisions (2026-11-14, rule 2.74)
+
+1. Reverse ARD-M8-007 and move the match view to 3D players: "Yes, prove it first".
+2. The proof in §2.10 comes before anything else in the overhaul; the two sessions work on it together
+   ("Work hand in hand with 3d view 1").
+3. Capture: "Free mocap service", a markerless tool that turns our own video into 3D motion. He creates
+   the account; footage of real matches is for study only.
