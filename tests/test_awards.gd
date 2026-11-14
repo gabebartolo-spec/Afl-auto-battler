@@ -389,6 +389,9 @@ func _find_player(id: String) -> Dictionary:
 	var groups: Array = [GameState.my_list, GameState.free_agents]
 	for code in GameState.season.lists:
 		groups.append(GameState.season.lists[code])
+	# A new club still to enter (Tasmania in 2028) holds the men it signed.
+	for code in GameState.expansion:
+		groups.append(ExpansionBuild.list_of(GameState, str(code)))
 	for arr in groups:
 		for p in arr:
 			if p is Dictionary and str(p.get("id", "")) == id:

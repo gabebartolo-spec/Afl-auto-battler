@@ -218,6 +218,13 @@ func _test_rule_table() -> void:
 	for y in range(1990, 2026):
 		_check(EraRules.has("senior_list_max", y) and EraRules.has("interchange", y),
 				"%d has a senior list size and a bench in era_rules.csv" % y)
+		# The list minimum is the year's own, never over its maximum (director
+		# 2026-11-13: "by era, obviously").
+		_check(EraRules.has("list_min", y) and EraRules.list_min(y) <= EraRules.list_max(y),
+				"%d has a list minimum of its own, under the maximum (%d, max %d)" % [y, EraRules.list_min(y), EraRules.list_max(y)])
+	var mins := [EraRules.list_min(1990), EraRules.list_min(1994), EraRules.list_min(2004), EraRules.list_min(2010), EraRules.list_min(2021), EraRules.list_min(2026)]
+	_check(str(mins) == str([48, 38, 37, 38, 37, Contracts.MIN_LIST]),
+			"The list minimum by era: 48 to 1993, 38 from 1994, 37 in 2004, 38 to 2020, 37 from 2021 and today (%s)" % str(mins))
 
 
 ## Year 0 and today's seasons read GAME, whatever the record holds.
@@ -331,7 +338,14 @@ func _test_smart_delisting() -> void:
 		if p != kid and p != vet and str(p.get("rookie_list", "")) == "":
 			base = p
 			break
-	while RookieList.senior_count(list.filter(func(q): return not GameState.retiring_now(q))) < 43:
+	# Exactly one over the 42: drop other seniors first (the list may already be
+	# past it at the end of the season), then pad if it is short.
+	for p in list.duplicate():
+		if RookieList.senior_count(GameState.staying_on(list)) <= 43:
+			break
+		if p != kid and p != vet and p != base and str(p.get("rookie_list", "")) == "":
+			list.erase(p)
+	while RookieList.senior_count(GameState.staying_on(list)) < 43:
 		var extra: Dictionary = base.duplicate(true)
 		extra["id"] = "era_extra_%d" % list.size()
 		extra["rookie_list"] = ""
@@ -342,7 +356,7 @@ func _test_smart_delisting() -> void:
 	GameState._era_trim_rivals()
 	_check(list.has(kid), "The 69-rated 20-year-old with 75 to come is kept")
 	_check(not list.has(vet), "The 70-rated 35-year-old is delisted first")
-	_check(RookieList.senior_count(list.filter(func(q): return not GameState.retiring_now(q))) <= 42,
+	_check(RookieList.senior_count(GameState.staying_on(list)) <= 42,
 			"The list is down to 42")
 	EraRules.list_ahead = false
 

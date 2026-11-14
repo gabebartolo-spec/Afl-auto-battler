@@ -45,6 +45,7 @@ func run() -> void:
 	_t("_test_traits")
 	_t("_test_weather")
 	_t("_test_wet_weather_play")
+	_t("_test_weather_turns_at_a_break")
 	_t("_test_wind_and_heat")
 	_t("_test_weather_follows_the_real_games")
 	_t("_test_metres_and_efficiency")
@@ -1179,6 +1180,90 @@ func _test_weather() -> void:
 			for side in range(2):
 				marks[c] += float((res["team"][side] as Dictionary).get("marks", 0.0))
 	_check(marks[1] < marks[0] * 0.95, "Fewer marks stick in the wet (%.0f against %.0f)" % [marks[1], marks[0]])
+
+
+## Row 160 (director 2026-11-12: "Yes, at a break"): the weather turns at most
+## once a match, at a break, as often as the forecast says; the quarters before
+## it play the day's weather and the quarters after it the new one.
+func _test_weather_turns_at_a_break() -> void:
+	# The rate: over many matches at an outdoor ground, each start turns as often
+	# as the forecast's odds say (within three standard errors), at each break
+	# about as often, and always to a different condition.
+	var n := 6000
+	var rate_ok := true
+	var breaks := [0, 0, 0]
+	var to_other := true
+	var notes := []
+	for start in Weather.CONDITIONS:
+		var p := Weather.turn_chance(start, "MCG")
+		var turned := 0
+		for k in range(n):
+			var t := Weather.turn(start, "MCG", k)
+			if t.is_empty():
+				continue
+			turned += 1
+			breaks[int(t["after"]) - 1] += 1
+			if str(t["to"]) == start or not Weather.CONDITIONS.has(str(t["to"])):
+				to_other = false
+		var se := sqrt(p * (1.0 - p) / float(n))
+		var got := float(turned) / float(n)
+		notes.append("%s %.3f v %.2f" % [start, got, p])
+		if absf(got - p) > 3.0 * se + 0.0001:
+			rate_ok = false
+	_check(rate_ok, "Each start turns as often as the forecast says (%s)" % ", ".join(notes))
+	var total := float(breaks[0] + breaks[1] + breaks[2])
+	_check(breaks.all(func(b): return absf(float(b) / total - 1.0 / 3.0) < 0.03),
+			"Quarter time, half time and three-quarter time are each as likely (%s)" % str(breaks))
+	_check(to_other, "A turn is always to a different condition")
+	_check(Weather.turn("wet", "MCG", 77) == Weather.turn("wet", "MCG", 77),
+			"The same match always turns the same way: the odds stated are the ones played")
+	var roof := true
+	for k in range(500):
+		if not Weather.turn("wet", "Marvel Stadium", k).is_empty():
+			roof = false
+	_check(roof and Weather.turn_chance("perfect", "Marvel Stadium") == 0.0,
+			"Under the roof the day never turns")
+	_check(Weather.turn_odds_line(0.31) == "31% chance it turns at a break" and Weather.turn_odds_line(0.0) == "",
+			"The forecast states the odds as a percentage")
+	# The match: a perfect day that turns wet at half time.
+	var held := _sim(91)
+	held.set_day({"weather": "perfect", "chance": 0.04, "turn": {}})
+	var turns := _sim(91)
+	turns.set_day({"weather": "perfect", "chance": 0.04, "turn": {"after": 2, "to": "wet"}})
+	_check(turns.weather_turn_now().is_empty() and turns.weather_ahead() == "perfect",
+			"Nothing is announced before the first bounce")
+	var first_half_same := true
+	for q in range(2):
+		held.run_quarter()
+		turns.run_quarter()
+		if q == 0:
+			_check(turns.weather_turn_now().is_empty(), "Nothing is announced at quarter time")
+	first_half_same = held.events == turns.events
+	_check(first_half_same and turns.weather == "perfect",
+			"The first half is played in the day's weather, exactly as a day that holds")
+	var news := turns.weather_turn_now()
+	_check(str(news.get("to", "")) == "wet" and int(news.get("after", 0)) == 2 and turns.weather_ahead() == "wet",
+			"Half time announces the rain, and the plans are sized for it")
+	var dry_marks := float(held._rates()["mark_share_of_kicks"])
+	turns.run_quarter()
+	_check(turns.weather == "wet" and turns.weather_turn_now().is_empty(),
+			"The rain plays from the third quarter's bounce, announced once")
+	_check(float(turns._rates()["mark_share_of_kicks"]) < dry_marks,
+			"The wet's rates play for the quarters left (marks %.3f against %.3f)"
+			% [float(turns._rates()["mark_share_of_kicks"]), dry_marks])
+	turns.run_quarter()
+	var res := turns.result()
+	_check(str(res["weather"]) == "wet" and str(res["weather_start"]) == "perfect"
+			and int(res["weather_turned_after"]) == 2, "The result keeps how the day started and when it turned")
+	var line := Weather.turn_report_line("perfect", 2, "wet")
+	_check(line.begins_with("It started fine. The rain came in at half time:"),
+			"The match report says when it turned: " + line)
+	# A day that holds plays as it always has: a bare condition is the old game.
+	var bare := _sim(91)
+	bare.weather = "perfect"
+	var held2 := _sim(91)
+	held2.set_day({"weather": "perfect", "chance": 0.04, "turn": {}})
+	_check(bare.run()["events"] == held2.run()["events"], "A day that holds is the game exactly as before")
 
 
 ## Row 120 (director 2026-11-06): the wet brings fumbles, stoppages and tackles, and set

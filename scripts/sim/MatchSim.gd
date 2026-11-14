@@ -278,6 +278,63 @@ var weather := "perfect":
 	set(v):
 		weather = v if WEATHER_RATES.has(v) or v == "perfect" else "perfect"
 		_rates_cache = {}
+## The day may turn once, at a break (row 160, director 2026-11-12: "Yes, at a
+## break"): {"after": the quarter whose break it turns at (1-3), "to": the
+## condition from there}, or {} for a day that holds (Weather.turn, from the
+## same key as the forecast, so the forecast's odds are the ones played). It is
+## announced at that break (weather_turn_now) and played from the next
+## quarter's first bounce: begin_quarter switches `weather`, so every rate,
+## plan and trait reads the new condition for the quarters left, as the
+## starting weather does for the first. The quarter already played keeps its
+## own (the oval replays it after the siren). Draws nothing from the RNG.
+var weather_turn := {}
+## The forecast's odds that the day turns at a break (Weather.turn_chance),
+## shown before the first bounce; 0 for a day that can't.
+var weather_odds := 0.0
+
+
+## The day as Season.weather_day gives it ({weather, chance, turn}), or a bare
+## condition that holds all match.
+func set_day(day: Variant) -> void:
+	if day is Dictionary:
+		weather = str((day as Dictionary).get("weather", "perfect"))
+		weather_odds = float((day as Dictionary).get("chance", 0.0))
+		weather_turn = ((day as Dictionary).get("turn", {}) as Dictionary).duplicate()
+	else:
+		weather = str(day)
+
+
+## The weather at the first bounce, once a turn has changed `weather`.
+var weather_start := ""
+## The quarter whose break the weather turned at, once it has (0: not yet).
+var weather_turned_after := 0
+
+
+## The turn announced at the break just reached, or {} (none due here).
+func weather_turn_now() -> Dictionary:
+	if weather_turn.is_empty() or weather_turned_after > 0 or _q_active:
+		return {}
+	if int(weather_turn.get("after", 0)) != current_quarter - 1:
+		return {}
+	return {"after": int(weather_turn["after"]), "from": weather, "to": str(weather_turn.get("to", weather))}
+
+
+## The weather the next quarter is played in: the turn's at the break it is
+## announced, else the day's. A break's gate sizes the plans for it.
+func weather_ahead() -> String:
+	var t := weather_turn_now()
+	return str(t["to"]) if not t.is_empty() else weather
+
+
+func _apply_weather_turn() -> void:
+	var t := weather_turn_now()
+	if t.is_empty():
+		return
+	weather_start = weather
+	weather = str(t["to"])
+	weather_turned_after = int(t["after"])
+
+
 ## Ratings.T multipliers, applied in _rates() after the match-flow overrides.
 ## chains_per_game scales the quarter's chains, the bursts and the rotation
 ## cadence together, so legs per game are unchanged: the wet's shorter chains
@@ -4459,6 +4516,8 @@ func quarter_in_progress() -> bool:
 
 
 func begin_quarter() -> void:
+	# A turn announced at this break plays from this bounce (row 160).
+	_apply_weather_turn()
 	var T := _rates()
 	_fit_cache.clear()
 	# A tired-star call lasts to the break.
@@ -4950,6 +5009,10 @@ func result() -> Dictionary:
 		"away": squads[1].code,
 		"tactics_history": tactics_history.duplicate(true),
 		"weather": weather,
+		# The day's turn at a break, once played (row 160): where it started and
+		# which break it turned at; "" and 0 for a day that held.
+		"weather_start": weather_start,
+		"weather_turned_after": weather_turned_after,
 		# Which side kicks with the breeze in the first quarter, for the ground's flags and
 		# the big screen's arrow after the match (looks only: set from the seed at the start).
 		"breeze_side": breeze_side,

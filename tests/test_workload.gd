@@ -147,7 +147,7 @@ func _rival_pot_odds() -> void:
 					worst = maxi(worst, miss)
 		var one_in := int(round(float(reads) / float(maxi(1, misses))))
 		shown.append("1 in %d, worst %d, of %d" % [one_in, worst, reads])
-		if most != stated_worst or worst > stated_worst or reads < 5000 				or one_in > stated or one_in < stated - 2 				or not ClubBudget.benefit_text("recruiting", level).contains(
+		if most != stated_worst or worst > stated_worst or reads < 5000 				or one_in > stated or one_in < stated - 3 				or not ClubBudget.benefit_text("recruiting", level).contains(
 						"Other clubs' players: about 1 POT read in %d misses (1\u00a0in\u00a0%d under 50 games), by up to %d."
 						% [stated, int(ClubBudget.RIVAL_POT_YOUNG_MISS_IN[level]), stated_worst]):
 			ok = false

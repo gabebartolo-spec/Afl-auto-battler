@@ -2600,8 +2600,18 @@ func _test_menu_and_career() -> void:
 	# A first this match settled, as the round would have kept it (Firsts.gd):
 	# full time says so, now and after a reload.
 	var mine_side := 0 if str(_state.last_match["home"]) == _state.my_club else 1
-	var debutant: Dictionary = _state.list_player(str((_state.last_match["roster"][mine_side] as Array)[0]["id"]))
-	load("res://scripts/sim/Firsts.gd").note(debutant, "debut", _state.season_year, str(_state.last_match["label"]))
+	# The debutant is chosen, not left to the seed: a player in the side whose
+	# debut is on record from no earlier match (Firsts.note writes a first once)
+	# and who is not in fact on debut, which the milestone line says instead.
+	var firsts = load("res://scripts/sim/Firsts.gd")
+	var debutant := {}
+	for r in (_state.last_match["roster"][mine_side] as Array):
+		var q: Dictionary = _state.list_player(str(r["id"]))
+		if not q.is_empty() and not firsts.has(q, "debut") and _state.games_played(q) != 1:
+			debutant = q
+			break
+	_check(not debutant.is_empty(), "A player in the side to give a debut at full time")
+	firsts.note(debutant, "debut", _state.season_year, str(_state.last_match["label"]))
 	var debutant_name: String = _db.player_display_name(debutant)
 	if rv != null:
 		rv.emit_signal("pressed")

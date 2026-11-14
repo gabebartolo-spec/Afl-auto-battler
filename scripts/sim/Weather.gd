@@ -93,6 +93,100 @@ static func condition(venue: String, m: int, key: int, state := "") -> String:
 	return "perfect"
 
 
+## The day may turn once, at a break (row 160, director 2026-11-12: "Yes, at a
+## break"): at most once a match, at quarter time, half time or three-quarter
+## time (each as likely), announced at that break, with the odds in the
+## forecast. Every club's match plays the same rule. Measured on real match
+## windows (tools/balance/weather_turns.py: Open-Meteo hourly weather at the
+## outdoor AFL grounds, Saturdays 2016-25 at the usual starts, each half of the
+## match classified in the game's order): 12.7% of matches turned, and how
+## likely depends on how the day starts: a perfect day holds (3.8% turned), a
+## wet, windy or hot one turns about a third of the time, mostly fining up.
+## TURN_CHANCE: the share that turned, by the start's condition (5,406 perfect,
+## 1,144 wet, 918 windy and 272 hot windows). TURN_TO: where those turned to.
+## A roofed ground never turns.
+const TURN_CHANCE := {"perfect": 0.04, "wet": 0.31, "windy": 0.36, "hot": 0.37}
+const TURN_TO := {
+	"perfect": {"wet": 0.68, "windy": 0.29, "hot": 0.03},
+	"wet": {"perfect": 0.81, "windy": 0.17, "hot": 0.02},
+	"windy": {"perfect": 0.70, "wet": 0.25, "hot": 0.05},
+	"hot": {"perfect": 0.88, "windy": 0.06, "wet": 0.06},
+}
+const BREAKS := {1: "quarter time", 2: "half time", 3: "three-quarter time"}
+
+
+## The chance the day turns at one of the breaks, starting as `start` at `venue`.
+static func turn_chance(start: String, venue: String) -> float:
+	if roofed(venue):
+		return 0.0
+	return float(TURN_CHANCE.get(start, 0.0))
+
+
+## The day's turn: {"after": 1-3 (the break), "to": the condition from there},
+## or {} when it holds. `key` is the match's own weather key (the same one
+## condition() took): the same match always turns the same way, so the odds the
+## forecast states are the ones played.
+static func turn(start: String, venue: String, key: int) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([key, "turn"])
+	if rng.randf() >= turn_chance(start, venue):
+		return {}
+	var after := 1 + rng.randi_range(0, 2)
+	var to_row: Dictionary = TURN_TO.get(start, {})
+	var r := rng.randf()
+	var to := ""
+	for c in CONDITIONS:
+		if not to_row.has(c):
+			continue
+		to = c
+		r -= float(to_row[c])
+		if r < 0.0:
+			break
+	if to == "" or to == start:
+		return {}
+	return {"after": after, "to": to}
+
+
+## The forecast's odds, in a coach's words: "" when the day can't turn.
+static func turn_odds_line(chance: float) -> String:
+	var pct := roundi(chance * 100.0)
+	if pct <= 0:
+		return ""
+	return "%d%% chance it turns at a break" % pct
+
+
+## The break's announcement: what the day has done and what it means from here.
+const TURN_NEWS := {
+	"wet": "The rain has come in at %s. Wet from here: a greasy ball, contested footy counts for more, fewer marks stick and set shots get harder.",
+	"windy": "The wind has got up at %s. Windy from here: the breeze end matters and the ball is harder to hold.",
+	"hot": "It has heated up by %s. Hot from here: a slower game, and legs tire sooner.",
+	"perfect": "It has fined up by %s. A perfect day from here: the ball is dry and easier to mark.",
+}
+
+
+static func turn_news(after: int, to: String) -> String:
+	return str(TURN_NEWS.get(to, "")) % str(BREAKS.get(after, "the break"))
+
+
+## The match report's line for a day that turned: how it started and when it turned.
+const TURN_REPORT := {
+	"wet": "The rain came in at %s",
+	"windy": "The wind got up at %s",
+	"hot": "It heated up by %s",
+	"perfect": "It fined up by %s",
+}
+
+
+static func turn_report_line(start: String, after: int, to: String) -> String:
+	var what := "a dry ball from there, easier to mark." if to == "perfect" 			else report_line(to).trim_prefix(str(REPORT_LEAD.get(to, "")))
+	return "It started %s. %s: %s" % [str(STARTED.get(start, "fine")),
+			str(TURN_REPORT.get(to, "The weather turned at %s")) % str(BREAKS.get(after, "a break")), what]
+
+
+const STARTED := {"perfect": "fine", "wet": "wet", "windy": "windy", "hot": "hot"}
+const REPORT_LEAD := {"wet": "A wet day: ", "windy": "A windy day: ", "hot": "A hot day: "}
+
+
 ## The day in a coach's words, for the match report (none on a perfect day).
 const REPORT := {
 	"wet": "A wet day: a greasy ball, contested footy counted for more, fewer marks stuck and set shots were harder.",

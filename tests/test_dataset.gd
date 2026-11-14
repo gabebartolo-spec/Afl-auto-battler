@@ -37,7 +37,7 @@ const BOOKKEEPING_KEYS := ["impact_by", "breeze_side"]
 ## pressure zones (pressure acts in the defensive half, tackles inside 50,
 ## 2026-11-14) are counted without a draw, so leaving them out keeps the print.
 const TEAM_BOOKKEEPING_KEYS := ["pressure_acts_dhalf", "tackles_i50"]
-const GOLDEN_SEASON := {"Windows": "05a96ea659dcfe349e9afec75b01b45a", "Linux": "9c00f9caf199debd6cc6a20325ba8cba"}
+const GOLDEN_SEASON := {"Windows": "947958fd809280ac302bee2c3dddb58d", "Linux": "2cdd3c9bceb79ab9c0c49b98727f1b7e"}
 
 ## A small league standing in for a legacy set until the 1990 files ship:
 ## 42 real players re-dated to a 1989 data season, a 1990 first season, and
@@ -647,6 +647,13 @@ func _test_real_1990() -> void:
 		if int(listed[c]) < 42:
 			thin += 1
 	_check(thin == 0 and listed.size() == 14, "Every 1990 club has a full list (%s)" % str(listed))
+	# A height no source records is his position's average (director 2026-11-13), so none is blank.
+	var no_height := []
+	for q in GameDB.list_additions:
+		if float(q.get("height_cm", 0.0)) < 150.0:
+			no_height.append(str(q.get("real_name", "")))
+	_check(no_height.is_empty() and not GameDB.list_additions.is_empty(),
+			"Every 1990 list addition has a height (missing: %s)" % str(no_height))
 	ovr.sort()
 	var median := int(ovr[ovr.size() / 2])
 	_check(median >= 57 and median <= 65, "The 1990 median sits where 2026's does (%d)" % median)

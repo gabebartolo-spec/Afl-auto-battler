@@ -1,7 +1,7 @@
 extends RefCounted
 ## Long careers: do lists and retirements stay healthy for a decade? (ARD-M8-005,
 ## raised by the low agent: retirements seem to stop once lists sit on the
-## 32-player floor, Prospects.MIN_LIST.) Measurement only.
+## list minimum, Contracts.min_list().) Measurement only.
 ## Autopilot as career_impl's "ai" policy: League Draft, then every season,
 ## off-season (open_offseason, intake draft or start_next_season) with no user
 ## management. After each rollover, per club: list size; league: lists at the
@@ -29,7 +29,7 @@ func _profile(year: int, retired: int, intake: int, released: int) -> void:
 	for code in lists:
 		var arr: Array = lists[code]
 		sizes.append(arr.size())
-		if arr.size() <= Prospects.MIN_LIST:
+		if arr.size() <= Contracts.min_list():
 			at_floor += 1
 		for p in arr:
 			ages.append(float(p.get("age", 0.0)))
@@ -46,7 +46,7 @@ func _profile(year: int, retired: int, intake: int, released: int) -> void:
 		mean_size += float(s)
 	mean_size /= maxf(1.0, sizes.size())
 	print("LONG %d | clubs %d | list size min %d mean %.1f max %d | at the %d floor %d | retired %d | intake %d | released %d | players %d, 34+ %d, 36+ %d, oldest %.0f | listed players the rule would retire now %d" % [
-			year, sizes.size(), sizes[0], mean_size, sizes[sizes.size() - 1], Prospects.MIN_LIST, at_floor,
+			year, sizes.size(), sizes[0], mean_size, sizes[sizes.size() - 1], Contracts.min_list(), at_floor,
 			retired, intake, released, ages.size(), n34, n36, ages[ages.size() - 1], blocked])
 
 

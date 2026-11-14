@@ -987,7 +987,7 @@ func _check_joined(tag: String, from: String, year: int, their_id: String) -> vo
 			and GameState.season.lists.has("TAS") and is_same(GameState.my_list, GameState.season.lists["TAS"]),
 			"%s: their first season is %d and his list is theirs" % [tag, year + 1])
 	var all_tas := GameState.my_list.all(func(p): return str(p.get("club", "")) == "TAS")
-	_check(GameState.my_list.size() >= Prospects.MIN_LIST and all_tas,
+	_check(GameState.my_list.size() >= Contracts.min_list() and all_tas,
 			"%s: a full list, every player Tasmania's (%d)" % [tag, GameState.my_list.size()])
 	_check(ExpansionBuild.relief(GameState, "TAS") > 0
 			and GameState.cap_room() == GameState.salary_cap + ExpansionBuild.relief(GameState, "TAS") - GameState.my_payroll(),

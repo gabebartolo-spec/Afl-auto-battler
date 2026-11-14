@@ -65,12 +65,20 @@ senior_list_max,40,2001,2003,"(club list counts, no rule text) the 2000 lists ma
 senior_list_max,40,2004,2008,"During the term, the maximum Primary List size shall be 38 and Veterans List size shall be 2.",https://footyindustry.com/docs/AFLPA%20-%20CBA%202003-2008.pdf,2026-11-13
 senior_list_max,40,2009,2020,"The maximum playing list size of each AFL club is 47 players, consisting of 38-40 senior-listed players",https://en.wikipedia.org/wiki/List_of_Gold_Coast_Suns_players,2026-11-13
 senior_list_max,38,2021,2025,"To reach 44, clubs can carry 36-38 senior listed players",https://www.afl.com.au/news/524822/new-afl-player-pay-deal-reached-list-sizes-revealed,2026-11-13
+list_min,48,1990,1993,"(no minimum on record) director 2026-11-13: the year's senior list maximum less four (52 - 4)",https://digital.la84.org/digital/api/collection/p17103coll10/id/7687/download,2026-11-13
+list_min,38,1994,2000,"(no minimum on record) director 2026-11-13: the year's senior list maximum less four (42 - 4)",https://en.wikipedia.org/wiki/1994_AFL_season,2026-11-13
+list_min,36,2001,2003,"(no minimum on record) director 2026-11-13: the year's senior list maximum less four (40 - 4)",https://www.draftguru.com.au/lists/2001,2026-11-13
+list_min,37,2004,2004,"minimum senior list sizes come into effect from 2004, 37 in 2004 and 38 in 2005 and 2006",https://www.monash.edu/__data/assets/pdf_file/0007/925594/the_economic_development_of_the_australian_football_league.pdf,2026-11-13
+list_min,38,2005,2008,"minimum senior list sizes come into effect from 2004, 37 in 2004 and 38 in 2005 and 2006 (2007-2008 inferred: no change is recorded before the 2009 rule)",https://www.monash.edu/__data/assets/pdf_file/0007/925594/the_economic_development_of_the_australian_football_league.pdf,2026-11-13
+list_min,38,2009,2020,"The maximum playing list size of each AFL club is 47 players, consisting of 38-40 senior-listed players",https://en.wikipedia.org/wiki/List_of_Gold_Coast_Suns_players,2026-11-13
+list_min,37,2021,2025,"each club must have a minimum of 37 players and no more than 44",https://www.westernbulldogs.com.au/news/837502/afl-confirms-2021-list-sizes,2026-11-13
 rookie_list_max,6,1997,2008,"Whilst each club could draft up to six players onto their Rookie Lists",https://en.wikipedia.org/wiki/1996_AFL_draft,2026-11-13
 rookie_list_max,8,2009,2012,"from the previous maximum of six players to the maximum of eight rookies and veteran listed players combined",https://en.wikipedia.org/wiki/2008_AFL_Draft,2026-11-13
 rookie_list_max,6,2013,2025,"starting from 2013 the maximum will be reduced to six",https://www.afl.com.au/about-afl/rookie-players,2026-11-13
 cat_b_rookie,2,2006,2020,"In 2006, ""International rookies"" were identified for the first time as a separate class of rookie (per-club maximum before 2021 not sourced: the 2021 figure stands in)",https://en.wikipedia.org/wiki/Rookie_list,2026-11-13
 cat_b_rookie,2,2021,2025,"four-to-six Category A rookies and two Category B rookies",https://www.afl.com.au/news/524822/new-afl-player-pay-deal-reached-list-sizes-revealed,2026-11-13
 free_agency,1,2012,2025,"and for the first time incorporated a free agency eligibility period",https://en.wikipedia.org/wiki/2012_AFL_draft,2026-11-13
+expansion_concessions,1,2011,2025,"was provided with several draft concessions, including additional draft selections, early access to recruit 17-year-old players, and access to uncontracted and previously listed players",https://en.wikipedia.org/wiki/2010_AFL_draft,2026-11-13
 midseason_draft,1,1990,1993,"the first mid-season draft since 1993 was held after Round 10 of the 2019 AFL season on 27 May",https://en.wikipedia.org/wiki/2019_AFL_draft,2026-11-13
 midseason_draft,1,2019,2025,"the first mid-season draft since 1993 was held after Round 10 of the 2019 AFL season on 27 May",https://en.wikipedia.org/wiki/2019_AFL_draft,2026-11-13
 medical_sub,1,2021,2025,"2021 - ... a medical substitute as a fifth bench player ... 2026 - removal of the substitute",https://en.wikipedia.org/wiki/Interchange_(Australian_rules_football),2026-11-13

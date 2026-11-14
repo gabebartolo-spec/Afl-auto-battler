@@ -15,6 +15,17 @@ extends RefCounted
 ## list-management rule.
 var intake_mode := false
 var existing_sizes := {}              # code -> kept list length (intake only)
+## Intake: code -> players on that list retiring at the coming rollover. They
+## count toward neither the minimum a club must reach before it may pass nor
+## a full list: their places are next season's, so a club drafts their
+## replacements first and the list still ends inside the year's maximum
+## (2026-11-13: Geelong was capped at 52 with ten retiring, and started 1992
+## at 44 against the 48 minimum).
+var leaving := {}
+## The same retirees as the senior list counts them (RookieList.draft_size)
+## and as the 44 does (RookieList.list_size), for the list caps.
+var leaving_senior := {}
+var leaving_44 := {}
 ## Where the intake calls a list full: 0 is the whole list (Ratings.LIST_SIZE);
 ## a career's intake sets the senior list (RookieList), and existing_sizes
 ## counts senior players only.
@@ -388,9 +399,9 @@ func list_cap() -> int:
 
 ## Intake: the list spots `code` still has open tonight.
 func open_spots(code: String) -> int:
-	var open := list_cap() - int(existing_sizes.get(code, 0)) - count_for(code)
+	var open := list_cap() - (int(existing_sizes.get(code, 0)) - int(leaving_senior.get(code, 0))) - count_for(code)
 	if list_44.has(code):
-		open = mini(open, Contracts.max_list() - list_now(code))
+		open = mini(open, Contracts.max_list() - (list_now(code) - int(leaving_44.get(code, 0))))
 	return maxi(0, open)
 
 
@@ -487,9 +498,12 @@ func _extend_if_needed() -> void:
 func pass_block_reason() -> String:
 	if not intake_mode or not is_user_turn():
 		return "You can only pass on your own pick."
-	var have := int(existing_sizes.get(user_club, 0)) + count_for(user_club)
-	if have < Prospects.MIN_LIST:
-		return "Your list has %d players and needs at least %d, so you cannot pass yet." % [have, Prospects.MIN_LIST]
+	var gone := int(leaving.get(user_club, 0))
+	var have := int(existing_sizes.get(user_club, 0)) + count_for(user_club) - gone
+	if have < Contracts.min_list():
+		if gone > 0:
+			return "With %d retiring, your list has %d players for next season and needs at least %d, so you cannot pass yet." % [gone, have, Contracts.min_list()]
+		return "Your list has %d players and needs at least %d, so you cannot pass yet." % [have, Contracts.min_list()]
 	return ""
 
 

@@ -1030,6 +1030,14 @@ const PEP_TALKS := [
 ## The break: what happened, then your calls for the next quarter. It
 ## surfaces the problem - their midfield on top, a forward hurting you - and
 ## leaves the answer to you. No advice, no expected points.
+## The forecast before the first bounce: "Forecast: wet · 31% chance it turns
+## at a break". The odds are left off for a roofed ground, where it can't turn.
+func _forecast_line(sim: MatchSim) -> String:
+	var odds := Weather.turn_odds_line(sim.weather_odds)
+	var day := "Forecast: %s" % Weather.label(sim.weather).to_lower()
+	return day if odds == "" else "%s  ·  %s" % [day, odds]
+
+
 func _show_coach_box() -> void:
 	if _coach_overlay != null and is_instance_valid(_coach_overlay):
 		return
@@ -1117,6 +1125,17 @@ func _show_coach_box() -> void:
 			where.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			where.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		bv.add_child(where)
+		# The forecast, with the odds it turns at a break (row 160, director
+		# 2026-11-12: "Yes, at a break"): numbers at the gate, a fact, no advice.
+		var fc := _forecast_line(sim)
+		if fc != "":
+			var fcl := UiKit.lbl(fc, UiKit.BODY, UiKit.TEXT)
+			fcl.name = "BreakForecast"
+			fcl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			ClubDuel.on_colour(fcl)
+			if wide:
+				fcl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			bv.add_child(fcl)
 	else:
 		var sc := UiKit.lbl(MatchNotes.break_score(str(_res["home"]), str(_res["away"]),
 				_res.get("goals", [0, 0]), _res.get("behinds", [0, 0]), not wide), UiKit.NAME, UiKit.TEXT, true)
@@ -1139,6 +1158,14 @@ func _show_coach_box() -> void:
 		else:
 			rep.add_child(stats)
 			rep.add_child(UiKit.spacer(UiKit.GAP))
+		# The weather turns at this break (row 160): said first, in bold, as
+		# it changes how the rest is played.
+		var wt := sim.weather_turn_now()
+		if not wt.is_empty():
+			var news := UiKit.lbl(Weather.turn_news(int(wt["after"]), str(wt["to"])), UiKit.BODY, UiKit.TEXT, true)
+			news.name = "BreakWeatherTurn"
+			news.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			rep.add_child(news)
 		var played := UiKit.section(str({2: "First quarter", 3: "Second quarter",
 				4: "Third quarter"}.get(q, "Last quarter")))
 		played.name = "QuarterHeading"
@@ -1211,7 +1238,8 @@ func _show_coach_box() -> void:
 		plan_note.add_child(does)
 		# Sized for this list today: its fit, coaches, familiarity and the
 		# day's weather (M1, director 2026-11-10).
-		var sized := GateOdds.plan_texts_for(sim.squads[_my_side], key, sim.weather)
+		# At a break the weather turns at, the plans are sized for the new one (row 160).
+		var sized := GateOdds.plan_texts_for(sim.squads[_my_side], key, sim.weather_ahead())
 		plan_note.add_child(_plan_row("Gain:", str(sized[0]), "PlanGain"))
 		plan_note.add_child(_plan_row("Cost:", str(sized[1]), "PlanCost"))
 		if d.has("beats"):
@@ -1828,6 +1856,10 @@ func _mount_one_line(c: Dictionary) -> void:
 			put.call(pane, bodies[key])
 		v.add_child(cols)
 	if q > 1:
+		# The weather's turn, when it turns at this break, leads the page (row 160).
+		var turn_news: Control = take.call("BreakWeatherTurn")
+		if turn_news != null:
+			put.call(page, turn_news)
 		var head := UiKit.hbox(8)
 		if quarter_head != null:
 			quarter_head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2269,9 +2301,16 @@ func _quarter_view(q: int) -> Control:
 	# Moments already played out in the feed are not replayed here; the
 	# ones that carry on are under "What your calls did".
 	var lines: Array = MatchNotes.quarter_facts(_res, _my_side, q, _break_answers())
+	# A break the weather turns at leads with the turn (row 160): it takes one of
+	# the facts' places, so the break keeps its height on a phone.
+	var room := MatchNotes.MAX_FACTS
+	var sim: MatchSim = GameState.pending_sim
+	if sim != null and not sim.weather_turn_now().is_empty():
+		room -= 1
+	lines = lines.slice(0, room)
 	var opp_last := _opp_last_plan()
 	if opp_last != "":
-		lines = lines.slice(0, MatchNotes.MAX_FACTS - 1)
+		lines = lines.slice(0, room - 1)
 		# What they played, their answer to yours, their mood (RivalRead).
 		lines.append(RivalRead.break_line(GameState.pending_sim, _my_side))
 	if lines.is_empty():

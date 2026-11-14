@@ -703,7 +703,7 @@ func simulate(home_code: String, away_code: String, match_seed: int,
 ## The match, set up and ready to run: both sides, their form, coaching,
 ## plans.
 func match_sim(home_code: String, away_code: String, match_seed: int,
-		at_home := [true, false], is_final := false, weather := "perfect") -> MatchSim:
+		at_home := [true, false], is_final := false, weather: Variant = "perfect") -> MatchSim:
 	var home := Squad.new(GameDB_ref().club_name(home_code),
 			lists[home_code], bool(at_home[0]), home_code, selections.get(home_code, {}))
 	var away := Squad.new(GameDB_ref().club_name(away_code),
@@ -714,7 +714,9 @@ func match_sim(home_code: String, away_code: String, match_seed: int,
 	CoachEffects.apply(away)
 	var sim := MatchSim.new(home, away, match_seed)
 	sim.finals_mode = is_final
-	sim.weather = weather
+	# A weather_day (row 160) carries the forecast's odds and the day's turn;
+	# a bare condition holds all match.
+	sim.set_day(weather)
 	# The season's own football (legacy, row 142 L5); today's from 2026 on.
 	sim.season_year = year
 	for side in range(2):
@@ -853,6 +855,21 @@ func GameDB_ref() -> Node:
 ## same whenever it's asked, so the forecast in the week is what's played.
 ## `finals_m`: a final's bracket entry (its venue is the host's, or the MCG).
 func weather_for(home_code: String, away_code: String, round_i: int, finals_m: Dictionary = {}) -> String:
+	var w := _weather_where(home_code, away_code, round_i, finals_m)
+	return Weather.condition(str(w["ground"]), int(w["month"]), int(w["key"]), str(w["state"]))
+
+
+## The match's day in full (row 160): {"weather": the start, "chance": the
+## forecast's odds it turns at a break, "turn": Weather.turn - the break and the
+## condition it turns to, or {}}. The same match always gives the same day.
+func weather_day(home_code: String, away_code: String, round_i: int, finals_m: Dictionary = {}) -> Dictionary:
+	var w := _weather_where(home_code, away_code, round_i, finals_m)
+	var start := Weather.condition(str(w["ground"]), int(w["month"]), int(w["key"]), str(w["state"]))
+	return {"weather": start, "chance": Weather.turn_chance(start, str(w["ground"])),
+			"turn": Weather.turn(start, str(w["ground"]), int(w["key"]))}
+
+
+func _weather_where(home_code: String, away_code: String, round_i: int, finals_m: Dictionary) -> Dictionary:
 	var is_final := not finals_m.is_empty()
 	var ground := finals_venue(finals_m) if is_final else home_ground(home_code)
 	if not is_final and _real_ground(round_i, home_code, away_code) != "":
@@ -861,8 +878,8 @@ func weather_for(home_code: String, away_code: String, round_i: int, finals_m: D
 	if not is_final and round_i == gather_round():
 		ground = round_venue(round_i, home_code, away_code)
 		state = GatherRound.HOST_STATE
-	return Weather.condition(ground, Weather.month_of_round(round_i, is_final),
-			hash([seed, round_i, home_code, away_code, "weather"]), state)
+	return {"ground": ground, "state": state, "month": Weather.month_of_round(round_i, is_final),
+			"key": hash([seed, round_i, home_code, away_code, "weather"])}
 
 
 
@@ -883,7 +900,7 @@ func _round_sims() -> Array:
 		var m: Dictionary = round_matches[i]
 		sims.append(match_sim(m["home"], m["away"], next_seed(i),
 				round_at_home(round_index, m["home"], m["away"]), false,
-				weather_for(m["home"], m["away"], round_index)))
+				weather_day(m["home"], m["away"], round_index)))
 	return sims
 
 
@@ -1173,7 +1190,7 @@ func _finals_sims(ready: Array) -> Array:
 	for pair in ready:
 		var m: Dictionary = pair[1]
 		var sim := match_sim(m["home"], m["away"], finals_seed(int(pair[0])), finals_at_home(m), true,
-				weather_for(m["home"], m["away"], finals_round(), m))
+				weather_day(m["home"], m["away"], finals_round(), m))
 		sim.extra_time_allowed = finals_extra_time(m)
 		sims.append(sim)
 	return sims

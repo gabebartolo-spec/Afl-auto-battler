@@ -476,6 +476,8 @@ static func _build_report(res: Dictionary, my_side: int, quarters: int) -> Dicti
 		"opp_observed": opp_observed,
 		"keys": keys,
 		"weather": str(res.get("weather", "perfect")),
+		"weather_start": str(res.get("weather_start", "")),
+		"weather_turned_after": int(res.get("weather_turned_after", 0)),
 	}
 
 
@@ -785,6 +787,10 @@ static func glance(report: Dictionary, full_time := false) -> Dictionary:
 		read.append("An even %s: neither side is on top anywhere in particular." % span)
 	# The conditions, when they weren't a perfect day (ARD-M4-016).
 	var wx := Weather.report_line(str(report.get("weather", "perfect")))
+	# A day that turned at a break (row 160): how it started and when it turned.
+	if int(report.get("weather_turned_after", 0)) > 0:
+		wx = Weather.turn_report_line(str(report.get("weather_start", "perfect")),
+				int(report["weather_turned_after"]), str(report.get("weather", "perfect")))
 	if wx != "":
 		read.insert(0, wx)
 	var people := func(list: Array, n: int, keep: Callable) -> Array:

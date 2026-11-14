@@ -1442,6 +1442,11 @@ func _test_premiership_streamers() -> void:
 	var kit = load("res://scripts/ui/UiKit.gd")
 	_reset()
 	_state.start_season("FRE", db.club_list("FRE"))
+	# The first postseason's intro (FirstVisitIntro, once per career) is its own
+	# test: seen already here, so it never lies over Finals. Whether it comes up
+	# on these hubs otherwise turns on whether the seeded season leaves a press
+	# conference waiting after the Grand Final, which it is held back behind.
+	_state.mark_intro_seen("postseason")
 	_state.season.round_index = _state.season.fixture.size() - 1
 	_mine_only("FRE")
 	_state.advance()

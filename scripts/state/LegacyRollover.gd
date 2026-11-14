@@ -29,6 +29,7 @@ const LIONS_TAKE := 8
 
 static var _classes := {}   # year -> Array of class rows
 static var _entries := {}   # "code|year" -> Array of entry rows
+static var _later := {}     # "real name|dob" -> the last off-season a real list took him
 
 
 ## True for a career started on a past season's data.
@@ -49,6 +50,38 @@ static func _load() -> void:
 		if not _entries.has(key):
 			_entries[key] = []
 		(_entries[key] as Array).append(r)
+	# When a real list last took each man: his class's draft, or the
+	# off-season before a new club's first list (career_ahead).
+	for y in _classes:
+		for r in _classes[y]:
+			_note_later(r, int(y))
+	for key in _entries:
+		for r in _entries[key]:
+			_note_later(r, int(str(r.get("year", "0"))) - 1)
+
+
+static func _note_later(r: Dictionary, off: int) -> void:
+	var dob := str(r.get("dob", ""))
+	if dob.length() < 10:
+		return
+	var k := "%s %s|%s" % [str(r.get("first", "")), str(r.get("last", "")), dob]
+	_later[k] = maxi(int(_later.get(k, 0)), off)
+
+
+## Whether a real man delisted in `year`'s off-season really played on: his
+## last real season is later, or a real draft or new club's first list took
+## him in this off-season or after. Such a man goes into the drafts before his
+## career can end (GameState._close_free_agency), at every club alike.
+static func career_ahead(p: Dictionary, year: int) -> bool:
+	if int(p.get("real_last", 0)) > year:
+		return true
+	if not on():
+		return false
+	_load()
+	var dob := str(p.get("dob", ""))
+	if str(p.get("real_name", "")) == "" or dob.length() < 10:
+		return false
+	return int(_later.get("%s|%s" % [str(p["real_name"]), dob], 0)) >= year
 
 
 ## The real class drafted at the end of `year`, if this career has one.
@@ -121,6 +154,10 @@ static func real_class(year: int) -> Array:
 		p["draft_class"] = true
 		if str(r.get("peak", "")) != "":
 			p["real_peak"] = int(str(r["peak"]))
+		# His last real season (build_rollovers): he retires about then, as
+		# a start list's real player does (Prospects.should_retire).
+		if str(r.get("last_season", "")) != "":
+			p["real_last"] = int(str(r["last_season"]))
 		Prospects.project(p)
 		out.append(p)
 	GameDB.assign_aliases(out)
@@ -138,7 +175,8 @@ static func real_class(year: int) -> Array:
 ## did (director, 2026-11-13: "the sim will not replicate historical draftee
 ## clubs"). Each is rated on his last AFL season before `year`, fitted to his
 ## rating on that season's own scale, or as a prospect if he has none. At most
-## Expansion.FOUNDATION_SIZE, the best of them; the rest go into the draft
+## Expansion.foundation_size (a club entering before the expansion
+## concessions signs its whole first senior list), the best of them; the rest go into the draft
 ## before `year` (returned as "pool"); fewer, and the club tops up with
 ## state-league signings as any new club does.
 ## Returns {"list": players, "pool": players for the draft}.
@@ -178,14 +216,15 @@ static func foundation(gs, code: String, year: int) -> Dictionary:
 	GameDB.register_draftees(list)
 	list.sort_custom(func(a, b): return int(a.get("overall", 0)) > int(b.get("overall", 0)))
 	var pool := []
-	while list.size() > Expansion.FOUNDATION_SIZE:
+	var size := Expansion.foundation_size(code)
+	while list.size() > size:
 		var p: Dictionary = list.pop_back()
 		p["club"] = ""
 		p["draft_year"] = year - 1
 		pool.append(p)
-	if list.size() < Expansion.FOUNDATION_SIZE:
+	if list.size() < size:
 		var more: Array = Expansion.foundation_list(code, year - 1, int(gs.career_seed))
-		list.append_array(more.slice(0, Expansion.FOUNDATION_SIZE - list.size()))
+		list.append_array(more.slice(0, size - list.size()))
 	for p in list:
 		p["club"] = code
 		if str(p.get("note", "")) == "":
@@ -231,6 +270,10 @@ static func _new_player(code: String, year: int, n: int, r: Dictionary) -> Dicti
 		p["rookie_list"] = true
 	if str(r.get("peak", "")) != "":
 		p["real_peak"] = int(str(r["peak"]))
+	# His last real season (build_rollovers): he retires about then, as a
+	# start list's or a class's real player does (Prospects.should_retire).
+	if str(r.get("last_season", "")) != "":
+		p["real_last"] = int(str(r["last_season"]))
 	var role := str(r.get("role", ""))
 	p["role"] = role if role in ["RUCK", "MID", "DEF", "FWD"] else GameDB.listed_role(p)
 	p["role2"] = ""
@@ -342,6 +385,32 @@ static func before_moves(gs, next_year: int) -> void:
 		return
 	if next_year != TALKS_YEAR + 1:
 		return
+	_decide(gs)
+
+
+## When the TALKS_YEAR off-season opens, before any club re-signs: the merger
+## is settled and, as in 1996, Fitzroy's best go to the Brisbane Lions and the
+## rest into that year's National Draft. A coach at Fitzroy keeps the old
+## order (decided at the rollover, the rest to free agency), since his club
+## has a list to run until he moves.
+static func settle_merger(gs) -> void:
+	if not _merger_ahead(gs) or int(gs.season_year) != TALKS_YEAR or str(gs.my_club) == MERGED:
+		return
+	note_finals(gs)
+	_decide(gs)
+	if str(_st(gs).get("fitzroy", "")) == "merged":
+		_merge(gs, true)
+
+
+## True once `code` has merged away (Fitzroy, its list gone): from the 1996
+## off-season on it has no seat at a draft and holds no pick.
+static func merged_away(gs, code: String) -> bool:
+	return code == MERGED and bool(_st(gs).get("merge_done", false))
+
+
+## Merge or play on: finals in two of the last three seasons give a
+## MERGE_ANYWAY_PCT chance of merging; fewer, and they merge.
+static func _decide(gs) -> void:
 	var st := _st(gs)
 	var regular := finals_in(gs, MERGED, [TALKS_YEAR - 2, TALKS_YEAR - 1, TALKS_YEAR]) >= FINALS_NEEDED
 	var merge := true
@@ -367,12 +436,26 @@ static func merge_lists(gs) -> void:
 	if not on():
 		return
 	canon_moves(gs, int(gs.season_year) + 1)
+	_sweep_leftovers(gs)
 	if str(_st(gs).get("fitzroy", "")) != "merged" or bool(_st(gs).get("merge_done", false)):
 		return
+	_merge(gs, false)
+
+
+## Fitzroy's best LIONS_TAKE go to the Brisbane Lions. The rest go into this
+## year's National Draft (`to_draft`, the 1996 order) or to free agency.
+## Anyone retiring at the rollover ends his career here, as his list closes.
+static func _merge(gs, to_draft: bool) -> void:
 	var st := _st(gs)
 	st["merge_done"] = true
 	var fit: Array = gs.league_lists.get(MERGED, [])
-	var ranked := fit.duplicate()
+	var ranked := fit.filter(func(q): return not gs.retiring_now(q))
+	if to_draft:
+		for p in fit:
+			if gs.retiring_now(p):
+				gs._career_over(p, "retired")
+	else:
+		ranked = fit.duplicate()
 	ranked.sort_custom(func(a, b): return int(a.get("overall", 0)) > int(b.get("overall", 0)))
 	var lions: Array = gs.league_lists.get(MERGED_INTO, [])
 	var taken := []
@@ -383,6 +466,17 @@ static func merge_lists(gs) -> void:
 			p["joined"] = TALKS_YEAR + 1
 			lions.append(p)
 			taken.append(GameDB.player_display_name(p))
+		elif to_draft:
+			p["club"] = ""
+			p["draft_year"] = int(gs.season_year)
+			p["fitzroy_left"] = true
+			p["contract_years"] = 0
+			p.erase("rookie_list")
+			# A leftover drafted in an earlier season (R1990_245) is in
+			# drafted_draftees from that draft: cleared, he can be drafted
+			# again, and age_pool keeps him instead of dropping him as taken.
+			gs.drafted_draftees.erase(str(p["id"]))
+			gs.draftee_pool.append(p)
 		else:
 			p["released_by"] = MERGED
 			p["contract_years"] = 0
@@ -390,8 +484,11 @@ static func merge_lists(gs) -> void:
 			gs.free_agents.append(p)
 	fit.clear()
 	# Off the league's lists altogether, or free agency would sign players to
-	# a club that no longer exists.
+	# a club that no longer exists; mid off-season, off the season's lists
+	# too, which the league's are rebuilt from.
 	gs.league_lists.erase(MERGED)
+	if to_draft and gs.season != null:
+		gs.season.lists.erase(MERGED)
 	gs.unique_jumpers(lions)
 	for cid in gs.coaches:
 		var c: Dictionary = gs.coaches[cid]
@@ -400,8 +497,27 @@ static func merge_lists(gs) -> void:
 	var head := "Fitzroy and the Brisbane Bears have merged."
 	if bool(st.get("fitzroy_regular", false)):
 		head = "Fitzroy played finals often enough to stand alone, but the board took the merger anyway (the %d%% chance)." % MERGE_ANYWAY_PCT
-	gs.add_news("legacy", "%s The Brisbane Lions play from %d and take Fitzroy's best %d players: %s. The rest of Fitzroy's list are free agents." % [
-			head, TALKS_YEAR + 1, taken.size(), _and(taken)])
+	gs.add_news("legacy", "%s The Brisbane Lions play from %d and take Fitzroy's best %d players: %s. The rest of Fitzroy's list %s." % [
+			head, TALKS_YEAR + 1, taken.size(), _and(taken),
+			("go into the %d National Draft" % int(gs.season_year)) if to_draft else "are free agents"])
+
+
+## Fitzroy's leftovers nobody drafted: one young enough stays in the pool for
+## next year's draft; one who would age out of it (22) ends his career here,
+## on the record, never silently.
+static func _sweep_leftovers(gs) -> void:
+	var keep := []
+	for p in gs.draftee_pool:
+		if bool(p.get("fitzroy_left", false)) and not gs.drafted_draftees.has(str(p["id"])) \
+				and float(p.get("age", 30.0)) + 1.0 >= 22.0 and not p.has("relisted"):
+			# One who really played on waits for the Rookie Draft first.
+			if career_ahead(p, int(gs.season_year)):
+				p["relisted"] = int(gs.season_year)
+			else:
+				gs._career_over(p, "delisted")
+				continue
+		keep.append(p)
+	gs.draftee_pool = keep
 
 
 ## Fitzroy fought the merger off: they play on, and the Bears stay the Bears.
@@ -750,10 +866,16 @@ static func canon_moves(gs, year: int) -> void:
 		(gs.league_lists[from] as Array).erase(p)
 		_join(p, to, {"num": str(p.get("num", 0))})
 		p["joined"] = year
-		# A club yet to play takes him onto the list it is building.
-		var dest: Array = gs.league_lists.get(to, []) if gs.league_lists.has(to) 				else ExpansionBuild.list_of(gs, to)
+		# A club yet to play takes him onto the list it is building. Its draft
+		# has already put that list in league_lists (finish_intake_draft), so
+		# whether it plays is the season's word, not league_lists'.
+		var building: bool = not (gs.season != null and gs.season.lists.has(to)) 				and ExpansionBuild.has_package(gs, to)
+		var dest: Array = ExpansionBuild.list_of(gs, to) if building else gs.league_lists.get(to, [])
 		dest.append(p)
-		if gs.league_lists.has(to) or not ExpansionBuild.has_package(gs, to):
+		if building:
+			# Its draft is done: the list it enters with still fits its spots.
+			ExpansionBuild.fit_spots(gs, to, {str(p["id"]): true})
+		else:
 			gs.league_lists[to] = dest
 		gs.unique_jumpers(dest)
 		gs.add_news("legacy", "%s leaves %s for %s." % [who, GameDB.club_name(from), GameDB.club_name(to)])

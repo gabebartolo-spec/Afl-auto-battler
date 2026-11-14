@@ -2133,7 +2133,9 @@ func opening_order(active: Array) -> Array:
 func intake_order() -> Array:
 	var order := []
 	for row in season.ladder_sorted():
-		order.append(str(row["code"]))
+		# A club merged away this off-season (Fitzroy, 1996) has no seat.
+		if not LegacyRollover.merged_away(self, str(row["code"])):
+			order.append(str(row["code"]))
 	order.reverse()
 	var runner := str(season.finals.get("runner_up", ""))
 	var premier_code := premier()
@@ -2210,9 +2212,22 @@ func _draft_sees_44() -> void:
 ## 44 has room for him (RookieList.add_block: the same rule as every other
 ## way onto a list; he may take the senior list past its spots, as he always
 ## could). With no room he goes into the open draft, where any club may take him.
+## In a Legacy era a rival whose senior spots are full delists its least worth
+## senior to take him, as a list manager would, so its list keeps the era's
+## spots (Brisbane 2000 at 43 of 42); your own list stays yours to cut.
 func _tie_fits(code: String) -> bool:
 	var arr: Array = league_lists[code] if league_lists.has(code) else ExpansionBuild.list_of(self, code)
-	return RookieList.add_block(arr, "senior") != "list"
+	var why := RookieList.add_block(arr, "senior")
+	if why == "list":
+		return false
+	if why == "senior" and code != my_club and EraRules.is_era(season_year) \
+			and season != null and season.lists.has(code):
+		var staying := staying_on(arr)
+		if RookieList.senior_count(staying) >= RookieList.senior_spots():
+			var worst := _least_worth(staying, "")
+			if not worst.is_empty():
+				_release(code, worst, false)
+	return true
 
 
 ## The tied prospects of `code` this year that it had no list spot for, by
@@ -2545,6 +2560,15 @@ func begin_intake_draft() -> bool:
 	# The National Draft fills the senior list; the Rookie Draft follows.
 	draft.senior_cap = RookieList.senior_spots()
 	draft.user_max_age = Challenge.max_age(self)
+	# Everyone gone before next season, for every club: the rollover retires
+	# them (Prospects.age_league, at most MAX_RETIRE_PER_CLUB a club), so the
+	# draft fills their places and does not hold them as full ones.
+	for code in sizes:
+		var going: Array = (league_lists.get(code, []) as Array).filter(func(q): return retiring_now(q))
+		going = going.slice(0, Prospects.MAX_RETIRE_PER_CLUB)
+		draft.leaving[code] = going.size()
+		draft.leaving_senior[code] = RookieList.draft_size(going)
+		draft.leaving_44[code] = RookieList.list_size(going)
 	ExpansionBuild.seat_guests(self, draft)
 	_draft_sees_44()
 	var no_spot_line := _ties_without_a_spot_line(my_club) if league_lists.has(my_club) else ""
@@ -2656,6 +2680,29 @@ func finish_intake_draft() -> bool:
 
 ## Roll every list forward one year and rebuild the season. Split out so a
 ## career can continue even when there is no prospect pool to draft.
+## "real name|dob" of every real man the career already holds: on a list, a
+## list a new club is building, the free agents or the draft pool.
+func _real_people() -> Dictionary:
+	var out := {}
+	var add := func(p: Dictionary) -> void:
+		var dob := str(p.get("dob", ""))
+		if str(p.get("real_name", "")) != "" and dob.length() >= 10:
+			out["%s|%s" % [str(p["real_name"]), dob]] = true
+	var lists: Array = []
+	if season != null:
+		lists.append_array(season.lists.values())
+	lists.append_array(league_lists.values())
+	for code in ExpansionBuild.building(self):
+		lists.append(ExpansionBuild.list_of(self, code))
+	lists.append(free_agents)
+	lists.append(draftee_pool)
+	for arr in lists:
+		for p in arr:
+			if p is Dictionary:
+				add.call(p)
+	return out
+
+
 func _start_next_season(next_year: int, signed: int) -> void:
 	# His first postseason is over, seen or not; a season played without
 	# you is not his (bug-bash 6).
@@ -2691,13 +2738,22 @@ func _start_next_season(next_year: int, signed: int) -> void:
 				played[str(p["id"])] = p
 		Career.close_season(played, season_tally, season_year, season_stats, season_stats_from)
 	LegacyRollover.merge_lists(self)
+	# A canon move (Dangerfield to Geelong) or the merger lands after the
+	# off-season's trim: the club that took him delists to its era's spots
+	# again, before free agency closes, so the one let go still has a market.
+	if season != null:
+		_era_trim_rivals()
 	Season.beat()
 	# Next year's generated class joins the pool before ageing, so the fresh
 	# 17-year-olds are also a year older in the season they arrive. A Legacy
 	# career's is that year's real class.
 	var generated := []
 	if LegacyRollover.has_class(next_year):
-		generated = LegacyRollover.real_class(next_year)
+		# A man already in the career (a new club's state-league signing who
+		# was later drafted in real life, Maverick Weller) is not drafted twice.
+		var here := _real_people()
+		generated = LegacyRollover.real_class(next_year).filter(func(q):
+			return not here.has("%s|%s" % [str(q.get("real_name", "")), str(q.get("dob", ""))]))
 	else:
 		generated = Prospects.generate_class(next_year, career_seed)
 		class_tiers[str(next_year)] = Prospects.class_tier(career_seed, next_year)
@@ -2775,7 +2831,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	# ages or retires; given back after ageing, before the re-anchor (row 90).
 	var train_unwind := Prospects.training_unwind(league_lists, next_year)
 	Season.beat()
-	intake_summary = Prospects.age_league(league_lists, next_year)
+	intake_summary = Prospects.age_league(league_lists, next_year, _rollover_min_left)
 	Season.beat()
 	intake_summary["signed"] = signed
 	# A free agent still in the pool (_fa_staying) is a year older too; out of
@@ -2869,6 +2925,79 @@ func _start_next_season(next_year: int, signed: int) -> void:
 ## The careers the medical panel ended in `year` (MedicalPanel), any club.
 func _medical_retirees(year: int) -> Array:
 	return medical_retired.filter(func(r): return r is Dictionary and int(r.get("year", 0)) == year)
+
+
+## The backstop for the year's list minimum (director, 2026-11-13: lists by
+## era): the draft counts every retiree, but a list can still start a season
+## short (a club change, a merger, an era's minimum rising). Every club under
+## Contracts.min_list() signs the best free agents left, yours included, and
+## the news says so.
+func _fill_short_lists() -> void:
+	if season == null:
+		return
+	for code in GameDB.active_clubs(season_year):
+		if not season.lists.has(code):
+			continue
+		var list: Array = season.lists[code]
+		var short := Contracts.min_list() - list.size()
+		if short <= 0:
+			continue
+		var pool := free_agents.filter(func(q): return not bool(q.get("retired", false)))
+		pool.sort_custom(func(a, b):
+			if int(a.get("overall", 0)) != int(b.get("overall", 0)):
+				return int(a.get("overall", 0)) > int(b.get("overall", 0))
+			return str(a["id"]) < str(b["id"]))
+		var names: PackedStringArray = []
+		for p in pool.slice(0, short):
+			var want := Contracts.wants(p)
+			_sign_fa(p, str(code), int(want["salary"]), int(want["years"]))
+			p.erase("fa_kept")
+			names.append(GameDB.player_display_name(p))
+		# No free agent left: the best players passed over at an earlier draft,
+		# as a pre-season draft (or a supplemental signing) took them.
+		for p in _passed_over_prospects().slice(0, Contracts.min_list() - list.size()):
+			_sign_passed_over(str(code), p)
+			names.append(GameDB.player_display_name(p))
+		if names.is_empty():
+			continue
+		add_news("contract", "%s were %d short of the %d-player list minimum for %d and signed %s to fill it." % [
+				GameDB.club_name(str(code)), short, Contracts.min_list(), season_year,
+				_names_words(names)])
+
+
+## Prospects still in the pool whose own draft has been and gone, best first.
+func _passed_over_prospects() -> Array:
+	var out := draftee_pool.filter(func(q): return not drafted_draftees.has(str(q["id"])) 			and int(q.get("draft_year", 0)) < season_year)
+	out.sort_custom(func(a, b):
+		if int(a.get("overall", 0)) != int(b.get("overall", 0)):
+			return int(a.get("overall", 0)) > int(b.get("overall", 0))
+		return str(a["id"]) < str(b["id"]))
+	return out
+
+
+## A passed-over prospect joins `code`'s list at the season's start on a
+## rookie deal, as a pre-season draft pick (_fill_short_lists).
+func _sign_passed_over(code: String, p: Dictionary) -> void:
+	var list: Array = season.lists[code]
+	if not p.has("xp"):
+		p["xp"] = 0
+		p["xp_games"] = 0
+	p["club"] = code
+	TeamFamiliarity.arrive_draftee(p)
+	p["num"] = _next_jumper_number(list)
+	p["draft_pick"] = 0
+	_mark_drafted(p, "preseason", 0)
+	Contracts.draftee_deal(p, season_year)
+	p["contract_years"] = Contracts.ROOKIE_YEARS
+	list.append(p)
+	drafted_draftees[str(p["id"])] = code
+	draftee_pool.erase(p)
+
+
+static func _names_words(names: PackedStringArray) -> String:
+	if names.size() <= 1:
+		return "".join(names)
+	return "%s and %s" % [", ".join(names.slice(0, names.size() - 1)), names[names.size() - 1]]
 
 
 ## The season's retirees who are legends of your club go on its almanac page:
@@ -3023,6 +3152,12 @@ func needs_season_wrap() -> bool:
 			and int(season_wrap.get("year", 0)) == season_year
 
 
+## The smallest a list may be left at by the rollover's retirements
+## (Prospects.age_league): 0 after a National Draft, which refills every list;
+## the list minimum on a rollover with no draft (start_next_season).
+var _rollover_min_left := 0
+
+
 ## Roll on without an intake (no prospects available, or the manager skipped
 ## the draft). Same ageing and rebuild, zero new signings.
 func start_next_season() -> bool:
@@ -3037,7 +3172,10 @@ func start_next_season() -> bool:
 			return false  # an intake still in progress blocks the rollover
 		draft = null  # a completed career draft sitting in the slot is spent
 	_ensure_league_lists()
+	# No draft refills the lists, so no retirement takes one under the minimum.
+	_rollover_min_left = Contracts.min_list()
 	_start_next_season(season_year + 1, 0)
+	_rollover_min_left = 0
 	autosave()
 	return true
 
@@ -3189,6 +3327,12 @@ func start_season(club_code: String, list: Array) -> void:
 		# Fallback for tests or old saves: your drafted list plus real AI lists.
 		for code in GameDB.club_order:
 			var source: Array = list if code == club_code else GameDB.club_list(code)
+			# A list short of the year's minimum (Contracts.min_list()) takes the
+			# club's own registered players without 2026 games (GameDB.
+			# club_additions), as a real-lists start does, up to the minimum.
+			var short := Contracts.min_list() - source.size()
+			if short > 0:
+				source = source + GameDB.club_additions(code).slice(0, short)
 			lists[code] = _career_copies(source)
 			# The raw data can hold two players in one number (SYD 36): the
 			# same rule as every other start, or a reload renumbers him and
@@ -3255,7 +3399,7 @@ func _build_pending_sim() -> void:
 	pending_sim = MatchSim.new(home, away, int(_pending_build["seed"]))
 	pending_sim.finals_mode = bool(_pending_build["finals"])
 	pending_sim.extra_time_allowed = bool(_pending_build.get("extra_time", true))
-	pending_sim.weather = _pending_build["weather"]
+	pending_sim.set_day(_pending_build["weather"])
 	pending_sim.season_year = season.year
 	pending_sim.moment_side = 0 if h == my_club else 1
 	pending_sim.always_offer_bounce = bounce_scene_every_match()
@@ -3360,7 +3504,7 @@ func prepare_interactive_match() -> bool:
 		else:
 			others.append(season.match_sim(m["home"], m["away"], season.next_seed(i),
 					season.round_at_home(season.round_index, m["home"], m["away"]), false,
-					season.weather_for(m["home"], m["away"], season.round_index)))
+					season.weather_day(m["home"], m["away"], season.round_index)))
 	if pending_match.is_empty():
 		# Your bye: record nothing, the caller's advance() plays the whole round.
 		return false
@@ -3369,7 +3513,7 @@ func prepare_interactive_match() -> bool:
 	_others = Season.start_all(others)
 	_pending_build = {"at_home": season.round_at_home(season.round_index, str(pending_match["home"]),
 			str(pending_match["away"])), "seed": season.next_seed(99), "finals": false,
-			"weather": season.weather_for(str(pending_match["home"]), str(pending_match["away"]), season.round_index)}
+			"weather": season.weather_day(str(pending_match["home"]), str(pending_match["away"]), season.round_index)}
 	_build_pending_sim()
 	pending_phase = "regular"
 	pending_label = str(pending_match["label"])
@@ -3409,7 +3553,7 @@ func _prepare_interactive_final() -> bool:
 			continue
 		others.append(season.match_sim(m["home"], m["away"], season.finals_seed(i),
 				season.finals_at_home(m), true,
-				season.weather_for(m["home"], m["away"], season.finals_round(), m)))
+				season.weather_day(m["home"], m["away"], season.finals_round(), m)))
 		(others[others.size() - 1] as MatchSim).extra_time_allowed = season.finals_extra_time(m)
 		index.append(i)
 	_others = Season.start_all(others)
@@ -3421,7 +3565,7 @@ func _prepare_interactive_final() -> bool:
 			"label": str(fm["label"]), "tag": str(fm["tag"]),
 			"venue": season.finals_venue(fm), "finals_index": mine}
 	_pending_build = {"at_home": at_home, "seed": season.finals_seed(mine), "finals": true,
-			"weather": season.weather_for(str(fm["home"]), str(fm["away"]), season.finals_round(), fm),
+			"weather": season.weather_day(str(fm["home"]), str(fm["away"]), season.finals_round(), fm),
 			"extra_time": season.finals_extra_time(fm)}
 	_build_pending_sim()
 	pending_phase = "finals"
@@ -8431,12 +8575,26 @@ func open_offseason(keep_staff := false) -> void:
 	if not keep_staff:
 		offseason_staff = Coaches.staff(coaches, my_club) if not coaches.is_empty() else {}
 	_decide_retirements()
-	# A free agent kept in the pool last off-season (_fa_staying) whom no club
-	# took in a year: his AFL career ends here.
+	# A Legacy career's Fitzroy merger is settled now, before any club
+	# re-signs: the leftovers go into this year's National Draft, as in 1996.
+	LegacyRollover.settle_merger(self)
+	# A free agent whom no club took in a year (kept in the pool last
+	# off-season, _fa_staying, or let go before the season): his AFL career
+	# ends here, on the record. One whose club is gone (Fitzroy's players after
+	# the merger, LegacyRollover.merge_lists, freed after the last market
+	# closed) has had no market yet: he goes to this one.
+	var carried := []
+	var playing := GameDB.active_clubs(season_year)
 	for p in free_agents:
-		if p.has("fa_kept"):
+		var by := str(p.get("released_by", ""))
+		if not p.has("fa_kept") and by != "" and not playing.has(by):
+			carried.append(p)
+		elif not retiring_now(p) and LegacyRollover.career_ahead(p, season_year):
+			# He really played on: the drafts see him before his career ends.
+			_relist(p)
+		else:
 			_career_over(p, "delisted")
-	free_agents = []
+	free_agents = carried
 	# A new club's approaches are settled first: it had first call.
 	ExpansionBuild.resolve(self)
 	# No rating or injury moves while rivals re-sign: each list's best 22 only
@@ -8459,7 +8617,7 @@ func open_offseason(keep_staff := false) -> void:
 			# until the next one: the club keeps him, as yours must.
 			if why == "delist" and ListStings.release_held(p, season_year + 1):
 				why = Contracts.ai_release_reason(p, list, cap_for(code))
-			if why == "cap" and list.size() > Contracts.MIN_LIST:
+			if why == "cap" and list.size() > Contracts.min_list():
 				# Before a wanted player walks for want of cap room, the club
 				# delists its least valuable expiring players it does not pick
 				# (ones it could replace or not) - but only when that frees
@@ -8469,7 +8627,7 @@ func open_offseason(keep_staff := false) -> void:
 					_release(code, spare, false)
 				if not spares.is_empty():
 					why = ai_release_reason(code, p)
-			if why == "" or list.size() <= Contracts.MIN_LIST:
+			if why == "" or list.size() <= Contracts.min_list():
 				# Rivals bargain by the same rules: the least he takes for that term
 				# (a club pushing to win now keeps him a little cheaper, as yours does).
 				# Testers leave together later, so count them: the club must still
@@ -8539,24 +8697,31 @@ func _era_trim_rivals() -> void:
 		while guard < 60:
 			guard += 1
 			# Who retires at the rollover leaves anyway: he takes no spot.
-			var staying := list.filter(func(q): return not retiring_now(q))
+			var staying := staying_on(list)
 			var rookies_over := RookieList.cat_a_count(staying) > RookieList.cat_a_spots()
 			var seniors_over := RookieList.senior_count(staying) > RookieList.senior_spots()
-			if not (rookies_over or seniors_over) or list.size() <= Contracts.MIN_LIST:
+			if not (rookies_over or seniors_over) or list.size() <= Contracts.min_list():
 				break
-			var worst := {}
-			for p in staying:
-				var kind := str(p.get("rookie_list", ""))
-				if (seniors_over and kind == "") or (not seniors_over and kind == "A"):
-					# Least worth goes first: rating blended with potential and
-					# discounted for age (Contracts.worth), never rating alone, so a
-					# 69 at 20 with 75 to come stays ahead of a 70 at 35
-					# (director, 2026-11-13: "smart delistings, not binary ones").
-					if worst.is_empty() or Contracts.worth(p) < Contracts.worth(worst) 							or (Contracts.worth(p) == Contracts.worth(worst) and str(p["id"]) < str(worst["id"])):
-						worst = p
+			var worst := _least_worth(staying, "" if seniors_over else "A")
 			if worst.is_empty():
 				break
 			_release(code, worst, false)
+
+
+## The player of list kind `kind` ("" senior, "A" Category A rookie) a rival
+## delists first. Least worth goes first: rating blended with potential and
+## discounted for age (Contracts.worth), never rating alone, so a 69 at 20
+## with 75 to come stays ahead of a 70 at 35 (director, 2026-11-13: "smart
+## delistings, not binary ones").
+func _least_worth(list: Array, kind: String) -> Dictionary:
+	var worst := {}
+	for p in list:
+		if str(p.get("rookie_list", "")) != kind:
+			continue
+		if worst.is_empty() or Contracts.worth(p) < Contracts.worth(worst) \
+				or (Contracts.worth(p) == Contracts.worth(worst) and str(p["id"]) < str(worst["id"])):
+			worst = p
+	return worst
 
 
 func tests_market(p: Dictionary, list: Array) -> bool:
@@ -8648,7 +8813,7 @@ func _cap_spares(code: String, keep: Dictionary) -> Array:
 	var asking := Contracts.asking_salary(keep)
 	var out := []
 	while asking > cap_for(code) - Contracts.payroll(scratch) + int(keep.get("salary", 0)):
-		if scratch.size() <= Contracts.MIN_LIST:
+		if scratch.size() <= Contracts.min_list():
 			return []
 		var spare := _spare_expiring(code, keep, scratch)
 		if spare.is_empty():
@@ -8676,6 +8841,15 @@ func _decide_retirements() -> void:
 			if bool(res["stays"]) and int(p.get("overall", 0)) >= NEWS_MIN_OVR:
 				add_news("retirement", "%s (%s) has decided to play on in %d." % [
 						GameDB.player_display_name(p), GameDB.club_name(str(code)), year])
+
+
+## Who is still on `list` after the coming rollover: everyone but its
+## retirees, of whom the rollover takes at most MAX_RETIRE_PER_CLUB, in list
+## order (Prospects.age_league), as the draft counts them (begin_intake_draft).
+## A trim that counted every retiree left 1994's lists at 43-44 of 42.
+func staying_on(list: Array) -> Array:
+	var going := list.filter(func(q): return retiring_now(q)).slice(0, Prospects.MAX_RETIRE_PER_CLUB)
+	return list.filter(func(q): return not going.has(q))
 
 
 ## Retiring at the coming rollover, and not talked round.
@@ -8884,8 +9058,8 @@ func release_player(player_id: String) -> Dictionary:
 	var p := list_player(player_id)
 	if p.is_empty() or not offseason_open():
 		return {"ok": false, "reason": "Players can only be released in the off-season."}
-	if my_list.size() <= Contracts.MIN_LIST:
-		return {"ok": false, "reason": "Your list cannot go below %d." % Contracts.MIN_LIST}
+	if my_list.size() - 1 + _draft_takes_ahead() < Contracts.min_list():
+		return {"ok": false, "reason": "Your list cannot go below %d." % Contracts.min_list()}
 	if ListStings.release_held(p, season_year + 1):
 		return {"ok": false, "reason": ListCosts.HELD_REASON % GameDB.player_display_name(p)}
 	# A player whose career ends at this rollover leaves the game when he is
@@ -9875,7 +10049,8 @@ func draft_pick_owners(year: int) -> Dictionary:
 		var parts := str(key).split(":")
 		# A pick held by a club no longer in the league (Fitzroy after 1996)
 		# goes back to the club it came from.
-		if int(parts[0]) == year and active.has(str(pick_owner[key])):
+		if int(parts[0]) == year and active.has(str(pick_owner[key])) \
+				and not LegacyRollover.merged_away(self, str(pick_owner[key])):
 			out["%s:%s" % [parts[1], parts[2]]] = str(pick_owner[key])
 	return out
 
@@ -11168,8 +11343,11 @@ func draft_list_spots() -> Dictionary:
 		out["list"] = draft.list_now(my_club)
 		out["by_44"] = draft.full_at_44(my_club)
 		return out
-	var held := RookieList.senior_count(my_list)
-	var in_44 := RookieList.list_size(my_list)
+	# Players retiring at this rollover hold no place next season, as the
+	# draft counts them (Draft.leaving_senior, leaving_44).
+	var going := my_list.filter(func(q): return retiring_now(q))
+	var held := RookieList.senior_count(my_list) - RookieList.draft_size(going)
+	var in_44 := RookieList.list_size(my_list) - RookieList.list_size(going)
 	var resign := 0
 	var maybe := 0
 	if fa_closed_year != season_year:
@@ -11216,6 +11394,15 @@ func draft_list_spots() -> Dictionary:
 	out["usable"] = picks.slice(0, mini(open, picks.size()))
 	out["passing"] = picks.slice(mini(open, picks.size()))
 	return out
+
+
+## The draftees your club still takes this off-season: at least three of the
+## picks it holds (DRAFT_MIN_TAKE). They are on the list before it is lodged,
+## so a delisting that makes room for them keeps the list at the minimum
+## (2026-11-14: the era minimum of 37 left a full 38-man list one delisting,
+## where the draft asks for room for three).
+func _draft_takes_ahead() -> int:
+	return mini(DRAFT_MIN_TAKE, (draft_list_spots()["picks"] as Array).size())
 
 
 ## The fewest players a club takes at the National Draft: three, or every pick
@@ -11562,6 +11749,15 @@ func _close_free_agency() -> void:
 	# young ones (_fa_staying), who stay in the pool for the Rookie Draft and
 	# the mid-season draft. One of yours who went out of contract left as a
 	# free agent; one you let go keeps his delisting.
+	# One who really played on (a Legacy career's real man, LegacyRollover.
+	# career_ahead) goes into the National Draft and the Rookie Draft first,
+	# from any club; passed over in both, his career ends (relisted_unpicked).
+	var relist := free_agents.filter(func(q): return not retiring_now(q) \
+			and LegacyRollover.career_ahead(q, season_year))
+	for p in relist:
+		free_agents.erase(p)
+		HonourBoard.leave(self, p, "free_agent")
+		_relist(p)
 	var staying := _fa_staying()
 	for p in free_agents:
 		HonourBoard.leave(self, p, "free_agent")
@@ -11573,6 +11769,31 @@ func _close_free_agency() -> void:
 			_career_over(p, "delisted")
 	free_agents = staying
 	mark_dirty()
+
+
+## An unsigned free agent with a real career ahead joins this off-season's
+## draft pool: his last club's claim is gone, any club may draft him.
+func _relist(p: Dictionary) -> void:
+	for key in ["offers", "market_round", "market_log", "talks", "fa_kept", "released_by", "comp_eligible"]:
+		p.erase(key)
+	p["club"] = ""
+	p["contract_years"] = 0
+	p["relisted"] = season_year
+	drafted_draftees.erase(str(p["id"]))
+	if not draftee_pool.has(p):
+		draftee_pool.append(p)
+
+
+## After the off-season's last draft (the Rookie Draft, or the National Draft
+## before there was one): a relisted man no club took ends his career.
+func relisted_unpicked() -> void:
+	var keep := []
+	for p in draftee_pool:
+		if p.has("relisted") and not drafted_draftees.has(str(p["id"])):
+			_career_over(p, "delisted")
+			continue
+		keep.append(p)
+	draftee_pool = keep
 
 
 ## Under this age an unsigned free agent stays in the pool one more year (the
@@ -11620,18 +11841,18 @@ func _fa_close_plan() -> Array:
 		if bool(p.get("resigned", false)) or retiring_now(p):
 			continue
 		var walked := bool(p.get("talks", {}).get("walked", false)) or resign_refused(p)
-		if walked and size <= Contracts.MIN_LIST:
+		if walked and size <= Contracts.min_list():
 			plan.append([p, "resign1"])
 			continue
 		var rise := Contracts.asking_salary(p) - int(p.get("salary", 0))
 		var fits := rise <= room
 		# Before free agency (Legacy, to 2011) one of your best 23 re-signs:
 		# there is no market for him to test.
-		if not walked and fits and best22.has(str(p["id"])) and size > Contracts.MIN_LIST 				and EraRules.on("free_agency"):
+		if not walked and fits and best22.has(str(p["id"])) and size > Contracts.min_list() 				and EraRules.on("free_agency"):
 			plan.append([p, "test"])
 			size -= 1
 			room -= rise
-		elif not walked and (fits or size <= Contracts.MIN_LIST):
+		elif not walked and (fits or size <= Contracts.min_list()):
 			plan.append([p, "resign2"])
 			room -= rise
 		else:

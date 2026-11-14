@@ -280,7 +280,7 @@ func _test_build_and_entry() -> void:
 	_check(_count_prefix(tas, "EXP_") == 0, "On: none of the old generated players")
 	var from_state := _count_prefix(tas, "FND_")
 	_check(from_state >= 10 and from_state <= Expansion.FOUNDATION_SIZE, "On: the list is built on state-league signings (%d)" % from_state)
-	_check(tas.size() >= Prospects.MIN_LIST and tas.size() <= Contracts.MAX_LIST, "On: a full list (%d)" % tas.size())
+	_check(tas.size() >= Contracts.min_list() and tas.size() <= Contracts.MAX_LIST, "On: a full list (%d)" % tas.size())
 	var mine := _picks_of(history, "TAS")
 	_check(mine.has(1) and mine.has(3) and mine.has(9), "On: Tasmania drafted at picks 1, 3 and 9 (%s)" % str(mine))
 	_check((st.get("traded_picks", []) as Array).size() == 4 and not (mine.has(5) or mine.has(7) or mine.has(11) or mine.has(13)),

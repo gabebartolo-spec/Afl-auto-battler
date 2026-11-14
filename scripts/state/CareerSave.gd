@@ -350,10 +350,11 @@ static func slim_results(v, with_box := false):
 ## and the game-plan traits tell full time what each call was worth (row 144).
 ## "breeze_side" is who kicked with the breeze first, so the reviewed match's flags and
 ## the board's arrow point the way they did live; a save from before it has no such key
-## and its flags take the default end.
+## and its flags take the default end. "weather_start" and "weather_turned_after":
+## a day that turned at a break (row 160), for the report's weather line.
 const REVIEW_KEYS := ["players", "roster", "team", "quarter_teams",
 		"injuries", "synergies", "duels", "duel_changes", "tactics_history", "weather",
-		"impact", "impact_by", "plan_traits", "breeze_side"]
+		"impact", "impact_by", "plan_traits", "breeze_side", "weather_start", "weather_turned_after"]
 const REVIEW_EVENT_KINDS := ["goal", "behind", "quarter", "final"]
 
 

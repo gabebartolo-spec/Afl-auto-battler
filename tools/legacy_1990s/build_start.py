@@ -425,7 +425,54 @@ def build(by_year, model, rated):
                 cells = stat_cells(latest[1][2])
                 add_stats.append(dict(cells, club=club, num="0", last=L["last"], first=L["first"],
                                       src=str(latest[0])))
+    fill_heights_by_position(additions, lists, rated)
     return players, history, additions, add_stats
+
+
+def godot_hash(s):
+    """GDScript hash() of a String (Godot's String::hash, djb2 over code points)."""
+    v = 5381
+    for ch in s:
+        v = ((v << 5) + v + ord(ch)) & 0xFFFFFFFF
+    return v
+
+
+def game_role(club, n, height):
+    """The position the game gives list addition n (1-based, file order) of a
+    club: GameDB._load_list_additions's id and GameDB.listed_role."""
+    if height >= 200:
+        return "RUCK"
+    roll = godot_hash("role|L%d_%s_%03d" % (DATA_SEASON, club, n)) % 100
+    if height >= 192:
+        return "DEF" if roll < 50 else "FWD"
+    if roll < 45:
+        return "MID"
+    return "DEF" if roll < 72 else "FWD"
+
+
+def fill_heights_by_position(additions, lists, rated):
+    """A listed player whose height neither Draftguru nor AFL Tables records (he
+    never played a senior game) takes the average height of the 1990 lists'
+    players at the position the game gives him (director 2026-11-13: "if you
+    cant find the height for a player anywhere just pick the average for a
+    player of his position"). Positions are the 1989 season's rated roles."""
+    by_role = defaultdict(list)
+    for L in lists:
+        got = rated.get(DATA_SEASON, {}).get(L["afltables_id"]) if L["afltables_id"] else None
+        if got and got[1] > 0 and L["height_cm"]:
+            by_role[got[3]].append(int(L["height_cm"]))
+    avg = {r: round(sum(v) / len(v)) for r, v in by_role.items()}
+    for n, A in enumerate(additions, 1):
+        A["height_from"] = "club list" if A["height_cm"] else ""
+        if A["height_cm"]:
+            continue
+        role = game_role(A["club"], n, 0)
+        h = avg[role]
+        # The game re-derives his position from the filled height: it must land
+        # on the same one.
+        assert game_role(A["club"], n, h) == role, (A["first"], A["last"], role, h)
+        A["height_cm"] = str(h)
+        A["height_from"] = "average %s" % role
 
 
 def write(path, cols, rows):
@@ -500,9 +547,13 @@ def main():
     write(os.path.join(OUT_DIR, "history_1990.csv"),
           ["club", "num", "slug", "draft_year", "draft_type", "draft_pick", "seasons", "career", "peak", "honours"], history)
     write(os.path.join(OUT_DIR, "list_additions_1990.csv"),
-          ["first", "last", "dob", "club", "position", "height_cm", "list", "peak", "source_url", "checked"], additions)
+          ["first", "last", "dob", "club", "position", "height_cm", "height_from", "list", "peak", "source_url",
+           "checked"], additions)
     write(os.path.join(OUT_DIR, "list_addition_stats_1990.csv"), ADD_STATS, add_stats)
     print("players %d, additions %d (%d with an earlier season)" % (len(players), len(additions), len(add_stats)))
+    # Each real player's last season, read by his retirement (last_seasons.py).
+    import last_seasons
+    last_seasons.main(1990)
     if a.report:
         path = os.path.join(ROOT, "docs", "research", "LEGACY_ERA_REPORT.md")
         with open(path, "w", newline="\n", encoding="utf-8") as fh:

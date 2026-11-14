@@ -426,9 +426,9 @@ func _test_rest_of_week_in_background() -> void:
 				continue
 			# Played in turn means in the day's weather, as play_round and the finals week do.
 			var r := season.match_sim(m["home"], m["away"], season.finals_seed(i), season.finals_at_home(m), true,
-					season.weather_for(m["home"], m["away"], Season.REGULAR_ROUNDS + int(season.finals["week"]), m)).run() \
+					season.weather_day(m["home"], m["away"], Season.REGULAR_ROUNDS + int(season.finals["week"]), m)).run() \
 					if finals_week else season.match_sim(m["home"], m["away"], season.next_seed(i), [true, false], false,
-					season.weather_for(m["home"], m["away"], season.round_index)).run()
+					season.weather_day(m["home"], m["away"], season.round_index)).run()
 			expect[str(m["home"])] = _fingerprint(r)
 		var played_before := _games_played(season)
 		var tag := "finals week" if finals_week else "round"

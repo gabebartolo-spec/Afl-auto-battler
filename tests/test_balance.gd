@@ -109,7 +109,7 @@ func _test_sim_round_is_the_match_engine() -> void:
 	for i in range(fx.size()):
 		# The same inputs a sim round uses, the match-day weather included.
 		own.append(season.match_sim(fx[i]["home"], fx[i]["away"], season.next_seed(i), [true, false], false,
-				season.weather_for(fx[i]["home"], fx[i]["away"], season.round_index)))
+				season.weather_day(fx[i]["home"], fx[i]["away"], season.round_index)))
 	var played := season.play_round()
 	var same := played.size() == own.size()
 	for i in range(mini(played.size(), own.size())):

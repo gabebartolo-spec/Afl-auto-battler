@@ -59,10 +59,10 @@ func _check(ok: bool, what: String) -> void:
 		print("FAIL: " + what)
 
 
-## A fresh Geelong career at its first off-season, with three spare players
-## so the list (at its 32 minimum) can lose some. No match is played: the
-## season is marked over by hand and the off-season opened, which is what
-## builds the lists, contracts and free-agent pool an undo puts back.
+## A fresh Geelong career at its first off-season, with spare players only
+## when needed, so the list can lose three and stay at its minimum. No match is
+## played: the season is marked over by hand and the off-season opened, which
+## is what builds the lists, contracts and free-agent pool an undo puts back.
 func _to_offseason() -> void:
 	_state.replay_seed = SUITE_SEED
 	_state.reset()
@@ -72,7 +72,13 @@ func _to_offseason() -> void:
 	_state.season.finals["done"] = true
 	_state.open_offseason()
 	var base: Dictionary = _state.my_list[_state.my_list.size() - 1]
-	for i in range(3):
+	# Three releases must leave the list at its minimum (Contracts.min_list()),
+	# counting the draftees still to come (up to three of the club's picks, as
+	# release_player does). The list starts at the year's minimum, close to the
+	# cap, so spare men are added only when those draftees do not cover it:
+	# extra salaries would put the club over the cap and leave nothing to sign.
+	var takes := mini(3, (_state.draft_list_spots()["picks"] as Array).size())
+	for i in range(maxi(0, int(_contracts.min_list()) + 3 - _state.my_list.size() - takes)):
 		var extra: Dictionary = base.duplicate(true)
 		extra["id"] = "undo_extra_%d" % i
 		extra["contract_years"] = 2
